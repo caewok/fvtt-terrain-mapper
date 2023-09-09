@@ -1,0 +1,80 @@
+#elevationlayer-tools.control-tools {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+#elevationlayer-tools.control-tools > li.control-tool.disabled:hover {
+    box-shadow: none;
+    border: 1px solid var(--color-border-dark);
+    cursor: default;
+}
+
+#elevationlayer-tools .control-btn {
+    width: 36px;
+    height: 36px;
+    box-sizing: content-box;
+    font-size: 24px;
+    line-height: 36px;
+    margin: 0 0 8px;
+    color: #BBB;
+    text-align: center;
+    border: 0px;
+    background: transparent;
+    border-radius: 5px;
+    cursor: pointer;
+    padding: 0;
+}
+
+#elevationlayer-tools.control-tools > li.control-tool.disabled:hover {
+    box-shadow: 0 0 10px var(--color-shadow-dark);
+}
+/*
+#elevationlayer-tools .control-btn:hover {
+    color: #FFF;
+    box-shadow: 0 0 10px #ff6400;
+}*/
+#elevationlayer-tools .control-btn:disabled {
+    color: var(--color-text-dark-secondary);
+    box-shadow: none;
+    cursor: default;
+}
+
+#elevationlayer-tools table {
+    margin: 0;
+    border: none;
+    background: none;
+}
+
+#elevationlayer-tools td {
+    padding: 0;
+    vertical-align: top;
+}
+
+#elevationlayer-tools td:nth-child(n+1) {
+    padding-left: 8px;
+}
+
+#elevationlayer-tools #el-curr-elevation {
+  color: #DCDCDC;
+}
+
+#elevationlayer-tools #el-elevation-number {
+    cursor: default;
+    position: center;
+    width: 90%;
+}
+#elevationlayer-tools #el-elevation-number:hover {
+    box-shadow: none;
+    border: 1px solid var(--color-border-dark);
+    box-shadow: 0 0 10px var(--color-shadow-dark);
+}
+
+/*
+#elevationlayer-tools #el-elevation-number i {
+    position: absolute;
+    top: -5px;
+    left: -5px;
+    font-size: 14px;
+}
+ */
