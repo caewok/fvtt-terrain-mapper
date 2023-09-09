@@ -1,0 +1,15 @@
+<ol id="terrainmapper-tools" class="control-tools flexcol">
+    <li class="control-tool" title="{{localize "terrainmapper.controls.incrementTerrain"}}">
+        <button class="control-btn" id="el-inc-terrain" data-tool="inc-terrain" type="button">
+            <i class="fas fa-chevron-up"></i>
+        </button>
+    </li>
+    <li id="el-terrain-number" class="control-tool" title="{{localize "terrainmapper.controls.currentTerrain"}}">
+        <input type="number" id="el-curr-terrain" step=1 min=0 max={{ terrainmax }} value={{ terraincurr }}>
+    </li>
+    <li class="control-tool" title="{{localize "terrainmapper.controls.decrementTerrain"}}">
+        <button class="control-btn" id="el-dec-terrain" data-tool="dec-terrain" type="button">
+            <i class="fas fa-chevron-down"></i>
+        </button>
+    </li>
+</ol>
