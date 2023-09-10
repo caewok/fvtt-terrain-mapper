@@ -56,19 +56,16 @@
       <div class="flexcol" style="flex-grow: 2"> @5|-2|0 </div>
       <div class="flexcol" style="flex-grow: 1">
         <!-- toggle that changes between three options on push -->
-        <button class="button" style="width: 27px; background-color: transparent; border: none; text-align: center">
+        <button class="button tm-toggle-visibility" style="width: 27px; background-color: transparent; border: none; text-align: center">
           <i class="far fa-eye"></i> <!-- "far fa-eye-slash" or "far fa-toggle-off" -->
         </button>
       </div>
       <div class="flexcol" style="flex-grow: 2">
         <div class='form-fields'>
-          <button class="button" style="width: 27px; text-align: center">
+          <button class="button tm-edit-ae" style="width: 27px; text-align: center">
             <i class="fas fa-bolt-lightning"></i>
           </button>
-          <button class="button" style="width: 27px; text-align: center">
-            <i class="far fa-pen-to-square"></i>
-          </button>
-          <button class="button" style="width: 27px; text-align: center">
+          <button class="button tm-remove-terrain" style="width: 27px; text-align: center">
             <i class="fas fa-trash"></i>
           </button>
         </div>
@@ -82,19 +79,16 @@
       <div class="flexcol" style="flex-grow: 5"> Forest </div>
       <div class="flexcol" style="flex-grow: 2"> @relT|0|20 </div>
       <div class="flexcol" style="flex-grow: 1">
-        <button class="button" style="width: 27px; background-color: transparent; border: none; text-align: center">
+        <button class="button tm-toggle-visibility" style="width: 27px; background-color: transparent; border: none; text-align: center">
           <i class="far fa-eye-slash"></i> <!-- "far fa-eye-slash" or "far fa-toggle-off" -->
         </button>
       </div>
       <div class="flexcol" style="flex-grow: 2">
         <div class='form-fields'>
-          <button class="button" style="width: 27px; text-align: center">
+          <button class="button tm-edit-ae" style="width: 27px; text-align: center">
             <i class="fas fa-bolt-lightning"></i>
           </button>
-          <button class="button" style="width: 27px; text-align: center">
-            <i class="far fa-pen-to-square"></i>
-          </button>
-          <button class="button" style="width: 27px; text-align: center">
+          <button class="button tm-remove-terrain" style="width: 27px; text-align: center">
             <i class="fas fa-trash"></i>
           </button>
         </div>
@@ -104,7 +98,7 @@
 
   <br>
   <div class="flexcol" style="flex-grow: 1">
-    <button class="add-terrain">
+    <button class="button tm-add-terrain">
       <i class="far fa-plus-square"></i>{{localize "terrainmapper.settings.terrain.addTerrain"}}
     </button>
   </div>
@@ -117,10 +111,10 @@
           <button type="submit" name="submit" value="1"><i class="far fa-floppy-disk"></i>{{localize "Save Changes"}}</button>
         </div>
         <div class="flexcol" style="flex-grow: 1">
-          <button type="import" name="import" value="1"><i class="far fa-file-arrow-up"></i>{{localize "Import"}}</button>
+          <button class="button import" type="import" name="import" value="1"><i class="far fa-file-arrow-up"></i>{{localize "Import"}}</button>
         </div>
         <div class="flexcol" style="flex-grow: 1">
-          <button type="export" name="export" value="1"><i class="far fa-file-arrow-down"></i>{{localize "Export"}}</button>
+          <button class="button export" type="export" name="export" value="1"><i class="far fa-file-arrow-down"></i>{{localize "Export"}}</button>
         </div>
       </div>
     </div>
