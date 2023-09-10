@@ -17,7 +17,7 @@ export class TerrainSettingsMenu extends FormApplication {
     const opts = super.defaultOptions;
     return foundry.utils.mergeObject(opts, {
       template: `modules/${MODULE_ID}/templates/terrain-settings-menu.html`,
-      height: 390,
+      height: 800,
       title: game.i18n.localize(`${MODULE_ID}.settings.menu.title`),
       width: 600,
       classes: [MODULE_ID, "settings"],

@@ -15,7 +15,7 @@
   "terrainmapper.controls.currentTerrain": "Current Terrain ID",
 
   "terrainmapper.settings.menu.title": "Terrain Settings",
-  "terrainmapper.settings.terrain.introduction": "Configure one or more terrain types here.",
+  "terrainmapper.settings.terrain.introduction": "Configure one or more terrain types.",
   "terrainmapper.settings.terrain.addTerrain": "Add Terrain",
 
   "terrainmapper.settings.terrain.rangeOptions.absolute": "Absolute",

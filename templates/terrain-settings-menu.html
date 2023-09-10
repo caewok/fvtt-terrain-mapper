@@ -1,116 +1,128 @@
-<form class="{{classes}} flexcol" autocomplete="off">
-  <h1> {{localize "terrainmapper.phrases.terrainLayer"}} 0 </h1>
+<form class="{{classes}} settings-list">
 
-  <p> {{ localize "terrainmapper.settings.terrain.introduction"}} </p>
+  <h2> Defaults </h2>
+  <p> <em> Default settings for new terrain types. </em></p>
 
-  <button class='add-terrain'>
-    <i class='far fa-plus-square'></i>{{localize "terrainmapper.settings.terrain.addTerrain"}}
-  </button>
-
-  <h2> {{ localize "terrainmapper.phrases.terrain"}} </h2>
-
-  <div class='flexrow terrain-entry' data-idx="{{idx}}">
-    <div class='flexcol'>
-
-      <div class='form-group'>
-        <div class='form-fields'>
-        	<label for="name">
-						Name
-					</label>
-          <input
-            type='text'
-            name="Name"
-            value="Ice"
-          />
-        </div>
-      </div>
-
-      <div class='form-group'>
-        <div class='form-fields'>
-        	<label for="icon">
-						Icon
-					</label>
-					{{ filePicker type="image" target="img" }}
-        </div>
-      </div>
-
-      <div class='form-group'>
-        <div class='form-fields'>
-        	<label for="color">
-						Color
-					</label>
-					{{ colorPicker name="Color" value="color" default="#000000" }}
-        </div>
-      </div>
-
-      <div class='form-group'>
-        <label for="display-choices">
-          Display
-        </label>
-        <div class "form-fields">
-          <select name="displayChoice">
-            {{ selectOptions displayOptions selected=display localize=true }}
-          </select>
-        </div>
-      </div>
-
-      <div class='form-group'>
-        <label for="visibility">
-          User Visibility
-        </label>
-        <div class "form-fields">
-          <select name="visibiltyChoice">
-            {{ selectOptions visibilityOptions selected=visibility localize=true }}
-          </select>
-        </div>
-      </div>
-
-      <div class='form-group'>
-        <label for="range-choices">
-          Range Anchor
-        </label>
-        <div class "form-fields">
-          <select name="rangeChoice">
-            {{ selectOptions rangeOptions selected=range localize=true }}
-          </select>
-        </div>
-      </div>
-
-     <div class='form-group'>
-       <div class='form-fields'>
-         <label for="min">
-						Floor
-					</label>
-					{{ numberInput 0 name="min" step=1 }}
-       </div>
-     </div>
-
-     <div class='form-group'>
-       <div class='form-fields'>
-         <label for="elevation">
-						Elevation
-					</label>
-					{{ numberInput 0 name="elevation" step=1 }}
-       </div>
-     </div>
-
-     <div class='form-group'>
-       <div class='form-fields'>
-         <label for="max">
-						Ceiling
-					</label>
-					{{ numberInput 1 name="max" step=1 }}
-       </div>
-     </div>
-
-
+  <div class='form-group'>
+    <label for="visibility"> Visibility </label>
+    <div class "form-fields">
+      <input type="checkbox" name="userVisible" checked />
     </div>
   </div>
 
-  <footer class="sheet-footer flexrow" style="margin: auto; padding-top: 30px">
-    <br>
-    <button type='submit' name='submit' value='1'><i class='far fa-floppy-disk'></i>{{localize "Save Changes"}}</button>
-    <button type='import' name='import' value='1'><i class='far fa-file-arrow-up'></i>{{localize "Import"}}</button>
-    <button type='export' name='export' value='1'><i class='far fa-file-arrow-down'></i>{{localize "Export"}}</button>
+  <div class='form-group'>
+    <label for="rangeChoice"> Anchor </label>
+    <div class "form-fields">
+      <select name="rangeChoice">
+        {{ selectOptions rangeOptions selected=range localize=true }}
+      </select>
+    </div>
+  </div>
+
+  <div class='form-group slim'>
+    <div class='form-fields'>
+     <label for="elevation"> Offset from Anchor </label>
+      {{ numberInput 0 name="elevation" step=1 }}
+    </div>
+
+    <div class='form-fields'>
+      <label for="min"> Range Below </label>
+      {{ numberInput 0 name="min" step=1 max=0 }}
+    </div>
+
+    <div class='form-fields'>
+      <label for="max"> Range Above </label>
+      {{ numberInput 0 name="max" step=1 min=0 }}
+    </div>
+  </div>
+
+
+  <br>
+  <h2> Terrains </h2>
+
+  <p> <em> {{ localize "terrainmapper.settings.terrain.introduction"}} </em> </p>
+
+
+  <!-- Table Header -->
+  <!-- Display uses icon/color/both -->
+  <!--- Id, Display, Name, Visibility (eye) Edit Trash-->
+
+  <!-- Table Rows -->
+  <div class="terrainmapper scrollable flex-table">
+    <div class="flexrow">
+      <div class="flexcol" style="flex-grow: 1"> 0 </div>
+      <div class="flexcol" style="flex-grow: 1"> <img src="icons/magic/water/tendrils-ice-growth.webp" width="24" height="24" class="flex0"/> </div>
+      <div class="flexcol" style="flex-grow: 5"> Ice </div>
+      <div class="flexcol" style="flex-grow: 2"> @5|-2|0 </div>
+      <div class="flexcol" style="flex-grow: 1">
+        <!-- toggle that changes between three options on push -->
+        <button class="button" style="width: 27px; background-color: transparent; border: none; text-align: center">
+          <i class="far fa-eye"></i> <!-- "far fa-eye-slash" or "far fa-toggle-off" -->
+        </button>
+      </div>
+      <div class="flexcol" style="flex-grow: 2">
+        <div class='form-fields'>
+          <button class="button" style="width: 27px; text-align: center">
+            <i class="fas fa-bolt-lightning"></i>
+          </button>
+          <button class="button" style="width: 27px; text-align: center">
+            <i class="far fa-pen-to-square"></i>
+          </button>
+          <button class="button" style="width: 27px; text-align: center">
+            <i class="fas fa-trash"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <hr>
+    <div class="flexrow">
+      <div class="flexcol" style="flex-grow: 1"> 1 </div>
+      <div class="flexcol" style="flex-grow: 1"> <img src="icons/environment/wilderness/tree-spruce.webp" width="24" height="24" class="flex0"/> </div>
+      <div class="flexcol" style="flex-grow: 5"> Forest </div>
+      <div class="flexcol" style="flex-grow: 2"> @relT|0|20 </div>
+      <div class="flexcol" style="flex-grow: 1">
+        <button class="button" style="width: 27px; background-color: transparent; border: none; text-align: center">
+          <i class="far fa-eye-slash"></i> <!-- "far fa-eye-slash" or "far fa-toggle-off" -->
+        </button>
+      </div>
+      <div class="flexcol" style="flex-grow: 2">
+        <div class='form-fields'>
+          <button class="button" style="width: 27px; text-align: center">
+            <i class="fas fa-bolt-lightning"></i>
+          </button>
+          <button class="button" style="width: 27px; text-align: center">
+            <i class="far fa-pen-to-square"></i>
+          </button>
+          <button class="button" style="width: 27px; text-align: center">
+            <i class="fas fa-trash"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <br>
+  <div class="flexcol" style="flex-grow: 1">
+    <button class="add-terrain">
+      <i class="far fa-plus-square"></i>{{localize "terrainmapper.settings.terrain.addTerrain"}}
+    </button>
+  </div>
+
+  <footer class="sheet-footer" style="margin: auto; padding-top: 30px">
+    <hr>
+    <div class="flex-table">
+      <div class="flexrow">
+        <div class="flexcol" style="flex-grow: 1">
+          <button type="submit" name="submit" value="1"><i class="far fa-floppy-disk"></i>{{localize "Save Changes"}}</button>
+        </div>
+        <div class="flexcol" style="flex-grow: 1">
+          <button type="import" name="import" value="1"><i class="far fa-file-arrow-up"></i>{{localize "Import"}}</button>
+        </div>
+        <div class="flexcol" style="flex-grow: 1">
+          <button type="export" name="export" value="1"><i class="far fa-file-arrow-down"></i>{{localize "Export"}}</button>
+        </div>
+      </div>
+    </div>
   </footer>
 </form>

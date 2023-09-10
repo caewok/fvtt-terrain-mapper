@@ -70,11 +70,7 @@
     box-shadow: 0 0 10px var(--color-shadow-dark);
 }
 
-/*
-#elevationlayer-tools #el-elevation-number i {
-    position: absolute;
-    top: -5px;
-    left: -5px;
-    font-size: 14px;
+.terrainmapper .scrollable {
+  overflow: hidden auto;
+  scrollbar-width: thin;
 }
- */

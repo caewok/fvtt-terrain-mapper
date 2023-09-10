@@ -72,5 +72,6 @@ Automation:
 - On token animation, pause for terrain
 - integration with drag ruler
 - integration with elevation ruler
+- Active effect flag to limit vision to X feet (fog, forest, etc.)
 
 */
