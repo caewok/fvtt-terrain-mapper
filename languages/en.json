@@ -1,3 +1,17 @@
 {
-    "MODULE.hello": "hello"
+  "terrainmapper.name": "Terrain Mapper",
+  "terrainmapper.controls.fill-by-grid.name": "Fill by grid",
+  "terrainmapper.controls.fill-by-los.name": "Fill by line-of-sight",
+  "terrainmapper.controls.fill-space.name": "Fill space enclosed by walls",
+  "terrainmapper.controls.clear.name": "Clear all",
+  "terrainmapper.controls.clear.confirm.title": "Clear all terrain data",
+  "terrainmapper.controls.clear.confirm.content": "Are you sure you want to remove all terrain data from the scene?",
+  "terrainmapper.controls.upload.name": "Upload terrain data and replace in scene",
+  "terrainmapper.controls.download.name": "Download terrain data",
+  "terrainmapper.controls.undo.name": "Undo",
+
+  "terrainmapper.controls.decrementTerrain": "Decrement Terrain ID",
+  "terrainmapper.controls.incrementTerrain": "Increment Terrain ID",
+  "terrainmapper.controls.currentTerrain": "Current Terrain ID"
+
 }
