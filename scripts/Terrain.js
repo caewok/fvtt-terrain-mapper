@@ -1,10 +1,16 @@
 /* globals
-
+Dialog,
+foundry,
+game,
+readTextFromFile,
+renderTemplate,
+saveDataToFile,
+ui
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { FLAGS, COLORS } from "./const.js";
+import { FLAGS, COLORS, MODULE_ID } from "./const.js";
 
 /**
  * Subclass of Map that manages terrain ids and ensures only 1–31 are used.
@@ -117,7 +123,7 @@ export class Terrain {
     // Register this terrain with the terrain map and determine the corresponding id.
     this.#id = this.constructor.TERRAINS.set(config.id, this, override);
     if ( !this.#id ) {
-      console.error(`Issue setting id ${id} for terrain.`);
+      console.error(`Issue setting id ${config.id} for terrain.`);
       return;
     }
     this.userVisible ||= config.userVisible;
@@ -132,14 +138,14 @@ export class Terrain {
    */
   initializeConfiguration() {
     // Initialize certain configurations.
-    this.config.name = config.name || "Unnamed Terrain";
-    this.config.offset = config.offset ?? 0;
-    this.config.rangeBelow = config.rangeBelow ?? 0;
-    this.config.rangeAbove = config.rangeAbove ?? 0;
-    this.config.anchor = config.anchor ?? FLAGS.ANCHOR.CHOICES.RELATIVE_TO_TERRAIN;
+    this.config.name ||= "Unnamed Terrain";
+    this.config.offset ||= 0;
+    this.config.rangeBelow ||= 0;
+    this.config.rangeAbove ||= 0;
+    this.config.anchor ??= FLAGS.ANCHOR.CHOICES.RELATIVE_TO_TERRAIN;
 
     // Use the id to select a default terrain color.
-    this.config.color = config.color || this.constructor.COLORS[this.#id];
+    this.config.color ||= this.constructor.COLORS[this.#id];
   }
 
   /**
@@ -148,4 +154,64 @@ export class Terrain {
   destroy() {
     this.constructor.TERRAINS.delete(this.#id);
   }
+
+  toJSON() {
+    const out = this.config;
+    out.activeEffect = out.activeEffect ? out.activeEffect.toJSON() : undefined;
+    return out;
+  }
+
+  static toJSON() {
+    const json = [];
+    return this.TERRAINS.forEach(t => json.push(t.toJSON()))  ;
+  }
+
+  static saveToFile() {
+    const data = this.toJSON() ?? {};
+    data.flags ??= {};
+    data.flags.exportSource = {
+      world: game.world.id,
+      system: game.system.id,
+      coreVersion: game.version,
+      systemVersion: game.system.version,
+      terrainMapperVersion: game.modules.get(MODULE_ID).version
+    };
+
+    const filename = `${MODULE_ID}_terrains`;
+    saveDataToFile(JSON.stringify(data, null, 2), "text/json", `${filename.json}`);
+  }
+
+  static importFromJSON(json) {
+    console.debug("Need to process this json file!", json);
+  }
+
+  static async importFromFileDialog() {
+    new Dialog({
+      title: "Import Terrain Setting Data",
+      content: await renderTemplate("templates/apps/import-data.html", {
+        hint1: "You may import terrain settings data from an exported JSON file.",
+        hint2: "This operation will update the terrain settings data and cannot be undone."
+      }),
+      buttons: {
+        import: {
+          icon: '<i class="fas fa-file-import"></i>',
+          label: "Import",
+          callback: html => {
+            const form = html.find("form")[0];
+            if ( !form.data.files.length ) return ui.notifications.error("You did not upload a data file!");
+            readTextFromFile(form.data.files[0]).then(json => this.importFromJSON(json));
+          }
+        },
+        no: {
+          icon: '<i class="fas fa-times"></i>',
+          label: "Cancel"
+        }
+      },
+      default: "import"
+    }, {
+      width: 400
+    }).render(true);
+  }
+
+
 }

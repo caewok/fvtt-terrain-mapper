@@ -8,6 +8,7 @@ game
 "use strict";
 
 import { MODULE_ID, LABELS } from "./const.js";
+import { Terrain } from "./Terrain.js";
 
 /**
  * Settings submenu for defining terrains.
@@ -29,7 +30,13 @@ export class TerrainSettingsMenu extends FormApplication {
   getData(options={}) {
     const data = super.getData(options);
     return foundry.utils.mergeObject(data, {
-      anchorOptions: LABELS.ANCHOR_OPTIONS
+      terrains: Terrain.toJSON(),
+      anchorOptions: LABELS.ANCHOR_OPTIONS,
+      userVisible: false,
+      anchor: 1,
+      offset: 0,
+      min: 0,
+      max: 0
     });
   }
 
@@ -52,6 +59,8 @@ export class TerrainSettingsMenu extends FormApplication {
   _onAddTerrain(event) {
     event.preventDefault();
     console.debug("addTerrain clicked!");
+
+    const terrain = new Terrain();
   }
 
   _onRemoveTerrain(event) {
@@ -69,13 +78,15 @@ export class TerrainSettingsMenu extends FormApplication {
     console.debug("visibility toggle clicked!");
   }
 
-  _onImport(event) {
+  async _onImport(event) {
     event.preventDefault();
     console.debug("import clicked!");
+    Terrain.importFromFileDialog();
   }
 
   _onExport(event) {
     event.preventDefault();
     console.debug("export clicked!");
+    Terrain.saveToFile();
   }
 }
