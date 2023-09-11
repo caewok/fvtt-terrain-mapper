@@ -88,33 +88,49 @@ export class Terrain {
   /** @type {number} */
   #id;
 
-  constructor({
-    name,
-    id,
-    icon,
-    color,
-    userVisible,
-    anchor,
-    offset,
-    rangeBelow,
-    rangeAbove,
-    activeEffect,
-    override = false } = {}) {
+  /**
+   * @typedef {Object} TerrainConfig          Terrain configuration data
+   * @property {string} name                  User-facing name of the terrain.
+   * @property {number} id                    Id between 1 and TerrainMap.MAX_TERRAINS
+   * @property {string} icon                  URL of icon representing the terrain
+   * @property {hex} color                    Hex value for the color representing the terrain
+   * @property {FLAGS.ANCHOR.CHOICES} anchor  Measure elevation as fixed, from terrain, or from layer.
+   * @property {number} offset                Offset elevation from anchor
+   * @property {number} rangeAbove            How far above the offset the terrain extends
+   * @property {number} rangeBelow            How far below the offset the terrain extends
+   * @property {boolean} userVisible          Is this terrain visible to the user?
+   * @property {ActiveEffect} activeEffect    Active effect associated with this terrain
+   */
+  config = {};
 
-    this.name = name || "Unnamed Terrain";
-    this.icon = icon;
-    this.userVisible = userVisible ?? false;
-    this.anchor = anchor ?? FLAGS.ANCHOR.CHOICES.RELATIVE_TO_TERRAIN;
-    this.offset = offset ?? 0;
-    this.rangeBelow = rangeBelow ?? 0;
-    this.rangeAbove = rangeAbove ?? 0;
-    this.activeEffect = activeEffect;
-    this.#id = this.constructor.TERRAINS.set(id, this, override);
+  /** @type {boolean} */
+  userVisible = false;
+
+  /**
+   * @param {TerrainConfig} config
+   * @param {object} [opts]
+   * @param {boolean} [opts.override=false]     Should this terrain replace an existing id?
+   */
+  constructor(config, { override = false } = {}) {
+    config = this.config = foundry.utils.deepClone(config);
+
+    // Initialize certain configurations.
+    this.config.name = config.name || "Unnamed Terrain";
+    this.config.offset = config.offset ?? 0;
+    this.config.rangeBelow = config.rangeBelow ?? 0;
+    this.config.rangeAbove = config.rangeAbove ?? 0;
+    this.config.anchor = config.anchor ?? FLAGS.ANCHOR.CHOICES.RELATIVE_TO_TERRAIN;
+
+    // Initialize other properties.
+    this.userVisible ||= config.userVisible;
+    this.#id = this.constructor.TERRAINS.set(config.id, this, override);
     if ( !this.#id ) {
       console.error(`Issue setting id ${id} for terrain.`);
       return;
     }
-    this.color = color || this.constructor.COLORS[this.id];
+
+    // Use the id to select a default terrain color.
+    this.config.color = config.color || this.constructor.COLORS[this.#id];
   }
 
   get id() { return this.#id; }
@@ -125,6 +141,4 @@ export class Terrain {
   destroy() {
     this.constructor.TERRAINS.delete(this.#id);
   }
-
-
 }
