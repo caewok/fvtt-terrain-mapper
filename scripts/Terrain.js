@@ -120,7 +120,7 @@ export class Terrain {
    * @param {object} [opts]
    * @param {boolean} [opts.override=false]     Should this terrain replace an existing id?
    */
-  constructor(config, { override = false, terrainMap } = {}) {
+  constructor(config = {}, { override = false, terrainMap } = {}) {
     config = this.config = foundry.utils.deepClone(config);
 
     // Register this terrain with the terrain map and determine the corresponding id.
@@ -147,6 +147,7 @@ export class Terrain {
     this.config.rangeBelow ||= 0;
     this.config.rangeAbove ||= 0;
     this.config.anchor ??= FLAGS.ANCHOR.CHOICES.RELATIVE_TO_TERRAIN;
+    this.config.userVisible ||= false;
 
     // Use the id to select a default terrain color.
     this.config.color ||= this.constructor.COLORS[this.#id];

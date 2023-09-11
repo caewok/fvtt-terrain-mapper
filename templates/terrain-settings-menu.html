@@ -56,9 +56,9 @@
         <div class="flexcol" style="flex-grow: 5" data-idx="{{idx}}"> {{terrain.name}} </div>
         <div class="flexcol" style="flex-grow: 2" data-idx="{{idx}}"> @5|-2|0 </div>
         <div class="flexcol" style="flex-grow: 1">
-          <!-- toggle that changes between three options on push -->
+          <!-- toggle user visibility -->
           <button class="button tm-toggle-visibility" data-idx="{{idx}}" style="width: 27px; background-color: transparent; border: none; text-align: center">
-            <i class="far fa-eye"></i> <!-- "far fa-eye-slash" or "far fa-toggle-off" -->
+            <i class="{{ifThen terrain.userVisible 'far fa-eye' 'far fa-eye-slash'}}"></i>
           </button>
         </div>
         <div class="flexcol" style="flex-grow: 2">
@@ -71,8 +71,8 @@
             </button>
           </div>
         </div>
-        <hr>
       </div>
+      <hr>
     {{/each}}
 
   <br>

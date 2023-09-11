@@ -80,9 +80,8 @@ export class TerrainSettingsMenu extends FormApplication {
     event.preventDefault();
     console.debug("removeTerrain clicked!");
 
-    const target = event.target;
-
     // For reasons, the target is sometimes the button value and sometimes the button.
+    const target = event.target;
     const idx = Number(target.getAttribute("data-idx") || target.parentElement.getAttribute("data-idx"));
     const id = this.object[idx].id;
     this.terrainMap.delete(id);
@@ -98,6 +97,11 @@ export class TerrainSettingsMenu extends FormApplication {
   _onToggleVisibility(event) {
     event.preventDefault();
     console.debug("visibility toggle clicked!");
+
+    const target = event.target;
+    const idx = Number(target.getAttribute("data-idx") || target.parentElement.getAttribute("data-idx"));
+    this.object[idx].userVisible ^= true;
+    this.render();
   }
 
   async _onImport(event) {
@@ -111,4 +115,5 @@ export class TerrainSettingsMenu extends FormApplication {
     console.debug("export clicked!");
     Terrain.saveToFile();
   }
+
 }
