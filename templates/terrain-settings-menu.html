@@ -6,7 +6,7 @@
   <div class='form-group'>
     <label for="visibility"> Visibility </label>
     <div class "form-fields">
-      <input type="checkbox" name="userVisible" checked />
+      <input type="checkbox" name="userVisible" {{ checked userVisible }} />
     </div>
   </div>
 
@@ -21,18 +21,18 @@
 
   <div class='form-group slim'>
     <div class='form-fields'>
-     <label for="elevation"> Offset from Anchor </label>
-      {{ numberInput 0 name="elevation" step=1 }}
+     <label for="offset"> Offset from Anchor </label>
+      {{ numberInput offset name="offset" step=1 }}
     </div>
 
     <div class='form-fields'>
       <label for="min"> Range Below </label>
-      {{ numberInput 0 name="min" step=1 max=0 }}
+      {{ numberInput min name="min" step=1 max=0 }}
     </div>
 
     <div class='form-fields'>
       <label for="max"> Range Above </label>
-      {{ numberInput 0 name="max" step=1 min=0 }}
+      {{ numberInput max name="max" step=1 min=0 }}
     </div>
   </div>
 

@@ -32,7 +32,7 @@ export class TerrainSettingsMenu extends FormApplication {
     return foundry.utils.mergeObject(data, {
       terrains: Terrain.toJSON(),
       anchorOptions: LABELS.ANCHOR_OPTIONS,
-      userVisible: false,
+      userVisible: true,
       anchor: 1,
       offset: 0,
       min: 0,
