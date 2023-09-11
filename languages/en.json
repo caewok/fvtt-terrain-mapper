@@ -18,17 +18,9 @@
   "terrainmapper.settings.terrain.introduction": "Configure one or more terrain types.",
   "terrainmapper.settings.terrain.addTerrain": "Add Terrain",
 
-  "terrainmapper.settings.terrain.rangeOptions.absolute": "Absolute",
-  "terrainmapper.settings.terrain.rangeOptions.relativeToTerrain": "Relative to Ground Elevation",
-  "terrainmapper.settings.terrain.rangeOptions.relativeToLayer": "Relative to Layer Elevation",
-
-  "terrainmapper.settings.terrain.visibilityOptions.gm": "GM Only",
-  "terrainmapper.settings.terrain.visibilityOptions.user": "User",
-  "terrainmapper.settings.terrain.visibilityOptions.toggle": "Toggle",
-
-  "terrainmapper.settings.terrain.displayOptions.color": "Color",
-  "terrainmapper.settings.terrain.displayOptions.icon": "Icon",
-  "terrainmapper.settings.terrain.displayOptions.both": "Both",
+  "terrainmapper.settings.terrain.anchorOptions.absolute": "Absolute",
+  "terrainmapper.settings.terrain.anchorOptions.relativeToTerrain": "Relative to Ground Elevation",
+  "terrainmapper.settings.terrain.anchorOptions.relativeToLayer": "Relative to Layer Elevation",
 
   "terrainmapper.phrases.terrainLayer": "Terrain Layer",
   "terrainmapper.phrases.terrain": "Terrain"
