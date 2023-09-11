@@ -15,7 +15,7 @@ import { FLAGS, COLORS, MODULE_ID } from "./const.js";
 /**
  * Subclass of Map that manages terrain ids and ensures only 1–31 are used.
  */
-class TerrainMap extends Map {
+export class TerrainMap extends Map {
   /** @type {number} */
   MAX_TERRAINS = Math.pow(2, 5) - 1; // No 0 id.
 
@@ -85,7 +85,7 @@ class TerrainMap extends Map {
  * Id is the pixel value for this terrain, before considering layers.
  */
 export class Terrain {
-  /** @type {TerrainMap{number; Terrain}} */
+  /** @type {TerrainMap<number, Terrain>} */
   static TERRAINS = new TerrainMap();
 
   // Default colors for terrains.
@@ -112,16 +112,20 @@ export class Terrain {
   /** @type {boolean} */
   userVisible = false;
 
+  /** @type {TerrainMap<number, Terrain>} */
+  terrainMap;
+
   /**
    * @param {TerrainConfig} config
    * @param {object} [opts]
    * @param {boolean} [opts.override=false]     Should this terrain replace an existing id?
    */
-  constructor(config, { override = false } = {}) {
+  constructor(config, { override = false, terrainMap } = {}) {
     config = this.config = foundry.utils.deepClone(config);
 
     // Register this terrain with the terrain map and determine the corresponding id.
-    this.#id = this.constructor.TERRAINS.set(config.id, this, override);
+    this.terrainMap = terrainMap || this.constructor.TERRAINS;
+    this.#id = this.terrainMap.set(config.id, this, override);
     if ( !this.#id ) {
       console.error(`Issue setting id ${config.id} for terrain.`);
       return;
@@ -152,7 +156,7 @@ export class Terrain {
    * Destroy this terrain and remove it from the terrain map.
    */
   destroy() {
-    this.constructor.TERRAINS.delete(this.#id);
+    this.terrainMap.delete(this.#id);
   }
 
   toJSON() {

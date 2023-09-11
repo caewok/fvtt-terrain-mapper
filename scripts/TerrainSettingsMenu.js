@@ -8,15 +8,22 @@ game
 "use strict";
 
 import { MODULE_ID, LABELS } from "./const.js";
-import { Terrain } from "./Terrain.js";
+import { Terrain, TerrainMap } from "./Terrain.js";
 
 /**
  * Settings submenu for defining terrains.
  */
 export class TerrainSettingsMenu extends FormApplication {
+  terrainMap = new TerrainMap();
+
+  constructor(object, options) {
+    const terrains = Terrain.toJSON() || [];
+    terrains.forEach(t => this.terrainMap.set(t.id, t));
+    super(terrains, options);
+  }
+
   static get defaultOptions() {
-    const opts = super.defaultOptions;
-    return foundry.utils.mergeObject(opts, {
+    return foundry.utils.mergeObject(super.defaultOptions, {
       template: `modules/${MODULE_ID}/templates/terrain-settings-menu.html`,
       height: 800,
       title: game.i18n.localize(`${MODULE_ID}.settings.menu.title`),
@@ -30,7 +37,6 @@ export class TerrainSettingsMenu extends FormApplication {
   getData(options={}) {
     const data = super.getData(options);
     return foundry.utils.mergeObject(data, {
-      terrains: Terrain.toJSON(),
       anchorOptions: LABELS.ANCHOR_OPTIONS,
       userVisible: true,
       anchor: 1,
@@ -60,12 +66,28 @@ export class TerrainSettingsMenu extends FormApplication {
     event.preventDefault();
     console.debug("addTerrain clicked!");
 
-    const terrain = new Terrain();
+    if ( this.object.length > Terrain.MAX_TERRAINS ) {
+      console.warn(`Sorry, cannot add more than ${Terrain.MAX_TERRAINS} terrains!`);
+      return;
+    }
+
+    const terrain = new Terrain({}, { terrainMap: this.terrainMap });
+    this.object.push(terrain.toJSON());
+    this.render();
   }
 
   _onRemoveTerrain(event) {
     event.preventDefault();
     console.debug("removeTerrain clicked!");
+
+    const target = event.target;
+
+    // For reasons, the target is sometimes the button value and sometimes the button.
+    const idx = Number(target.getAttribute("data-idx") || target.parentElement.getAttribute("data-idx"));
+    const id = this.object[idx].id;
+    this.terrainMap.delete(id);
+    this.object.splice(idx, 1);
+    this.render();
   }
 
   _onEditActiveEffect(event) {

@@ -49,52 +49,31 @@
 
   <!-- Table Rows -->
   <div class="terrainmapper scrollable flex-table">
-    <div class="flexrow">
-      <div class="flexcol" style="flex-grow: 1"> 0 </div>
-      <div class="flexcol" style="flex-grow: 1"> <img src="icons/magic/water/tendrils-ice-growth.webp" width="24" height="24" class="flex0"/> </div>
-      <div class="flexcol" style="flex-grow: 5"> Ice </div>
-      <div class="flexcol" style="flex-grow: 2"> @5|-2|0 </div>
-      <div class="flexcol" style="flex-grow: 1">
-        <!-- toggle that changes between three options on push -->
-        <button class="button tm-toggle-visibility" style="width: 27px; background-color: transparent; border: none; text-align: center">
-          <i class="far fa-eye"></i> <!-- "far fa-eye-slash" or "far fa-toggle-off" -->
-        </button>
-      </div>
-      <div class="flexcol" style="flex-grow: 2">
-        <div class='form-fields'>
-          <button class="button tm-edit-ae" style="width: 27px; text-align: center">
-            <i class="fas fa-bolt-lightning"></i>
-          </button>
-          <button class="button tm-remove-terrain" style="width: 27px; text-align: center">
-            <i class="fas fa-trash"></i>
-          </button>
-        </div>
-      </div>
-    </div>
 
-    <hr>
-    <div class="flexrow">
-      <div class="flexcol" style="flex-grow: 1"> 1 </div>
-      <div class="flexcol" style="flex-grow: 1"> <img src="icons/environment/wilderness/tree-spruce.webp" width="24" height="24" class="flex0"/> </div>
-      <div class="flexcol" style="flex-grow: 5"> Forest </div>
-      <div class="flexcol" style="flex-grow: 2"> @relT|0|20 </div>
-      <div class="flexcol" style="flex-grow: 1">
-        <button class="button tm-toggle-visibility" style="width: 27px; background-color: transparent; border: none; text-align: center">
-          <i class="far fa-eye-slash"></i> <!-- "far fa-eye-slash" or "far fa-toggle-off" -->
-        </button>
-      </div>
-      <div class="flexcol" style="flex-grow: 2">
-        <div class='form-fields'>
-          <button class="button tm-edit-ae" style="width: 27px; text-align: center">
-            <i class="fas fa-bolt-lightning"></i>
-          </button>
-          <button class="button tm-remove-terrain" style="width: 27px; text-align: center">
-            <i class="fas fa-trash"></i>
+    {{#each object as |terrain idx|}}
+      <div class="flexrow">
+        <div class="flexcol" style="flex-grow: 1" data-idx="{{idx}}"> <img src="{{terrain.icon}}" width="24" height="24" class="flex0"/> </div>
+        <div class="flexcol" style="flex-grow: 5" data-idx="{{idx}}"> {{terrain.name}} </div>
+        <div class="flexcol" style="flex-grow: 2" data-idx="{{idx}}"> @5|-2|0 </div>
+        <div class="flexcol" style="flex-grow: 1">
+          <!-- toggle that changes between three options on push -->
+          <button class="button tm-toggle-visibility" data-idx="{{idx}}" style="width: 27px; background-color: transparent; border: none; text-align: center">
+            <i class="far fa-eye"></i> <!-- "far fa-eye-slash" or "far fa-toggle-off" -->
           </button>
         </div>
+        <div class="flexcol" style="flex-grow: 2">
+          <div class='form-fields'>
+            <button class="button tm-edit-ae" data-idx="{{idx}}" style="width: 27px; text-align: center">
+              <i class="fas fa-bolt-lightning"></i>
+            </button>
+            <button class="button tm-remove-terrain" data-idx="{{idx}}" style="width: 27px; text-align: center">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </div>
+        <hr>
       </div>
-    </div>
-  </div>
+    {{/each}}
 
   <br>
   <div class="flexcol" style="flex-grow: 1">
