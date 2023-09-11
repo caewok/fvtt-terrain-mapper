@@ -114,6 +114,23 @@ export class Terrain {
   constructor(config, { override = false } = {}) {
     config = this.config = foundry.utils.deepClone(config);
 
+    // Register this terrain with the terrain map and determine the corresponding id.
+    this.#id = this.constructor.TERRAINS.set(config.id, this, override);
+    if ( !this.#id ) {
+      console.error(`Issue setting id ${id} for terrain.`);
+      return;
+    }
+    this.userVisible ||= config.userVisible;
+    this.initializeConfiguration();
+  }
+
+  get id() { return this.#id; }
+
+  /**
+   * Initialize certain undefined configuration values.
+   * Requires id to be set.
+   */
+  initializeConfiguration() {
     // Initialize certain configurations.
     this.config.name = config.name || "Unnamed Terrain";
     this.config.offset = config.offset ?? 0;
@@ -121,19 +138,9 @@ export class Terrain {
     this.config.rangeAbove = config.rangeAbove ?? 0;
     this.config.anchor = config.anchor ?? FLAGS.ANCHOR.CHOICES.RELATIVE_TO_TERRAIN;
 
-    // Initialize other properties.
-    this.userVisible ||= config.userVisible;
-    this.#id = this.constructor.TERRAINS.set(config.id, this, override);
-    if ( !this.#id ) {
-      console.error(`Issue setting id ${id} for terrain.`);
-      return;
-    }
-
     // Use the id to select a default terrain color.
     this.config.color = config.color || this.constructor.COLORS[this.#id];
   }
-
-  get id() { return this.#id; }
 
   /**
    * Destroy this terrain and remove it from the terrain map.
