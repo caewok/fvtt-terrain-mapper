@@ -130,8 +130,9 @@ export class Terrain {
       console.error(`Issue setting id ${config.id} for terrain.`);
       return;
     }
-    this.userVisible ||= config.userVisible;
+
     this.initializeConfiguration();
+    this.userVisible ||= config.userVisible;
   }
 
   get id() { return this.#id; }
@@ -142,7 +143,7 @@ export class Terrain {
    */
   initializeConfiguration() {
     // Initialize certain configurations.
-    this.config.name ||= "Unnamed Terrain";
+    this.config.name ||= "";
     this.config.offset ||= 0;
     this.config.rangeBelow ||= 0;
     this.config.rangeAbove ||= 0;

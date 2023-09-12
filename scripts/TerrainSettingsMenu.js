@@ -48,6 +48,11 @@ export class TerrainSettingsMenu extends FormApplication {
 
   async _updateObject(_, formData) {
     const expandedFormData = expandObject(formData);
+    if ( !expandedFormData.terrains ) return;
+    for ( const [idx, terrain] of Object.entries(expandedFormData.terrains) ) {
+      const terrainData = this.object[idx];
+      for ( const [key, value] of Object.entries(terrain) ) terrainData[key] = value
+    }
   }
 
   activateListeners(html) {
@@ -62,7 +67,7 @@ export class TerrainSettingsMenu extends FormApplication {
     html.find("button.export").click(this._onExport.bind(this));
   }
 
-  _onAddTerrain(event) {
+  async _onAddTerrain(event) {
     event.preventDefault();
     console.debug("addTerrain clicked!");
 
@@ -73,10 +78,12 @@ export class TerrainSettingsMenu extends FormApplication {
 
     const terrain = new Terrain({}, { terrainMap: this.terrainMap });
     this.object.push(terrain.toJSON());
+
+    await this._onSubmit(event, { preventClose: true });
     this.render();
   }
 
-  _onRemoveTerrain(event) {
+  async _onRemoveTerrain(event) {
     event.preventDefault();
     console.debug("removeTerrain clicked!");
 
@@ -86,6 +93,8 @@ export class TerrainSettingsMenu extends FormApplication {
     const id = this.object[idx].id;
     this.terrainMap.delete(id);
     this.object.splice(idx, 1);
+
+    await this._onSubmit(event, { preventClose: true });
     this.render();
   }
 
@@ -94,13 +103,14 @@ export class TerrainSettingsMenu extends FormApplication {
     console.debug("edit active effect clicked!");
   }
 
-  _onToggleVisibility(event) {
+  async _onToggleVisibility(event) {
     event.preventDefault();
     console.debug("visibility toggle clicked!");
 
     const target = event.target;
     const idx = Number(target.getAttribute("data-idx") || target.parentElement.getAttribute("data-idx"));
     this.object[idx].userVisible ^= true;
+    await this._onSubmit(event, { preventClose: true });
     this.render();
   }
 

@@ -53,7 +53,14 @@
     {{#each object as |terrain idx|}}
       <div class="flexrow">
         <div class="flexcol" style="flex-grow: 1" data-idx="{{idx}}"> <img src="{{terrain.icon}}" width="24" height="24" class="flex0"/> </div>
-        <div class="flexcol" style="flex-grow: 5" data-idx="{{idx}}"> {{terrain.name}} </div>
+        <div class="flexcol" style="flex-grow: 5" data-idx="{{idx}}">
+          <!--- Input for terrain name -->
+          <div class='form-group slim'>
+            <div class='form-fields'>
+              <input type="text" name="terrains.{{idx}}.name" placeholder="Terrain Name" value={{ terrain.name }}>
+            </div>
+          </div>
+        </div>
         <div class="flexcol" style="flex-grow: 2" data-idx="{{idx}}"> @5|-2|0 </div>
         <div class="flexcol" style="flex-grow: 1">
           <!-- toggle user visibility -->
