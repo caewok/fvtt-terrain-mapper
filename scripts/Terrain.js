@@ -149,9 +149,23 @@ export class Terrain {
     this.config.rangeAbove ||= 0;
     this.config.anchor ??= FLAGS.ANCHOR.CHOICES.RELATIVE_TO_TERRAIN;
     this.config.userVisible ||= false;
+    this.config.icon ||= "icons/svg/mountain.svg";
 
     // Use the id to select a default terrain color.
     this.config.color ||= this.constructor.COLORS[this.#id];
+  }
+
+  /**
+   * Calculate the elevation min / max for a given anchor elevation.
+   * @param {number} anchorE    Elevation of the anchor point.
+   * @returns {object} Elevation min and max.
+   *   - {number} min   Minimum elevation
+   *   - {number} max   Maximum elevation
+   */
+  elevationMinMax(anchorE) {
+    const { offset, rangeBelow, rangeAbove } = this.config;
+    const e = anchorE + offset;
+    return { min: e + rangeBelow, max: e + rangeAbove };
   }
 
   /**

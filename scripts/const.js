@@ -23,6 +23,8 @@ export const FLAGS = {
   }
 };
 
+
+
 // https://www.canva.com/colors/color-wheel/
 // Pick triadic colors, then get analogous to the first and locate other two triadic, ...
 export const COLORS = [

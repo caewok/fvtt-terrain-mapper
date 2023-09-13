@@ -9,6 +9,7 @@ game
 
 import { MODULE_ID, LABELS } from "./const.js";
 import { Terrain, TerrainMap } from "./Terrain.js";
+import { TerrainEffectConfig } from "./EnhancedEffectConfig.js";
 
 /**
  * Settings submenu for defining terrains.
@@ -86,10 +87,7 @@ export class TerrainSettingsMenu extends FormApplication {
   async _onRemoveTerrain(event) {
     event.preventDefault();
     console.debug("removeTerrain clicked!");
-
-    // For reasons, the target is sometimes the button value and sometimes the button.
-    const target = event.target;
-    const idx = Number(target.getAttribute("data-idx") || target.parentElement.getAttribute("data-idx"));
+    const idx = this._indexForEvent(event);
     const id = this.object[idx].id;
     this.terrainMap.delete(id);
     this.object.splice(idx, 1);
@@ -98,17 +96,22 @@ export class TerrainSettingsMenu extends FormApplication {
     this.render();
   }
 
-  _onEditActiveEffect(event) {
+  async _onEditActiveEffect(event) {
     event.preventDefault();
     console.debug("edit active effect clicked!");
+    await this._onSubmit(event, { preventClose: true });
+
+    const idx = this._indexForEvent(event);
+    const id = this.object[idx].id;
+    const app = new TerrainEffectConfig(id);
+    const data = await app.render(true); // Can we handle this data entirely in the app?
   }
 
   async _onToggleVisibility(event) {
     event.preventDefault();
     console.debug("visibility toggle clicked!");
 
-    const target = event.target;
-    const idx = Number(target.getAttribute("data-idx") || target.parentElement.getAttribute("data-idx"));
+    const idx = this._indexForEvent(event);
     this.object[idx].userVisible ^= true;
     await this._onSubmit(event, { preventClose: true });
     this.render();
@@ -120,10 +123,16 @@ export class TerrainSettingsMenu extends FormApplication {
     Terrain.importFromFileDialog();
   }
 
-  _onExport(event) {
+  async _onExport(event) {
     event.preventDefault();
     console.debug("export clicked!");
     Terrain.saveToFile();
+  }
+
+  _indexForEvent(event) {
+    // For reasons, the target is sometimes the button value and sometimes the button.
+    const target = event.target;
+    return Number(target.getAttribute("data-idx") || target.parentElement.getAttribute("data-idx"));
   }
 
 }
