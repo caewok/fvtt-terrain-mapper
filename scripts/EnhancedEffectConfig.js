@@ -1,18 +1,15 @@
 /* globals
 ActiveEffectConfig,
 CONST,
-game,
-ActiveEffect
+game
 */
-
-import { Terrain } from "./Terrain.js";
 
 // Adapted from https://github.com/death-save/combat-utility-belt/blob/master/modules/enhanced-conditions/enhanced-effect-config.js
 // @example
 // effectConfig = new EnhancedEffectConfig(effect)
 // effectConfig.render(true)
 
-class EnhancedEffectConfig extends ActiveEffectConfig {
+export class EnhancedEffectConfig extends ActiveEffectConfig {
   /**
    * Get data for template rendering
    * @param {*} options
@@ -42,18 +39,5 @@ class EnhancedEffectConfig extends ActiveEffectConfig {
   async _updateObject(event, formData) {
     this.object.updateSource(formData);
     if (this._state === 2) await this.render();
-  }
-}
-
-export class TerrainEffectConfig extends EnhancedEffectConfig {
-  /**
-   * Retrieve different settings for each terrain.
-   */
-  constructor(id) {
-    super();
-
-    const data = Terrain.TERRAINS.get(id) || {};
-    data.name ??= `Terrain.${id}`;
-    this.object = new ActiveEffect(data);
   }
 }

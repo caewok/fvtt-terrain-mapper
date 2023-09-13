@@ -1,4 +1,5 @@
 /* globals
+ActiveEffect,
 expandObject,
 FormApplication,
 foundry,
@@ -9,7 +10,7 @@ game
 
 import { MODULE_ID, LABELS } from "./const.js";
 import { Terrain, TerrainMap } from "./Terrain.js";
-import { TerrainEffectConfig } from "./EnhancedEffectConfig.js";
+import { EnhancedEffectConfig } from "./EnhancedEffectConfig.js";
 
 /**
  * Settings submenu for defining terrains.
@@ -52,8 +53,15 @@ export class TerrainSettingsMenu extends FormApplication {
     if ( !expandedFormData.terrains ) return;
     for ( const [idx, terrain] of Object.entries(expandedFormData.terrains) ) {
       const terrainData = this.object[idx];
-      for ( const [key, value] of Object.entries(terrain) ) terrainData[key] = value
+      for ( const [key, value] of Object.entries(terrain) ) terrainData[key] = value;
     }
+  }
+
+  async _onSelectFile(selection, filePicker) {
+    console.debug("_onSelectFile", selection);
+    const idx = Number(filePicker.button.getAttribute("data-idx"));
+    this.object[idx].icon = selection;
+    this.render(); // Redraw the icon image.
   }
 
   activateListeners(html) {
@@ -103,8 +111,9 @@ export class TerrainSettingsMenu extends FormApplication {
 
     const idx = this._indexForEvent(event);
     const id = this.object[idx].id;
-    const app = new TerrainEffectConfig(id);
-    const data = await app.render(true); // Can we handle this data entirely in the app?
+    const effect = this.object[idx].activeEffect ??= new ActiveEffect({ name: `TerrainEffect.${id}`});
+    const app = new EnhancedEffectConfig(effect);
+    app.render(true);
   }
 
   async _onToggleVisibility(event) {

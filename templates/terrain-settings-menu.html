@@ -84,9 +84,9 @@
             <input type="color" value="{{ terrain.color }}" name="terrains.{{idx}}.color">
           </div>
 
-          <!-- terrain icon -->
+          <!-- Terrain icon (modified filePicker) -->
           <div class="flexcol" style="flex-grow: 1" data-idx="{{idx}}">
-            <button class="file-picker" data-idx="{{idx}}" data-type="image" name="terrains.{{idx}}.icon" data-target="terrains.{{idx}}.icon" tile="{{localize 'FILES.BrowseTooltip'}}" tabindex="-1" style="width: 36px; background-color: transparent; border: none; text-align: center">
+            <button class="file-picker" data-idx="{{idx}}" data-type="image" title="{{localize 'FILES.BrowseTooltip'}}" tabindex="-1" style="width: 36px; background-color: transparent; border: none; text-align: center">
               <img src="{{terrain.icon}}" width="24" height="24" class="flex0"/>
             </button>
           </div>

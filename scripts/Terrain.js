@@ -183,7 +183,7 @@ export class Terrain {
 
   static toJSON() {
     const json = [];
-    return this.TERRAINS.forEach(t => json.push(t.toJSON()))  ;
+    return this.TERRAINS.forEach(t => json.push(t.toJSON()));
   }
 
   static saveToFile() {
