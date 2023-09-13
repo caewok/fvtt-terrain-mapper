@@ -2,12 +2,14 @@
 CONFIG,
 InteractionLayer,
 mergeObject,
-PIXI
+PIXI,
+ui
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
 import { Terrain } from "./Terrain.js";
+import { getSetting, SETTINGS } from "./settings.js";
 
 export class TerrainLayer extends InteractionLayer {
 
@@ -40,6 +42,14 @@ export class TerrainLayer extends InteractionLayer {
   static register() { CONFIG.Canvas.layers.terrain = { group: "primary", layerClass: TerrainLayer }; }
 
   // ----- NOTE: Access terrain data ----- //
+
+  /**
+   * Pull terrain data from settings and initialize.
+   */
+  _initializeTerrains() {
+    const terrainData = getSetting(SETTINGS.TERRAINS);
+    Terrain.importFromJSON(terrainData);
+  }
 
   /**
    * Get the terrain data for a given id.

@@ -47,6 +47,7 @@ Settings
   - how to measure the range center: fixed / based on terrain / based on layer
   - icon
   - display: icon/color/both
+- Move these to a Document Terrain subtype. https://foundryvtt.com/article/module-sub-types/
 
 Scene Settings
 - Terrain configuration menu to override for specific scene

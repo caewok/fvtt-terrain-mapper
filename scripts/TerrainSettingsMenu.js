@@ -11,6 +11,7 @@ game
 import { MODULE_ID, LABELS } from "./const.js";
 import { Terrain, TerrainMap } from "./Terrain.js";
 import { EnhancedEffectConfig } from "./EnhancedEffectConfig.js";
+import { SETTINGS, setSetting } from "./settings.js";
 
 /**
  * Settings submenu for defining terrains.
@@ -56,6 +57,18 @@ export class TerrainSettingsMenu extends FormApplication {
       const terrainData = this.object[idx];
       for ( const [key, value] of Object.entries(terrain) ) terrainData[key] = value;
     }
+  }
+
+  async _onSubmit(event, { updateData=null, preventClose=false, preventRender=false } = {}) {
+    const formData = await super._onSubmit(event, { updateData, preventClose, preventRender });
+    if ( preventClose ) return formData;
+
+    const terrains = this.object.map(t => {
+      if ( t.activeEffect ) t.activeEffect = t.activeEffect.toJSON();
+    });
+
+    await setSetting(SETTINGS.TERRAINS, terrains);
+    canvas.terrain._initializeTerrains();
   }
 
   async _onSelectFile(selection, filePicker) {
