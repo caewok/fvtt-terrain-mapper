@@ -9,6 +9,12 @@ export const LABELS = {
     absolute: "terrainmapper.settings.terrain.anchorOptions.absolute",
     relativeToTerrain: "terrainmapper.settings.terrain.anchorOptions.relativeToTerrain",
     relativeToLayer: "terrainmapper.settings.terrain.anchorOptions.relativeToLayer"
+  },
+
+  ANCHOR_ABBR_OPTIONS: {
+    absolute: "terrainmapper.settings.terrain.anchorAbbrOptions.absolute",
+    relativeToTerrain: "terrainmapper.settings.terrain.anchorAbbrOptions.relativeToTerrain",
+    relativeToLayer: "terrainmapper.settings.terrain.anchorAbbrOptions.relativeToLayer"
   }
 };
 

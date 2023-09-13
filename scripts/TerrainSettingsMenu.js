@@ -40,6 +40,7 @@ export class TerrainSettingsMenu extends FormApplication {
     const data = super.getData(options);
     return foundry.utils.mergeObject(data, {
       anchorOptions: LABELS.ANCHOR_OPTIONS,
+      anchorAbbrOptions: LABELS.ANCHOR_ABBR_OPTIONS,
       userVisible: true,
       anchor: 1,
       offset: 0,

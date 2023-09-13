@@ -107,6 +107,16 @@
             </div>
           </div>
 
+          <!-- Input for anchor choice -->
+          <div class="flexcol" style="flex-grow: 1">
+              <div class="form-fields slim" >
+                <select name="terrains.{{idx}}.anchorChoice">
+                  {{ selectOptions @root.anchorAbbrOptions selected=terrain.anchor localize=true }}
+                </select>
+              </div>
+          </div>
+
+          <!-- Buttons for active effect and remove terrain -->
           <div class="flexcol" style="flex-grow: 2">
             <div class='form-fields'>
               <button class="button tm-edit-ae" data-idx="{{idx}}" style="width: 27px; text-align: center">
@@ -117,6 +127,9 @@
               </button>
             </div>
           </div>
+
+
+
         </div>
         <hr>
       {{/each}}

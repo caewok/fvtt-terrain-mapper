@@ -22,6 +22,10 @@
   "terrainmapper.settings.terrain.anchorOptions.relativeToTerrain": "Relative to Ground Elevation",
   "terrainmapper.settings.terrain.anchorOptions.relativeToLayer": "Relative to Layer Elevation",
 
+  "terrainmapper.settings.terrain.anchorAbbrOptions.absolute": "Abs",
+  "terrainmapper.settings.terrain.anchorAbbrOptions.relativeToTerrain": "Rel Gnd",
+  "terrainmapper.settings.terrain.anchorAbbrOptions.relativeToLayer": "Rel Layer",
+
   "terrainmapper.phrases.terrainLayer": "Terrain Layer",
   "terrainmapper.phrases.terrain": "Terrain"
 
