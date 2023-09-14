@@ -17,6 +17,11 @@ import { SETTINGS, setSetting } from "./settings.js";
  * Settings submenu for defining terrains.
  */
 export class TerrainSettingsMenu extends FormApplication {
+
+  /**
+   * Temporary terrain map to hold the terrains to be updated.
+   * @type {TerrainMap}
+   */
   terrainMap = new TerrainMap();
 
   constructor(object, options) {

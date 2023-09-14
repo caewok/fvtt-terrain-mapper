@@ -175,10 +175,26 @@ export class Terrain {
     this.terrainMap.delete(this.#id);
   }
 
+  clone(terrainMap) {
+    return new this.constructor(this.config, { terrainMap });
+  }
+
   toJSON() {
     const out = this.config;
     out.activeEffect = out.activeEffect ? out.activeEffect.toJSON() : undefined;
     return out;
+  }
+
+  updateSource(json) {
+    const config = this.config;
+    for ( const [key, value] of Object.entries(json) ) {
+      if ( key === "id" ) continue;
+      if ( key === "activeEffect" ) {
+        config.activeEffect = config.activeEffect ? config.activeEffect.updateSource(value) : new ActiveEffect(value);
+        continue;
+      }
+      config[key] = value;
+    }
   }
 
   static toJSON() {
