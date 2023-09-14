@@ -1,4 +1,5 @@
 /* globals
+CONFIG,
 Hooks,
 game
 */
@@ -9,11 +10,17 @@ import { MODULE_ID } from "./const.js";
 import { TerrainLayer } from "./TerrainLayer.js";
 import { registerSettings } from "./settings.js";
 import { Terrain } from "./Terrain.js";
+import { TerrainModel } from "./TerrainModel.js";
 
 // Self-executing hooks.
 import "./controls.js";
 
 Hooks.once("init", function() {
+  Object.assign(CONFIG.Item.dataModels, { [`${MODULE_ID}.terrain`]: TerrainModel });
+  DocumentSheetConfig.registerSheet(ItemSheet, "terrainmapper", TerrainSheet, {
+    types: ["terrainmapper.terrain"],
+    makeDefault: true
+  });
   initializeAPI();
   TerrainLayer.register();
 

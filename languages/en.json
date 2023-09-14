@@ -27,6 +27,8 @@
   "terrainmapper.settings.terrain.anchorAbbrOptions.relativeToLayer": "Rel Layer",
 
   "terrainmapper.phrases.terrainLayer": "Terrain Layer",
-  "terrainmapper.phrases.terrain": "Terrain"
+  "terrainmapper.phrases.terrain": "Terrain",
+
+  "TYPES.Item.terrainmapper.terrain": "Terrain"
 
 }

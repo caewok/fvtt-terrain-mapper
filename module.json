@@ -45,7 +45,7 @@
   "documentTypes": {
     "Item": {
       "terrain": {
-        "htmlFields": ["description"],
+        "htmlFields": ["description.long", "description.short"],
         "filePathFields": {
           "icon": ["IMAGE"]
         }
