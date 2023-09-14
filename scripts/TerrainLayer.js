@@ -9,7 +9,7 @@ ui
 "use strict";
 
 import { Terrain } from "./Terrain.js";
-import { getSetting, SETTINGS } from "./settings.js";
+import { TerrainSettings } from "./settings.js";
 
 export class TerrainLayer extends InteractionLayer {
 
@@ -47,7 +47,7 @@ export class TerrainLayer extends InteractionLayer {
    * Pull terrain data from settings and initialize.
    */
   _initializeTerrains() {
-    const terrainData = getSetting(SETTINGS.TERRAINS);
+    const terrainData = TerrainSettings.get(TerrainSettings.KEYS.TERRAINS);
     Terrain.importFromJSON(terrainData);
   }
 

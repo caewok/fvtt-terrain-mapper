@@ -7,7 +7,7 @@ game
 
 import { MODULE_ID } from "./const.js";
 import { TerrainLayer } from "./TerrainLayer.js";
-import { registerSettings } from "./settings.js";
+import { TerrainSettings } from "./settings.js";
 import { Terrain } from "./Terrain.js";
 
 // Self-executing hooks.
@@ -20,7 +20,7 @@ Hooks.once("init", function() {
 });
 
 Hooks.once("setup", function() {
-  registerSettings();
+  TerrainSettings.registerAll();
 });
 
 function initializeAPI() {

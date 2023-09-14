@@ -10,6 +10,7 @@ Hooks
 
 import { MODULE_ID } from "./const.js";
 import { TerrainLayerToolBar } from "./TerrainLayerToolBar.js";
+import { TerrainEffectsApp } from "./TerrainEffectsApp.js";
 
 Hooks.on("getSceneControlButtons", addTerrainLayerSceneControls);
 Hooks.on("renderSceneControls", addTerrainLayerSubControls);
@@ -96,10 +97,17 @@ function addTerrainLayerSceneControls(controls) {
         title: game.i18n.localize(`${MODULE_ID}.controls.undo.name`),
         icon: "fas fa-rotate-left",
         button: true,
-        onClick: () => {
-          canvas.terrain.undo();
-        }
+        onClick: () => { canvas.terrain.undo(); }
+      },
+
+      {
+        name: "terrain-menu",
+        title: game.i18n.localize(`${MODULE_ID}.controls.terrain-menu.name`),
+        icon: "fas fa-book",
+        button: true,
+        onClick: () => { new TerrainEffectsApp().render(true); }
       }
+
     ]
   });
 }
