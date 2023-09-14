@@ -42,6 +42,17 @@
     "styles/terrainlayer.css"
   ],
 
+  "documentTypes": {
+    "Item": {
+      "terrain": {
+        "htmlFields": ["description"],
+        "filePathFields": {
+          "icon": ["IMAGE"]
+        }
+      }
+    }
+  },
+
   "url": "#{URL}#",
   "manifest": "#{MANIFEST}#",
   "download": "#{DOWNLOAD}#",
