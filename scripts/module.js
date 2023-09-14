@@ -7,6 +7,8 @@ game
 
 import { MODULE_ID } from "./const.js";
 import { TerrainLayer } from "./TerrainLayer.js";
+import { registerSettings } from "./settings.js";
+import { Terrain } from "./Terrain.js";
 
 // Self-executing hooks.
 import "./controls.js";
@@ -17,12 +19,15 @@ Hooks.once("init", function() {
 
 });
 
-Hooks.once("ready", function() {
-
+Hooks.once("setup", function() {
+  registerSettings();
 });
 
 function initializeAPI() {
-  game.modules.get(MODULE_ID).api = {};
+  game.modules.get(MODULE_ID).api = {
+    Terrain
+  };
+
 }
 
 /* TODO: Things needed
@@ -42,6 +47,7 @@ Settings
   - how to measure the range center: fixed / based on terrain / based on layer
   - icon
   - display: icon/color/both
+- Move these to a Document Terrain subtype. https://foundryvtt.com/article/module-sub-types/
 
 Scene Settings
 - Terrain configuration menu to override for specific scene
@@ -71,5 +77,6 @@ Automation:
 - On token animation, pause for terrain
 - integration with drag ruler
 - integration with elevation ruler
+- Active effect flag to limit vision to X feet (fog, forest, etc.)
 
 */

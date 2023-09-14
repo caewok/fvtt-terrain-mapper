@@ -12,6 +12,21 @@
 
   "terrainmapper.controls.decrementTerrain": "Decrement Terrain ID",
   "terrainmapper.controls.incrementTerrain": "Increment Terrain ID",
-  "terrainmapper.controls.currentTerrain": "Current Terrain ID"
+  "terrainmapper.controls.currentTerrain": "Current Terrain ID",
+
+  "terrainmapper.settings.menu.title": "Terrain Settings",
+  "terrainmapper.settings.terrain.introduction": "Configure one or more terrain types.",
+  "terrainmapper.settings.terrain.addTerrain": "Add Terrain",
+
+  "terrainmapper.settings.terrain.anchorOptions.absolute": "Absolute",
+  "terrainmapper.settings.terrain.anchorOptions.relativeToTerrain": "Relative to Ground Elevation",
+  "terrainmapper.settings.terrain.anchorOptions.relativeToLayer": "Relative to Layer Elevation",
+
+  "terrainmapper.settings.terrain.anchorAbbrOptions.absolute": "Abs",
+  "terrainmapper.settings.terrain.anchorAbbrOptions.relativeToTerrain": "Rel Gnd",
+  "terrainmapper.settings.terrain.anchorAbbrOptions.relativeToLayer": "Rel Layer",
+
+  "terrainmapper.phrases.terrainLayer": "Terrain Layer",
+  "terrainmapper.phrases.terrain": "Terrain"
 
 }
