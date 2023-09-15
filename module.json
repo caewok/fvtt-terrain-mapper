@@ -45,10 +45,7 @@
   "documentTypes": {
     "Item": {
       "terrain": {
-        "htmlFields": ["description.long", "description.short"],
-        "filePathFields": {
-          "icon": ["IMAGE"]
-        }
+        "htmlFields": ["description.value", "description.chat", "description.unidentified"]
       }
     }
   },

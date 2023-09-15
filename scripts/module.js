@@ -11,6 +11,7 @@ import { TerrainLayer } from "./TerrainLayer.js";
 import { registerSettings } from "./settings.js";
 import { Terrain } from "./Terrain.js";
 import { TerrainModel } from "./TerrainModel.js";
+import { TerrainSheet } from "./TerrainSheet.js";
 
 // Self-executing hooks.
 import "./controls.js";
