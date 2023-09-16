@@ -163,27 +163,17 @@ export class TerrainEffectsApp extends Application {
   }
 
   _initContextMenus() {
-    new ContextMenu(this._rootView, ".convenient-effect", [
+    new ContextMenu(this._rootView, ".terrainmapper-effect", [
       {
-        name: "Edit Effect",
+        name: "Edit Terrain",
         icon: '<i class="fas fa-edit fa-fw"></i>',
-        condition: effectItem => {
-          return (
-            this._controller.isCustomEffect(effectItem)
-              && (game.user.isGM || this._controller.isPlayerAllowedCustomEffects)
-          );
-        },
+        condition: () => game.user.isGM,
         callback: this._controller.onEditEffectClick.bind(this._controller)
       },
       {
-        name: "Delete Effect",
+        name: "Delete Terrain",
         icon: '<i class="fas fa-trash fa-fw"></i>',
-        condition: effectItem => {
-          return (
-            this._controller.isCustomEffect(effectItem)
-              && (game.user.isGM || this._controller.isPlayerAllowedCustomEffects)
-          );
-        },
+        condition: () => game.user.isGM,
         callback: this._controller.onDeleteEffectClick.bind(this._controller)
       },
       {
@@ -203,21 +193,9 @@ export class TerrainEffectsApp extends Application {
         callback: this._controller.onRemoveFavorite.bind(this._controller)
       },
       {
-        name: "Toggle Status Effect",
-        icon: '<i class="fas fa-street-view fa-fw"></i>',
-        condition: () => {
-          return game.user.isGM;
-        },
-        callback: this._controller.onToggleStatusEffect.bind(this._controller)
-      },
-      {
         name: "Duplicate",
         icon: '<i class="far fa-copy fa-fw"></i>',
-        condition: () => {
-          return (
-            game.user.isGM || this._controller.isPlayerAllowedCustomEffects
-          );
-        },
+        condition: () => game.user.isGM,
         callback: this._controller.onDuplicate.bind(this._controller)
       }
     ]);

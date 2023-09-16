@@ -219,6 +219,9 @@ export class TerrainEffectsController {
    */
   async onEffectClick(event) {
     console.debug("TerrainEffectsController|onEffectClick");
+    const effectId = this._findNearestEffectId(event);
+
+
 //     const effectName = this._findNearestEffectName(event);
 //     await game.dfreds.effectInterface.toggleEffect(effectName);
   }
@@ -226,6 +229,12 @@ export class TerrainEffectsController {
   _findNearestEffectName(event) {
     return $(event.target)
       .closest('[data-effect-name], .terrainmapper-effect')
+      .data()?.effectName;
+  }
+
+  _findNearestEffectId(event) {
+    return $(event.target)
+      .closest('[data-effect-id], .terrainmapper-effect')
       .data()?.effectName;
   }
 
@@ -396,11 +405,10 @@ export class TerrainEffectsController {
 
         // Expand folders with matches
         if (match) el.classList.remove('collapsed');
-        else
-          el.classList.toggle(
-            'collapsed',
-            !TerrainSettings.isFolderExpanded(el.dataset.folderId)
-          );
+        else el.classList.toggle(
+          'collapsed',
+          !TerrainSettings.isFolderExpanded(el.dataset.folderId)
+        );
       }
     }
   }
