@@ -9,6 +9,7 @@ import { MODULE_ID } from "./const.js";
 import { TerrainLayer } from "./TerrainLayer.js";
 import { TerrainSettings } from "./settings.js";
 import { Terrain } from "./Terrain.js";
+import { removeTerrainsItemfromSidebar } from "./util.js";
 
 // Self-executing hooks.
 import "./controls.js";
@@ -21,6 +22,18 @@ Hooks.once("init", function() {
 
 Hooks.once("setup", function() {
   TerrainSettings.registerAll();
+});
+
+Hooks.once("ready", async function() {
+  await TerrainSettings.initializeTerrainsItem();
+});
+
+Hooks.on('changeSidebarTab', (directory) => {
+  removeTerrainsItemFromSidebar(directory);
+});
+
+Hooks.on('renderItemDirectory', (directory) => {
+  removeTerrainsItemFromSidebar(directory);
 });
 
 function initializeAPI() {

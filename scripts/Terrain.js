@@ -11,6 +11,7 @@ ui
 "use strict";
 
 import { FLAGS, COLORS, MODULE_ID } from "./const.js";
+import { TerrainSettings } from "./settings.js";
 
 /**
  * Subclass of Map that manages terrain ids and ensures only 1–31 are used.
@@ -81,23 +82,25 @@ export class TerrainMap extends Map {
 }
 
 /**
- * Class used to hold terrain data. Store the terrains by id. Ensures only 1 terrain per id.
- * Id is the pixel value for this terrain, before considering layers.
+ * Terrain data is used here, but ultimately stored in flags in an active effect in a hidden item,
+ * comparable to what DFred's does. The active effect can be used to apply the terrain to a token,
+ * imposing whatever restrictions are desired.
+ * Scenes store a TerrainMap that links each terrain to a pixel value.
  */
 export class Terrain {
-  /** @type {TerrainMap<number, Terrain>} */
-  static TERRAINS = new TerrainMap();
-
   // Default colors for terrains.
   static COLORS = COLORS;
 
+  static #colorId = 0;
+
+  static nextColor() { return this.COLORS[this.#colorId++]; }
+
   /** @type {number} */
-  #id;
+  #pixelId;
 
   /**
    * @typedef {Object} TerrainConfig          Terrain configuration data
    * @property {string} name                  User-facing name of the terrain.
-   * @property {number} id                    Id between 1 and TerrainMap.MAX_TERRAINS
    * @property {string} icon                  URL of icon representing the terrain
    * @property {hex} color                    Hex value for the color representing the terrain
    * @property {FLAGS.ANCHOR.CHOICES} anchor  Measure elevation as fixed, from terrain, or from layer.
@@ -112,36 +115,39 @@ export class Terrain {
   /** @type {boolean} */
   userVisible = false;
 
-  /** @type {TerrainMap<number, Terrain>} */
-  terrainMap;
+  /** @type {ActiveEffect} */
+  activeEffect;
+
+  /** @type {TerrainSettings} */
+  _settings;
 
   /**
    * @param {TerrainConfig} config
    * @param {object} [opts]
    * @param {boolean} [opts.override=false]     Should this terrain replace an existing id?
    */
-  constructor(config = {}, { override = false, terrainMap } = {}) {
-    config = this.config = foundry.utils.deepClone(config);
+  constructor(config = {}) {
+    this._settings = new TerrainSettings();
 
-    // Register this terrain with the terrain map and determine the corresponding id.
-    this.terrainMap = terrainMap || this.constructor.TERRAINS;
-    this.#id = this.terrainMap.set(config.id, this, override);
-    if ( !this.#id ) {
-      console.error(`Issue setting id ${config.id} for terrain.`);
-      return;
-    }
+    this.initializeConfiguration(config);
+    this.userVisible ||= this.config.userVisible;
 
-    this.initializeConfiguration();
-    this.userVisible ||= config.userVisible;
+
   }
-
-  get id() { return this.#id; }
 
   /**
    * Initialize certain undefined configuration values.
-   * Requires id to be set.
    */
-  initializeConfiguration() {
+  initializeConfiguration(config) {
+    if ( )
+
+    config.activeEffect ??= this._settings.terrainEffectsItem;
+
+
+    this.config = foundry.utils.deepClone(config);
+
+
+
     // Initialize certain configurations.
     this.config.name ||= "";
     this.config.offset ||= 0;
@@ -152,7 +158,7 @@ export class Terrain {
     this.config.icon ||= "icons/svg/mountain.svg";
 
     // Use the id to select a default terrain color.
-    this.config.color ||= this.constructor.COLORS[this.#id];
+    this.config.color ||= this.nextColor();
   }
 
   /**
@@ -168,16 +174,6 @@ export class Terrain {
     return { min: e + rangeBelow, max: e + rangeAbove };
   }
 
-  /**
-   * Destroy this terrain and remove it from the terrain map.
-   */
-  destroy() {
-    this.terrainMap.delete(this.#id);
-  }
-
-  clone(terrainMap) {
-    return new this.constructor(this.config, { terrainMap });
-  }
 
   toJSON() {
     const out = this.config;
@@ -248,6 +244,5 @@ export class Terrain {
       width: 400
     }).render(true);
   }
-
 
 }

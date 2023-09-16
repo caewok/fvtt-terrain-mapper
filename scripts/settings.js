@@ -15,7 +15,7 @@ export class TerrainSettings {
    */
   static KEYS = {
     MENU: "menu",
-    TERRAINS: "terrains",
+    TERRAINS_ITEM: "terrains_item", // Stores terrain effects
 
     // Configuration of the application that controls the terrain listings.
     CONTROL_APP: {
@@ -31,12 +31,35 @@ export class TerrainSettings {
   static get(key) { return game.settings.get(MODULE_ID, key); }
 
   /**
+   * Retrieve a specific setting by using the key name.
+   * @param {string} key
+   * @returns {*}
+   */
+  static getByName(keyName) {
+    const key = getProperty(this.KEYS, keyName);
+    if ( !key ) console.warn(`Key ${keyName} does not exist.`);
+    return this.get(key);
+  }
+
+  /**
    * Set a specific setting.
    * @param {string} key
    * @param {*} value
    * @returns {Promise<boolean>}
    */
-  static set(key, value) { return game.settings.set(MODULE_ID, key, value); }
+  static async set(key, value) { return game.settings.set(MODULE_ID, key, value); }
+
+  /**
+   * Set a specific setting by using the key name.
+   * @param {string} key
+   * @param {*} value
+   * @returns {Promise<boolean>}
+   */
+  static async setByName(keyName, value) {
+    const key = getProperty(this.KEYS, keyName);
+    if ( !key ) console.warn(`Key ${keyName} does not exist.`);
+    return this.set(key, value);
+  }
 
   /**
    * Register a specific setting.
@@ -81,8 +104,27 @@ export class TerrainSettings {
     });
   }
 
+  /**
+   * Register the item used to store terrain effects.
+   */
+  static async initializeTerrainsItem() {
+    const id = this.getByName("TERRAINS_ITEM");
+    if ( !id ) {
+      const item = await CONFIG.Item.documentClass.create({
+        name: "Terrain Effects",
+        img: "icons/svg/mountain.svg",
+        type: "base"
+      });
+      await this.setByName("TERRAINS_ITEM", item.id);
+    }
+  }
+
+  get terrainEffectsItem() {
+    return game.items.get(TerrainSettings.getByName("TERRAINS_ITEM"));
+  }
+
   /** @type {string[]} */
-  get expandedFolders() { return TerrainSettings.get(TerrainSettings.KEYS.CONTROL_APP.EXPANDED_FOLDERS); }
+  get expandedFolders() { return TerrainSettings.getByName("CONTROL_APP.EXPANDED_FOLDERS"); }
 
   /**
    * Add a given folder id to the saved expanded folders.
@@ -93,7 +135,7 @@ export class TerrainSettings {
     let folderArr = this.expandedFolders;
     folderArr.push(folderId);
     folderArr = [...new Set(folderArr)]; // Remove duplicates.
-    TerrainSettings.set(TerrainSettings.KEYS.CONTROL_APP.EXPANDED_FOLDERS, folderArr);
+    TerrainSettings.setByName("CONTROL_APP.EXPANDED_FOLDERS", folderArr);
   }
 
   /**
@@ -103,14 +145,14 @@ export class TerrainSettings {
    */
   async removeExpandedFolder(id) {
     const expandedFolderArray = this.expandedFolders.filter(expandedFolder => expandedFolder !== id);
-    return TerrainSettings.set(TerrainSettings.KEYS.CONTROL_APP.EXPANDED_FOLDERS, expandedFolderArray);
+    return TerrainSettings.setByName("CONTROL_APP.EXPANDED_FOLDERS", expandedFolderArray);
   }
 
   /**
    * Remove all saved expanded folders.
    * @returns {Promise} Promise that resolves when the settings update complete.
    */
-  async clearExpandedFolders() { TerrainSettings.set(TerrainSettings.KEYS.CONTROL_APP.EXPANDED_FOLDERS, []); }
+  async clearExpandedFolders() { TerrainSettings.setByName("CONTROL_APP.EXPANDED_FOLDERS", []); }
 
   /**
    * Check if given folder nae is expanded.
