@@ -214,7 +214,7 @@ export class TerrainEffectsApp extends Application {
   }
 
   get _effectListItems() {
-    return this._rootView.find(".convenient-effect");
+    return this._rootView.find(".terrainmapper-effect");
   }
 
   get _exportCustomEffectsButton() {
