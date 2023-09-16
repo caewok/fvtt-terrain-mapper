@@ -105,9 +105,6 @@ export class Terrain {
    * @property {ActiveEffect} activeEffect    Active effect associated with this terrain
    */
 
-  /** @type {ActiveEffect} */
-  activeEffect;
-
   /** @type {TerrainSettings} */
   _settings;
 
@@ -136,10 +133,14 @@ export class Terrain {
    */
   static getAll() {
     const effects = EffectHelper.getAll();
-    return effects.map(activeEffect => new this({ activeEffect }));
+    const terrains = effects.map(e => new this(e));
+    return terrains;
   }
 
   // NOTE: ----- Getters/Setters -----
+
+  /** @type {ActiveEffect} */
+  get activeEffect() { return this._effectHelper.effect; }
 
   /** @type {string} */
   get name() { return this.activeEffect.name; }

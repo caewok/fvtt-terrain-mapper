@@ -11,6 +11,8 @@ SearchFilter
 // https://github.com/DFreds/dfreds-convenient-effects/blob/main/scripts/app/convenient-effects-controller.js
 
 import { TerrainSettings } from "./settings.js";
+import { Terrain } from "./Terrain.js";
+import { EffectHelper } from "./EffectHelper.js";
 
 /**
  * Controller class to handle app events and manipulate underlying Foundry data.
@@ -26,7 +28,6 @@ export class TerrainEffectsController {
 //     this._customEffectsHandler = new CustomEffectsHandler();
 //     this._dynamicEffectsAdder = new DynamicEffectsAdder();
 //     this._foundryHelpers = new FoundryHelpers();
-    this._settings = new TerrainSettings();
   }
 
   /**
@@ -43,17 +44,38 @@ export class TerrainEffectsController {
         {
           id: 'favorites',
           name: 'Favorites',
-          effects: this._fetchFavorites(),
+          effects: this._fetchFavorites().map(e => {
+            return {
+              name: e.name,
+              icon: e.icon,
+              id: e.id,
+              description: e.description
+            };
+          }),
         },
         {
           id: 'scene',
           name: 'Scene',
-          effects: this._fetchSceneTerrains(),
+          effects: this._fetchSceneTerrains().map(e => {
+            return {
+              name: e.name,
+              icon: e.icon,
+              id: e.id,
+              description: e.description
+            };
+          }),
         },
         {
           id: 'all',
           name: 'All',
-          effects: this._fetchAllTerrains(),
+          effects: this._fetchAllTerrains().map(e => {
+            return {
+              name: e.name,
+              icon: e.icon,
+              id: e.id,
+              description: e.description
+            };
+          }),
         }
       ],
 
@@ -63,6 +85,10 @@ export class TerrainEffectsController {
 
   _fetchFavorites() {
     console.debug("TerrainEffectsController|_fetchFavorites");
+
+    // Data needed: name, icon, id
+
+
     return [];
 //     return this._settings.favoriteEffectNames
 //       .map((name) => {
@@ -79,21 +105,21 @@ export class TerrainEffectsController {
 //       });
   }
 
-  _fetchSceneTerrains() {
+  _fetchSceneTerrains(terrains) {
     console.debug("TerrainEffectsController|_fetchSceneTerrains");
     return [];
   }
 
   _fetchAllTerrains() {
     console.debug("TerrainEffectsController|_fetchAllTerrains");
-    return [];
+    return Terrain.getAll();
   }
 
   /**
    * Remove the collapsed class from all saved, expanded folders
    */
   expandSavedFolders() {
-    this._settings.expandedFolders.forEach(folderId => {
+    TerrainSettings.expandedFolders.forEach(folderId => {
       this._viewMvc.expandFolder(folderId);
     });
   }
@@ -164,7 +190,7 @@ export class TerrainEffectsController {
    */
   async onCollapseAllClick(event) {
     this._viewMvc.collapseAllFolders();
-    await this._settings.clearExpandedFolders();
+    await TerrainSettings.clearExpandedFolders();
   }
 
   /**
@@ -180,10 +206,10 @@ export class TerrainEffectsController {
       this._viewMvc.collapseFolder(folderId);
     }
 
-    if (this._settings.isFolderExpanded(folderId)) {
-      await this._settings.removeExpandedFolder(folderId);
+    if (TerrainSettings.isFolderExpanded(folderId)) {
+      await TerrainSettings.removeExpandedFolder(folderId);
     } else {
-      await this._settings.addExpandedFolder(folderId);
+      await TerrainSettings.addExpandedFolder(folderId);
     }
   }
 
@@ -373,7 +399,7 @@ export class TerrainEffectsController {
         else
           el.classList.toggle(
             'collapsed',
-            !this._settings.isFolderExpanded(el.dataset.folderId)
+            !TerrainSettings.isFolderExpanded(el.dataset.folderId)
           );
       }
     }
