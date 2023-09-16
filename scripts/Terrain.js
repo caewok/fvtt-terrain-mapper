@@ -1,6 +1,6 @@
 /* globals
+ActiveEffect,
 Dialog,
-foundry,
 game,
 readTextFromFile,
 renderTemplate,
@@ -10,8 +10,9 @@ ui
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { FLAGS, COLORS, MODULE_ID } from "./const.js";
+import { FLAGS, MODULE_ID } from "./const.js";
 import { TerrainSettings } from "./settings.js";
+import { EffectHelper } from "./EffectHelper.js";
 
 /**
  * Subclass of Map that manages terrain ids and ensures only 1–31 are used.
@@ -88,13 +89,6 @@ export class TerrainMap extends Map {
  * Scenes store a TerrainMap that links each terrain to a pixel value.
  */
 export class Terrain {
-  // Default colors for terrains.
-  static COLORS = COLORS;
-
-  static #colorId = 0;
-
-  static nextColor() { return this.COLORS[this.#colorId++]; }
-
   /** @type {number} */
   #pixelId;
 
@@ -110,10 +104,6 @@ export class Terrain {
    * @property {boolean} userVisible          Is this terrain visible to the user?
    * @property {ActiveEffect} activeEffect    Active effect associated with this terrain
    */
-  config = {};
-
-  /** @type {boolean} */
-  userVisible = false;
 
   /** @type {ActiveEffect} */
   activeEffect;
@@ -126,39 +116,107 @@ export class Terrain {
    * @param {object} [opts]
    * @param {boolean} [opts.override=false]     Should this terrain replace an existing id?
    */
-  constructor(config = {}) {
-    this._settings = new TerrainSettings();
-
-    this.initializeConfiguration(config);
-    this.userVisible ||= this.config.userVisible;
-
-
+  constructor(activeEffect) {
+    this._effectHelper = new EffectHelper(activeEffect);
   }
 
   /**
-   * Initialize certain undefined configuration values.
+   * @param {TerrainConfig} config
    */
-  initializeConfiguration(config) {
-    if ( )
+  async initialize(config) {
+    await this._effectHelper.initialize(config);
+    this.activeEffect = this._effectHelper.effect;
+  }
 
-    config.activeEffect ??= this._settings.terrainEffectsItem;
+  // NOTE: ----- Static methods -----
+
+  /**
+   * Load all terrains stored in the TerrainsItem.
+   * @returns {Terrain[]}
+   */
+  static getAll() {
+    const effects = EffectHelper.getAll();
+    return effects.map(activeEffect => new this({ activeEffect }));
+  }
+
+  // NOTE: ----- Getters/Setters -----
+
+  /** @type {string} */
+  get name() { return this.activeEffect.name; }
+
+  set name(value) { this.activeEffect.name = value; }
+
+  /** @type {string} */
+  get description() { return this.activeEffect.description; }
+
+  set description(value) { this.activeEffect.description = value; }
+
+  /** @type {string} */
+  get icon() { return this.activeEffect.icon; }
+
+  set icon(value) { this.activeEffect.icon = value; }
+
+  /** @type {string} */
+  get id() { return this.activeEffect.id; }
+
+  /** @type {string} */
+  get uuid() { return this.activeEffect.uuid; }
+
+  /** @type {FLAGS.ANCHOR.CHOICES} */
+  get anchor() { return this.#getAEFlag(FLAGS.ANCHOR.VALUE); }
+
+  set anchor(value) { this.#setAEFlag(FLAGS.ANCHOR.VALUE, value); }
+
+  async setAnchor(value) { return this.#setAEFlag(FLAGS.ANCHOR, value); }
+
+  /** @type {number} */
+  get offset() { return this.#getAEFlag(FLAGS.OFFSET); }
+
+  set offset(value) { this.#setAEFlag(FLAGS.OFFSET, value); }
+
+  async setOffset(value) { return this.#setAEFlag(FLAGS.OFFSET, value); }
+
+  /** @type {number} */
+  get rangeBelow() { return this.#getAEFlag(FLAGS.RANGE_BELOW); }
+
+  set rangeBelow(value) { this.#setAEFlag(FLAGS.RANGE_BELOW, value); }
+
+  async setRangeBelow(value) { return this.#setAEFlag(FLAGS.RANGE_BELOW, value); }
+
+  /** @type {number} */
+  get rangeAbove() { return this.#getAEFlag(FLAGS.RANGE_ABOVE); }
+
+  set rangeAbove(value) { this.#setAEFlag(FLAGS.RANGE_ABOVE, value); }
+
+  async setRangeAbove(value) { return this.#setAEFlag(FLAGS.RANGE_ABOVE, value); }
+
+  /** @type {boolean} */
+  get userVisible() { return this.#getAEFlag(FLAGS.USER_VISIBLE); }
+
+  set userVisible(value) { this.#setAEFlag(FLAGS.USER_VISIBLE, value); }
+
+  async setUserVisible(value) { return this.#setAEFlag(FLAGS.USER_VISIBLE, value); }
+
+  /** @type {string} */
+  get color() { return this.#getAEFlag(FLAGS.COLOR); }
+
+  set color(value) { this.#setAEFlag(FLAGS.COLOR, value); }
+
+  async setColor(value) { return this.#setAEFlag(FLAGS.COLOR, value); }
+
+  // Helpers to get/set the active effect flags.
+  #getAEFlag(flag) { return this.activeEffect.getFlag(MODULE_ID, flag); }
+
+  async #setAEFlag(flag, value) { return this.activeEffect.setFlag(MODULE_ID, flag, value); }
 
 
-    this.config = foundry.utils.deepClone(config);
+  // NOTE: ----- Scene map -----
+  addToScene() {
 
+  }
 
+  removeFromScene() {
 
-    // Initialize certain configurations.
-    this.config.name ||= "";
-    this.config.offset ||= 0;
-    this.config.rangeBelow ||= 0;
-    this.config.rangeAbove ||= 0;
-    this.config.anchor ??= FLAGS.ANCHOR.CHOICES.RELATIVE_TO_TERRAIN;
-    this.config.userVisible ||= false;
-    this.config.icon ||= "icons/svg/mountain.svg";
-
-    // Use the id to select a default terrain color.
-    this.config.color ||= this.nextColor();
   }
 
   /**
@@ -169,11 +227,12 @@ export class Terrain {
    *   - {number} max   Maximum elevation
    */
   elevationMinMax(anchorE) {
-    const { offset, rangeBelow, rangeAbove } = this.config;
+    const { offset, rangeBelow, rangeAbove } = this;
     const e = anchorE + offset;
     return { min: e + rangeBelow, max: e + rangeAbove };
   }
 
+  // NOTE: ---- File in/out -----
 
   toJSON() {
     const out = this.config;
@@ -193,14 +252,8 @@ export class Terrain {
     }
   }
 
-  static toJSON() {
-    const json = [];
-    return this.TERRAINS.forEach(t => json.push(t.toJSON()));
-  }
-
-  static saveToFile() {
-    const data = this.toJSON() ?? {};
-    data.flags ??= {};
+  exportToJSON() {
+    const data = this.activeEffect.toJSON();
     data.flags.exportSource = {
       world: game.world.id,
       system: game.system.id,
@@ -213,11 +266,11 @@ export class Terrain {
     saveDataToFile(JSON.stringify(data, null, 2), "text/json", `${filename.json}`);
   }
 
-  static importFromJSON(json) {
-    console.debug("Need to process this json file!", json);
+  async importFromJSON(json) {
+    await this.activeEffect.importFromJSON(json);
   }
 
-  static async importFromFileDialog() {
+  async importFromJSONDialog() {
     new Dialog({
       title: "Import Terrain Setting Data",
       content: await renderTemplate("templates/apps/import-data.html", {
@@ -244,5 +297,4 @@ export class Terrain {
       width: 400
     }).render(true);
   }
-
 }

@@ -8,8 +8,9 @@ game
 import { MODULE_ID } from "./const.js";
 import { TerrainLayer } from "./TerrainLayer.js";
 import { TerrainSettings } from "./settings.js";
-import { Terrain } from "./Terrain.js";
-import { removeTerrainsItemfromSidebar } from "./util.js";
+import { Terrain, TerrainMap } from "./Terrain.js";
+import { removeTerrainsItemFromSidebar } from "./util.js";
+import { EffectHelper } from "./EffectHelper.js";
 
 // Self-executing hooks.
 import "./controls.js";
@@ -29,16 +30,19 @@ Hooks.once("ready", async function() {
 });
 
 Hooks.on('changeSidebarTab', (directory) => {
-  removeTerrainsItemFromSidebar(directory);
+  // removeTerrainsItemFromSidebar(directory);
 });
 
 Hooks.on('renderItemDirectory', (directory) => {
-  removeTerrainsItemFromSidebar(directory);
+  // removeTerrainsItemFromSidebar(directory);
 });
 
 function initializeAPI() {
   game.modules.get(MODULE_ID).api = {
-    Terrain
+    Terrain,
+    TerrainMap,
+    EffectHelper,
+    TerrainSettings
   };
 
 }

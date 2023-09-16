@@ -89,10 +89,10 @@ export class TerrainSettings {
       restricted: true
     });
 
-    this.register(KEYS.TERRAINS, {
+    this.register(KEYS.TERRAINS_ITEM, {
       scope: "world",
       config: false,
-      default: {} // TODO: Should be stored per-system / world
+      default: undefined // TODO: Should be stored per-system / world
     });
 
     this.register(KEYS.CONTROL_APP.EXPANDED_FOLDERS, {
@@ -119,23 +119,23 @@ export class TerrainSettings {
     }
   }
 
-  get terrainEffectsItem() {
-    return game.items.get(TerrainSettings.getByName("TERRAINS_ITEM"));
+  static get terrainEffectsItem() {
+    return game.items.get(this.getByName("TERRAINS_ITEM"));
   }
 
   /** @type {string[]} */
-  get expandedFolders() { return TerrainSettings.getByName("CONTROL_APP.EXPANDED_FOLDERS"); }
+  static get expandedFolders() { return this.getByName("CONTROL_APP.EXPANDED_FOLDERS"); }
 
   /**
    * Add a given folder id to the saved expanded folders.
    * @param {string} folderId
    * @returns {Promise} A promise that resolves when the setting update completes.
    */
-  async addExpandedFolder(folderId) {
+  static async addExpandedFolder(folderId) {
     let folderArr = this.expandedFolders;
     folderArr.push(folderId);
     folderArr = [...new Set(folderArr)]; // Remove duplicates.
-    TerrainSettings.setByName("CONTROL_APP.EXPANDED_FOLDERS", folderArr);
+    this.setByName("CONTROL_APP.EXPANDED_FOLDERS", folderArr);
   }
 
   /**
@@ -143,21 +143,21 @@ export class TerrainSettings {
    * @param {string} id   Id of the folder to remove from the saved expanded folders list.
    * @returns {Promise} A promise that resolves when the setting update completes.
    */
-  async removeExpandedFolder(id) {
+  static async removeExpandedFolder(id) {
     const expandedFolderArray = this.expandedFolders.filter(expandedFolder => expandedFolder !== id);
-    return TerrainSettings.setByName("CONTROL_APP.EXPANDED_FOLDERS", expandedFolderArray);
+    return this.setByName("CONTROL_APP.EXPANDED_FOLDERS", expandedFolderArray);
   }
 
   /**
    * Remove all saved expanded folders.
    * @returns {Promise} Promise that resolves when the settings update complete.
    */
-  async clearExpandedFolders() { TerrainSettings.setByName("CONTROL_APP.EXPANDED_FOLDERS", []); }
+  static async clearExpandedFolders() { this.setByName("CONTROL_APP.EXPANDED_FOLDERS", []); }
 
   /**
    * Check if given folder nae is expanded.
    * @param {string} id   Folder id for which to search
    * @returns {boolean} True if the folder is in the saved expanded list.
    */
-  isFolderExpanded(id) { return this.expandedFolders.includes(id); }
+  static isFolderExpanded(id) { return this.expandedFolders.includes(id); }
 }

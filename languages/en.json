@@ -9,7 +9,7 @@
   "terrainmapper.controls.upload.name": "Upload terrain data and replace in scene",
   "terrainmapper.controls.download.name": "Download terrain data",
   "terrainmapper.controls.undo.name": "Undo",
-  "terrainmapper.controls.terrain-menu.name": "Terrains"
+  "terrainmapper.controls.terrain-menu.name": "Terrains",
 
   "terrainmapper.controls.decrementTerrain": "Decrement Terrain ID",
   "terrainmapper.controls.incrementTerrain": "Increment Terrain ID",
