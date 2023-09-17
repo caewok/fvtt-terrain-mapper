@@ -182,11 +182,12 @@ export class TerrainEffectsApp extends Application {
         callback: this._controller.onEditEffectClick.bind(this._controller)
       },
       {
-        name: "Delete Terrain",
-        icon: '<i class="fas fa-trash fa-fw"></i>',
+        name: "Duplicate",
+        icon: '<i class="far fa-copy fa-fw"></i>',
         condition: () => game.user.isGM,
-        callback: this._controller.onDeleteEffectClick.bind(this._controller)
+        callback: this._controller.onDuplicate.bind(this._controller)
       },
+
       {
         name: "Add Favorite",
         icon: '<i class="fas fa-star fa-fw"></i>',
@@ -203,12 +204,13 @@ export class TerrainEffectsApp extends Application {
         },
         callback: this._controller.onRemoveFavorite.bind(this._controller)
       },
+
       {
-        name: "Duplicate",
-        icon: '<i class="far fa-copy fa-fw"></i>',
+        name: "Delete Terrain",
+        icon: '<i class="fas fa-trash fa-fw"></i>',
         condition: () => game.user.isGM,
-        callback: this._controller.onDuplicate.bind(this._controller)
-      }
+        callback: this._controller.onDeleteEffectClick.bind(this._controller)
+      },
     ]);
   }
 

@@ -35,12 +35,12 @@ export class EffectHelper {
    * @returns {EffectHelper}
    */
   static fromId(id) {
-    const effect = this.constructor.getTerrainEffectById(id);
+    const effect = this.getTerrainEffectById(id);
     if ( !effect ) {
       console.error(`EffectHelper.fromId|id ${id} not found in the terrains item.`);
       return;
     }
-    return new this.constructor(effect);
+    return new this(effect);
   }
 
   /**
@@ -116,7 +116,7 @@ export class EffectHelper {
   async duplicate() {
     const item = TerrainSettings.terrainEffectsItem;
     const effects = await item.createEmbeddedDocuments("ActiveEffect", [this.effect]);
-    return new this.constructor({activeEffect: effects[0]});
+    return new this.constructor(effects[0]);
   }
 
   static async deleteEffectById(id) {
