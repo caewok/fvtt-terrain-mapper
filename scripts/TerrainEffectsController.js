@@ -87,14 +87,7 @@ export class TerrainEffectsController {
     console.debug("TerrainEffectsController|_fetchFavorites");
     const favorites = new Set(TerrainSettings.getByName("FAVORITES"));
     const terrains = Terrain.getAll().filter(t => favorites.has(t.id));
-    terrains.sort((a, b) => {
-      const nameA = a.name.toLowerCase();
-      const nameB = b.name.toLowerCase();
-      if ( nameA < nameB ) return -1;
-      if ( nameA > nameB ) return 1;
-      return 0;
-    });
-    return terrains;
+    return this._sortTerrains(terrains);
   }
 
   _fetchSceneTerrains(terrains) {
@@ -104,7 +97,19 @@ export class TerrainEffectsController {
 
   _fetchAllTerrains() {
     console.debug("TerrainEffectsController|_fetchAllTerrains");
-    return Terrain.getAll();
+    const terrains = Terrain.getAll();
+    return this._sortTerrains(terrains);
+  }
+
+  _sortTerrains(terrains) {
+    terrains.sort((a, b) => {
+      const nameA = a.name.toLowerCase();
+      const nameB = b.name.toLowerCase();
+      if ( nameA < nameB ) return -1;
+      if ( nameA > nameB ) return 1;
+      return 0;
+    });
+    return terrains;
   }
 
   /**
