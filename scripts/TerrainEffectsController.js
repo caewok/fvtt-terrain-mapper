@@ -131,7 +131,9 @@ export class TerrainEffectsController {
    */
   async onCreateEffectClick(event) {
     console.debug("TerrainEffectsController|onCreateEffectClick");
-    // await this._customEffectsHandler.createNewCustomEffect();
+    const terrain = new Terrain();
+    await terrain.initialize();
+    this._viewMvc.render();
   }
 
   /**
@@ -141,13 +143,10 @@ export class TerrainEffectsController {
    */
   async onEditEffectClick(effectItem) {
     console.debug("TerrainEffectsController|onEditEffectClick");
-
-//     const effectName = effectItem.data().effectName;
-//     const customEffect = this._customEffectsHandler
-//       .getCustomEffects()
-//       .find((effect) => effect.name == effectName);
-//
-//     await this._customEffectsHandler.editCustomEffect(customEffect);
+    const effectId = this._findNearestEffectId(event);
+    const activeEffect = EffectHelper.getTerrainEffectById(effectId);
+    await activeEffect.sheet.render(true);
+    this._viewMvc.render();
   }
 
   /**
@@ -157,6 +156,7 @@ export class TerrainEffectsController {
    */
   async onDeleteEffectClick(effectItem) {
     console.debug("TerrainEffectsController|onDeleteEffectClick");
+
 
 //     const effectName = effectItem.data().effectName;
 //     const customEffect = this._customEffectsHandler
@@ -219,11 +219,7 @@ export class TerrainEffectsController {
    */
   async onEffectClick(event) {
     console.debug("TerrainEffectsController|onEffectClick");
-    const effectId = this._findNearestEffectId(event);
-
-
-//     const effectName = this._findNearestEffectName(event);
-//     await game.dfreds.effectInterface.toggleEffect(effectName);
+    await this.onEditEffectClick(event);
   }
 
   _findNearestEffectName(event) {
@@ -235,7 +231,7 @@ export class TerrainEffectsController {
   _findNearestEffectId(event) {
     return $(event.target)
       .closest('[data-effect-id], .terrainmapper-effect')
-      .data()?.effectName;
+      .data()?.effectId;
   }
 
   /**
