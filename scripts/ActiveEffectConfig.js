@@ -3,6 +3,7 @@
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
+import { MODULE_ID, LABELS } from "./const.js";
 import { TerrainEffectsApp } from "./TerrainEffectsApp.js";
 
 export const PATCHES = {};
@@ -17,4 +18,26 @@ function closeActiveEffectConfig(_app, _html) {
   TerrainEffectsApp.rerender();
 }
 
-PATCHES.BASIC.HOOKS = { closeActiveEffectConfig };
+/**
+ * On active effect render, add the additional terrain settings.
+ * @param {Application} application     The Application instance being rendered
+ * @param {jQuery} html                 The inner HTML of the document that will be displayed and may be modified
+ * @param {object} data                 The object of data used when rendering the application
+ */
+async function renderActiveEffectConfig(app, html, data) {
+  if ( !app.object.getFlag(MODULE_ID, "anchor") ) return;
+
+  const renderData = {};
+  renderData[MODULE_ID] = {
+    anchorOptions: LABELS.ANCHOR_OPTIONS
+  };
+  foundry.utils.mergeObject(data, renderData, { inplace: true });
+
+  // Insert the new configuration fields into the active effect config.
+  const template = `modules/${MODULE_ID}/templates/active-effect-config.html`;
+  const myHTML = await renderTemplate(template, data);
+  html.find('section[data-tab="details"]').find(".form-group").first().before(myHTML);
+  app.setPosition(app.position);
+}
+
+PATCHES.BASIC.HOOKS = { closeActiveEffectConfig, renderActiveEffectConfig };
