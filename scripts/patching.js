@@ -1,5 +1,4 @@
 /* globals
-canvas,
 game
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
@@ -7,14 +6,13 @@ game
 
 import { Patcher } from "./Patcher.js";
 
+import { PATCHES_SidebarTab, PATCHES_ItemDirectory } from "./settings.js";
+import { PATCHES as PATCHES_ActiveEffectConfig } from "./ActiveEffectConfig.js";
+
 export const PATCHES = {
-  ActiveEffect: PATCHES_ActiveEffect,
-  MeasuredTemplate: PATCHES_MeasuredTemplate,
-  MeasuredTemplateConfig: PATCHES_MeasuredTemplateConfig,
-  Setting: PATCHES_Setting,
-  Token: PATCHES_Token,
-  Wall: PATCHES_Wall,
-  dnd5e: PATCHES_dnd5e // Only works b/c these are all hooks. Otherwise, would need class breakdown.
+  ActiveEffectConfig: PATCHES_ActiveEffectConfig,
+  ItemDirectory: PATCHES_ItemDirectory,
+  SidebarTab: PATCHES_SidebarTab
 };
 
 export const PATCHER = new Patcher(PATCHES);
@@ -23,4 +21,3 @@ export function initializePatching() {
   PATCHER.registerGroup("BASIC");
   PATCHER.registerGroup(game.system.id);
 }
-

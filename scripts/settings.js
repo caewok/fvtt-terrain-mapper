@@ -7,6 +7,35 @@ game
 import { MODULE_ID } from "./const.js";
 import { TerrainSettingsMenu } from "./TerrainSettingsMenu.js";
 
+export const PATCHES_SidebarTab = {};
+export const PATCHES_ItemDirectory = {};
+PATCHES_SidebarTab.BASIC = {};
+PATCHES_ItemDirectory.BASIC = {};
+
+/**
+ * Remove the terrains item from sidebar so it does not display.
+ * From https://github.com/DFreds/dfreds-convenient-effects/blob/main/scripts/ui/remove-custom-item-from-sidebar.js#L3
+ * @param {ItemDirectory} dir
+ */
+function removeTerrainsItemFromSidebar(dir) {
+  if ( !dir instanceof ItemDirectory ) return;
+  const id = TerrainSettings.getByName("TERRAINS_ITEM");
+  if ( !id ) return;
+  const li = directory.element.find(`li[data-document-id="${id}"]`);
+  li.remove();
+}
+
+/**
+ * Hooks for changeSidebarTab and renderItemDirectory to remove the terrains item from the directory.
+ */
+function removeTerrainItemHook(directory) {
+  removeTerrainsItemFromSidebar(directory);
+}
+
+PATCHES_SidebarTab.BASIC.HOOKS = { changeSideBarTab: removeTerrainItemHook }
+PATCHES_ItemDirectory.BASIC.HOOKS = { renderItemDirectory: removeTerrainItemHook }
+
+
 export class TerrainSettings {
 
   /**
