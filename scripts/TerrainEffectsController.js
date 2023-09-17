@@ -126,7 +126,6 @@ export class TerrainEffectsController {
 
   /**
    * Handles clicks on the create effect button
-   *
    * @param {MouseEvent} event
    */
   async onCreateEffectClick(event) {
@@ -138,25 +137,35 @@ export class TerrainEffectsController {
 
   /**
    * Handle editing the custom effect
-   *
    * @param {jQuery} effectItem - jQuery element representing the effect list item
    */
   async onEditEffectClick(effectItem) {
     console.debug("TerrainEffectsController|onEditEffectClick");
     const effectId = this._findNearestEffectId(event);
     const activeEffect = EffectHelper.getTerrainEffectById(effectId);
-    await activeEffect.sheet.render(true);
-    this._viewMvc.render();
+    activeEffect.sheet.render(true);
   }
 
   /**
    * Handle deleting the custom effect
-   *
    * @param {jQuery} effectItem - jQuery element representing the effect list item
    */
   async onDeleteEffectClick(effectItem) {
     console.debug("TerrainEffectsController|onDeleteEffectClick");
+    const effectId = this._findNearestEffectId(event);
+    const view = this._viewMvc;
 
+    return Dialog.confirm({
+      title: "Remove Terrain",
+      content:
+        "<h4>Are You Sure?</h4><p>This will remove the terrain from all scenes.",
+      yes: async () => {
+        console.debug("TerrainEffectsController|onDeleteEffectClick yes");
+        const activeEffect = EffectHelper.getTerrainEffectById(effectId);
+        await EffectHelper.deleteEffectById(effectId);
+        view.render();
+      },
+    });
 
 //     const effectName = effectItem.data().effectName;
 //     const customEffect = this._customEffectsHandler
@@ -173,7 +182,7 @@ export class TerrainEffectsController {
    */
   async onResetStatusEffectsClick(event) {
     return Dialog.confirm({
-      title: "Reset Status Effects",
+      title: "Reset Terrain",
       content:
         "<h4>Are You Sure?</h4><p>This will reset all configured terrain effects to the module defaults and reload Foundry.",
       yes: async () => {
@@ -222,12 +231,6 @@ export class TerrainEffectsController {
     await this.onEditEffectClick(event);
   }
 
-  _findNearestEffectName(event) {
-    return $(event.target)
-      .closest('[data-effect-name], .terrainmapper-effect')
-      .data()?.effectName;
-  }
-
   _findNearestEffectId(event) {
     return $(event.target)
       .closest('[data-effect-id], .terrainmapper-effect')
@@ -240,14 +243,9 @@ export class TerrainEffectsController {
    */
   async onAddFavorite(effectItem) {
     console.debug("TerrainEffectsController|onAddFavorite");
-
-    // const effectName = effectItem.data().effectName;
-//
-//     // Don't add favorites twice
-//     if (this._settings.isFavoritedEffect(effectName)) return;
-//
-//     await this._settings.addFavoriteEffect(effectName);
-//     this._viewMvc.render();
+    const effectId = effectItem.data().effectId;
+    await TerrainSettings.addToFavorites(effectId);
+    this._viewMvc.render();
   }
 
   /**
@@ -256,11 +254,9 @@ export class TerrainEffectsController {
    */
   async onRemoveFavorite(effectItem) {
     console.debug("TerrainEffectsController|onRemoveFavorite");
-
-//     const effectName = effectItem.data().effectName;
-//
-//     await this._settings.removeFavoriteEffect(effectName);
-//     this._viewMvc.render();
+    const effectId = effectItem.data().effectId;
+    await TerrainSettings.removeFromFavorites(effectId);
+    this._viewMvc.render();
   }
 
   /**
@@ -270,6 +266,9 @@ export class TerrainEffectsController {
    */
   isFavoritedEffect(effectItem) {
     console.debug("TerrainEffectsController|isFavoritedEffect");
+    const effectId = effectItem.data().effectId;
+    return TerrainSettings.isFavorite(effectItem.id);
+
 //     const effectName = effectItem.data().effectName;
 //     return this._settings.isFavoritedEffect(effectName);
   }
@@ -281,6 +280,7 @@ export class TerrainEffectsController {
    */
   async onToggleStatusEffect(effectItem) {
     console.debug("TerrainEffectsController|onToggleStatusEffect");
+    const effectId = effectItem.data().effectId;
 
 //     const effectName = effectItem.data().effectName;
 //
@@ -300,16 +300,11 @@ export class TerrainEffectsController {
    */
   async onDuplicate(effectItem) {
     console.debug("TerrainEffectsController|onDuplicate");
-
-//     const effectName = effectItem.data().effectName;
-//
-//     const effect = game.dfreds.effects.all.find(
-//       (effect) => effect.name === effectName
-//     );
-//
-//     await this._customEffectsHandler.duplicateExistingEffect(effect);
-//
-//     this._viewMvc.render();
+    const effectId = effectItem.data().effectId;
+    const eHelper = EffectHelper.fromId(effectId);
+    const dupe = await eHelper.duplicate();
+    dupe.effect.name = `${dupe.effect.name} Copy`;
+    this._viewMvc.render();
   }
 
   /**

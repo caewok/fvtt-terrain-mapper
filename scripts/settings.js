@@ -16,6 +16,7 @@ export class TerrainSettings {
   static KEYS = {
     MENU: "menu",
     TERRAINS_ITEM: "terrains_item", // Stores terrain effects
+    FAVORITES: "favorites", // Array of favorite terrains, by effect id.
 
     // Configuration of the application that controls the terrain listings.
     CONTROL_APP: {
@@ -89,6 +90,14 @@ export class TerrainSettings {
       restricted: true
     });
 
+    this.register(KEYS.FAVORITES, {
+      name: "Favorites",
+      scope: "client",
+      config: false,
+      default: [],
+      type: Array
+    });
+
     this.register(KEYS.TERRAINS_ITEM, {
       scope: "world",
       config: false,
@@ -160,4 +169,35 @@ export class TerrainSettings {
    * @returns {boolean} True if the folder is in the saved expanded list.
    */
   static isFolderExpanded(id) { return this.expandedFolders.includes(id); }
+
+  /**
+   * Check if a given effect id is in the favorites set.
+   * @param {string} id     Active effect id
+   * @returns {boolean}
+   */
+  static isFavorite(id) {
+    const favorites = new Set(this.getByName("FAVORITES"));
+    return favorites.has(id);
+  }
+
+  /**
+   * Add effect id to favorites.
+   * @param {string} id     Active effect id
+   */
+  static async addToFavorites(id) {
+    const favorites = new Set(this.getByName("FAVORITES"));
+    favorites.add(id); // Avoids duplicates.
+    return this.setByName("FAVORITES", [...favorites]);
+  }
+
+  /**
+   * Remove effect id from favorites.
+   * @param {string} id
+   */
+  static async removeFromFavorites(id) {
+    const favorites = new Set(this.getByName("FAVORITES"));
+    favorites.delete(id); // Avoids duplicates.
+    return this.setByName("FAVORITES", [...favorites]);
+  }
+
 }

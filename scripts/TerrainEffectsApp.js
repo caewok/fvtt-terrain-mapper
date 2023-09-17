@@ -48,6 +48,17 @@ export class TerrainEffectsApp extends Application {
   }
 
   /**
+   * Re-render if the app is open.
+   * Needed when terrain effects are updated in the effects app.
+   * See https://github.com/DFreds/dfreds-convenient-effects/blob/c2d5e81eb1d28d4db3cb0889c22a775c765c24e3/scripts/foundry-helpers.js#L51
+   */
+  static rerender() {
+    const openApps = Object.values(ui.windows);
+    const terrainEffectsApp = openApps.find(app => app instanceof TerrainEffectsApp);
+    if ( terrainEffectsApp ) terrainEffectsApp.render();
+  }
+
+  /**
    * Initializes the application and its dependencies
    */
   constructor() {

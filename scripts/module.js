@@ -11,6 +11,7 @@ import { TerrainSettings } from "./settings.js";
 import { Terrain, TerrainMap } from "./Terrain.js";
 import { removeTerrainsItemFromSidebar } from "./util.js";
 import { EffectHelper } from "./EffectHelper.js";
+import { TerrainEffectsApp } from "./TerrainEffectsApp.js";
 
 // Self-executing hooks.
 import "./controls.js";
@@ -36,6 +37,12 @@ Hooks.on('changeSidebarTab', (directory) => {
 Hooks.on('renderItemDirectory', (directory) => {
   // removeTerrainsItemFromSidebar(directory);
 });
+
+
+Hooks.on("closeActiveEffectConfig", (app, html) => {
+  TerrainEffectsApp.rerender();
+});
+
 
 function initializeAPI() {
   game.modules.get(MODULE_ID).api = {

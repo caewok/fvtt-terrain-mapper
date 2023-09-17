@@ -122,7 +122,6 @@ export class Terrain {
    */
   async initialize(config) {
     await this._effectHelper.initialize(config);
-    this.activeEffect = this._effectHelper.effect;
   }
 
   // NOTE: ----- Static methods -----

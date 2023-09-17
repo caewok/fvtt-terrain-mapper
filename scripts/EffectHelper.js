@@ -30,6 +30,20 @@ export class EffectHelper {
   }
 
   /**
+   * Retrieve an active effect by id and return the EffectHelper for that effect.
+   * @param {string} id         Active effect id
+   * @returns {EffectHelper}
+   */
+  static fromId(id) {
+    const effect = this.constructor.getTerrainEffectById(id);
+    if ( !effect ) {
+      console.error(`EffectHelper.fromId|id ${id} not found in the terrains item.`);
+      return;
+    }
+    return new this.constructor(effect);
+  }
+
+  /**
    * @typedef {object} TerrainEffectConfig    Data passed to the active effect
    * @property {string} name
    * @property {string} description
@@ -103,6 +117,13 @@ export class EffectHelper {
     const item = TerrainSettings.terrainEffectsItem;
     const effects = await item.createEmbeddedDocuments("ActiveEffect", [this.effect]);
     return new this.constructor({activeEffect: effects[0]});
+  }
+
+  static async deleteEffectById(id) {
+    const item = TerrainSettings.terrainEffectsItem;
+    const activeEffect = this.getTerrainEffectById(id);
+    if ( !activeEffect ) return;
+    await item.deleteEmbeddedDocuments("ActiveEffect", [activeEffect.id]);
   }
 
   /**
