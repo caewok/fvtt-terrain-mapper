@@ -85,24 +85,16 @@ export class TerrainEffectsController {
 
   _fetchFavorites() {
     console.debug("TerrainEffectsController|_fetchFavorites");
-
-    // Data needed: name, icon, id
-
-
-    return [];
-//     return this._settings.favoriteEffectNames
-//       .map((name) => {
-//         return game.dfreds.effects.all.find((effect) => effect.name == name);
-//       })
-//       .filter((effect) => effect)
-//       .sort((a, b) => {
-//         let nameA = a.name.toLowerCase();
-//         let nameB = b.name.toLowerCase();
-//
-//         if (nameA < nameB) return -1;
-//         if (nameA > nameB) return 1;
-//         return 0;
-//       });
+    const favorites = new Set(TerrainSettings.getByName("FAVORITES"));
+    const terrains = Terrain.getAll().filter(t => favorites.has(t.id));
+    terrains.sort((a, b) => {
+      const nameA = a.name.toLowerCase();
+      const nameB = b.name.toLowerCase();
+      if ( nameA < nameB ) return -1;
+      if ( nameA > nameB ) return 1;
+      return 0;
+    });
+    return terrains;
   }
 
   _fetchSceneTerrains(terrains) {
@@ -267,7 +259,7 @@ export class TerrainEffectsController {
   isFavoritedEffect(effectItem) {
     console.debug("TerrainEffectsController|isFavoritedEffect");
     const effectId = effectItem.data().effectId;
-    return TerrainSettings.isFavorite(effectItem.id);
+    return TerrainSettings.isFavorite(effectId);
 
 //     const effectName = effectItem.data().effectName;
 //     return this._settings.isFavoritedEffect(effectName);
