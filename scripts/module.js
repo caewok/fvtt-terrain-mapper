@@ -7,8 +7,11 @@ game
 
 import { MODULE_ID } from "./const.js";
 import { TerrainLayer } from "./TerrainLayer.js";
-import { registerSettings } from "./settings.js";
-import { Terrain } from "./Terrain.js";
+import { TerrainSettings } from "./settings.js";
+import { Terrain, TerrainMap } from "./Terrain.js";
+import { removeTerrainsItemFromSidebar } from "./util.js";
+import { EffectHelper } from "./EffectHelper.js";
+import { TerrainEffectsApp } from "./TerrainEffectsApp.js";
 
 // Self-executing hooks.
 import "./controls.js";
@@ -20,12 +23,33 @@ Hooks.once("init", function() {
 });
 
 Hooks.once("setup", function() {
-  registerSettings();
+  TerrainSettings.registerAll();
 });
+
+Hooks.once("ready", async function() {
+  await TerrainSettings.initializeTerrainsItem();
+});
+
+Hooks.on('changeSidebarTab', (directory) => {
+  // removeTerrainsItemFromSidebar(directory);
+});
+
+Hooks.on('renderItemDirectory', (directory) => {
+  // removeTerrainsItemFromSidebar(directory);
+});
+
+
+Hooks.on("closeActiveEffectConfig", (app, html) => {
+  TerrainEffectsApp.rerender();
+});
+
 
 function initializeAPI() {
   game.modules.get(MODULE_ID).api = {
-    Terrain
+    Terrain,
+    TerrainMap,
+    EffectHelper,
+    TerrainSettings
   };
 
 }

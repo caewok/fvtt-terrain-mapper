@@ -26,7 +26,13 @@ export const FLAGS = {
       RELATIVE_TO_TERRAIN: 1,
       RELATIVE_TO_LAYER: 2
     }
-  }
+  },
+
+  OFFSET: "offset",
+  RANGE_BELOW: "rangeBelow",
+  RANGE_ABOVE: "rangeAbove",
+  USER_VISIBLE: "userVisible",
+  COLOR: "color"
 };
 
 
