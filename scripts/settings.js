@@ -117,15 +117,13 @@ export class TerrainSettings {
    * Register the item used to store terrain effects.
    */
   static async initializeTerrainsItem() {
-    const id = this.getByName("TERRAINS_ITEM");
-    if ( !id ) {
-      const item = await CONFIG.Item.documentClass.create({
-        name: "Terrain Effects",
-        img: "icons/svg/mountain.svg",
-        type: "base"
-      });
-      await this.setByName("TERRAINS_ITEM", item.id);
-    }
+    if ( this.terrainEffectsItem ) return;
+    const item = await CONFIG.Item.documentClass.create({
+      name: "Terrains",
+      img: "icons/svg/mountain.svg",
+      type: "base"
+    });
+    await this.setByName("TERRAINS_ITEM", item.id);
   }
 
   static get terrainEffectsItem() {
