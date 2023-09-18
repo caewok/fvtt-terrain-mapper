@@ -270,6 +270,60 @@ export class TerrainEffectsController {
 //     return this._settings.isFavoritedEffect(effectName);
   }
 
+  /**
+   * Handle clicks on the import terrain menu item.
+   * @param {jQuery} effectItem - jQuery element representing the effect list item
+   */
+  async onImportTerrain(effectItem) {
+    console.debug("TerrainEffectsController|onImportTerrain");
+    const effectId = effectItem.data().effectId;
+    const terrain = Terrain.fromEffectId(effectId);
+    await terrain.importFromJSONDialog();
+    this._viewMvc.render();
+  }
+
+  /**
+   * Handle clicks on the export terrain menu item.
+   * @param {jQuery} effectItem - jQuery element representing the effect list item
+   */
+  onExportTerrain(effectItem) {
+    console.debug("TerrainEffectsController|onExportTerrain");
+    const effectId = effectItem.data().effectId;
+    const terrain = Terrain.fromEffectId(effectId);
+    terrain.exportToJSON();
+  }
+
+  /**
+   * Handle clicks on the import all terrains folder menu item.
+   * @param {jQuery} effectFolder
+   */
+  async onImportAllTerrains(event) {
+    console.debug("TerrainEffectsController|onImportAllTerrains", event);
+    event.stopPropagation();
+    await Terrain.importFromJSONDialog();
+    this._viewMvc.render();
+  }
+
+  /**
+   * Handle clicks on the replace all terrains folder menu item.
+   * @param {jQuery} effectFolder
+   */
+  async onReplaceAllTerrains(event) {
+    console.debug("TerrainEffectsController|onReplaceAllTerrains", event);
+    event.stopPropagation();
+    await Terrain.replaceFromJSONDialog();
+    this._viewMvc.render();
+  }
+
+  /**
+   * Handle clicks on the export all terrains folder menu item.
+   * @param {jQuery} effectFolder
+   */
+  onExportAllTerrains(event) {
+    console.debug("TerrainEffectsController|onExportAllTerrains", event);
+    event.stopPropagation();
+    Terrain.exportToJSON();
+  }
 
   /**
    * Handle adding/removing the effect from the to/from the status effect settings
@@ -302,26 +356,6 @@ export class TerrainEffectsController {
     const dupe = await eHelper.duplicate();
     dupe.effect.name = `${dupe.effect.name} Copy`;
     this._viewMvc.render();
-  }
-
-  /**
-   * Handle clicks on the export custom effects button
-   * @param {MouseEvent} event - event that corresponds to clicking the export
-   */
-  async onExportCustomEffectsClick(event) {
-    console.debug("TerrainEffectsController|onExportCustomEffectsClick");
-//     event.stopPropagation();
-//     await this._customEffectsHandler.exportCustomEffectsToJson();
-  }
-
-  /**
-   * Handle clicks on the import custom effects button
-   * @param {MouseEvent} event - event that corresponds to clicking the export
-   */
-  async onImportCustomEffectsClick(event) {
-    console.debug("TerrainEffectsController|onImportCustomEffectsClick");
-//     event.stopPropagation();
-//     await this._customEffectsHandler.importCustomEffectsFromJson();
   }
 
   /**

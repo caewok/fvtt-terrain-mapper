@@ -39,7 +39,7 @@
   <ol class='directory-list'>
     {{#each folders as |folder|}}
       <li
-        class='directory-item folder flexcol collapsed convenient-folder'
+        class='directory-item folder flexcol collapsed terrainmapper-folder'
         data-folder-id='{{folder.id}}'
         draggable='false'
       >
@@ -50,17 +50,25 @@
           </h3>
           {{#if (eq folder.name "All")}}
             <a
-              title='Import custom effects'
-              class='import-custom-effects create-button create-folder'
+              title='Import terrains'
+              class='import-all-terrains create-button create-folder'
+            >
+              <i class='fas fa-file-arrow-up fa-fw'></i>
+            </a>
+            <a
+              title='Replace terrains'
+              class='replace-all-terrains create-button create-folder'
             >
               <i class='fas fa-file-import fa-fw'></i>
             </a>
+
             <a
-              title='Export custom effects'
-              class='export-custom-effects create-button create-folder'
+              title='Export terrains'
+              class='export-all-terrains create-button create-folder'
             >
-              <i class='fas fa-file-export fa-fw'></i>
+              <i class='fas fa-file-arrow-down fa-fw'></i>
             </a>
+
           {{/if}}
         </header>
         <ol class='subdirectory'>

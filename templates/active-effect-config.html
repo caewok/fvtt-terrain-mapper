@@ -1,0 +1,42 @@
+<div class="form-group">
+  <label> User Visible </label>
+  <div class="form-fields">
+    <input type="checkbox" name="flags.terrainmapper.userVisible" {{ checked data.flags.terrainmapper.userVisible }} />
+  </div>
+</div>
+
+<div class="form-group">
+  <label> Anchor </label>
+  <div class="form-fields">
+    <select name="anchorChoice">
+      {{ selectOptions terrainmapper.anchorOptions selected=data.flags.terrainmapper.anchor localize=true }}
+    </select>
+  </div>
+</div>
+
+<div class="flextable">
+  <div class="flexrow">
+    <div class="form-group-slim">
+      <label> Offset from Anchor </label>
+      <div class="form-fields flexcol" style="flex-grow: 1">
+        <input type="number" value="{{ data.flags.terrainmapper.offset }}" name="flags.terrainmapper.offset" step="1" placeholder="0" style="width:60px">
+      </div>
+    </div>
+
+    <div class="form-group-slim">
+      <label> Range Below </label>
+      <div class="form-fields flexcol" style="flex-grow: 1">
+        <input type="number" value="{{ data.flags.terrainmapper.rangeBelow }}" name="flags.terrainmapper.rangeBelow" step="1" max="0" placeholder="0" style="width:60px">
+      </div>
+    </div>
+
+    <div class="form-group-slim">
+      <label> Range Above </label>
+      <div class="form-fields flexcol" style="flex-grow: 1">
+        <input type="number" value="{{ data.flags.terrainmapper.rangeAbove }}" name="flags.terrainmapper.rangeAbove" step="1" min="0" placeholder="0" style="width:60px">
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr>
