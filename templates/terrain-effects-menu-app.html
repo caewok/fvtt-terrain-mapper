@@ -43,12 +43,22 @@
         data-folder-id='{{folder.id}}'
         draggable='false'
       >
-        <header class='folder-header flexrow'>
+        <header class='folder-header flexrow' data-folder-id='{{folder.id}}'>
           <h3 class='noborder'>
             <i class='fas fa-folder-open fa-fw'></i>
             {{folder.name}}
           </h3>
-          {{#if (eq folder.name "All")}}
+          {{#if (eq folder.id "scene")}}
+            <a
+              title='Edit scene terrain map'
+              class='edit-scene-terrains-map create-button create-folder'
+            >
+              <i class='far fa-pen-to-square fa-fw'></i>
+            </a>
+          {{/if}}
+
+
+          {{#if (eq folder.id "all")}}
             <a
               title='Import terrains'
               class='import-all-terrains create-button create-folder'

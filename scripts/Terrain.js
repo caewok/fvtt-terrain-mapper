@@ -25,6 +25,9 @@ export class TerrainMap extends Map {
   /** @type {number} */
   #nextId = 1;
 
+  /** @type {Map} */
+  terrainIds = new Map();
+
   /** @override */
   set(id, terrain, override = false) {
     id ??= this.#nextId;
@@ -42,6 +45,7 @@ export class TerrainMap extends Map {
     if ( id > this.MAX_TERRAINS ) { console.warn(`Id ${id} exceeds maximum terrains (${this.MAX_TERRAINS}).`); }
 
     super.set(id, terrain);
+    this.terrainIds.set(terrain.id, terrain);
     this.#nextId = this.#findNextId();
     return id;
   }
@@ -53,6 +57,7 @@ export class TerrainMap extends Map {
     const id = this.#nextId;
     if ( id > this.MAX_TERRAINS ) { console.warn(`Id ${id} exceeds maximum terrains (${this.MAX_TERRAINS}).`); }
     super.set(id, terrain);
+    this.terrainIds.set(terrain.id, terrain);
     this.#nextId = this.#findNextId();
     return id;
   }
@@ -65,6 +70,7 @@ export class TerrainMap extends Map {
     if ( this.size === (this.#nextId - 1) ) return this.#nextId + 1;
 
     const keys = [...this.keys()].sort((a, b) => a - b);
+    keys.unshift(0); // For arrays like [3, 4, 6] so it returns 0 as the key.
     const lastConsecutiveKey = keys.find((k, idx) => keys[idx + 1] !== k + 1);
     return lastConsecutiveKey + 1 ?? 1;
   }
@@ -72,14 +78,34 @@ export class TerrainMap extends Map {
   /** @override */
   clear() {
     super.clear();
+    this.terrainIds.clear();
     this.#nextId = 1;
   }
 
   /** @override */
   delete(id) {
+    const terrain = this.get(id);
+    if ( terrain ) this.terrainIds.delete(terrain.id);
     if ( !super.delete(id) ) return false;
     if ( this.#nextId > id ) this.#nextId = this.#findNextId();
     return true;
+  }
+
+  /**
+   * Does this map have a specific terrain id?
+   */
+  hasTerrainId(id) { return this.terrainIds.has(id); }
+
+  /**
+   * Get the key for a given value.
+   * @param {*} value     The value to match.
+   * @returns {*|undefined} The key associated with the value, or false if none.
+   */
+  keyForValue(value) {
+    for ( const [key, testValue] of this.entries() ) {
+      if ( value === testValue ) return key;
+    }
+    return undefined;
   }
 }
 
@@ -92,6 +118,9 @@ export class TerrainMap extends Map {
 export class Terrain {
   /** @type {number} */
   #pixelId;
+
+  /** @type {TerrainMap} */
+  static #sceneMap;
 
   /**
    * @typedef {Object} TerrainConfig          Terrain configuration data
@@ -127,6 +156,38 @@ export class Terrain {
     const effect = EffectHelper.getTerrainEffectById(id);
     return new this(effect);
   }
+
+  /**
+   * Load the scene terrain map.
+   * @returns {TerrainMap}
+   */
+  static loadSceneMap() {
+    const mapData = canvas.scene.getFlag(MODULE_ID, FLAGS.TERRAIN_MAP);
+    const map = new TerrainMap();
+    if ( !mapData ) return new TerrainMap();
+    mapData.forEach(([key, effectId]) => {
+      const terrain = this.fromEffectId(effectId);
+      map.set(key, terrain, true);
+    });
+    return map;
+  }
+
+  /**
+   * Save the scene terrain map.
+   * @param {TerrainMap}
+   */
+  static async _saveSceneMap(terrainMap) {
+    if ( !terrainMap.size ) return;
+    const mapData = [...terrainMap.entries()].map(([key, terrain]) => [key, terrain.id]);
+    await canvas.scene.setFlag(MODULE_ID, FLAGS.TERRAIN_MAP, mapData);
+  }
+
+  static async saveSceneMap() {
+    if ( !this.#sceneMap ) return;
+    await this._saveSceneMap(this.#sceneMap);
+  }
+
+  static get sceneMap() { return this.#sceneMap || (this.#sceneMap = this.loadSceneMap()); }
 
   /**
    * @param {TerrainConfig} config
@@ -215,6 +276,11 @@ export class Terrain {
 
   async setColor(value) { return this.#setAEFlag(FLAGS.COLOR, value); }
 
+  /** @type {number} */
+  get pixelId() {
+    return this.#pixelId || (this.#pixelId = this.constructor.sceneMap.keyForValue(this.id));
+  }
+
   // Helpers to get/set the active effect flags.
   #getAEFlag(flag) { return this.activeEffect.getFlag(MODULE_ID, flag); }
 
@@ -222,12 +288,18 @@ export class Terrain {
 
 
   // NOTE: ----- Scene map -----
-  addToScene() {
-
+  async addToScene() {
+    const map = this.constructor.sceneMap;
+    if ( map.hasTerrainId(this.id) ) return;
+    this.#pixelId = map.add(this);
+    await this.constructor.saveSceneMap();
   }
 
-  removeFromScene() {
-
+  async removeFromScene() {
+    const map = this.constructor.sceneMap;
+    const key = this.pixelId;
+    if ( key ) map.delete(key);
+    await this.constructor.saveSceneMap();
   }
 
   /**
@@ -246,9 +318,7 @@ export class Terrain {
   // NOTE: ---- File in/out -----
 
   toJSON() {
-    const out = this.config;
-    out.activeEffect = out.activeEffect ? out.activeEffect.toJSON() : undefined;
-    return out;
+    return this.activeEffect.toJSON();
   }
 
   updateSource(json) {
