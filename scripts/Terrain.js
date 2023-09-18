@@ -13,6 +13,7 @@ ui
 import { FLAGS, MODULE_ID } from "./const.js";
 import { TerrainSettings } from "./settings.js";
 import { EffectHelper } from "./EffectHelper.js";
+import { TerrainEffectsApp } from "./TerrainEffectsApp.js";
 
 /**
  * Subclass of Map that manages terrain ids and ensures only 1–31 are used.
@@ -260,6 +261,125 @@ export class Terrain {
       }
       config[key] = value;
     }
+  }
+
+  /**
+   * Export the entire terrains item to JSON.
+   */
+  static exportToJSON() {
+    const item = TerrainSettings.terrainEffectsItem;
+    const data = item.toJSON();
+    data.flags.exportSource = {
+      world: game.world.id,
+      system: game.system.id,
+      coreVersion: game.version,
+      systemVersion: game.system.version,
+      terrainMapperVersion: game.modules.get(MODULE_ID).version
+    };
+    const filename = `${MODULE_ID}_terrains`;
+    saveDataToFile(JSON.stringify(data, null, 2), "text/json", `${filename}.json`);
+  }
+
+  /**
+   * Import the entire terrains item and replace the existing.
+   */
+  static async replaceFromJSON(json) {
+    const item = TerrainSettings.terrainEffectsItem;
+    await item.importFromJSON(json);
+    // TODO: Replace scene terrain map(s)?
+
+  }
+
+  /**
+   * Import the entire terrains item and add all effects as additional terrains to the existing.
+   */
+  static async importFromJSON(json) {
+    const item = TerrainSettings.terrainEffectsItem;
+    const tmp = CONFIG.Item.documentClass.fromJSON(json);
+
+    // Transfer the active effects to the existing item.
+    await item.createEmbeddedDocuments("ActiveEffect", tmp.effects.toObject());
+    // await tmp.delete();
+  }
+
+  /**
+   * Dialog to confirm that import should occur.
+   */
+  static async importFromJSONDialog() {
+    // See https://github.com/DFreds/dfreds-convenient-effects/blob/c2d5e81eb1d28d4db3cb0889c22a775c765c24e3/scripts/effects/custom-effects-handler.js#L156
+    const content = await renderTemplate("templates/apps/import-data.html", {
+      hint1: "You may import terrain settings data from an exported JSON file.",
+      hint2: "This operation will add the terrains in the JSON to the existing terrains set."
+    });
+
+    const importPromise = new Promise((resolve, reject) => {
+      new Dialog({
+        title: "Import Multiple Terrains Setting Data",
+        content,
+        buttons: {
+          import: {
+            icon: '<i class="fas fa-file-import"></i>',
+            label: "Import",
+            callback: html => {
+              const form = html.find("form")[0];
+              if ( !form.data.files.length ) return ui.notifications.error("You did not upload a data file!");
+              readTextFromFile(form.data.files[0]).then(json => this.importFromJSON(json));
+              resolve(true);
+            }
+          },
+          no: {
+            icon: '<i class="fas fa-times"></i>',
+            label: "Cancel"
+          }
+        },
+        default: "import"
+      }, {
+        width: 400
+      }).render(true);
+    });
+
+    await importPromise;
+    TerrainEffectsApp.rerender();
+  }
+
+  /**
+   * Dialog to confirm that replacement should occur.
+   */
+  static async replaceFromJSONDialog() {
+    // See https://github.com/DFreds/dfreds-convenient-effects/blob/c2d5e81eb1d28d4db3cb0889c22a775c765c24e3/scripts/effects/custom-effects-handler.js#L156
+    const content = await renderTemplate("templates/apps/import-data.html", {
+      hint1: "You may replace terrain settings data using an exported JSON file.",
+      hint2: "WARNING: This operation will replace all terrain settings data and cannot be undone."
+    });
+
+    const importPromise = new Promise((resolve, reject) => {
+      new Dialog({
+        title: "Replace All Terrain Setting Data",
+        content,
+        buttons: {
+          import: {
+            icon: '<i class="fas fa-file-import"></i>',
+            label: "Import",
+            callback: html => {
+              const form = html.find("form")[0];
+              if ( !form.data.files.length ) return ui.notifications.error("You did not upload a data file!");
+              readTextFromFile(form.data.files[0]).then(json => this.replaceFromJSON(json));
+              resolve(true);
+            }
+          },
+          no: {
+            icon: '<i class="fas fa-times"></i>',
+            label: "Cancel"
+          }
+        },
+        default: "import"
+      }, {
+        width: 400
+      }).render(true);
+    });
+
+    await importPromise;
+    TerrainEffectsApp.rerender();
   }
 
   exportToJSON() {

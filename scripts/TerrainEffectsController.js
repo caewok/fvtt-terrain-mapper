@@ -297,24 +297,32 @@ export class TerrainEffectsController {
    * Handle clicks on the import all terrains folder menu item.
    * @param {jQuery} effectFolder
    */
-  async onImportAllTerrains(effectFolder) {
-    console.debug("TerrainEffectsController|onImportAllTerrains", effectFolder);
+  async onImportAllTerrains(event) {
+    console.debug("TerrainEffectsController|onImportAllTerrains", event);
+    event.stopPropagation();
+    await Terrain.importFromJSONDialog();
+    this._viewMvc.render();
   }
 
   /**
    * Handle clicks on the replace all terrains folder menu item.
    * @param {jQuery} effectFolder
    */
-  async onReplaceAllTerrains(effectFolder) {
-    console.debug("TerrainEffectsController|onReplaceAllTerrains", effectFolder);
+  async onReplaceAllTerrains(event) {
+    console.debug("TerrainEffectsController|onReplaceAllTerrains", event);
+    event.stopPropagation();
+    await Terrain.replaceFromJSONDialog();
+    this._viewMvc.render();
   }
 
   /**
    * Handle clicks on the export all terrains folder menu item.
    * @param {jQuery} effectFolder
    */
-  onExportAllTerrains(effectFolder) {
-    console.debug("TerrainEffectsController|onExportAllTerrains", effectFolder);
+  onExportAllTerrains(event) {
+    console.debug("TerrainEffectsController|onExportAllTerrains", event);
+    event.stopPropagation();
+    Terrain.exportToJSON();
   }
 
   /**
@@ -349,28 +357,6 @@ export class TerrainEffectsController {
     dupe.effect.name = `${dupe.effect.name} Copy`;
     this._viewMvc.render();
   }
-
-  /**
-   * Handle clicks on the export custom effects button
-   * @param {MouseEvent} event - event that corresponds to clicking the export
-   */
-  async onExportCustomEffectsClick(event) {
-    console.debug("TerrainEffectsController|onExportCustomEffectsClick");
-//     event.stopPropagation();
-//     await this._customEffectsHandler.exportCustomEffectsToJson();
-  }
-
-  /**
-   * Handle clicks on the import custom effects button
-   * @param {MouseEvent} event - event that corresponds to clicking the export
-   */
-  async onImportCustomEffectsClick(event) {
-    console.debug("TerrainEffectsController|onImportCustomEffectsClick");
-//     event.stopPropagation();
-//     await this._customEffectsHandler.importCustomEffectsFromJson();
-  }
-
-
 
   /**
    * Handles starting the drag for effect items

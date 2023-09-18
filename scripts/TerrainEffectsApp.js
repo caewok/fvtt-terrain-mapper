@@ -56,7 +56,7 @@ export class TerrainEffectsApp extends Application {
   static rerender() {
     const openApps = Object.values(ui.windows);
     const terrainEffectsApp = openApps.find(app => app instanceof TerrainEffectsApp);
-    if ( terrainEffectsApp ) terrainEffectsApp.render();
+    if ( terrainEffectsApp ) terrainEffectsApp.render(true);
   }
 
   /**
@@ -156,18 +156,27 @@ export class TerrainEffectsApp extends Application {
       "click",
       this._controller.onEffectClick.bind(this._controller)
     );
-    this._exportCustomEffectsButton.on(
+
+    // Import/Export all terrains from the All folder buttons.
+    this._importAllTerrainsButton.on(
       "click",
-      this._controller.onExportCustomEffectsClick.bind(this._controller)
+      this._controller.onImportAllTerrains.bind(this._controller)
     );
+    this._replaceAllTerrainsButton.on(
+      "click",
+      this._controller.onReplaceAllTerrains.bind(this._controller)
+    );
+    this._exportAllTerrainsButton.on(
+      "click",
+      this._controller.onExportAllTerrains.bind(this._controller)
+    );
+
+
     this._folderHeaders.on(
       "click",
       this._controller.onFolderClick.bind(this._controller)
     );
-    this._importCustomEffectsButton.on(
-      "click",
-      this._controller.onImportCustomEffectsClick.bind(this._controller)
-    );
+
     this._resetStatusEffectsButton.on(
       "click",
       this._controller.onResetStatusEffectsClick.bind(this._controller)
@@ -227,31 +236,6 @@ export class TerrainEffectsApp extends Application {
         callback: this._controller.onDeleteEffectClick.bind(this._controller)
       },
     ]);
-
-    // .terrainmapper-folder[data-folder-id="all"]
-    const isCollapsed = this.isFolderCollapsed.bind(this);
-    new ContextMenu(this._rootView, '.folder-header[data-folder-id="all"]', [
-      {
-        name: "Import Terrains",
-        icon: '<i class="far fa-file-arrow-up"></i>',
-        condition: () => game.user.isGM && isCollapsed("all"),
-        callback: this._controller.onImportAllTerrains.bind(this._controller)
-      },
-
-      {
-        name: "Replace All Terrains",
-        icon: '<i class="fas fa-file-import"></i>',
-        condition: () => game.user.isGM && isCollapsed("all"),
-        callback: this._controller.onReplaceAllTerrains.bind(this._controller)
-      },
-
-      {
-        name: "Export All Terrains",
-        icon: '<i class="far fa-file-arrow-down"></i>',
-        condition: () => game.user.isGM && isCollapsed("all"),
-        callback: this._controller.onExportAllTerrains.bind(this._controller)
-      },
-    ]);
   }
 
   get _allDirectories() {
@@ -270,17 +254,22 @@ export class TerrainEffectsApp extends Application {
     return this._rootView.find(".terrainmapper-effect");
   }
 
-  get _exportCustomEffectsButton() {
-    return this._rootView.find(".export-custom-effects");
+  get _importAllTerrainsButton() {
+    return this._rootView.find(".import-all-terrains");
+  }
+
+  get _replaceAllTerrainsButton() {
+    return this._rootView.find(".replace-all-terrains");
+  }
+
+  get _exportAllTerrainsButton() {
+    return this._rootView.find(".export-all-terrains");
   }
 
   get _folderHeaders() {
     return this._rootView.find(".directory-list .folder-header");
   }
 
-  get _importCustomEffectsButton() {
-    return this._rootView.find(".import-custom-effects");
-  }
 
   get _resetStatusEffectsButton() {
     return this._rootView.find(".reset-status-effects");

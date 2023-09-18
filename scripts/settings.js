@@ -21,7 +21,7 @@ function removeTerrainsItemFromSidebar(dir) {
   if ( !dir instanceof ItemDirectory ) return;
   const id = TerrainSettings.getByName("TERRAINS_ITEM");
   if ( !id ) return;
-  const li = directory.element.find(`li[data-document-id="${id}"]`);
+  const li = dir.element.find(`li[data-document-id="${id}"]`);
   li.remove();
 }
 
