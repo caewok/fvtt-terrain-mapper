@@ -13,6 +13,7 @@ SearchFilter
 import { TerrainSettings } from "./settings.js";
 import { Terrain } from "./Terrain.js";
 import { EffectHelper } from "./EffectHelper.js";
+import { TerrainSceneConfig } from "./TerrainSceneConfig.js";
 
 /**
  * Controller class to handle app events and manipulate underlying Foundry data.
@@ -35,6 +36,9 @@ export class TerrainEffectsController {
    * @returns {Object} the data to pass to the template
    */
   get data() {
+    const terrains = Terrain.getAll();
+    this._sortTerrains(terrains);
+
     return {
       // Folders:
       // - Favorites: Smart folder; displays any item that is favorited.
@@ -44,7 +48,7 @@ export class TerrainEffectsController {
         {
           id: 'favorites',
           name: 'Favorites',
-          effects: this._fetchFavorites().map(e => {
+          effects: this._fetchFavorites(terrains).map(e => {
             return {
               name: e.name,
               icon: e.icon,
@@ -56,7 +60,7 @@ export class TerrainEffectsController {
         {
           id: 'scene',
           name: 'Scene',
-          effects: this._fetchSceneTerrains().map(e => {
+          effects: this._fetchSceneTerrains(terrains).map(e => {
             return {
               name: e.name,
               icon: e.icon,
@@ -68,7 +72,7 @@ export class TerrainEffectsController {
         {
           id: 'all',
           name: 'All',
-          effects: this._fetchAllTerrains().map(e => {
+          effects: terrains.map(e => {
             return {
               name: e.name,
               icon: e.icon,
@@ -83,23 +87,19 @@ export class TerrainEffectsController {
     };
   }
 
-  _fetchFavorites() {
+  _fetchFavorites(terrains) {
     console.debug("TerrainEffectsController|_fetchFavorites");
     const favorites = new Set(TerrainSettings.getByName("FAVORITES"));
-    const terrains = Terrain.getAll().filter(t => favorites.has(t.id));
-    return this._sortTerrains(terrains);
+    return terrains.filter(t => favorites.has(t.id));
   }
 
   _fetchSceneTerrains(terrains) {
     console.debug("TerrainEffectsController|_fetchSceneTerrains");
-    return [];
+    const map = Terrain.sceneMap;
+    const ids = new Set([...map.values()].map(terrain => terrain.id));
+    return terrains.filter(t => ids.has(t.id));
   }
 
-  _fetchAllTerrains() {
-    console.debug("TerrainEffectsController|_fetchAllTerrains");
-    const terrains = Terrain.getAll();
-    return this._sortTerrains(terrains);
-  }
 
   _sortTerrains(terrains) {
     terrains.sort((a, b) => {
@@ -119,6 +119,16 @@ export class TerrainEffectsController {
     TerrainSettings.expandedFolders.forEach(folderId => {
       this._viewMvc.expandFolder(folderId);
     });
+  }
+
+  /**
+   * Handles clicks on the edit scene terrain map button.
+   * Displays a mini-configuration that lists all scene terrains with their
+   * pixel values. Allows re-assignment of pixel values to different terrains.
+   */
+  async onEditSceneTerrains() {
+    console.debug("TerrainEffectsController|onEditSceneTerrains");
+    new TerrainSceneConfig().render(true);
   }
 
   /**
@@ -268,6 +278,40 @@ export class TerrainEffectsController {
 
 //     const effectName = effectItem.data().effectName;
 //     return this._settings.isFavoritedEffect(effectName);
+  }
+
+  /**
+   * Check if the given item is already in the scene map.
+   * @param {jQuery} effectItem - jQuery element representing the effect list item
+   * @returns true if the effect is in the scene map.
+   */
+  isInScene(effectItem) {
+    console.debug("TerrainEffectsController|isInScene");
+    const effectId = effectItem.data().effectId;
+    return Terrain.sceneMap.hasTerrainId(effectId);
+  }
+
+  /**
+   * Add the given effect to the scene terrain map.
+   */
+  async onAddToScene(effectItem) {
+    console.debug("TerrainEffectsController|onAddToScene");
+    const effectId = effectItem.data().effectId;
+    const terrain = Terrain.fromEffectId(effectId);
+    await terrain.addToScene();
+    this._viewMvc.render();
+  }
+
+
+  /**
+   * Remove the given effect from the scene terrain map.
+   */
+  async onRemoveFromScene(effectItem) {
+    console.debug("TerrainEffectsController|onRemoveFromScene");
+    const effectId = effectItem.data().effectId;
+    const terrain = Terrain.fromEffectId(effectId);
+    await terrain.removeFromScene();
+    this._viewMvc.render();
   }
 
   /**

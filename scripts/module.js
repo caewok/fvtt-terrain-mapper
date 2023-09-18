@@ -15,18 +15,51 @@ import { PATCHER, initializePatching } from "./patching.js";
 // Self-executing hooks.
 import "./controls.js";
 
+/**
+ * A hook event that fires as Foundry is initializing, right before any
+ * initialization tasks have begun.
+ */
 Hooks.once("init", function() {
   initializePatching();
   initializeAPI();
   TerrainLayer.register();
 });
 
+/**
+ * A hook event that fires when Foundry has finished initializing but
+ * before the game state has been set up. Fires before any Documents, UI
+ * applications, or the Canvas have been initialized.
+ */
 Hooks.once("setup", function() {
   TerrainSettings.registerAll();
 });
 
+/**
+ * A hook event that fires when the game is fully ready.
+ */
 Hooks.once("ready", async function() {
   await TerrainSettings.initializeTerrainsItem();
+});
+
+/**
+ * A hook event that fires when the Canvas is initialized.
+ * @param {Canvas} canvas   The Canvas instance being initialized
+ */
+Hooks.once("canvasInit", function(canvas) {
+  console.debug("canvasInit", canvas);
+
+  // Load the scene terrain map.
+
+
+
+});
+
+/**
+ * A hook event that fires when the Canvas is ready.
+ * @param {Canvas} canvas The Canvas which is now ready for use
+ */
+Hooks.once("canvasReady", function(canvas, canvasEffects0, canvasEffects1, canvasVisibility) {
+  console.debug("canvasReady", canvas, canvasEffects0, canvasEffects1, canvasVisibility);
 });
 
 
@@ -38,7 +71,6 @@ function initializeAPI() {
     TerrainSettings,
     PATCHER
   };
-
 }
 
 /* TODO: Things needed

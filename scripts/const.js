@@ -32,7 +32,8 @@ export const FLAGS = {
   RANGE_BELOW: "rangeBelow",
   RANGE_ABOVE: "rangeAbove",
   USER_VISIBLE: "userVisible",
-  COLOR: "color"
+  COLOR: "color",
+  TERRAIN_MAP: "terrainMap"
 };
 
 

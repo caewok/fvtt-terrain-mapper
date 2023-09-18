@@ -157,6 +157,11 @@ export class TerrainEffectsApp extends Application {
       this._controller.onEffectClick.bind(this._controller)
     );
 
+    this._editSceneTerrainsButton.on(
+      "click",
+      this._controller.onEditSceneTerrains.bind(this._controller)
+    );
+
     // Import/Export all terrains from the All folder buttons.
     this._importAllTerrainsButton.on(
       "click",
@@ -170,7 +175,6 @@ export class TerrainEffectsApp extends Application {
       "click",
       this._controller.onExportAllTerrains.bind(this._controller)
     );
-
 
     this._folderHeaders.on(
       "click",
@@ -196,6 +200,19 @@ export class TerrainEffectsApp extends Application {
         icon: '<i class="far fa-copy fa-fw"></i>',
         condition: () => game.user.isGM,
         callback: this._controller.onDuplicate.bind(this._controller)
+      },
+
+      {
+        name: "Add to Scene",
+        icon: '<i class="fas fa-mountain-city"></i>',
+        condition: effectItem => game.user.isGM && !this._controller.isInScene(effectItem),
+        callback: this._controller.onAddToScene.bind(this._controller)
+      },
+      {
+        name: "Remove from Scene",
+        icon: '<i class="fas fa-strikethrough"></i>',
+        condition: effectItem => game.user.isGM && this._controller.isInScene(effectItem),
+        callback: this._controller.onRemoveFromScene.bind(this._controller)
       },
 
       {
@@ -266,10 +283,13 @@ export class TerrainEffectsApp extends Application {
     return this._rootView.find(".export-all-terrains");
   }
 
+  get _editSceneTerrainsButton() {
+    return this._rootView.find(".edit-scene-terrains-map");
+  }
+
   get _folderHeaders() {
     return this._rootView.find(".directory-list .folder-header");
   }
-
 
   get _resetStatusEffectsButton() {
     return this._rootView.find(".reset-status-effects");
