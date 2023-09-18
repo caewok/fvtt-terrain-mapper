@@ -118,6 +118,16 @@ export class Terrain {
   }
 
   /**
+   * Construct a Terrain given an effect id.
+   * @param {string} id   Active effect id
+   * @returns {Terrain}
+   */
+  static fromEffectId(id){
+    const effect = EffectHelper.getTerrainEffectById(id);
+    return new this(effect);
+  }
+
+  /**
    * @param {TerrainConfig} config
    */
   async initialize(config) {
@@ -262,8 +272,8 @@ export class Terrain {
       terrainMapperVersion: game.modules.get(MODULE_ID).version
     };
 
-    const filename = `${MODULE_ID}_terrains`;
-    saveDataToFile(JSON.stringify(data, null, 2), "text/json", `${filename.json}`);
+    const filename = `${MODULE_ID}_${this.name}`;
+    saveDataToFile(JSON.stringify(data, null, 2), "text/json", `${filename}.json`);
   }
 
   async importFromJSON(json) {

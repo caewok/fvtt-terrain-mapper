@@ -270,6 +270,52 @@ export class TerrainEffectsController {
 //     return this._settings.isFavoritedEffect(effectName);
   }
 
+  /**
+   * Handle clicks on the import terrain menu item.
+   * @param {jQuery} effectItem - jQuery element representing the effect list item
+   */
+  async onImportTerrain(effectItem) {
+    console.debug("TerrainEffectsController|onImportTerrain");
+    const effectId = effectItem.data().effectId;
+    const terrain = Terrain.fromEffectId(effectId);
+    await terrain.importFromJSONDialog();
+    this._viewMvc.render();
+  }
+
+  /**
+   * Handle clicks on the export terrain menu item.
+   * @param {jQuery} effectItem - jQuery element representing the effect list item
+   */
+  onExportTerrain(effectItem) {
+    console.debug("TerrainEffectsController|onExportTerrain");
+    const effectId = effectItem.data().effectId;
+    const terrain = Terrain.fromEffectId(effectId);
+    terrain.exportToJSON();
+  }
+
+  /**
+   * Handle clicks on the import all terrains folder menu item.
+   * @param {jQuery} effectFolder
+   */
+  async onImportAllTerrains(effectFolder) {
+    console.debug("TerrainEffectsController|onImportAllTerrains", effectFolder);
+  }
+
+  /**
+   * Handle clicks on the replace all terrains folder menu item.
+   * @param {jQuery} effectFolder
+   */
+  async onReplaceAllTerrains(effectFolder) {
+    console.debug("TerrainEffectsController|onReplaceAllTerrains", effectFolder);
+  }
+
+  /**
+   * Handle clicks on the export all terrains folder menu item.
+   * @param {jQuery} effectFolder
+   */
+  onExportAllTerrains(effectFolder) {
+    console.debug("TerrainEffectsController|onExportAllTerrains", effectFolder);
+  }
 
   /**
    * Handle adding/removing the effect from the to/from the status effect settings
@@ -323,6 +369,8 @@ export class TerrainEffectsController {
 //     event.stopPropagation();
 //     await this._customEffectsHandler.importCustomEffectsFromJson();
   }
+
+
 
   /**
    * Handles starting the drag for effect items

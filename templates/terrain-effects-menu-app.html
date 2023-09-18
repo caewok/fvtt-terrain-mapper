@@ -39,11 +39,11 @@
   <ol class='directory-list'>
     {{#each folders as |folder|}}
       <li
-        class='directory-item folder flexcol collapsed convenient-folder'
+        class='directory-item folder flexcol collapsed terrainmapper-folder'
         data-folder-id='{{folder.id}}'
         draggable='false'
       >
-        <header class='folder-header flexrow'>
+        <header class='folder-header flexrow' data-folder-id='{{folder.id}}'>
           <h3 class='noborder'>
             <i class='fas fa-folder-open fa-fw'></i>
             {{folder.name}}

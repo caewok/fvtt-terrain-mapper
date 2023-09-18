@@ -207,10 +207,49 @@ export class TerrainEffectsApp extends Application {
       },
 
       {
+        name: "Import Terrain",
+        icon: '<i class="far fa-file-arrow-up"></i>',
+        condition: () => game.user.isGM,
+        callback: this._controller.onImportTerrain.bind(this._controller)
+      },
+
+      {
+        name: "Export Terrain",
+        icon: '<i class="far fa-file-arrow-down"></i>',
+        condition: () => game.user.isGM,
+        callback: this._controller.onExportTerrain.bind(this._controller)
+      },
+
+      {
         name: "Delete Terrain",
         icon: '<i class="fas fa-trash fa-fw"></i>',
         condition: () => game.user.isGM,
         callback: this._controller.onDeleteEffectClick.bind(this._controller)
+      },
+    ]);
+
+    // .terrainmapper-folder[data-folder-id="all"]
+    const isCollapsed = this.isFolderCollapsed.bind(this);
+    new ContextMenu(this._rootView, '.folder-header[data-folder-id="all"]', [
+      {
+        name: "Import Terrains",
+        icon: '<i class="far fa-file-arrow-up"></i>',
+        condition: () => game.user.isGM && isCollapsed("all"),
+        callback: this._controller.onImportAllTerrains.bind(this._controller)
+      },
+
+      {
+        name: "Replace All Terrains",
+        icon: '<i class="fas fa-file-import"></i>',
+        condition: () => game.user.isGM && isCollapsed("all"),
+        callback: this._controller.onReplaceAllTerrains.bind(this._controller)
+      },
+
+      {
+        name: "Export All Terrains",
+        icon: '<i class="far fa-file-arrow-down"></i>',
+        condition: () => game.user.isGM && isCollapsed("all"),
+        callback: this._controller.onExportAllTerrains.bind(this._controller)
       },
     ]);
   }
