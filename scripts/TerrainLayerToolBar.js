@@ -8,6 +8,7 @@ mergeObject,
 "use strict";
 
 import { MODULE_ID } from "./const.js";
+import { Terrain } from "./Terrain.js";
 
 export class TerrainLayerToolBar extends Application {
   /** @type {number} */
@@ -41,16 +42,42 @@ export class TerrainLayerToolBar extends Application {
 
   activateListeners(html) {
     super.activateListeners(html);
-    $(".control-btn[data-tool]", html).on("click", this._onHandleClick.bind(this));
-    $("#el-curr-terrain", html).on("change", this._onHandleChange.bind(this));
+//     $(".control-btn[data-tool]", html).on("click", this._onHandleClick.bind(this));
+//     $("#el-curr-terrain", html).on("change", this._onHandleChange.bind(this));
   }
 
   getData(_options) {
+    const sceneMap = Terrain.sceneMap;
+    const terrains = Terrain.getAll();
+    this._sortTerrains(terrains);
+
+    const nonSceneTerrains = [];
+    const sceneTerrains = [];
+    for ( const terrain of terrains ) {
+      const obj = {
+        key: terrain.id,
+        label: terrain.name,
+        isSelected: false // TODO: Fix choosing selected terrain.
+      };
+      const arr = sceneMap.hasTerrainId(terrain.id) ? sceneTerrains : nonSceneTerrains;
+      arr.push(obj);
+    }
+
     return {
-      terrainmax: canvas.terrain.constructor.MAX_TERRAIN_ID,
-      terraincurr: this.currentTerrain,
-      terrainlayercurr: this.currentTerrainLayer
+      sceneTerrains,
+      nonSceneTerrains
     };
+  }
+
+  _sortTerrains(terrains) {
+    terrains.sort((a, b) => {
+      const nameA = a.name.toLowerCase();
+      const nameB = b.name.toLowerCase();
+      if ( nameA < nameB ) return -1;
+      if ( nameA > nameB ) return 1;
+      return 0;
+    });
+    return terrains;
   }
 
   /**
@@ -58,16 +85,18 @@ export class TerrainLayerToolBar extends Application {
    * @param {Event} event
    */
   _onHandleChange(event) {
-    if ( event.currentTarget.id !== "el-curr-terrain" ) return;
-    this.currentTerrain = parseInt(event.currentTarget.value);
-    this.render();
+    console.debug("TerrainLayerToolBar|_onHandleChange")
+//     if ( event.currentTarget.id !== "el-curr-terrain" ) return;
+//     this.currentTerrain = parseInt(event.currentTarget.value);
+//     this.render();
   }
 
   _onHandleClick(event) {
-    const btn = event.currentTarget;
-    const id = $(btn).attr("id");
-    this.currentTerrain += TERRAIN_CLICKS[id];
-    this.render();
+    console.debug("TerrainLayerToolBar|_onHandleClick")
+//     const btn = event.currentTarget;
+//     const id = $(btn).attr("id");
+//     this.currentTerrain += TERRAIN_CLICKS[id];
+//     this.render();
   }
 
   async _render(...args) {

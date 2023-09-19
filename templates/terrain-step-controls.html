@@ -1,15 +1,31 @@
-<ol id="terrainmapper-tools" class="control-tools flexcol">
-    <li class="control-tool" title="{{localize "terrainmapper.controls.incrementTerrain"}}">
-        <button class="control-btn" id="el-inc-terrain" data-tool="inc-terrain" type="button">
-            <i class="fas fa-chevron-up"></i>
-        </button>
-    </li>
-    <li id="el-terrain-number" class="control-tool" title="{{localize "terrainmapper.controls.currentTerrain"}}">
-        <input type="number" id="el-curr-terrain" step=1 min=0 max={{ terrainmax }} value={{ terraincurr }}>
-    </li>
-    <li class="control-tool" title="{{localize "terrainmapper.controls.decrementTerrain"}}">
-        <button class="control-btn" id="el-dec-terrain" data-tool="dec-terrain" type="button">
-            <i class="fas fa-chevron-down"></i>
-        </button>
-    </li>
+<ol id="terrainmapper-tools" class="sub-controls app control-tools flexcol" role="tabpanel">
+  <li id="terrainmapper-tool"
+      class="control-tool"
+      role="button"
+      data-tooltip="Select terrain to use with the tool"
+      title="{{ localize 'terrainmapper.controls.currentTerrain' }}"
+      style="width: 100px;"
+      >
+    <select name="terrain-selected"
+            class="terrainmapper-tools form-fields"
+            style="text-align: left; width: 100px; font-size: 14px; border: 0px; color: #f0f0e0">
+
+    <!---
+    <option value="1">Ice</option>
+    <option value="2" "selected">Move x2</option>
+    <option disabled>──────────</option>
+    <option value="x3">Ice 2</option>
+    -->
+
+      {{#each sceneTerrains as |terrain|}}
+        <option value="{{ terrain.key }}" {{ifThen terrain.isSelected "selected" : ""}}>{{ terrain.label }} </option>
+      {{/each}}
+      <option disabled>──────────</option>
+
+      {{#each nonSceneTerrains as |terrain|}}
+        <option value="{{ terrain.key }}" {{ifThen terrain.isSelected "selected" : ""}}>{{ terrain.label }} </option>
+      {{/each}}
+
+    </select>
+  </li>
 </ol>
