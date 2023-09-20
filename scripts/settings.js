@@ -1,5 +1,8 @@
 /* globals
-game
+CONFIG,
+game,
+getProperty,
+ItemDirectory
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
@@ -18,7 +21,7 @@ PATCHES_ItemDirectory.BASIC = {};
  * @param {ItemDirectory} dir
  */
 function removeTerrainsItemFromSidebar(dir) {
-  if ( !dir instanceof ItemDirectory ) return;
+  if ( !(dir instanceof ItemDirectory) ) return;
   const id = TerrainSettings.getByName("TERRAINS_ITEM");
   if ( !id ) return;
   const li = dir.element.find(`li[data-document-id="${id}"]`);
@@ -32,8 +35,8 @@ function removeTerrainItemHook(directory) {
   removeTerrainsItemFromSidebar(directory);
 }
 
-PATCHES_SidebarTab.BASIC.HOOKS = { changeSideBarTab: removeTerrainItemHook }
-PATCHES_ItemDirectory.BASIC.HOOKS = { renderItemDirectory: removeTerrainItemHook }
+PATCHES_SidebarTab.BASIC.HOOKS = { changeSideBarTab: removeTerrainItemHook };
+PATCHES_ItemDirectory.BASIC.HOOKS = { renderItemDirectory: removeTerrainItemHook };
 
 
 export class TerrainSettings {
@@ -46,6 +49,7 @@ export class TerrainSettings {
     MENU: "menu",
     TERRAINS_ITEM: "terrains_item", // Stores terrain effects
     FAVORITES: "favorites", // Array of favorite terrains, by effect id.
+    CURRENT_TERRAIN: "current_terrain", // Current terrain on the terrain layer.
 
     // Configuration of the application that controls the terrain listings.
     CONTROL_APP: {
@@ -139,6 +143,14 @@ export class TerrainSettings {
       config: false,
       default: [],
       type: Array
+    });
+
+    this.register(KEYS.CURRENT_TERRAIN, {
+      name: "Current Terrain",
+      scope: "client",
+      config: false,
+      default: "",
+      type: String
     });
   }
 

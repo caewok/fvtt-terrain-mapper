@@ -143,18 +143,23 @@ export class Terrain {
    * @param {object} [opts]
    * @param {boolean} [opts.override=false]     Should this terrain replace an existing id?
    */
-  constructor(activeEffect) {
+  constructor(activeEffect, checkExisting = true) {
+    if ( checkExisting && activeEffect ) {
+      const terrain = this.constructor.sceneMap.terrainIds.get(activeEffect.id);
+      if ( terrain ) return terrain;
+    }
+
     this._effectHelper = new EffectHelper(activeEffect);
   }
 
   /**
    * Construct a Terrain given an effect id.
    * @param {string} id   Active effect id
-   * @returns {Terrain}
+   * @returns {Terrain}  Either an existing scene terrain or a new terrain.
    */
-  static fromEffectId(id){
-    const effect = EffectHelper.getTerrainEffectById(id);
-    return new this(effect);
+  static fromEffectId(id, checkExisting = true) {
+    if ( checkExisting && this.sceneMap.terrainIds.has(id) ) return this.sceneMap.terrainIds.get(id);
+    return new this(EffectHelper.getTerrainEffectById(id), checkExisting);
   }
 
   /**
@@ -166,7 +171,7 @@ export class Terrain {
     const map = new TerrainMap();
     if ( !mapData ) return new TerrainMap();
     mapData.forEach(([key, effectId]) => {
-      const terrain = this.fromEffectId(effectId);
+      const terrain = this.fromEffectId(effectId, false);
       map.set(key, terrain, true);
     });
     return map;

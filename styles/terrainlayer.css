@@ -1,17 +1,50 @@
+/*
+#terrainmapper-tool {
+  list-style: none;
+  width: 100px;
+  height: 36px;
+}
+*/
+
+
+/*
+.terrainmapper-tools .control-tool {
+  list-style: none;
+  width: 100px;
+  height: 36px;
+  color: #BBB;
+  box-sizing: content-box;
+}
+*/
+
+/*
+.terrainmapper-tools .control-tools {
+  list-style: none;
+  width: 36px;
+  height: 36px;
+  color: #BBB;
+}
+*/
+
+/*
 #terrainmapper-tools.control-tools {
     list-style: none;
     padding: 0;
     margin: 0;
 }
+*/
 
+/*
 #terrainmapper-tools.control-tools > li.control-tool.disabled:hover {
     box-shadow: none;
     border: 1px solid var(--color-border-dark);
     cursor: default;
 }
+*/
 
-#terrainmapper-tools .control-btn {
-    width: 36px;
+/*
+.terrainmapper-tools .control-btn {
+    width: 100px;
     height: 36px;
     box-sizing: content-box;
     font-size: 24px;
@@ -25,52 +58,75 @@
     cursor: pointer;
     padding: 0;
 }
+*/
 
+/*
 #terrainmapper-tools.control-tools > li.control-tool.disabled:hover {
     box-shadow: 0 0 10px var(--color-shadow-dark);
 }
+*/
+
 /*
-#elevationlayer-tools .control-btn:hover {
+.terrainmapper-tools .control-btn:hover {
     color: #FFF;
     box-shadow: 0 0 10px #ff6400;
-}*/
+}
+*/
+
+/*
 #terrainmapper-tools .control-btn:disabled {
     color: var(--color-text-dark-secondary);
     box-shadow: none;
     cursor: default;
 }
+*/
 
+/*
 #terrainmapper-tools table {
     margin: 0;
     border: none;
     background: none;
 }
+*/
 
+/*
 #terrainmapper-tools td {
     padding: 0;
     vertical-align: top;
 }
+*/
 
+/*
 #terrainmapper-tools td:nth-child(n+1) {
     padding-left: 8px;
 }
+*/
 
+/*
 #terrainmapper-tools #el-curr-elevation {
   color: #DCDCDC;
 }
+*/
 
+/*
 #terrainmapper-tools #el-elevation-number {
     cursor: default;
     position: center;
     width: 90%;
 }
+*/
+
+/*
 #terrainmapper-tools #el-elevation-number:hover {
     box-shadow: none;
     border: 1px solid var(--color-border-dark);
     box-shadow: 0 0 10px var(--color-shadow-dark);
 }
+*/
 
+/*
 .terrainmapper .scrollable {
   overflow: hidden auto;
   scrollbar-width: thin;
 }
+*/
