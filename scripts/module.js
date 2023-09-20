@@ -37,21 +37,18 @@ Hooks.once("setup", function() {
 /**
  * A hook event that fires when the game is fully ready.
  */
-Hooks.once("ready", async function() {
-  await TerrainSettings.initializeTerrainsItem();
+Hooks.once("ready", function() {
+  console.debug("ready");
 });
 
 /**
  * A hook event that fires when the Canvas is initialized.
  * @param {Canvas} canvas   The Canvas instance being initialized
  */
-Hooks.once("canvasInit", function(canvas) {
+Hooks.once("canvasInit", async function(canvas) {
   console.debug("canvasInit", canvas);
-
-  // Load the scene terrain map.
-
-
-
+  await TerrainSettings.initializeTerrainsItem();
+  canvas.terrain.initialize();
 });
 
 /**
@@ -60,6 +57,8 @@ Hooks.once("canvasInit", function(canvas) {
  */
 Hooks.once("canvasReady", function(canvas, canvasEffects0, canvasEffects1, canvasVisibility) {
   console.debug("canvasReady", canvas, canvasEffects0, canvasEffects1, canvasVisibility);
+//   await TerrainSettings.initializeTerrainsItem();
+//   TerrainLayer.initialize();
 });
 
 

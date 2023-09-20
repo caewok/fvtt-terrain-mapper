@@ -11,17 +11,6 @@ import { MODULE_ID } from "./const.js";
 import { Terrain } from "./Terrain.js";
 
 export class TerrainLayerToolBar extends Application {
-  /** @type {number} */
-  get currentTerrain() { return canvas.terrain.controls.currentTerrain; }
-
-  set currentTerrain(value) {
-    canvas.terrain.controls.currentTerrain = canvas.terrain.clampTerrainId(value);
-  }
-
-  /** @type {number} */
-  get currentTerrainLayer() { return canvas.terrain.controls.currentTerrainLayer; }
-
-  set currentTerrainLayer(value) { canvas.terrain.controls.currentTerrainLayer = value; }
 
   static get defaultOptions() {
     const options = {
@@ -42,8 +31,7 @@ export class TerrainLayerToolBar extends Application {
 
   activateListeners(html) {
     super.activateListeners(html);
-//     $(".control-btn[data-tool]", html).on("click", this._onHandleClick.bind(this));
-//     $("#el-curr-terrain", html).on("change", this._onHandleChange.bind(this));
+    $("#terrainmapper-tool-select", html).on("change", this._onHandleChange.bind(this));
   }
 
   getData(_options) {
@@ -53,11 +41,12 @@ export class TerrainLayerToolBar extends Application {
 
     const nonSceneTerrains = [];
     const sceneTerrains = [];
+    const currId = canvas.terrain.currentTerrain?.id;
     for ( const terrain of terrains ) {
       const obj = {
         key: terrain.id,
         label: terrain.name,
-        isSelected: false // TODO: Fix choosing selected terrain.
+        isSelected: currId === terrain.id
       };
       const arr = sceneMap.hasTerrainId(terrain.id) ? sceneTerrains : nonSceneTerrains;
       arr.push(obj);
@@ -85,18 +74,10 @@ export class TerrainLayerToolBar extends Application {
    * @param {Event} event
    */
   _onHandleChange(event) {
-    console.debug("TerrainLayerToolBar|_onHandleChange")
-//     if ( event.currentTarget.id !== "el-curr-terrain" ) return;
-//     this.currentTerrain = parseInt(event.currentTarget.value);
-//     this.render();
-  }
-
-  _onHandleClick(event) {
-    console.debug("TerrainLayerToolBar|_onHandleClick")
-//     const btn = event.currentTarget;
-//     const id = $(btn).attr("id");
-//     this.currentTerrain += TERRAIN_CLICKS[id];
-//     this.render();
+    console.debug("TerrainLayerToolBar|_onHandleChange");
+    const terrainId = event.target.value;
+    canvas.terrain.currentTerrain = terrainId;
+    this.render();
   }
 
   async _render(...args) {
@@ -104,10 +85,3 @@ export class TerrainLayerToolBar extends Application {
     $("#controls").append(this.element);
   }
 }
-
-// NOTE: Helpers
-
-const TERRAIN_CLICKS = {
-  "el-inc-terrain": 1,
-  "el-dec-terrain": -1
-};
