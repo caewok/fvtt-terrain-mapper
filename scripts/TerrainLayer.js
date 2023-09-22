@@ -147,7 +147,7 @@ export class TerrainLayer extends InteractionLayer {
    */
   _terrainToPixelChannels(terrain, _layer = 0) {
     // TODO: Handle layers.
-    return { r: terrain.pixelId, g: 0, b: 0 };
+    return { r: terrain.pixelValue ?? 0, g: 0, b: 0 };
   }
 
 
@@ -205,7 +205,7 @@ export class TerrainLayer extends InteractionLayer {
 
   /**
    * Is this pixel id actually present in the scene?
-   * @param {number} pixelId
+   * @param {number} pixelValue
    * @returns {boolean}
    */
   isPixelValueInScene(pixelValue) {
@@ -268,6 +268,7 @@ export class TerrainLayer extends InteractionLayer {
     const graphics = this._drawTerrainShape(shape, terrain);
 
     // Add to the shape queue.
+    shape.pixelValue = terrain.pixelValue;
     this._shapeQueue.enqueue({ shape, graphics }); // Link to PIXI.Graphics object for undo.
 
     // Trigger save if necessary.
@@ -288,7 +289,7 @@ export class TerrainLayer extends InteractionLayer {
   _drawTerrainShape(shape, terrain) {
     // TODO: Handle drawing of icon, displaying selected terrain color.
     const graphics = this._graphicsContainer.addChild(new PIXI.Graphics());
-    const color = this._terrainPixelColor(terrain.pixelValue);
+    const color = this._terrainPixelColor(terrain);
 
     // Set width = 0 to avoid drawing a border line. The border line will use antialiasing
     // and that causes a lighter-color border to appear outside the shape.

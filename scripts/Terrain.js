@@ -117,7 +117,7 @@ export class TerrainMap extends Map {
  */
 export class Terrain {
   /** @type {number} */
-  #pixelId;
+  #pixelValue;
 
   /** @type {TerrainMap} */
   static #sceneMap;
@@ -284,8 +284,8 @@ export class Terrain {
   async setColor(value) { return this.#setAEFlag(FLAGS.COLOR, value); }
 
   /** @type {number} */
-  get pixelId() {
-    return this.#pixelId || (this.#pixelId = this.constructor.sceneMap.keyForValue(this));
+  get pixelValue() {
+    return this.#pixelValue || (this.#pixelValue = this.constructor.sceneMap.keyForValue(this));
   }
 
   // Helpers to get/set the active effect flags.
@@ -306,11 +306,11 @@ export class Terrain {
    * Is this terrain actually used on the scene canvas?
    * @returns {boolean}
    */
-  isUsedInScene() { return canvas.terrain.pixelIdInScene(this.pixelId); }
+  isUsedInScene() { return canvas.terrain.pixelValueInScene(this.pixelValue); }
 
   async addToScene() {
     if ( this.isInSceneMap() ) return;
-    this.#pixelId = this.sceneMap.add(this);
+    this.#pixelValue = this.sceneMap.add(this);
     await this.constructor.saveSceneMap();
 
     // Refresh the UI for the terrain.
@@ -322,7 +322,7 @@ export class Terrain {
     if ( !this.isInSceneMap() ) return;
 
     // Remove the pixel key from the scene map.
-    const key = this.pixelId;
+    const key = this.pixelValue;
     if ( key ) this.sceneMap.delete(key);
     await this.constructor.saveSceneMap();
 
