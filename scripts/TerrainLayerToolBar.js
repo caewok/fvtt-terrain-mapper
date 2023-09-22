@@ -41,7 +41,7 @@ export class TerrainLayerToolBar extends Application {
 
     const nonSceneTerrains = [];
     const sceneTerrains = [];
-    const currId = canvas.terrain.currentTerrain?.id;
+    const currId = canvas.terrain.controls.currentTerrain?.id;
     for ( const terrain of terrains ) {
       const obj = {
         key: terrain.id,

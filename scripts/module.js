@@ -11,6 +11,7 @@ import { TerrainSettings } from "./settings.js";
 import { Terrain, TerrainMap } from "./Terrain.js";
 import { EffectHelper } from "./EffectHelper.js";
 import { PATCHER, initializePatching } from "./patching.js";
+import { registerGeometry } from "./geometry/registration.js";
 
 // Self-executing hooks.
 import "./controls.js";
@@ -22,6 +23,7 @@ import "./controls.js";
 Hooks.once("init", function() {
   initializePatching();
   initializeAPI();
+  registerGeometry();
   TerrainLayer.register();
 });
 
