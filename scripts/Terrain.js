@@ -283,7 +283,7 @@ export class Terrain {
 
   /** @type {number} */
   get pixelId() {
-    return this.#pixelId || (this.#pixelId = this.constructor.sceneMap.keyForValue(this.id));
+    return this.#pixelId || (this.#pixelId = this.constructor.sceneMap.keyForValue(this));
   }
 
   // Helpers to get/set the active effect flags.
