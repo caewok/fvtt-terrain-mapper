@@ -362,9 +362,9 @@ export class TerrainLayer extends InteractionLayer {
   _onClickLeft(event) {
     const o = event.interactionData.origin;
     const activeTool = game.activeTool;
-    const currT = this.controls.currentTerrain;
+    const currT = this.toolbar.currentTerrain;
 
-    console.debug(`clickLeft at ${o.x},${o.y} with tool ${activeTool} and elevation ${currT.name}`, event);
+    console.debug(`clickLeft at ${o.x},${o.y} with tool ${activeTool} and terrain ${currT.name}`, event);
 
     switch ( activeTool ) {
       case "fill-by-grid":
@@ -394,8 +394,8 @@ export class TerrainLayer extends InteractionLayer {
   _onDragLeftStart(event) {
     const o = event.interactionData.origin;
     const activeTool = game.activeTool;
-    const currT = this.controls.currentTerrain;
-    console.debug(`dragLeftStart at ${o.x}, ${o.y} with tool ${activeTool} and elevation ${currT.name}`, event);
+    const currT = this.toolbar.currentTerrain;
+    console.debug(`dragLeftStart at ${o.x}, ${o.y} with tool ${activeTool} and terrain ${currT.name}`, event);
 
     if ( activeTool === "fill-by-grid" ) {
       this.#temporaryGraphics.clear(); // Should be accomplished elsewhere already
@@ -414,7 +414,7 @@ export class TerrainLayer extends InteractionLayer {
     const o = event.interactionData.origin;
     const d = event.interactionData.destination;
     const activeTool = game.activeTool;
-    const currT = this.controls.currentTerrain;
+    const currT = this.toolbar.currentTerrain;
 
     // TO-DO: What if the user changes the elevation mid-drag? (if MouseWheel enabled)
 
@@ -436,7 +436,7 @@ export class TerrainLayer extends InteractionLayer {
     const o = event.interactionData.origin;
     const d = event.interactionData.destination;
     const activeTool = game.activeTool;
-    const currT = this.controls.currentTerrain;
+    const currT = this.toolbar.currentTerrain;
     console.debug(`dragLeftDrop at ${o.x}, ${o.y} to ${d.x},${d.y} with tool ${activeTool} and terrain ${currT?.name}`, event);
 
     if ( activeTool === "fill-by-grid" ) {
@@ -459,11 +459,11 @@ export class TerrainLayer extends InteractionLayer {
    */
   _onDragLeftCancel(event) {
     const activeTool = game.activeTool;
-    const currT = this.controls.currentTerrain;
+    const currT = this.toolbar.currentTerrain;
 
     if ( activeTool === "fill-by-grid" ) {
       if ( !this.#temporaryGraphics.size ) return;
-      console.debug(`dragLeftCancel with tool ${activeTool} and elevation ${currT?.name}`, event);
+      console.debug(`dragLeftCancel with tool ${activeTool} and terrain ${currT?.name}`, event);
 
       // Remove the temporary graphics from main graphics
       this.#temporaryGraphics.forEach(child => {
@@ -480,8 +480,8 @@ export class TerrainLayer extends InteractionLayer {
   _onMouseWheel(event) {
     const o = event.interactionData.origin;
     const activeTool = game.activeTool;
-    const currT = this.controls.currentTerrain;
-    console.debug(`mouseWheel at ${o.x}, ${o.y} with tool ${activeTool} and elevation ${currT?.name}`, event);
+    const currT = this.toolbar.currentTerrain;
+    console.debug(`mouseWheel at ${o.x}, ${o.y} with tool ${activeTool} and terrain ${currT?.name}`, event);
   }
 
   /**
@@ -490,7 +490,7 @@ export class TerrainLayer extends InteractionLayer {
   async _onDeleteKey(event) {
     const o = event.interactionData.origin;
     const activeTool = game.activeTool;
-    const currT = this.controls.currentTerrain;
-    console.debug(`deleteKey at ${o.x}, ${o.y} with tool ${activeTool} and elevation ${currT?.name}`, event);
+    const currT = this.toolbar.currentTerrain;
+    console.debug(`deleteKey at ${o.x}, ${o.y} with tool ${activeTool} and terrain ${currT?.name}`, event);
   }
 }
