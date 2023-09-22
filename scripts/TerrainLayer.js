@@ -203,6 +203,17 @@ export class TerrainLayer extends InteractionLayer {
       { x, y, arrayClass: Uint8Array, combineFn: this._decodeTerrainChannels });
   }
 
+  /**
+   * Is this pixel id actually present in the scene?
+   * @param {number} pixelId
+   * @returns {boolean}
+   */
+  isPixelValueInScene(pixelValue) {
+    if ( !pixelValue || pixelValue < 0 || pixelValue > 31 ) return false;
+    return this._shapeQueue.elements.some(e => e.shape.pixelValue === pixelValue);
+  }
+
+
   /* ----- NOTE: Rendering ----- */
 
   /**

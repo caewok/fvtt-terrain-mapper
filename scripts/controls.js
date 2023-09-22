@@ -110,26 +110,8 @@ function addTerrainLayerSceneControls(controls) {
     activeTool: "fill-by-grid",
     visible: game.user.isGM,
     title: game.i18n.localize(`${MODULE_ID}.name`),
-    tools,
-    _currentTerrain: undefined
+    tools
   };
-
-  Object.defineProperty(controlObj, "currentTerrain", {
-    get: function() { return this._currentTerrain; },
-
-    set: function(terrain) {
-      if ( isString(terrain) ) terrain = Terrain.fromEffectId(terrain);
-      if ( !(terrain instanceof Terrain) ) {
-        console.error("Current terrain must be an instance of terrain.", terrain);
-        return;
-      }
-
-      // Get terrain from the scene map or add to the scene map.
-      if ( this.sceneMap.terrainIds.has(terrain.id) ) terrain = this.terrainForId(terrain.id);
-      else this.sceneMap.add(terrain);
-      this._currentTerrain = terrain;
-    }
-  });
 
   controls.push(controlObj);
 }
