@@ -298,6 +298,10 @@ export class Terrain {
     if ( map.hasTerrainId(this.id) ) return;
     this.#pixelId = map.add(this);
     await this.constructor.saveSceneMap();
+
+    // Refresh the UI for the terrain.
+    if ( ui.controls.activeControl === "terrain" ) ui.controls.render();
+    TerrainEffectsApp.rerender();
   }
 
   async removeFromScene() {
@@ -305,6 +309,11 @@ export class Terrain {
     const key = this.pixelId;
     if ( key ) map.delete(key);
     await this.constructor.saveSceneMap();
+
+    // Refresh the UI for the terrain.
+    if ( canvas.terrain.controls.currentTerrain === this ) canvas.terrain.controls._currentTerrain = undefined;
+    if ( ui.controls.activeControl === "terrain" ) ui.controls.render();
+    TerrainEffectsApp.rerender();
   }
 
   /**

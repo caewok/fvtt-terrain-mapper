@@ -9,6 +9,7 @@ mergeObject,
 
 import { MODULE_ID } from "./const.js";
 import { Terrain } from "./Terrain.js";
+import { TerrainEffectsApp } from "./TerrainEffectsApp.js";
 
 export class TerrainLayerToolBar extends Application {
 
@@ -70,13 +71,20 @@ export class TerrainLayerToolBar extends Application {
   }
 
   /**
-   * Handle when the user manually changes the elevation number
+   * Handle when the user manually changes the terrain selection.
    * @param {Event} event
    */
   _onHandleChange(event) {
     console.debug("TerrainLayerToolBar|_onHandleChange");
     const terrainId = event.target.value;
-    canvas.terrain.currentTerrain = terrainId;
+
+    // If this terrain is not in the scene, add it.
+    const sceneMap = Terrain.sceneMap;
+    const terrain = Terrain.fromEffectId(terrainId);
+    if ( !sceneMap.hasTerrainId(terrainId) ) terrain.addToScene();
+
+    // Update the currently selected terrain.
+    canvas.terrain.controls._currentTerrain = terrain;
     this.render();
   }
 

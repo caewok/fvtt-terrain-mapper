@@ -299,7 +299,6 @@ export class TerrainEffectsController {
     const effectId = effectItem.data().effectId;
     const terrain = Terrain.fromEffectId(effectId);
     await terrain.addToScene();
-    this._viewMvc.render();
   }
 
 
@@ -311,7 +310,6 @@ export class TerrainEffectsController {
     const effectId = effectItem.data().effectId;
     const terrain = Terrain.fromEffectId(effectId);
     await terrain.removeFromScene();
-    this._viewMvc.render();
   }
 
   /**
