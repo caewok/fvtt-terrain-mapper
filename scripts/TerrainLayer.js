@@ -295,7 +295,7 @@ export class TerrainLayer extends InteractionLayer {
     // and that causes a lighter-color border to appear outside the shape.
     const draw = new Draw(graphics);
     draw.shape(shape, { width: 0, fill: color});
-    this.renderTerrain();
+    //this.renderTerrain();
     return graphics;
   }
 
@@ -395,7 +395,6 @@ export class TerrainLayer extends InteractionLayer {
   _onDragLeftStart(event) {
     const activeTool = game.activeTool;
     if ( activeTool !== "fill-by-grid" ) return;
-    event.preventDefault();
 
     const o = event.interactionData.origin;
     const currT = this.toolbar.currentTerrain;
@@ -412,23 +411,14 @@ export class TerrainLayer extends InteractionLayer {
   _onDragLeftMove(event) {
     const activeTool = game.activeTool;
     if ( activeTool !== "fill-by-grid" ) return;
-    event.preventDefault();
 
     const o = event.interactionData.origin;
     const d = event.interactionData.destination;
     const currT = this.toolbar.currentTerrain;
     console.debug(`dragLeftMove from ${o.x},${o.y} to ${d.x}, ${d.y} with tool ${activeTool} and terrain ${currT.name}`, event);
 
-    // Color the grid square for each square along the line between origin and destination.
-    const s2 = Math.pow(canvas.dimensions.size, 2) || 1;
-    let currLength = 0;
-    const lineLength = PIXI.Point.distanceSquaredBetween(o, d);
-    const newPt = new PIXI.Point();
-    while ( currLength < lineLength ) {
-      o.towardsPointSquared(d, currLength, newPt);
-      this.setTerrainForGridSpace(newPt, currT, { temporary: true });
-      currLength += s2;
-    }
+    // Color the grid square at the current destination.
+    this.setTerrainForGridSpace(d, currT, { temporary: true });
   }
 
   /**
@@ -437,7 +427,6 @@ export class TerrainLayer extends InteractionLayer {
   _onDragLeftDrop(event) {
     const activeTool = game.activeTool;
     if ( activeTool !== "fill-by-grid" ) return;
-    event.preventDefault();
 
     const o = event.interactionData.origin;
     const d = event.interactionData.destination;
@@ -458,7 +447,6 @@ export class TerrainLayer extends InteractionLayer {
   _onDragLeftCancel(event) {
     const activeTool = game.activeTool;
     if ( activeTool !== "fill-by-grid" ) return;
-    event.preventDefault();
 
     const currT = this.toolbar.currentTerrain;
     console.debug(`dragLeftCancel with tool ${activeTool} and terrain ${currT?.name}`, event);
