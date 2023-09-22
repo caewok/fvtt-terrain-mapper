@@ -17,6 +17,7 @@ import { PixelCache } from "./PixelCache.js";
 import { Draw } from "./geometry/Draw.js";
 import { TerrainGridSquare } from "./TerrainGridSquare.js";
 import { TerrainGridHexagon } from "./TerrainGridHexagon.js";
+import { TerrainTextureManager } from "./TerrainTextureManager.js";
 
 
 export class TerrainLayer extends InteractionLayer {
@@ -106,6 +107,23 @@ export class TerrainLayer extends InteractionLayer {
     const currId = TerrainSettings.getByName("CURRENT_TERRAIN");
     if ( currId ) this.currentTerrain = this.sceneMap.terrainIds.get(currId);
     if ( !this.currentTerrain ) this.currentTerrain = this.sceneMap.values().next().value;
+
+    // Background terrain sprite
+    // Should start at the upper left scene corner
+    // Holds the default background elevation settings
+    const { sceneX, sceneY } = canvas.dimensions;
+    this._backgroundTerrain.position = { x: sceneX, y: sceneY };
+    this._graphicsContainer.addChild(this._backgroundElevation);
+
+    // Add the render texture for displaying elevation information to the GM
+    // Set the clear color of the render texture to black. The texture needs to be opaque.
+    this._terrainTexture = PIXI.RenderTexture.create(this._textureManager.textureConfiguration);
+    this._terrainTexture.baseTexture.clearColor = [0, 0, 0, 1];
+
+    // Add the elevation color mesh
+    const shader = TerrainLayerShader.create();
+    this._terrainColorsMesh = new TerrainQuadMesh(canvas.dimensions.sceneRect, shader);
+    this.renderTerrain();
   }
 
   /**
