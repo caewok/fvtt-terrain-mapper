@@ -23,7 +23,7 @@ export class TerrainGridSquare extends Square {
    * Determine the grid location for this shape.
    * @type {[{number}, {number}]}  [row, col] location
    */
-  get gridPosition() { return canvas.grid.grid.getGridPositionFromPixels(this.origin); }
+  get gridPosition() { return canvas.grid.grid.getGridPositionFromPixels(this.origin.x, this.origin.y); }
 
   /**
    * Construct a grid square from a given canvas location.
