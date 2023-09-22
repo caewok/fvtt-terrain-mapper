@@ -49,7 +49,7 @@ export class TerrainSettings {
     MENU: "menu",
     TERRAINS_ITEM: "terrains_item", // Stores terrain effects
     FAVORITES: "favorites", // Array of favorite terrains, by effect id.
-    CURRENT_TERRAIN: "current_terrain", // Current terrain on the terrain layer.
+    CURRENT_TERRAIN: "current_terrain", // Current terrain id on the terrain layer.
 
     // Configuration of the application that controls the terrain listings.
     CONTROL_APP: {

@@ -117,7 +117,7 @@ export class TerrainMap extends Map {
  */
 export class Terrain {
   /** @type {number} */
-  #pixelId;
+  #pixelValue;
 
   /** @type {TerrainMap} */
   static #sceneMap;
@@ -193,6 +193,8 @@ export class Terrain {
   }
 
   static get sceneMap() { return this.#sceneMap || (this.#sceneMap = this.loadSceneMap()); }
+
+  get sceneMap() { return this.constructor.sceneMap; }
 
   /**
    * @param {TerrainConfig} config
@@ -282,8 +284,8 @@ export class Terrain {
   async setColor(value) { return this.#setAEFlag(FLAGS.COLOR, value); }
 
   /** @type {number} */
-  get pixelId() {
-    return this.#pixelId || (this.#pixelId = this.constructor.sceneMap.keyForValue(this.id));
+  get pixelValue() {
+    return this.#pixelValue || (this.#pixelValue = this.constructor.sceneMap.keyForValue(this));
   }
 
   // Helpers to get/set the active effect flags.
@@ -293,19 +295,44 @@ export class Terrain {
 
 
   // NOTE: ----- Scene map -----
+
+  /**
+   * Is this terrain in the scene map?
+   * @returns {boolean}
+   */
+  isInSceneMap() { return this.sceneMap.hasTerrainId(this.id); }
+
+  /**
+   * Is this terrain actually used on the scene canvas?
+   * @returns {boolean}
+   */
+  isUsedInScene() { return canvas.terrain.pixelValueInScene(this.pixelValue); }
+
   async addToScene() {
-    const map = this.constructor.sceneMap;
-    if ( map.hasTerrainId(this.id) ) return;
-    this.#pixelId = map.add(this);
+    if ( this.isInSceneMap() ) return;
+    this.#pixelValue = this.sceneMap.add(this);
     await this.constructor.saveSceneMap();
+
+    // Refresh the UI for the terrain.
+    if ( ui.controls.activeControl === "terrain" ) ui.controls.render();
+    TerrainEffectsApp.rerender();
   }
 
   async removeFromScene() {
-    const map = this.constructor.sceneMap;
-    const key = this.pixelId;
-    if ( key ) map.delete(key);
+    if ( !this.isInSceneMap() ) return;
+
+    // Remove the pixel key from the scene map.
+    const key = this.pixelValue;
+    if ( key ) this.sceneMap.delete(key);
     await this.constructor.saveSceneMap();
+
+    // Refresh the UI for the terrain.
+    if ( canvas.terrain.toolbar.currentTerrain === this ) canvas.terrain.toolbar._currentTerrain = undefined;
+    if ( ui.controls.activeControl === "terrain" ) ui.controls.render();
+    TerrainEffectsApp.rerender();
   }
+
+  /* ----- NOTE: Terrain functionality ----- */
 
   /**
    * Calculate the elevation min / max for a given anchor elevation.
