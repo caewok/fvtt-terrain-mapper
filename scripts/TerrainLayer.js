@@ -5,7 +5,6 @@ game,
 InteractionLayer,
 mergeObject,
 PIXI,
-PolygonVertex,
 ui
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
@@ -105,14 +104,8 @@ export class TerrainLayer extends InteractionLayer {
    */
   initialize() {
     const currId = TerrainSettings.getByName("CURRENT_TERRAIN");
-    if ( currId ) {
-      this.currentTerrain = this.sceneMap.terrainIds.get(currId);
-    }
-
-    if ( !this.currentTerrain ) {
-      let _pixelValue;
-      [[_pixelValue, this.currentTerrain]] = this.sceneMap;
-    }
+    if ( currId ) this.currentTerrain = this.sceneMap.terrainIds.get(currId);
+    if ( !this.currentTerrain ) this.currentTerrain = this.sceneMap.values().next().value;
   }
 
   /**
@@ -264,16 +257,23 @@ export class TerrainLayer extends InteractionLayer {
    * @returns {PIXI.Graphics}
    */
   addTerrainShapeToCanvas(shape, terrain, { temporary = false }) {
+    shape.pixelValue = terrain.pixelValue;
+    if ( temporary && this.#temporaryGraphics.has(shape.origin.key) ) {
+      // Replace with this item.
+      // It is anticipated that copying over a shape, perhaps with a different terrain value,
+      // will result in the newer version getting saved.
+      const oldValues = this.#temporaryGraphics.get(shape.origin.key);
+      this._graphicsContainer.removeChild(oldValues.graphics);
+    }
+
     // Draw the graphics element for the shape to display to the GM.
     const graphics = this._drawTerrainShape(shape, terrain);
 
-    // Add to the shape queue.
-    shape.pixelValue = terrain.pixelValue;
-    this._shapeQueue.enqueue({ shape, graphics }); // Link to PIXI.Graphics object for undo.
+    if ( temporary ) this.#temporaryGraphics.set(shape.origin.key, { shape, graphics });
+    else this._shapeQueue.enqueue({ shape, graphics }); // Link to PIXI.Graphics object for undo.
 
     // Trigger save if necessary.
     this._requiresSave = !temporary;
-
     return graphics;
   }
 
@@ -393,18 +393,16 @@ export class TerrainLayer extends InteractionLayer {
    * - fill-by-grid: keep a temporary set of left corner grid locations and draw the grid
    */
   _onDragLeftStart(event) {
-    const o = event.interactionData.origin;
     const activeTool = game.activeTool;
+    if ( activeTool !== "fill-by-grid" ) return;
+    event.preventDefault();
+
+    const o = event.interactionData.origin;
     const currT = this.toolbar.currentTerrain;
     console.debug(`dragLeftStart at ${o.x}, ${o.y} with tool ${activeTool} and terrain ${currT.name}`, event);
 
-    if ( activeTool === "fill-by-grid" ) {
-      this.#temporaryGraphics.clear(); // Should be accomplished elsewhere already
-      const [tlx, tly] = canvas.grid.grid.getTopLeft(o.x, o.y);
-      const p = new PolygonVertex(tlx, tly);
-      const child = this.setTerrainForGridSpace(o, currT, { temporary: true });
-      this.#temporaryGraphics.set(p.key, child);
-    }
+    this.#temporaryGraphics.clear(); // Should be accomplished elsewhere already
+    this.setTerrainForGridSpace(o, currT, { temporary: true });
   }
 
   /**
@@ -412,21 +410,24 @@ export class TerrainLayer extends InteractionLayer {
    * - fill-by-grid: If new grid space, add.
    */
   _onDragLeftMove(event) {
+    const activeTool = game.activeTool;
+    if ( activeTool !== "fill-by-grid" ) return;
+    event.preventDefault();
+
     const o = event.interactionData.origin;
     const d = event.interactionData.destination;
-    const activeTool = game.activeTool;
     const currT = this.toolbar.currentTerrain;
+    console.debug(`dragLeftMove from ${o.x},${o.y} to ${d.x}, ${d.y} with tool ${activeTool} and terrain ${currT.name}`, event);
 
-    // TO-DO: What if the user changes the elevation mid-drag? (if MouseWheel enabled)
-
-    if ( activeTool === "fill-by-grid" ) {
-      const [tlx, tly] = canvas.grid.grid.getTopLeft(d.x, d.y);
-      const p = new PolygonVertex(tlx, tly);
-      if ( !this.#temporaryGraphics.has(p.key) ) {
-        console.debug(`dragLeftMove from ${o.x},${o.y} to ${d.x}, ${d.y} with tool ${activeTool} and terrain ${currT.name}`, event);
-        const child = this.setTerrainForGridSpace(d, currT, { temporary: true });
-        this.#temporaryGraphics.set(p.key, child);
-      }
+    // Color the grid square for each square along the line between origin and destination.
+    const s2 = Math.pow(canvas.dimensions.size, 2) || 1;
+    let currLength = 0;
+    const lineLength = PIXI.Point.distanceSquaredBetween(o, d);
+    const newPt = new PIXI.Point();
+    while ( currLength < lineLength ) {
+      o.towardsPointSquared(d, currLength, newPt);
+      this.setTerrainForGridSpace(newPt, currT, { temporary: true });
+      currLength += s2;
     }
   }
 
@@ -434,23 +435,19 @@ export class TerrainLayer extends InteractionLayer {
    * User commits the drag
    */
   _onDragLeftDrop(event) {
+    const activeTool = game.activeTool;
+    if ( activeTool !== "fill-by-grid" ) return;
+    event.preventDefault();
+
     const o = event.interactionData.origin;
     const d = event.interactionData.destination;
-    const activeTool = game.activeTool;
     const currT = this.toolbar.currentTerrain;
     console.debug(`dragLeftDrop at ${o.x}, ${o.y} to ${d.x},${d.y} with tool ${activeTool} and terrain ${currT?.name}`, event);
 
-    if ( activeTool === "fill-by-grid" ) {
-      const [tlx, tly] = canvas.grid.grid.getTopLeft(d.x, d.y);
-      const p = new PolygonVertex(tlx, tly);
-      if ( !this.#temporaryGraphics.has(p.key) ) {
-        const child = this.setTerrainForGridSpace(d, currT, { temporary: true });
-        this.#temporaryGraphics.set(p.key, child);
-      }
-
-      this.#temporaryGraphics.clear(); // Don't destroy children b/c added already to main graphics
-      this._requiresSave = true;
-    }
+    // Add each temporary shape to the queue, reset the temporary map and save.
+    this.#temporaryGraphics.forEach(obj => this._shapeQueue.enqueue(obj));
+    this.#temporaryGraphics.clear(); // Don't destroy children b/c added already to main graphics
+    this._requiresSave = true;
   }
 
   /**
@@ -460,19 +457,17 @@ export class TerrainLayer extends InteractionLayer {
    */
   _onDragLeftCancel(event) {
     const activeTool = game.activeTool;
+    if ( activeTool !== "fill-by-grid" ) return;
+    event.preventDefault();
+
     const currT = this.toolbar.currentTerrain;
+    console.debug(`dragLeftCancel with tool ${activeTool} and terrain ${currT?.name}`, event);
 
-    if ( activeTool === "fill-by-grid" ) {
-      if ( !this.#temporaryGraphics.size ) return;
-      console.debug(`dragLeftCancel with tool ${activeTool} and terrain ${currT?.name}`, event);
-
-      // Remove the temporary graphics from main graphics
-      this.#temporaryGraphics.forEach(child => {
-        this._graphicsContainer.removeChild(child);
-        child.destroy();
-      });
-      this.#temporaryGraphics.clear();
-    }
+    this.#temporaryGraphics.forEach(obj => {
+      this._graphicsContainer.removeChild(obj.graphics);
+      obj.graphics.destroy();
+    });
+    this.#temporaryGraphics.clear();
   }
 
   /**
@@ -483,6 +478,9 @@ export class TerrainLayer extends InteractionLayer {
     const activeTool = game.activeTool;
     const currT = this.toolbar.currentTerrain;
     console.debug(`mouseWheel at ${o.x}, ${o.y} with tool ${activeTool} and terrain ${currT?.name}`, event);
+
+    // Cycle to the next scene terrain
+
   }
 
   /**
