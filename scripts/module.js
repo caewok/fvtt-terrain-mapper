@@ -13,6 +13,8 @@ import { EffectHelper } from "./EffectHelper.js";
 import { PATCHER, initializePatching } from "./patching.js";
 import { registerGeometry } from "./geometry/registration.js";
 
+import { TerrainLayerShader } from "./glsl/TerrainLayerShader.js";
+
 // Self-executing hooks.
 import "./controls.js";
 
@@ -71,7 +73,8 @@ function initializeAPI() {
     TerrainMap,
     EffectHelper,
     TerrainSettings,
-    PATCHER
+    PATCHER,
+    TerrainLayerShader
   };
 }
 

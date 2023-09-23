@@ -11,6 +11,39 @@ import { Terrain } from "../Terrain.js";
 
 const MAX_TERRAINS = 32; // Including 0 as no terrain.
 
+/* Testing
+api = game.modules.get("terrainmapper").api
+Terrain = api.Terrain;
+t1 = Terrain.sceneMap.get(1);
+t2 = Terrain.sceneMap.get(2);
+
+canvas.terrain._debugDraw();
+canvas.terrain._debugClear();
+
+s = new PIXI.Sprite(canvas.terrain._terrainTexture)
+canvas.stage.addChild(s)
+canvas.stage.removeChild(s)
+
+for ( const g of canvas.terrain._graphicsContainer.children ) {
+  canvas.stage.addChild(g)
+}
+
+for ( const g of canvas.terrain._graphicsContainer.children ) {
+  canvas.stage.removeChild(g)
+}
+
+for ( const e of canvas.terrain._shapeQueue.elements ) {
+  canvas.stage.addChild(e.graphics)
+}
+
+for ( const e of canvas.terrain._shapeQueue.elements ) {
+  canvas.stage.removeChild(e.graphics)
+}
+
+
+*/
+
+
 /**
  * Shader to represent terrain values on the terrain layer canvas.
  */
@@ -49,11 +82,10 @@ in vec2 vTextureCoord;
 
 out vec4 fragColor;
 
-uniform sampler2D uTerrainSampler; // Elevation Texture
+uniform sampler2D uTerrainSampler; // Terrain Texture
 uniform vec4[${MAX_TERRAINS}] uTerrainColors;
+// uniform uvec4[${MAX_TERRAINS}] uTerrainColors;
 
-${defineFunction("hsb2rgb")}
-${defineFunction("hsb2rgb")}
 ${defineFunction("decodeTerrainChannels")}
 
 /**
@@ -61,6 +93,8 @@ ${defineFunction("decodeTerrainChannels")}
  * Currently draws increasing shades of red with a gamma correction to avoid extremely light alpha.
  */
 vec4 colorForTerrain(int terrainId) {
+  // uvec4 uColor = uTerrainColors[terrainId];
+  // vec4 color = vec4(uColor) / 255.0;
   vec4 color = uTerrainColors[terrainId];
 
   // Gamma correct alpha and colors?
@@ -72,6 +106,9 @@ vec4 colorForTerrain(int terrainId) {
 void main() {
   // Terrain is sized to the scene.
   vec4 terrainPixel = texture(uTerrainSampler, vTextureCoord);
+  // if ( terrainPixel.r == 0.0 ) fragColor = vec4(0.0);
+  // else fragColor = vec4(1.0, 0.0, 0.0, 1.0);
+
   int terrainId = decodeTerrainChannels(terrainPixel);
   fragColor = colorForTerrain(terrainId);
 }`;
@@ -85,7 +122,8 @@ void main() {
    */
   static defaultUniforms = {
     uTerrainSampler: 0,
-    uTerrainColors: new Int8Array(MAX_TERRAINS * 4).fill(0)
+    // uTerrainColors: new Uint8Array(MAX_TERRAINS * 4).fill(0)
+    uTerrainColors: new Array(MAX_TERRAINS * 4).fill(0)
   };
 
   static create(defaultUniforms = {}) {
@@ -105,8 +143,11 @@ void main() {
     Terrain.sceneMap.forEach(t => {
       const i = t.pixelValue;
       const idx = i * 4;
+      // const rgba = this.constructor.getColorArray(t.color).map(x => x * 255);
+      // colors.set(rgba, idx);
+
       const rgba = this.constructor.getColorArray(t.color);
-      colors.set(rgba, idx);
+      colors.splice(idx, 4, ...rgba);
     });
   }
 

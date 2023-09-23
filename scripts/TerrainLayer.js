@@ -201,6 +201,8 @@ export class TerrainLayer extends InteractionLayer {
    */
   _terrainPixelColor(terrain) { return new PIXI.Color(this._terrainToPixelChannels(terrain)); }
 
+
+
   /**
    * Convert a terrain value to a pixel value between 0 and 255 per channel
    * @param {Terrain} terrain    Terrain to convert
@@ -393,6 +395,28 @@ export class TerrainLayer extends InteractionLayer {
 
   /* ----- NOTE: Rendering ----- */
 
+
+  /**
+   * Draw all the graphics in the queue for purposes of debugging.
+   */
+  _debugDraw() {
+    const draw = new Draw();
+    draw.clearDrawings();
+    draw.clearLabels();
+    for ( const e of this._shapeQueue.elements ) {
+      const shape = e.shape;
+      const terrain = Terrain.sceneMap.get(shape.pixelValue);
+      draw.shape(shape, { fill: terrain.color, width: 0 });
+      draw.labelPoint(shape.origin, terrain.name)
+    }
+  }
+
+  _debugClear() {
+    const draw = new Draw();
+    draw.clearDrawings();
+    draw.clearLabels();
+  }
+
   /**
    * (Re)render the graphics stored in the container.
    */
@@ -525,7 +549,7 @@ export class TerrainLayer extends InteractionLayer {
     // and that causes a lighter-color border to appear outside the shape.
     const draw = new Draw(graphics);
     draw.shape(shape, { width: 0, fill: color});
-    // this.renderTerrain();
+    this.renderTerrain();
     return graphics;
   }
 
