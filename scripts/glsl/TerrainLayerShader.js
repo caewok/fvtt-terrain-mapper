@@ -100,6 +100,7 @@ in vec2 vTextureCoord;
 out vec4 fragColor;
 
 uniform sampler2D uTerrainSampler; // Terrain Texture
+uniform sampler2D uTerrainIcon;
 uniform vec4[${MAX_TERRAINS}] uTerrainColors;
 // uniform uvec4[${MAX_TERRAINS}] uTerrainColors;
 
@@ -123,11 +124,16 @@ vec4 colorForTerrain(int terrainId) {
 void main() {
   // Terrain is sized to the scene.
   vec4 terrainPixel = texture(uTerrainSampler, vTextureCoord);
+  int terrainId = decodeTerrainChannels(terrainPixel);
+  fragColor = vec4(0.0);
+  if ( terrainId == 0 ) return;
+
   // if ( terrainPixel.r == 0.0 ) fragColor = vec4(0.0);
   // else fragColor = vec4(1.0, 0.0, 0.0, 1.0);
-
-  int terrainId = decodeTerrainChannels(terrainPixel);
-  fragColor = colorForTerrain(terrainId);
+  // ivec2 iconSize = textureSize(uTerrainIcon);
+  vec4 iconColor = texture(uTerrainIcon, vTextureCoord);
+  vec4 terrainColor = colorForTerrain(terrainId);
+  fragColor = mix(terrainColor, iconColor, 0.5);
 }`;
 
   /**
@@ -140,7 +146,8 @@ void main() {
   static defaultUniforms = {
     uTerrainSampler: 0,
     // uTerrainColors: new Uint8Array(MAX_TERRAINS * 4).fill(0)
-    uTerrainColors: new Array(MAX_TERRAINS * 4).fill(0)
+    uTerrainColors: new Array(MAX_TERRAINS * 4).fill(0),
+    uTerrainIcon: 0
   };
 
   static create(defaultUniforms = {}) {
@@ -148,7 +155,17 @@ void main() {
     defaultUniforms.uTerrainSampler = tm._terrainTexture;
     const shader = super.create(defaultUniforms);
     shader.updateTerrainColors();
+    shader.updateTerrainIcons();
     return shader;
+  }
+
+  /**
+   * Update the terrain icons represented in the scene.
+   */
+  updateTerrainIcons() {
+    // TODO: Handle multiple icons.
+    const t = Terrain.sceneMap.values().next().value;
+    this.uniforms.uTerrainIcon = PIXI.Texture.from(t.icon);
   }
 
   /**
