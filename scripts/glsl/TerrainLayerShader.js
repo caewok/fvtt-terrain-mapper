@@ -5,10 +5,11 @@ PIXI
 */
 "use strict";
 
-import { getSetting, SETTINGS } from "../settings.js";
-
 import { defineFunction } from "./GLSLFunctions.js";
 import { AbstractTerrainShader } from "./AbstractTerrainShader.js";
+import { Terrain } from "../Terrain.js";
+
+const MAX_TERRAINS = 32; // Including 0 as no terrain.
 
 /**
  * Shader to represent terrain values on the terrain layer canvas.
@@ -49,30 +50,18 @@ in vec2 vTextureCoord;
 out vec4 fragColor;
 
 uniform sampler2D uTerrainSampler; // Elevation Texture
-uniform vec4 uMinColor;
-uniform vec4 uMaxColor;
-uniform float uMaxNormalizedElevation;
+uniform vec4[${MAX_TERRAINS}] uTerrainColors;
 
 ${defineFunction("hsb2rgb")}
 ${defineFunction("hsb2rgb")}
-${defineFunction("decodeElevationChannels")}
+${defineFunction("decodeTerrainChannels")}
 
 /**
- * Determine the color for a given elevation value.
+ * Determine the color for a given terrain value.
  * Currently draws increasing shades of red with a gamma correction to avoid extremely light alpha.
  */
-vec4 colorForElevation(float eNorm) {
-  // Linear mix of the two HSV colors and alpha.
-  // Skipping 0, so one less entry
-  float maxNorm = max(1.0, uMaxNormalizedElevation - 1.0);
-  vec4 color = mix(uMinColor, uMaxColor, (eNorm - 1.0) / maxNorm);
-
-  // If using hsv
-  // color.rgb = hsv2rgb(color.rgb);
-  // color.rgb = hsb2rgb(color.rgb);
-
-  // Gamma correction to avoid extremely light alpha?
-  // color.a = pow(color.a, 1. / 2.2);
+vec4 colorForTerrain(int terrainId) {
+  vec4 color = uTerrainColors[terrainId];
 
   // Gamma correct alpha and colors?
   color = pow(color, vec4(1. / 2.2));
@@ -83,8 +72,8 @@ vec4 colorForElevation(float eNorm) {
 void main() {
   // Terrain is sized to the scene.
   vec4 terrainPixel = texture(uTerrainSampler, vTextureCoord);
-  float eNorm = decodeElevationChannels(terrainPixel);
-  fragColor = eNorm == 0.0 ? vec4(0.0) : colorForElevation(eNorm);
+  int terrainId = decodeTerrainChannels(terrainPixel);
+  fragColor = colorForTerrain(terrainId);
 }`;
 
   /**
@@ -96,66 +85,39 @@ void main() {
    */
   static defaultUniforms = {
     uTerrainSampler: 0,
-    uMinColor: [1, 0, 0, 1],
-    uMaxColor: [0, 0, 1, 1],
-    uMaxNormalizedElevation: 65536
+    uTerrainColors: new Int8Array(MAX_TERRAINS * 4).fill(0)
   };
 
   static create(defaultUniforms = {}) {
-    const ev = canvas.elevation;
-    defaultUniforms.uTerrainSampler = ev._elevationTexture;
-    defaultUniforms.uMinColor = this.getDefaultColorArray("MIN");
-    defaultUniforms.uMaxColor = this.getDefaultColorArray("MAX");
-    defaultUniforms.uMaxNormalizedElevation = ev._normalizeElevation(ev.elevationCurrentMax);
-
-    return super.create(defaultUniforms);
+    const tm = canvas.terrain;
+    defaultUniforms.uTerrainSampler = tm._terrainTexture;
+    const shader = super.create(defaultUniforms);
+    shader.updateTerrainColors();
+    return shader;
   }
 
   /**
-   * Update the minimum color uniform.
-   * @param {string} newColorHex
+   * Update the terrain colors represented in the scene.
    */
-  updateMinColor(newColorHex) {
-    this.uniforms.uMinColor = this.constructor.getColorArray(newColorHex);
-  }
-
-  /**
-   * Update the maximum color uniform.
-   * @param {string} newColorHex
-   */
-  updateMaxColor(newColorHex) {
-    this.uniforms.uMaxColor = this.constructor.getColorArray(newColorHex);
-  }
-
-  /**
-   * Update the maximum elevation value.
-   * @param {number}
-   */
-  updateMaxCurrentElevation() {
-    this.uniforms.uMaxNormalizedElevation = canvas.elevation._normalizeElevation(canvas.elevation.elevationCurrentMax);
-  }
-
-  /**
-   * Return the current color setting as a 4-element array.
-   * @param {string} type   MIN or MAX
-   * @returns {number[4]}
-   */
-  static getDefaultColorArray(type = "MIN") {
-    const hex = getSetting(SETTINGS.COLOR[type]);
-    return this.getColorArray(hex);
+  updateTerrainColors() {
+    const colors = this.uniforms.uTerrainColors;
+    colors.fill(0);
+    Terrain.sceneMap.forEach(t => {
+      const i = t.pixelValue;
+      const idx = i * 4;
+      const rgba = this.constructor.getColorArray(t.color);
+      colors.set(rgba, idx);
+    });
   }
 
   /**
    * Return the color array for a given hex.
-   * @param {string} hex    Hex value for color with alpha
+   * @param {number} hex    Hex value for color with alpha
    * @returns {number[4]}
    */
   static getColorArray(hex) {
-    const startIdx = hex.startsWith("#") ? 1 : 0;
-    const hexColor = hex.substring(startIdx, startIdx + 6);
-    const hexAlpha = hex.substring(startIdx + 6);
-    const alpha = parseInt(hexAlpha, 16) / 255;
-    const c = Color.fromString(hexColor);
+    const c = new Color(hex);
+    const alpha = 1;
     return [...c.rgb, alpha];
   }
 }
