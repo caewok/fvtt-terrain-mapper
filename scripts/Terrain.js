@@ -314,6 +314,7 @@ export class Terrain {
     await this.constructor.saveSceneMap();
 
     // Refresh the UI for the terrain.
+    canvas.terrain._terrainColorsMesh.shader.updateTerrainColors();
     if ( ui.controls.activeControl === "terrain" ) ui.controls.render();
     TerrainEffectsApp.rerender();
   }
@@ -327,6 +328,7 @@ export class Terrain {
     await this.constructor.saveSceneMap();
 
     // Refresh the UI for the terrain.
+    canvas.terrain._terrainColorsMesh.shader.updateTerrainColors();
     if ( canvas.terrain.toolbar.currentTerrain === this ) canvas.terrain.toolbar._currentTerrain = undefined;
     if ( ui.controls.activeControl === "terrain" ) ui.controls.render();
     TerrainEffectsApp.rerender();

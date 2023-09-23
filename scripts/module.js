@@ -13,6 +13,8 @@ import { EffectHelper } from "./EffectHelper.js";
 import { PATCHER, initializePatching } from "./patching.js";
 import { registerGeometry } from "./geometry/registration.js";
 
+import { TerrainLayerShader } from "./glsl/TerrainLayerShader.js";
+
 // Self-executing hooks.
 import "./controls.js";
 
@@ -50,7 +52,6 @@ Hooks.once("ready", function() {
 Hooks.once("canvasInit", async function(canvas) {
   console.debug("canvasInit", canvas);
   await TerrainSettings.initializeTerrainsItem();
-  canvas.terrain.initialize();
 });
 
 /**
@@ -59,6 +60,8 @@ Hooks.once("canvasInit", async function(canvas) {
  */
 Hooks.once("canvasReady", function(canvas, canvasEffects0, canvasEffects1, canvasVisibility) {
   console.debug("canvasReady", canvas, canvasEffects0, canvasEffects1, canvasVisibility);
+  canvas.terrain.initialize();
+
 //   await TerrainSettings.initializeTerrainsItem();
 //   TerrainLayer.initialize();
 });
@@ -70,7 +73,8 @@ function initializeAPI() {
     TerrainMap,
     EffectHelper,
     TerrainSettings,
-    PATCHER
+    PATCHER,
+    TerrainLayerShader
   };
 }
 
