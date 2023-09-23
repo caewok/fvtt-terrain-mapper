@@ -12,6 +12,7 @@ import { Terrain } from "../Terrain.js";
 const MAX_TERRAINS = 32; // Including 0 as no terrain.
 
 /* Testing
+Draw = CONFIG.GeometryLib.Draw
 api = game.modules.get("terrainmapper").api
 Terrain = api.Terrain;
 t1 = Terrain.sceneMap.get(1);
@@ -39,6 +40,22 @@ for ( const e of canvas.terrain._shapeQueue.elements ) {
 for ( const e of canvas.terrain._shapeQueue.elements ) {
   canvas.stage.removeChild(e.graphics)
 }
+
+
+
+draw = new Draw();
+for ( const e of canvas.terrain._shapeQueue.elements ) {
+  const t = Terrain.sceneMap.get(e.shape.pixelValue);
+  const txt = draw.labelPoint(e.shape.origin, t.name, { fontSize: 24 })
+  txt.anchor.set(0.5); // Center text
+}
+
+s = PIXI.Sprite.from(t.icon)
+s.position = e.shape.origin
+canvas.stage.addChild(s)
+s.anchor.set(0.5)
+s.scale.set(.1, .1)
+
 
 
 */

@@ -399,15 +399,24 @@ export class TerrainLayer extends InteractionLayer {
   /**
    * Draw all the graphics in the queue for purposes of debugging.
    */
-  _debugDraw() {
+  _debugDrawColors() {
     const draw = new Draw();
     draw.clearDrawings();
-    draw.clearLabels();
     for ( const e of this._shapeQueue.elements ) {
       const shape = e.shape;
       const terrain = Terrain.sceneMap.get(shape.pixelValue);
       draw.shape(shape, { fill: terrain.color, width: 0 });
-      draw.labelPoint(shape.origin, terrain.name)
+    }
+  }
+
+  _debugDrawText() {
+    const draw = new Draw();
+    draw.clearLabels();
+    for ( const e of this._shapeQueue.elements ) {
+      const shape = e.shape;
+      const terrain = Terrain.sceneMap.get(shape.pixelValue);
+      const txt = draw.labelPoint(shape.origin, terrain.name, { fontSize: 24 })
+      txt.anchor.set(0.5); // Center text
     }
   }
 
