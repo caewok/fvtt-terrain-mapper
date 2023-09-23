@@ -712,7 +712,7 @@ export class TerrainLayer extends InteractionLayer {
     if ( activeTool !== "fill-by-grid" ) return;
 
     const currT = this.toolbar.currentTerrain;
-    console.debug(`dragLeftCancel with tool ${activeTool} and terrain ${currT?.name}`, event);
+    console.debug(`dragLeftCancel with tool ${activeTool} and terrain ${currT?.name} with pixel value ${currT?.pixelValue}`, event);
 
     this.#temporaryGraphics.forEach(obj => {
       this._graphicsContainer.removeChild(obj.graphics);
