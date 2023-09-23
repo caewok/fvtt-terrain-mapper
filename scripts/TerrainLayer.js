@@ -1,6 +1,7 @@
 /* globals
 canvas,
 CONFIG,
+FullCanvasObjectMixin,
 game,
 InteractionLayer,
 mergeObject,
@@ -55,6 +56,12 @@ export class TerrainLayer extends InteractionLayer {
    * @type {PIXI.Container}
    */
   _graphicsContainer = new PIXI.Container();
+
+  /**
+   * Container to hold terrain names, when toggled on.
+   * @type {PIXI.Graphics}
+   */
+  _terrainLabelsContainer = new PIXI.Graphics();
 
   /**
    * Queue of all terrain shapes drawn on canvas, stored in order.
@@ -201,8 +208,6 @@ export class TerrainLayer extends InteractionLayer {
    */
   _terrainPixelColor(terrain) { return new PIXI.Color(this._terrainToPixelChannels(terrain)); }
 
-
-
   /**
    * Convert a terrain value to a pixel value between 0 and 255 per channel
    * @param {Terrain} terrain    Terrain to convert
@@ -216,7 +221,6 @@ export class TerrainLayer extends InteractionLayer {
     // TODO: Handle layers.
     return { r: terrain.pixelValue ?? 0, g: 0, b: 0 };
   }
-
 
   /**
    * Force the terrain id to be between 0 and the maximum value.
@@ -335,10 +339,11 @@ export class TerrainLayer extends InteractionLayer {
     this._graphicsContainer.destroy({children: true});
     this._graphicsContainer = new PIXI.Container();
 
+    this._terrainLabelsContainer.destroy({children: true});
+    this._terrainLabelsContainer = new PIXI.Graphics();
+
     this._terrainTexture?.destroy();
   }
-
-
 
   /**
    * Clear the pixel cache
@@ -347,14 +352,12 @@ export class TerrainLayer extends InteractionLayer {
     this.#terrainPixelCache = undefined;
   }
 
-
   /**
    * Download terrain data from the scene.
    */
   downloadData() {
     console.debug("I should be downloading terrain data for the scene...");
   }
-
 
   /**
    * Import terrain data from an image file into the scene.
@@ -416,7 +419,7 @@ export class TerrainLayer extends InteractionLayer {
     for ( const e of this._shapeQueue.elements ) {
       const shape = e.shape;
       const terrain = Terrain.sceneMap.get(shape.pixelValue);
-      const txt = draw.labelPoint(shape.origin, terrain.name, { fontSize: 24 })
+      const txt = draw.labelPoint(shape.origin, terrain.name, { fontSize: 24 });
       txt.anchor.set(0.5); // Center text
     }
   }
@@ -425,6 +428,34 @@ export class TerrainLayer extends InteractionLayer {
     const draw = new Draw();
     draw.clearDrawings();
     draw.clearLabels();
+  }
+
+  /**
+   * Display the terrain names / turn off the display.
+   * @param {boolean} force
+   */
+  toggleTerrainNames(force) {
+    const polygonText = this._terrainLabelsContainer.polygonText;
+    if ( !polygonText ) return;
+
+    // If already set and we want to force to a specific setting, do not toggle.
+    const namesEnabled = canvas.controls.children.includes(polygonText);
+    if ( force === true && namesEnabled ) return;
+    if ( force === false && !namesEnabled ) return;
+
+    // Toggle on/off
+    if ( namesEnabled ) canvas.controls.removeChild(polygonText);
+    else canvas.controls.addChild(polygonText);
+  }
+
+  /**
+   * Draw the terrain name into the container that stores names.
+   */
+  _drawTerrainName(shape) {
+    const draw = new Draw(this._terrainLabelsContainer);
+    const terrain = Terrain.sceneMap.get(shape.pixelValue);
+    const txt = draw.labelPoint(shape.origin, terrain.name, { fontSize: 24 });
+    txt.anchor.set(0.5); // Center text
   }
 
   /**
@@ -444,6 +475,10 @@ export class TerrainLayer extends InteractionLayer {
    */
   drawTerrain() {
     this.container.addChild(this._terrainColorsMesh);
+
+    // Turn on names if the toggle is active.
+    const nameToggle = this.controls.tools.find(t => t.name === "terrain-view-toggle");
+    if ( nameToggle.active ) this.toggleTerrainNames(true);
   }
 
   /**
@@ -451,6 +486,7 @@ export class TerrainLayer extends InteractionLayer {
    */
   eraseTerrain() {
     this.container.removeChild(this._terrainColorsMesh);
+    this.toggleTerrainNames(false);
   }
 
   /**
@@ -534,7 +570,10 @@ export class TerrainLayer extends InteractionLayer {
     const graphics = this._drawTerrainShape(shape, terrain);
 
     if ( temporary ) this.#temporaryGraphics.set(shape.origin.key, { shape, graphics });
-    else this._shapeQueue.enqueue({ shape, graphics }); // Link to PIXI.Graphics object for undo.
+    else {
+      this._shapeQueue.enqueue({ shape, graphics }); // Link to PIXI.Graphics object for undo.
+      this._drawTerrainName(shape);
+    }
 
     // Trigger save if necessary.
     this._requiresSave = !temporary;
@@ -698,7 +737,10 @@ export class TerrainLayer extends InteractionLayer {
     console.debug(`dragLeftDrop at ${o.x}, ${o.y} to ${d.x},${d.y} with tool ${activeTool} and terrain ${currT?.name}`, event);
 
     // Add each temporary shape to the queue, reset the temporary map and save.
-    this.#temporaryGraphics.forEach(obj => this._shapeQueue.enqueue(obj));
+    this.#temporaryGraphics.forEach(obj => {
+      this._shapeQueue.enqueue(obj);
+      this._drawTerrainName(obj.shape);
+    });
     this.#temporaryGraphics.clear(); // Don't destroy children b/c added already to main graphics
     this._requiresSave = true;
   }

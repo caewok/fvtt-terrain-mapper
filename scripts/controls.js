@@ -15,7 +15,7 @@ import { TerrainEffectsApp } from "./TerrainEffectsApp.js";
 import { isString } from "./util.js";
 
 Hooks.on("getSceneControlButtons", addTerrainLayerSceneControls);
-Hooks.on("renderSceneControls", addTerrainLayerSubControls);
+Hooks.on("renderSceneControls", renderSceneControlsHook);
 Hooks.on("renderTerrainLayerToolBar", renderTerrainLayerSubControls);
 
 
@@ -100,7 +100,17 @@ function addTerrainLayerSceneControls(controls) {
       icon: "fas fa-book",
       button: true,
       onClick: () => { new TerrainEffectsApp().render(true); }
+    },
+
+    {
+      name: "terrain-view-toggle",
+      title: game.i18n.localize(`${MODULE_ID}.controls.terrain-view-toggle.name`),
+      icon: "fas fa-font",
+      toggle: true,
+      active: false,
+      onClick: active => canvas.terrain.toggleTerrainNames(active)
     }
+
   ];
 
   const controlObj = {
@@ -114,6 +124,10 @@ function addTerrainLayerSceneControls(controls) {
   };
 
   controls.push(controlObj);
+}
+
+function renderSceneControlsHook(controls) {
+  addTerrainLayerSubControls(controls);
 }
 
 function addTerrainLayerSubControls(controls) {
