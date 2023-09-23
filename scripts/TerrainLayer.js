@@ -19,6 +19,7 @@ import { PixelCache } from "./PixelCache.js";
 import { Draw } from "./geometry/Draw.js";
 import { TerrainGridSquare } from "./TerrainGridSquare.js";
 import { TerrainGridHexagon } from "./TerrainGridHexagon.js";
+import { TerrainPolygon } from "./TerrainPolygon.js";
 import { TerrainTextureManager } from "./TerrainTextureManager.js";
 import { TerrainLayerShader } from "./glsl/TerrainLayerShader.js";
 import { TerrainQuadMesh } from "./glsl/TerrainQuadMesh.js";
@@ -556,7 +557,7 @@ export class TerrainLayer extends InteractionLayer {
    * @param {boolean} [opts.temporary=false]    Is this a temporary object? (Typically a dragged clone.)
    * @returns {PIXI.Graphics}
    */
-  addTerrainShapeToCanvas(shape, terrain, { temporary = false }) {
+  addTerrainShapeToCanvas(shape, terrain, { temporary = false } = {}) {
     shape.pixelValue = terrain.pixelValue;
     if ( temporary && this.#temporaryGraphics.has(shape.origin.key) ) {
       // Replace with this item.
@@ -602,7 +603,23 @@ export class TerrainLayer extends InteractionLayer {
     return graphics;
   }
 
-  /* ----- Controls ----- */
+  // ----- NOTE: Controls ----- //
+
+  /**
+   * Construct a LOS polygon from this point and fill with the provided terrain.
+   * @param {Point} origin        Point where viewer is assumed to be.
+   * @param {number} terrain      Terrain to use for the fill.
+   * @param {object} [options]    Options that affect the fill.
+   * @param {string} [options.type]   Type of line-of-sight to use, which can affect
+   *   which walls are included. Defaults to "light".
+   * @returns {PIXI.Graphics} The child graphics added to the _graphicsContainer
+   */
+  fillLOS(origin, terrain, { type = "light"} = {}) {
+    const los = CONFIG.Canvas.polygonBackends[type].create(origin, { type });
+    const shape = TerrainPolygon.fromPolygon(los);
+    shape.origin.copyFrom(origin);
+    return this.addTerrainShapeToCanvas(shape, terrain);
+  }
 
   /**
    * Set the elevation for the grid space that contains the point.
@@ -651,13 +668,13 @@ export class TerrainLayer extends InteractionLayer {
     this.renderTerrain();
   }
 
-  /* ----- Grid Shapes ----- */
+  // ----- Grid Shapes ----- //
 
   _squareGridShape(p) { return TerrainGridSquare.fromLocation(p.x, p.y); }
 
   _hexGridShape(p) { return TerrainGridHexagon.fromLocation(p.x, p.y); }
 
-  /* ----- Event Listeners and Handlers ----- /*
+  // ----- NOTE: Event Listeners and Handlers ----- //
 
   /**
    * If the user clicks a canvas location, change its elevation using the selected tool.
