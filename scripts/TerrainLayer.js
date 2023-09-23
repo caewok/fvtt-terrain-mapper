@@ -124,13 +124,13 @@ export class TerrainLayer extends InteractionLayer {
    */
   _onMouseMove(event) {
     if ( !canvas.ready
-      || !canvas.elevation.active
+      || !canvas.terrain.active
       || !this.terrainLabel ) return;
 
     // Get the canvas position of the mouse pointer.
     const pos = event.getLocalPosition(canvas.app.stage);
     if ( !canvas.dimensions.sceneRect.contains(pos.x, pos.y) ) {
-      this.elevationLabel.visible = false;
+      this.terrainLabel.visible = false;
       return;
     }
 
@@ -175,9 +175,9 @@ export class TerrainLayer extends InteractionLayer {
    * @param {Point} {x, y}
    * @returns {Terrain|undefined}
    */
-  terrainAt({_x, _y}) {
-    // TODO: Implement this.
-    return Terrain.sceneMap.values.next().value || new Terrain();
+  terrainAt({x, y}) {
+    const pixelValue = this.pixelCache.pixelAtCanvas(x, y);
+    return this.terrainForPixel(pixelValue);
   }
 
   /**
@@ -377,9 +377,10 @@ export class TerrainLayer extends InteractionLayer {
    */
   #refreshPixelCache() {
     const { sceneX: x, sceneY: y } = canvas.dimensions;
+    const combineFn = this._decodeTerrainChannels.bind(this);
     return PixelCache.fromTexture(
       this._terrainTexture,
-      { x, y, arrayClass: Uint8Array, combineFn: this._decodeTerrainChannels });
+      { x, y, arrayClass: Uint8Array, combineFn });
   }
 
   /**
