@@ -834,7 +834,7 @@ export class PixelCache extends PIXI.Rectangle {
     { alphaThreshold, skipFirst, forceLast, localOffsets, reducerFn } = {}) {
 
     const localBoundsIx = this._trimCanvasRayToLocalBounds(a, b, alphaThreshold);
-    if ( !localBoundsIx ) return []; // Ray never intersects the cache bounds.
+    if ( !localBoundsIx ) return null; // Ray never intersects the cache bounds.
 
     const pixel = this._extractNextMarkedPixelValueAlongLocalRay(
       localBoundsIx[0], localBoundsIx[1], markPixelFn, skipFirst, forceLast, localOffsets, reducerFn);
