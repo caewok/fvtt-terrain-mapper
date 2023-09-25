@@ -65,7 +65,13 @@ export class TerrainGridHexagon extends Hexagon {
    * Upon import, will be resized to current grid size.
    * @returns {object}
    */
-  toJSON() { return { gridPosition: this.gridPosition, pixelValue: this.pixelValue }; }
+  toJSON() {
+    return {
+      gridPosition: this.gridPosition,
+      pixelValue: this.pixelValue,
+      type: "TerrainGridHexagon"
+    };
+  }
 
   /**
    * Convert from JSON.

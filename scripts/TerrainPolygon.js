@@ -25,7 +25,8 @@ export class TerrainPolygon extends PIXI.Polygon {
     // TODO: Should all points be pixel integers? If yes, should a point key be stored instead?
     return {
       pixelValue: this.pixelValue,
-      points: this.points
+      points: this.points,
+      type: "TerrainPolygon"
     };
   }
 

@@ -23,6 +23,7 @@ import { TerrainPolygon } from "./TerrainPolygon.js";
 import { TerrainTextureManager } from "./TerrainTextureManager.js";
 import { TerrainLayerShader } from "./glsl/TerrainLayerShader.js";
 import { TerrainQuadMesh } from "./glsl/TerrainQuadMesh.js";
+import { SCENE_GRAPH } from "./WallTracer.js";
 
 // TODO: What should replace this now that FullCanvasContainer is deprecated in v11?
 class FullCanvasContainer extends FullCanvasObjectMixin(PIXI.Container) {
@@ -608,7 +609,7 @@ export class TerrainLayer extends InteractionLayer {
   /**
    * Construct a LOS polygon from this point and fill with the provided terrain.
    * @param {Point} origin        Point where viewer is assumed to be.
-   * @param {number} terrain      Terrain to use for the fill.
+   * @param {Terrain} terrain     c
    * @param {object} [options]    Options that affect the fill.
    * @param {string} [options.type]   Type of line-of-sight to use, which can affect
    *   which walls are included. Defaults to "light".
@@ -619,6 +620,57 @@ export class TerrainLayer extends InteractionLayer {
     const shape = TerrainPolygon.fromPolygon(los);
     shape.origin.copyFrom(origin);
     return this.addTerrainShapeToCanvas(shape, terrain);
+  }
+
+  /**
+   * Fill spaces enclosed by walls from a given origin point.
+   * @param {Point} origin      Start point for the fill.
+   * @param {Terrain} terrain   Terrain to use for the fill.
+   * @returns {PIXI.Graphics}   The child graphics added to the _graphicsContainer
+   */
+  fill(origin, terrain) {
+    /* Algorithm
+      Prelim: Gather set of all walls, including boundary walls.
+      1. Shoot a line to the west and identify colliding walls.
+      2. Pick closest and remember it.
+
+      Determine open/closed
+      3. Follow the wall clockwise and turn clockwise at each intersection or endpoint.
+      4. If back to original wall, found the boundary.
+      5. If ends without hitting original wall, this wall set is open.
+         Remove walls from set; redo from (1).
+
+      Once boundary polygon is found:
+      1. Get all (potentially) enclosed walls. Use bounding rect.
+      2. Omit any walls whose endpoint(s) lie outside the actual boundary polygon.
+      3. For each wall, determine if open or closed using open/closed algorithm.
+      4. If open, omit walls from set. If closed, these are holes. If the linked walls travels
+         outside the boundary polygon than it can be ignored
+    */
+
+    /* testing
+    origin = _token.center
+    el = canvas.elevation
+    api = game.modules.get("elevatedvision").api
+    WallTracer = api.WallTracer
+
+    */
+
+    console.debug(`Attempting fill at { x: ${origin.x}, y: ${origin.y} } with terrain ${terrain.name}`);
+    const polys = SCENE_GRAPH.encompassingPolygonWithHoles(origin);
+    if ( !polys.length ) {
+      // Shouldn't happen, but...
+      ui.notifications.warn(`Sorry; cannot locate a closed boundary for the requested fill at { x: ${origin.x}, y: ${origin.y} }!`);
+      return;
+    }
+    const shape = new TerrainShapeHoled(polys, { pixelValue: terrain.pixelValue });
+
+    // In case we have zero holes; we can simplify the result.
+    // (Should not require cleaning, as it would just have been built with clipper.)
+    const shapes = shape.simplify();
+    for ( const shape of shapes ) {
+      this.addTerrainShapeToCanvas(shape, terrain);
+    }
   }
 
   /**
