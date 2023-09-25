@@ -25,6 +25,7 @@ import { TerrainLayerShader } from "./glsl/TerrainLayerShader.js";
 import { TerrainQuadMesh } from "./glsl/TerrainQuadMesh.js";
 import { SCENE_GRAPH } from "./WallTracer.js";
 import { TerrainShapeHoled } from "./TerrainShapeHoled.js";
+import { FillByGridHelper } from "./FillByGridHelper.js";
 
 // TODO: What should replace this now that FullCanvasContainer is deprecated in v11?
 class FullCanvasContainer extends FullCanvasObjectMixin(PIXI.Container) {
@@ -35,6 +36,9 @@ export class TerrainLayer extends InteractionLayer {
 
   /** @type {PixelFrame} */
   #terrainPixelCache;
+
+  /** @type {FillByGridHelper} */
+  #controlsHelper;
 
   /** @type {number} */
   static MAX_TERRAIN_ID = Math.pow(2, 5) - 1;
@@ -737,13 +741,14 @@ export class TerrainLayer extends InteractionLayer {
     const o = event.interactionData.origin;
     const activeTool = game.activeTool;
     const currT = this.toolbar.currentTerrain;
-
     console.debug(`clickLeft at ${o.x},${o.y} with tool ${activeTool} and terrain ${currT.name}`, event);
 
     switch ( activeTool ) {
-      case "fill-by-grid":
-        this.setTerrainForGridSpace(o, currT);
+      case "fill-by-grid": {
+        this.#controlsHelper = new FillByGridHelper();
+        this.#controlsHelper._onClickLeft(event);
         break;
+      }
       case "fill-by-los":
         this.fillLOS(o, currT);
         break;
@@ -765,14 +770,19 @@ export class TerrainLayer extends InteractionLayer {
    */
   _onDragLeftStart(event) {
     const activeTool = game.activeTool;
-    if ( activeTool !== "fill-by-grid" ) return;
-
     const o = event.interactionData.origin;
     const currT = this.toolbar.currentTerrain;
     console.debug(`dragLeftStart at ${o.x}, ${o.y} with tool ${activeTool} and terrain ${currT.name}`, event);
 
-    this.#temporaryGraphics.clear(); // Should be accomplished elsewhere already
-    this.setTerrainForGridSpace(o, currT, { temporary: true });
+    if ( activeTool !== "fill-by-grid" ) return;
+
+    switch ( activeTool ) {
+      case "fill-by-grid": {
+        this.#controlsHelper = new FillByGridHelper();
+        break;
+      }
+    }
+    this.#controlsHelper._onDragLeftStart(event);
   }
 
   /**
@@ -781,15 +791,13 @@ export class TerrainLayer extends InteractionLayer {
    */
   _onDragLeftMove(event) {
     const activeTool = game.activeTool;
-    if ( activeTool !== "fill-by-grid" ) return;
-
     const o = event.interactionData.origin;
     const d = event.interactionData.destination;
     const currT = this.toolbar.currentTerrain;
     console.debug(`dragLeftMove from ${o.x},${o.y} to ${d.x}, ${d.y} with tool ${activeTool} and terrain ${currT.name}`, event);
 
-    // Color the grid square at the current destination.
-    this.setTerrainForGridSpace(d, currT, { temporary: true });
+    if ( activeTool !== "fill-by-grid" ) return;
+    this.#controlsHelper._onDragLeftMove(event);
   }
 
   /**
@@ -797,20 +805,13 @@ export class TerrainLayer extends InteractionLayer {
    */
   _onDragLeftDrop(event) {
     const activeTool = game.activeTool;
-    if ( activeTool !== "fill-by-grid" ) return;
-
     const o = event.interactionData.origin;
     const d = event.interactionData.destination;
     const currT = this.toolbar.currentTerrain;
     console.debug(`dragLeftDrop at ${o.x}, ${o.y} to ${d.x},${d.y} with tool ${activeTool} and terrain ${currT?.name}`, event);
 
-    // Add each temporary shape to the queue, reset the temporary map and save.
-    this.#temporaryGraphics.forEach(obj => {
-      this._shapeQueue.enqueue(obj);
-      this._drawTerrainName(obj.shape);
-    });
-    this.#temporaryGraphics.clear(); // Don't destroy children b/c added already to main graphics
-    this._requiresSave = true;
+    if ( activeTool !== "fill-by-grid" ) return;
+    this.#controlsHelper._onDragLeftDrop(event);
   }
 
   /**
@@ -820,11 +821,29 @@ export class TerrainLayer extends InteractionLayer {
    */
   _onDragLeftCancel(event) {
     const activeTool = game.activeTool;
-    if ( activeTool !== "fill-by-grid" ) return;
-
     const currT = this.toolbar.currentTerrain;
     console.debug(`dragLeftCancel with tool ${activeTool} and terrain ${currT?.name} with pixel value ${currT?.pixelValue}`, event);
 
+    if ( activeTool !== "fill-by-grid" ) return;
+    this.#controlsHelper._onDragLeftCancel(event);
+  }
+
+  /**
+   * Make temporary graphics permanent by adding them to the queue.
+   * Assumes temp graphics already otherwise drawn.
+   */
+  _makeTemporaryGraphicsPermanent() {
+    this.#temporaryGraphics.forEach(obj => {
+      this._shapeQueue.enqueue(obj);
+      this._drawTerrainName(obj.shape);
+    });
+    this.#temporaryGraphics.clear(); // Don't destroy children b/c added already to main graphics
+  }
+
+  /**
+   * Clear the temporary graphics queue and destroy children.
+   */
+  _clearTemporaryGraphics() {
     this.#temporaryGraphics.forEach(obj => {
       this._graphicsContainer.removeChild(obj.graphics);
       obj.graphics.destroy();

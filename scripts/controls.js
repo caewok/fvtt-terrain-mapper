@@ -50,6 +50,12 @@ function addTerrainLayerSceneControls(controls) {
     },
 
     {
+      name: "polygon",
+      title: game.i18n.localize(`${MODULE_ID}.controls.polygon.name`),
+      icon: "fas fa-draw-polygon"
+    },
+
+    {
       name: "clear",
       title: game.i18n.localize(`${MODULE_ID}.controls.clear.name`),
       icon: "fas fa-trash-can",
