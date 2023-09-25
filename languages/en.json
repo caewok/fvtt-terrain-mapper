@@ -3,6 +3,7 @@
   "terrainmapper.controls.fill-by-grid.name": "Fill by grid",
   "terrainmapper.controls.fill-by-los.name": "Fill by line-of-sight",
   "terrainmapper.controls.fill-space.name": "Fill space enclosed by walls",
+  "terrainmapper.controls.fill-polygon.name": "Draw and fill a polygon",
   "terrainmapper.controls.clear.name": "Clear all",
   "terrainmapper.controls.clear.confirm.title": "Clear all terrain data",
   "terrainmapper.controls.clear.confirm.content": "Are you sure you want to remove all terrain data from the scene?",

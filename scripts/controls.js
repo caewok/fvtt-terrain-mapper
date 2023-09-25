@@ -9,10 +9,8 @@ Hooks
 "use strict";
 
 import { MODULE_ID } from "./const.js";
-import { Terrain } from "./Terrain.js";
 import { TerrainLayerToolBar } from "./TerrainLayerToolBar.js";
 import { TerrainEffectsApp } from "./TerrainEffectsApp.js";
-import { isString } from "./util.js";
 
 Hooks.on("getSceneControlButtons", addTerrainLayerSceneControls);
 Hooks.on("renderSceneControls", renderSceneControlsHook);
@@ -24,13 +22,15 @@ function addTerrainLayerSceneControls(controls) {
     {
       name: "fill-by-grid",
       title: game.i18n.localize(`${MODULE_ID}.controls.fill-by-grid.name`),
-      icon: "fas fa-brush"
+      icon: "fas fa-brush",
+      onClick: () => canvas.terrain._updateControlsHelper()
     },
 
     {
       name: "fill-by-los",
       title: game.i18n.localize(`${MODULE_ID}.controls.fill-by-los.name`),
-      icon: "fas fa-eye"
+      icon: "fas fa-eye",
+      onClick: () => canvas.terrain._updateControlsHelper()
     },
 
     /* TODO: How feasible would be a "painting" option with circle or square brush?
@@ -46,7 +46,15 @@ function addTerrainLayerSceneControls(controls) {
     {
       name: "fill-space",
       title: game.i18n.localize(`${MODULE_ID}.controls.fill-space.name`),
-      icon: "fas fa-fill-drip"
+      icon: "fas fa-fill-drip",
+      onClick: () => canvas.terrain._updateControlsHelper()
+    },
+
+    {
+      name: "fill-polygon",
+      title: game.i18n.localize(`${MODULE_ID}.controls.fill-polygon.name`),
+      icon: "fas fa-draw-polygon",
+      onClick: () => canvas.terrain._updateControlsHelper()
     },
 
     {

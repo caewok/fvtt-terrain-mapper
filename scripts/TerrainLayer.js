@@ -25,6 +25,8 @@ import { TerrainLayerShader } from "./glsl/TerrainLayerShader.js";
 import { TerrainQuadMesh } from "./glsl/TerrainQuadMesh.js";
 import { SCENE_GRAPH } from "./WallTracer.js";
 import { TerrainShapeHoled } from "./TerrainShapeHoled.js";
+import { FillByGridHelper } from "./FillByGridHelper.js";
+import { FillPolygonHelper } from "./FillPolygonHelper.js";
 
 // TODO: What should replace this now that FullCanvasContainer is deprecated in v11?
 class FullCanvasContainer extends FullCanvasObjectMixin(PIXI.Container) {
@@ -33,8 +35,14 @@ class FullCanvasContainer extends FullCanvasObjectMixin(PIXI.Container) {
 
 export class TerrainLayer extends InteractionLayer {
 
+  /** @type {PIXI.Container} */
+  preview = new PIXI.Container();
+
   /** @type {PixelFrame} */
   #terrainPixelCache;
+
+  /** @type {FillByGridHelper} */
+  #controlsHelper;
 
   /** @type {number} */
   static MAX_TERRAIN_ID = Math.pow(2, 5) - 1;
@@ -288,6 +296,23 @@ export class TerrainLayer extends InteractionLayer {
     this.container.visible = true;
     canvas.stage.addChild(this.terrainLabel);
     canvas.stage.addChild(this._wallDataContainer);
+
+    // Enable the preview container, for polygon drawing, etc.
+    this.addChild(this.preview);
+
+    this._updateControlsHelper();
+    this.clearPreviewContainer();
+  }
+
+  /**
+   * Clear the contents of the preview container, restoring visibility of original (non-preview) objects.
+   */
+  clearPreviewContainer() {
+    if ( !this.preview ) return;
+    this.preview.removeChildren().forEach(c => {
+      c._onDragEnd();
+      c.destroy({children: true});
+    });
   }
 
   /** @override */
@@ -730,20 +755,43 @@ export class TerrainLayer extends InteractionLayer {
   // ----- NOTE: Event Listeners and Handlers ----- //
 
   /**
+   * Update the controls helper based on the active tool.
+   */
+  _updateControlsHelper() {
+    const activeTool = game.activeTool;
+    switch ( activeTool ) {
+      case "fill-by-grid":
+        this.#controlsHelper = new FillByGridHelper();
+        break;
+      case "fill-polygon":
+        this.#controlsHelper = new FillPolygonHelper();
+        break;
+      default:
+        this.#controlsHelper = undefined;
+    }
+  }
+
+  #debugClickEvent(event, fnName) {
+    const activeTool = game.activeTool;
+    const o = event.interactionData.origin;
+    const currT = this.toolbar.currentTerrain;
+    console.debug(`TerrainLayer|${fnName} at ${o.x}, ${o.y} with tool ${activeTool} and terrain ${currT.name}`, event);
+  }
+
+
+  /**
    * If the user clicks a canvas location, change its elevation using the selected tool.
    * @param {PIXI.InteractionEvent} event
    */
   _onClickLeft(event) {
+    this.#debugClickEvent(event, "_onClickLeft");
     const o = event.interactionData.origin;
-    const activeTool = game.activeTool;
     const currT = this.toolbar.currentTerrain;
-
-    console.debug(`clickLeft at ${o.x},${o.y} with tool ${activeTool} and terrain ${currT.name}`, event);
-
-    switch ( activeTool ) {
-      case "fill-by-grid":
-        this.setTerrainForGridSpace(o, currT);
+    switch ( game.activeTool ) {
+      case "fill-by-grid": {
+        this.#controlsHelper._onClickLeft(event);
         break;
+      }
       case "fill-by-los":
         this.fillLOS(o, currT);
         break;
@@ -753,78 +801,111 @@ export class TerrainLayer extends InteractionLayer {
       case "fill-space":
         this.fill(o, currT);
         break;
+      case "fill-polygon": {
+        this.#controlsHelper._onClickLeft(event);
+        break;
+      }
     }
 
     // Standard left-click handling
     super._onClickLeft(event);
   }
 
+
+  /**
+   * Handle a double-click left.
+   * @param {PIXI.InteractionEvent} event
+   */
+  _onClickLeft2(event) {
+    this.#debugClickEvent(event, "_onClickLeft2");
+
+    if ( !this.#controlsHelper ) return;
+    this.#controlsHelper._onClickLeft2(event);
+
+    // Standard double-left-click handling
+    super._onClickLeft2(event);
+  }
+
+  /**
+   * Handle a right click.
+   * @param {PIXI.InteractionEvent} event
+   */
+  _onClickRight(event) {
+    this.#debugClickEvent(event, "_onClickRight");
+
+    if ( !this.#controlsHelper ) return;
+    this.#controlsHelper._onClickRight(event);
+
+    // Standard right-click handling
+    super._onClickRight(event);
+  }
+
   /**
    * If the user initiates a drag-left:
    * - fill-by-grid: keep a temporary set of left corner grid locations and draw the grid
+   * @param {PIXI.InteractionEvent} event
    */
   _onDragLeftStart(event) {
-    const activeTool = game.activeTool;
-    if ( activeTool !== "fill-by-grid" ) return;
+    this.#debugClickEvent(event, "_onDragLeftStart");
 
-    const o = event.interactionData.origin;
-    const currT = this.toolbar.currentTerrain;
-    console.debug(`dragLeftStart at ${o.x}, ${o.y} with tool ${activeTool} and terrain ${currT.name}`, event);
-
-    this.#temporaryGraphics.clear(); // Should be accomplished elsewhere already
-    this.setTerrainForGridSpace(o, currT, { temporary: true });
+    if ( !this.#controlsHelper ) return;
+    this.#controlsHelper._onDragLeftStart(event);
   }
 
   /**
    * User continues a drag left.
    * - fill-by-grid: If new grid space, add.
+   * @param {PIXI.InteractionEvent} event
    */
   _onDragLeftMove(event) {
-    const activeTool = game.activeTool;
-    if ( activeTool !== "fill-by-grid" ) return;
+    this.#debugClickEvent(event, "_onDragLeftMove");
 
-    const o = event.interactionData.origin;
-    const d = event.interactionData.destination;
-    const currT = this.toolbar.currentTerrain;
-    console.debug(`dragLeftMove from ${o.x},${o.y} to ${d.x}, ${d.y} with tool ${activeTool} and terrain ${currT.name}`, event);
-
-    // Color the grid square at the current destination.
-    this.setTerrainForGridSpace(d, currT, { temporary: true });
+    if ( !this.#controlsHelper ) return;
+    this.#controlsHelper._onDragLeftMove(event);
   }
 
   /**
    * User commits the drag
+   * @param {PIXI.InteractionEvent} event
    */
-  _onDragLeftDrop(event) {
-    const activeTool = game.activeTool;
-    if ( activeTool !== "fill-by-grid" ) return;
+  async _onDragLeftDrop(event) {
+    this.#debugClickEvent(event, "_onDragLeftDrop");
 
-    const o = event.interactionData.origin;
-    const d = event.interactionData.destination;
-    const currT = this.toolbar.currentTerrain;
-    console.debug(`dragLeftDrop at ${o.x}, ${o.y} to ${d.x},${d.y} with tool ${activeTool} and terrain ${currT?.name}`, event);
-
-    // Add each temporary shape to the queue, reset the temporary map and save.
-    this.#temporaryGraphics.forEach(obj => {
-      this._shapeQueue.enqueue(obj);
-      this._drawTerrainName(obj.shape);
-    });
-    this.#temporaryGraphics.clear(); // Don't destroy children b/c added already to main graphics
-    this._requiresSave = true;
+    if ( !this.#controlsHelper ) return;
+    return this.#controlsHelper._onDragLeftDrop(event);
   }
 
   /**
    * User cancels the drag.
    * Currently does not appear triggered by anything, but conceivably could be triggered
    * by hitting escape while in a drag.
+   * @param {PIXI.InteractionEvent} event
    */
   _onDragLeftCancel(event) {
-    const activeTool = game.activeTool;
-    if ( activeTool !== "fill-by-grid" ) return;
+    this.#debugClickEvent(event, "_onDragLeftCancel");
 
-    const currT = this.toolbar.currentTerrain;
-    console.debug(`dragLeftCancel with tool ${activeTool} and terrain ${currT?.name} with pixel value ${currT?.pixelValue}`, event);
+    if ( !this.#controlsHelper ) return;
+    this.#controlsHelper._onDragLeftCancel(event);
 
+    super._onDragLeftCancel(event);
+  }
+
+  /**
+   * Make temporary graphics permanent by adding them to the queue.
+   * Assumes temp graphics already otherwise drawn.
+   */
+  _makeTemporaryGraphicsPermanent() {
+    this.#temporaryGraphics.forEach(obj => {
+      this._shapeQueue.enqueue(obj);
+      this._drawTerrainName(obj.shape);
+    });
+    this.#temporaryGraphics.clear(); // Don't destroy children b/c added already to main graphics
+  }
+
+  /**
+   * Clear the temporary graphics queue and destroy children.
+   */
+  _clearTemporaryGraphics() {
     this.#temporaryGraphics.forEach(obj => {
       this._graphicsContainer.removeChild(obj.graphics);
       obj.graphics.destroy();
