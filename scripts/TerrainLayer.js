@@ -26,6 +26,7 @@ import { TerrainQuadMesh } from "./glsl/TerrainQuadMesh.js";
 import { SCENE_GRAPH } from "./WallTracer.js";
 import { TerrainShapeHoled } from "./TerrainShapeHoled.js";
 import { FillByGridHelper } from "./FillByGridHelper.js";
+import { FillPolygonHelper } from "./FillPolygonHelper.js";
 
 // TODO: What should replace this now that FullCanvasContainer is deprecated in v11?
 class FullCanvasContainer extends FullCanvasObjectMixin(PIXI.Container) {
@@ -33,6 +34,9 @@ class FullCanvasContainer extends FullCanvasObjectMixin(PIXI.Container) {
 }
 
 export class TerrainLayer extends InteractionLayer {
+
+  /** @type {PIXI.Container} */
+  preview = new PIXI.Container();
 
   /** @type {PixelFrame} */
   #terrainPixelCache;
@@ -292,6 +296,23 @@ export class TerrainLayer extends InteractionLayer {
     this.container.visible = true;
     canvas.stage.addChild(this.terrainLabel);
     canvas.stage.addChild(this._wallDataContainer);
+
+    // Enable the preview container, for polygon drawing, etc.
+    this.addChild(this.preview);
+
+    this._updateControlsHelper();
+    this.clearPreviewContainer();
+  }
+
+  /**
+   * Clear the contents of the preview container, restoring visibility of original (non-preview) objects.
+   */
+  clearPreviewContainer() {
+    if ( !this.preview ) return;
+    this.preview.removeChildren().forEach(c => {
+      c._onDragEnd();
+      c.destroy({children: true});
+    });
   }
 
   /** @override */
@@ -734,18 +755,40 @@ export class TerrainLayer extends InteractionLayer {
   // ----- NOTE: Event Listeners and Handlers ----- //
 
   /**
+   * Update the controls helper based on the active tool.
+   */
+  _updateControlsHelper() {
+    const activeTool = game.activeTool;
+    switch ( activeTool ) {
+      case "fill-by-grid":
+        this.#controlsHelper = new FillByGridHelper();
+        break;
+      case "fill-polygon":
+        this.#controlsHelper = new FillPolygonHelper();
+        break;
+      default:
+        this.#controlsHelper = undefined;
+    }
+  }
+
+  #debugClickEvent(event, fnName) {
+    const activeTool = game.activeTool;
+    const o = event.interactionData.origin;
+    const currT = this.toolbar.currentTerrain;
+    console.debug(`TerrainLayer|${fnName} at ${o.x}, ${o.y} with tool ${activeTool} and terrain ${currT.name}`, event);
+  }
+
+
+  /**
    * If the user clicks a canvas location, change its elevation using the selected tool.
    * @param {PIXI.InteractionEvent} event
    */
   _onClickLeft(event) {
+    this.#debugClickEvent(event, "_onClickLeft");
     const o = event.interactionData.origin;
-    const activeTool = game.activeTool;
     const currT = this.toolbar.currentTerrain;
-    console.debug(`clickLeft at ${o.x},${o.y} with tool ${activeTool} and terrain ${currT.name}`, event);
-
-    switch ( activeTool ) {
+    switch ( game.activeTool ) {
       case "fill-by-grid": {
-        this.#controlsHelper = new FillByGridHelper();
         this.#controlsHelper._onClickLeft(event);
         break;
       }
@@ -758,74 +801,93 @@ export class TerrainLayer extends InteractionLayer {
       case "fill-space":
         this.fill(o, currT);
         break;
+      case "fill-polygon": {
+        this.#controlsHelper._onClickLeft(event);
+        break;
+      }
     }
 
     // Standard left-click handling
     super._onClickLeft(event);
   }
 
+
+  /**
+   * Handle a double-click left.
+   * @param {PIXI.InteractionEvent} event
+   */
+  _onClickLeft2(event) {
+    this.#debugClickEvent(event, "_onClickLeft2");
+
+    if ( !this.#controlsHelper ) return;
+    this.#controlsHelper._onClickLeft2(event);
+
+    // Standard double-left-click handling
+    super._onClickLeft2(event);
+  }
+
+  /**
+   * Handle a right click.
+   * @param {PIXI.InteractionEvent} event
+   */
+  _onClickRight(event) {
+    this.#debugClickEvent(event, "_onClickRight");
+
+    if ( !this.#controlsHelper ) return;
+    this.#controlsHelper._onClickRight(event);
+
+    // Standard right-click handling
+    super._onClickRight(event);
+  }
+
   /**
    * If the user initiates a drag-left:
    * - fill-by-grid: keep a temporary set of left corner grid locations and draw the grid
+   * @param {PIXI.InteractionEvent} event
    */
   _onDragLeftStart(event) {
-    const activeTool = game.activeTool;
-    const o = event.interactionData.origin;
-    const currT = this.toolbar.currentTerrain;
-    console.debug(`dragLeftStart at ${o.x}, ${o.y} with tool ${activeTool} and terrain ${currT.name}`, event);
+    this.#debugClickEvent(event, "_onDragLeftStart");
 
-    if ( activeTool !== "fill-by-grid" ) return;
-
-    switch ( activeTool ) {
-      case "fill-by-grid": {
-        this.#controlsHelper = new FillByGridHelper();
-        break;
-      }
-    }
+    if ( !this.#controlsHelper ) return;
     this.#controlsHelper._onDragLeftStart(event);
   }
 
   /**
    * User continues a drag left.
    * - fill-by-grid: If new grid space, add.
+   * @param {PIXI.InteractionEvent} event
    */
   _onDragLeftMove(event) {
-    const activeTool = game.activeTool;
-    const o = event.interactionData.origin;
-    const d = event.interactionData.destination;
-    const currT = this.toolbar.currentTerrain;
-    console.debug(`dragLeftMove from ${o.x},${o.y} to ${d.x}, ${d.y} with tool ${activeTool} and terrain ${currT.name}`, event);
+    this.#debugClickEvent(event, "_onDragLeftMove");
 
-    if ( activeTool !== "fill-by-grid" ) return;
+    if ( !this.#controlsHelper ) return;
     this.#controlsHelper._onDragLeftMove(event);
   }
 
   /**
    * User commits the drag
+   * @param {PIXI.InteractionEvent} event
    */
-  _onDragLeftDrop(event) {
-    const activeTool = game.activeTool;
-    const o = event.interactionData.origin;
-    const d = event.interactionData.destination;
-    const currT = this.toolbar.currentTerrain;
-    console.debug(`dragLeftDrop at ${o.x}, ${o.y} to ${d.x},${d.y} with tool ${activeTool} and terrain ${currT?.name}`, event);
+  async _onDragLeftDrop(event) {
+    this.#debugClickEvent(event, "_onDragLeftDrop");
 
-    if ( activeTool !== "fill-by-grid" ) return;
-    this.#controlsHelper._onDragLeftDrop(event);
+    if ( !this.#controlsHelper ) return;
+    return this.#controlsHelper._onDragLeftDrop(event);
   }
 
   /**
    * User cancels the drag.
    * Currently does not appear triggered by anything, but conceivably could be triggered
    * by hitting escape while in a drag.
+   * @param {PIXI.InteractionEvent} event
    */
   _onDragLeftCancel(event) {
-    const activeTool = game.activeTool;
-    const currT = this.toolbar.currentTerrain;
-    console.debug(`dragLeftCancel with tool ${activeTool} and terrain ${currT?.name} with pixel value ${currT?.pixelValue}`, event);
+    this.#debugClickEvent(event, "_onDragLeftCancel");
 
-    if ( activeTool !== "fill-by-grid" ) return;
+    if ( !this.#controlsHelper ) return;
     this.#controlsHelper._onDragLeftCancel(event);
+
+    super._onDragLeftCancel(event);
   }
 
   /**

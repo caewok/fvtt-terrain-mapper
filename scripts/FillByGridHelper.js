@@ -1,16 +1,14 @@
 /* globals
-canvas
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
+import { ControlHelper } from "./ControlHelper.js";
+
 /**
  * Handle when the fill-by-grid control is used.
  */
-export class FillByGridHelper {
-
-  /** @type {TerrainLayer} */
-  tm = canvas.terrain;
+export class FillByGridHelper extends ControlHelper {
 
   /**
    * Handle a click left.
@@ -44,7 +42,7 @@ export class FillByGridHelper {
    * Handle a drag left drop by converting temp to permanent.
    * @param {PIXI.InteractionEvent} event
    */
-  _onDragLeftDrop(_event) {
+  async _onDragLeftDrop(_event) {
     this.tm._makeTemporaryGraphicsPermanent();
     this.tm._requiresSave = true;
   }
