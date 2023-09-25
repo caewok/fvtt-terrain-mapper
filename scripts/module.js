@@ -14,6 +14,7 @@ import { PATCHER, initializePatching } from "./patching.js";
 import { registerGeometry } from "./geometry/registration.js";
 
 import { TerrainLayerShader } from "./glsl/TerrainLayerShader.js";
+import { WallTracerEdge, WallTracerVertex, WallTracer, SCENE_GRAPH } from "./WallTracer.js";
 
 // Self-executing hooks.
 import "./controls.js";
@@ -74,7 +75,11 @@ function initializeAPI() {
     EffectHelper,
     TerrainSettings,
     PATCHER,
-    TerrainLayerShader
+    TerrainLayerShader,
+    WallTracerEdge,
+    WallTracerVertex,
+    WallTracer,
+    SCENE_GRAPH,
   };
 }
 

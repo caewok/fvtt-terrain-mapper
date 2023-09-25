@@ -65,7 +65,7 @@ export class TerrainGridSquare extends Square {
    * Upon import, will be resized to current grid size.
    * @returns {object}
    */
-  toJSON() { return { gridPosition: this.gridPosition, pixelValue: this.pixelValue }; }
+  toJSON() { return { gridPosition: this.gridPosition, pixelValue: this.pixelValue, type: "TerrainGridSquare" }; }
 
   /**
    * Convert from JSON.
