@@ -24,6 +24,7 @@ import { TerrainTextureManager } from "./TerrainTextureManager.js";
 import { TerrainLayerShader } from "./glsl/TerrainLayerShader.js";
 import { TerrainQuadMesh } from "./glsl/TerrainQuadMesh.js";
 import { SCENE_GRAPH } from "./WallTracer.js";
+import { TerrainShapeHoled } from "./TerrainShapeHoled.js";
 
 // TODO: What should replace this now that FullCanvasContainer is deprecated in v11?
 class FullCanvasContainer extends FullCanvasObjectMixin(PIXI.Container) {
@@ -744,14 +745,12 @@ export class TerrainLayer extends InteractionLayer {
         this.setTerrainForGridSpace(o, currT);
         break;
       case "fill-by-los":
-        console.debug("fill-by-los not yet implemented.");
         this.fillLOS(o, currT);
         break;
       case "fill-by-pixel":
         console.debug("fill-by-pixel not yet implemented.");
         break;
       case "fill-space":
-        console.debug("fill-space not yet implemented.");
         this.fill(o, currT);
         break;
     }

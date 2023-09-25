@@ -14,12 +14,19 @@ export class TerrainShapeHoled extends ShapeHoled {
   /** @type PIXI.Point */
   origin = new PIXI.Point();
 
-  constructor(shapes = [], { holes, origin, pixelValue } = {}) {
-    super(...args);
-    if ( origin ) this.origin.copyFrom(origin);
+  /**
+   * @param {Shapes[]} shapes   One or more shapes to use. Holes marked with `isHole` property.
+   * @param {object} [opts]     Options, passed to ShapeHoled constructor.
+   * @param {Point} [opts.origin]         What point to treat as the origin, mostly for labeling.
+   *   Defaults to the center of the bounding box.
+   * @param {number} [opts.pixelValue]    What pixel value this shape should use.
+   */
+  constructor(shapes = [], opts = {}) {
+    super(shapes, { });
+    if ( opts.origin ) this.origin.copyFrom(opts.origin);
     else this.origin.copyFrom(this.bounds.center);
 
-    if ( pixelValue ) this.pixelValue = pixelValue;
+    if ( opts.pixelValue ) this.pixelValue = opts.pixelValue;
 
     // Transform all shapes into terrain shapes.
     this.shapes = this.shapes.map(s => this.#convertShapeToTerrainShape(s));
@@ -32,11 +39,13 @@ export class TerrainShapeHoled extends ShapeHoled {
    * @returns {TerrainShape}
    */
   #convertShapeToTerrainShape(shape) {
-    if ( s instanceof TerrainPolygon ) {
-      s.pixelValue = this.pixelValue;
-      return s;
+    if ( shape instanceof TerrainPolygon ) {
+      shape.pixelValue = this.pixelValue;
+      return shape;
     }
-    return TerrainPolygon.fromPolygon(s.toPolygon(), this.pixelValue);
+    const poly = TerrainPolygon.fromPolygon(shape.toPolygon(), this.pixelValue);
+    poly.isHole = shape.isHole;
+    return poly;
   }
 
   /**
@@ -61,7 +70,12 @@ export class TerrainShapeHoled extends ShapeHoled {
    */
   static fromJSON(json) {
     const shapes = json.shapes.map(s => TerrainPolygon.fromJSON(s));
-    const holes = json.holes.map(s => TerrainPolygon.fromJSON(s));
+    const holes = json.holes.map(s => {
+      const poly = TerrainPolygon.fromJSON(s);
+      poly.isHole = true;
+      return poly;
+    });
+
     const { pixelValue, origin } = json;
     return new this([...shapes, ...holes], { pixelValue, origin });
   }
