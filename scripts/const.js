@@ -4,6 +4,8 @@
 
 export const MODULE_ID = "terrainmapper";
 
+export const SOCKETS = { socket: null };
+
 export const LABELS = {
   ANCHOR_OPTIONS: {
     absolute: "terrainmapper.settings.terrain.anchorOptions.absolute",

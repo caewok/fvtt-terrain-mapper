@@ -1,14 +1,15 @@
 /* globals
 Hooks,
-game
+game,
+socketlib
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { MODULE_ID } from "./const.js";
+import { MODULE_ID, SOCKETS } from "./const.js";
 import { TerrainLayer } from "./TerrainLayer.js";
 import { TerrainSettings } from "./settings.js";
-import { Terrain, TerrainMap } from "./Terrain.js";
+import { Terrain, TerrainMap, addTerrainEffect, removeTerrainEffect } from "./Terrain.js";
 import { EffectHelper } from "./EffectHelper.js";
 import { PATCHER, initializePatching } from "./patching.js";
 import { registerGeometry } from "./geometry/registration.js";
@@ -67,6 +68,12 @@ Hooks.once("canvasReady", function(canvas, canvasEffects0, canvasEffects1, canva
 //   TerrainLayer.initialize();
 });
 
+// ----- Set up sockets for changing effects on tokens and creating a dialog ----- //
+Hooks.once("socketlib.ready", () => {
+  SOCKETS.socket = socketlib.registerModule(MODULE_ID);
+  SOCKETS.socket.register("addTerrainEffect", addTerrainEffect);
+  SOCKETS.socket.register("removeTerrainEffect", removeTerrainEffect);
+});
 
 function initializeAPI() {
   game.modules.get(MODULE_ID).api = {
@@ -79,7 +86,7 @@ function initializeAPI() {
     WallTracerEdge,
     WallTracerVertex,
     WallTracer,
-    SCENE_GRAPH,
+    SCENE_GRAPH
   };
 }
 

@@ -142,6 +142,18 @@ export class TravelTerrainRay {
   }
 
   /**
+   * List all terrains found in the path.
+   * @returns {Terrain[]}
+   */
+  terrainsInPath() {
+    const terrains = [];
+    for ( const pathObj of this.path ) {
+      if ( pathObj.terrain ) terrains.push(pathObj.terrain);
+    }
+    return terrains;
+  }
+
+  /**
    * Get each point at which there is a terrain change.
    */
   _walkPath() {

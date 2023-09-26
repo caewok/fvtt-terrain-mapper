@@ -119,6 +119,24 @@ export class EffectHelper {
     return new this.constructor(effects[0]);
   }
 
+  async addToToken(tokenUUID) {
+    const tokenD = fromUuidSync(tokenUUID);
+    if ( !tokenD ) return;
+
+    // TODO: Do we need to use foundry.utils.deepClone here?
+    const effectData = this.effect.toObject();
+    effectData._id = undefined;
+    effectData.id = this.effect.id;
+    effectData.origin = `TerrainMapper.${this.effect.id}`;
+    return tokenD.toggleActiveEffect(effectData, { active: true });
+  }
+
+  async removeFromToken(tokenUUID) {
+    const tokenD = fromUuidSync(tokenUUID);
+    if ( !tokenD ) return;
+    return tokenD.toggleActiveEffect({ id: this.effect.id }, { active: false });
+  }
+
   static async deleteEffectById(id) {
     const item = TerrainSettings.terrainEffectsItem;
     const activeEffect = this.getTerrainEffectById(id);

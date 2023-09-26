@@ -59,7 +59,7 @@ export class TerrainSettings {
         COMBAT: "auto_terrain_combat",
         ALWAYS: "auto_terrain_always"
       },
-      USE_DIALOG: "auto_terrain_dialog"  // Should the GM get a terrain dialog on change?
+      DIALOG: "auto_terrain_dialog"  // Should the GM get a terrain dialog on change?
     },
 
     // Configuration of the application that controls the terrain listings.
