@@ -11,10 +11,13 @@
   "terrainmapper.controls.download.name": "Download terrain data",
   "terrainmapper.controls.undo.name": "Undo",
   "terrainmapper.controls.terrain-menu.name": "Terrains",
+  "terrainmapper.controls.terrain-view-toggle.name": "Toggle terrain names",
 
   "terrainmapper.controls.decrementTerrain": "Decrement Terrain ID",
   "terrainmapper.controls.incrementTerrain": "Increment Terrain ID",
   "terrainmapper.controls.currentTerrain": "Current Terrain ID",
+
+
 
   "terrainmapper.settings.menu.title": "Terrain Settings",
   "terrainmapper.settings.terrain.introduction": "Configure one or more terrain types.",
@@ -27,6 +30,15 @@
   "terrainmapper.settings.terrain.anchorAbbrOptions.absolute": "Abs",
   "terrainmapper.settings.terrain.anchorAbbrOptions.relativeToTerrain": "Rel Gnd",
   "terrainmapper.settings.terrain.anchorAbbrOptions.relativeToLayer": "Rel Layer",
+
+  "terrainmapper.settings.auto_terrain.name": "Auto-Terrain",
+  "terrainmapper.settings.auto_terrain.hint": "Automatically set terrain on token movement.",
+  "terrainmapper.settings.auto_terrain_no": "Never",
+  "terrainmapper.settings.auto_terrain_combat": "Only when combat is active",
+  "terrainmapper.settings.auto_terrain_always": "Always",
+
+  "terrainmapper.settings.auto_terrain_dialog.name": "Auto-Terrain Dialog",
+  "terrainmapper.settings.auto_terrain_dialog.hint": "Present dialog to GM when token terrain is changed by Auto-Terrain",
 
   "terrainmapper.phrases.terrainLayer": "Terrain Layer",
   "terrainmapper.phrases.terrain": "Terrain"

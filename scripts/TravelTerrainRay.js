@@ -102,6 +102,26 @@ export class TravelTerrainRay {
   pointAtT(t) { return this.origin.to2d().projectToward(this.destination.to2d(), t); }
 
   /**
+   * @param {number} t    Percent distance along the ray
+   * @returns {number} Elevation value at that location
+   */
+  terrainAtT(t) {
+    const path = this.path;
+    if ( t >= 1 ) return path.at(-1)?.terrain;
+    if ( t <= 0 ) return path.at(0)?.terrain;
+    const mark = path.findLast(mark => mark.t <= t);
+    if ( !~mark ) return undefined;
+    return mark.terrain;
+  }
+
+  /**
+   * Get the terrain on the ray nearest to a point on the canvas.
+   * @param {Point} pt    Point to check
+   * @returns {Terrain} Terrain nearest to that location on the ray.
+   */
+  terrainAtClosestPoint(pt) { return this.terrainAtT(this.tForPoint(pt)); }
+
+  /**
    * Get the closest point on the ray and return the t value for that location.
    * @param {Point} pt    Point to use to determine the closest point to the ray
    * @returns {number} The t value, where origin = 0, destination = 1
@@ -119,6 +139,18 @@ export class TravelTerrainRay {
     const dist2 = PIXI.Point.distanceSquaredBetween(origin2d, rayPt);
     const delta = dest2d.subtract(origin2d);
     return Math.sqrt(dist2 / delta.magnitudeSquared());
+  }
+
+  /**
+   * List all terrains found in the path.
+   * @returns {Terrain[]}
+   */
+  terrainsInPath() {
+    const terrains = [];
+    for ( const pathObj of this.path ) {
+      if ( pathObj.terrain ) terrains.push(pathObj.terrain);
+    }
+    return terrains;
   }
 
   /**

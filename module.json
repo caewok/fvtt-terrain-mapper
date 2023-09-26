@@ -4,6 +4,7 @@
   "description": "Paint coded terrain values on Foundry scene maps.",
   "version": "#{VERSION}#",
   "library": "false",
+  "socket": "true",
   "manifestPlusVersion": "1.2.0",
   "compatibility": {
     "minimum": 11,
@@ -23,6 +24,15 @@
         "id": "lib-wrapper",
         "type": "module",
         "manifest": "https://raw.githubusercontent.com/ruipin/fvtt-lib-wrapper/master/module.json"
+      },
+
+      {
+        "id": "socketlib",
+        "type": "module",
+        "manifest": "https://raw.githubusercontent.com/manuelVo/foundryvtt-socketlib/master/module.json",
+        "compatibility": {
+          "verified": "1.0.13"
+        }
       }
     ]
   },

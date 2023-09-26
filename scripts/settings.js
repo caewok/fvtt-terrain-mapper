@@ -51,6 +51,17 @@ export class TerrainSettings {
     FAVORITES: "favorites", // Array of favorite terrains, by effect id.
     CURRENT_TERRAIN: "current_terrain", // Current terrain id on the terrain layer.
 
+    // Automatically set terrain on tokens.
+    AUTO_TERRAIN: {
+      ALGORITHM: "auto_terrain",
+      CHOICES: {
+        NO: "auto_terrain_no",
+        COMBAT: "auto_terrain_combat",
+        ALWAYS: "auto_terrain_always"
+      },
+      DIALOG: "auto_terrain_dialog"  // Should the GM get a terrain dialog on change?
+    },
+
     // Configuration of the application that controls the terrain listings.
     CONTROL_APP: {
       EXPANDED_FOLDERS: "app_expanded_folders"
@@ -114,6 +125,7 @@ export class TerrainSettings {
    */
   static registerAll() {
     const KEYS = this.KEYS;
+    const localize = key => game.i18n.localize(`${MODULE_ID}.settings.${key}`);
 
     this.registerMenu(KEYS.MENU, {
       name: "Terrain Settings Menu",
@@ -151,6 +163,32 @@ export class TerrainSettings {
       config: false,
       default: "",
       type: String
+    });
+
+    const AUTO_CHOICES = KEYS.AUTO_TERRAIN.CHOICES;
+    this.register(KEYS.AUTO_TERRAIN.ALGORITHM, {
+      name: localize(`${KEYS.AUTO_TERRAIN.ALGORITHM}.name`),
+      hint: localize(`${KEYS.AUTO_TERRAIN.ALGORITHM}.hint`),
+      scope: "world",
+      config: true,
+      default: AUTO_CHOICES.COMBAT,
+      requiresReload: false,
+      type: String,
+      choices: {
+        [AUTO_CHOICES.NO]: localize(AUTO_CHOICES.NO),
+        [AUTO_CHOICES.COMBAT]: localize(AUTO_CHOICES.COMBAT),
+        [AUTO_CHOICES.ALWAYS]: localize(AUTO_CHOICES.ALWAYS)
+      }
+    });
+
+    this.register(KEYS.AUTO_TERRAIN.DIALOG, {
+      name: localize(`${KEYS.AUTO_TERRAIN.DIALOG}.name`),
+      hint: localize(`${KEYS.AUTO_TERRAIN.DIALOG}.hint`),
+      scope: "world",
+      config: true,
+      default: false,
+      requiresReload: false,
+      type: Boolean
     });
   }
 

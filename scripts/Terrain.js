@@ -10,10 +10,25 @@ ui
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { FLAGS, MODULE_ID } from "./const.js";
+import { FLAGS, MODULE_ID, SOCKETS } from "./const.js";
 import { TerrainSettings } from "./settings.js";
 import { EffectHelper } from "./EffectHelper.js";
 import { TerrainEffectsApp } from "./TerrainEffectsApp.js";
+import { Lock } from "./Lock.js";
+
+// ----- Set up sockets for changing effects on tokens and creating a dialog ----- //
+// Don't pass complex classes through the socket. Use token ids instead.
+
+export async function addTerrainEffect(tokenUUID, effectId) {
+  const terrain = Terrain.fromEffectId(effectId);
+  return terrain._effectHelper.addToToken(tokenUUID);
+}
+
+export async function removeTerrainEffect(tokenUUID, effectId) {
+  const terrain = Terrain.fromEffectId(effectId);
+  return terrain._effectHelper.removeFromToken(tokenUUID);
+}
+
 
 /**
  * Subclass of Map that manages terrain ids and ensures only 1–31 are used.
@@ -122,6 +137,9 @@ export class Terrain {
   /** @type {TerrainMap} */
   static #sceneMap;
 
+  /** @type {Lock} */
+  static lock = new Lock();
+
   /**
    * @typedef {Object} TerrainConfig          Terrain configuration data
    * @property {string} name                  User-facing name of the terrain.
@@ -161,6 +179,8 @@ export class Terrain {
     if ( checkExisting && this.sceneMap.terrainIds.has(id) ) return this.sceneMap.terrainIds.get(id);
     return new this(EffectHelper.getTerrainEffectById(id), checkExisting);
   }
+
+
 
   /**
    * Load the scene terrain map.
@@ -369,6 +389,72 @@ export class Terrain {
     anchorElevation ??= this.getAnchorElevation({ terrainElevation, layerElevation });
     const minMaxE = this._elevationMinMaxForAnchorElevation(anchorElevation);
     return elevation.between(minMaxE.min, minMaxE.max);
+  }
+
+  /**
+   * Add this terrain's effect to the token.
+   * @param {Token} token
+   * @param {boolean} [duplicate=false]     If false, don't add if already present.
+   */
+  async addToToken(token, duplicate = false) {
+    await this.constructor.lock.acquire();
+    const currTerrains = new Set(this.constructor.getAllOnToken(token));
+    if ( duplicate || !currTerrains.has(this) ) {
+      console.debug(`Adding ${this.name} terrain to ${token.name}.`);
+      await SOCKETS.socket.executeAsGM("addTerrainEffect", token.document.uuid, this.id);
+    };
+    await this.constructor.lock.release();
+  }
+
+  /**
+   * Remove this terrain's effect from the token.
+   * @param {Token} token
+   * @param {boolean} [all=true]    If false, remove a single effect if duplicated.
+   */
+  async removeFromToken(token, all = true) {
+    await this.constructor.lock.acquire();
+    const currTerrains = new Set(this.constructor.getAllOnToken(token));
+    if ( currTerrains.has(this) ) {
+      console.debug(`Removing ${this.name} terrain from ${token.name}.`);
+      await SOCKETS.socket.executeAsGM("removeTerrainEffect", token.document.uuid, this.id);
+    }
+    await this.constructor.lock.release();
+  }
+
+  /**
+   * Remove all terrain effects from the token.
+   * @param {Token} token
+   */
+  static async removeAllFromToken(token) {
+    await this.constructor.lock.acquire();
+    const terrains = this.getAllOnToken(token);
+    const promises = [];
+    const uuid = token.document.uuid
+    for ( const terrain of terrains ) {
+      console.debug(`removeAllFromToken|Removing ${terrain.name} from ${token.name}.`);
+      promises.push(SOCKETS.socket.executeAsGM("removeTerrainEffect", uuid, terrain.id));
+    }
+    await Promise.allSettled(promises);
+    await this.constructor.lock.release();
+  }
+
+  /**
+   * Get all terrains currently on the token.
+   * @param {Token} token
+   * @returns {Terrain[]}
+   */
+  static getAllOnToken(token) {
+    console.debug(`Getting all terrains on ${token.name}.`);
+    const allEffects = token.actor?.appliedEffects;
+    if ( !allEffects ) return [];
+    const terrainEffects = allEffects.filter(e => {
+      if ( !e.flags ) return false;
+      return Object.hasOwn(e.flags, MODULE_ID);
+    });
+    return terrainEffects.map(e => {
+      const id = e.origin.split(".")[1];
+      return this.fromEffectId(id);
+    });
   }
 
   // NOTE: ---- File in/out -----
