@@ -38,7 +38,7 @@
   "terrainmapper.settings.auto_terrain_always": "Always",
 
   "terrainmapper.settings.auto_terrain_dialog.name": "Auto-Terrain Dialog",
-  "terrainmapper.settings.auto_terrain_dialog.hint": "Present dialog to GM when token terrain is changed by Auto-Terrain",
+  "terrainmapper.settings.auto_terrain_dialog.hint": "Present dialog to GM when token terrain is added by Auto-Terrain",
 
   "terrainmapper.phrases.terrainLayer": "Terrain Layer",
   "terrainmapper.phrases.terrain": "Terrain"
