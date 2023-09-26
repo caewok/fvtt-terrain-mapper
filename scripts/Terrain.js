@@ -371,6 +371,40 @@ export class Terrain {
     return elevation.between(minMaxE.min, minMaxE.max);
   }
 
+  /**
+   * Add this terrain's effect to the token.
+   * @param {Token} token
+   * @param {boolean} [duplicate=false]     If false, don't add if already present.
+   */
+  addToToken(token, duplicate = false) {
+    console.debug(`Adding ${this.name} terrain to ${token.name}.`);
+  }
+
+  /**
+   * Remove this terrain's effect from the token.
+   * @param {Token} token
+   * @param {boolean} [all=true]    If false, remove a single effect if duplicated.
+   */
+  removeFromToken(token, all = true) {
+    console.debug(`Removing ${this.name} terrain from ${token.name}.`);
+  }
+
+  /**
+   * Remove all terrain effects from the token.
+   * @param {Token} token
+   */
+  static removeAllFromToken(token) {
+    console.debug(`Removing all terrains from ${token.name}.`);
+  }
+
+  /**
+   * Get all terrains currently on the token.
+   * @param {Token} token
+   */
+  static getAllOnToken(token) {
+    console.debug(`Getting all terrains on ${token.name}.`);
+  }
+
   // NOTE: ---- File in/out -----
 
   toJSON() {
