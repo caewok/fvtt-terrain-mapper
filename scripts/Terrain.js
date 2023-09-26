@@ -336,17 +336,39 @@ export class Terrain {
 
   /* ----- NOTE: Terrain functionality ----- */
 
+  getAnchorElevation({ terrainElevation = 0, layerElevation = 0 } = {}) {
+    switch ( this.anchor ) {
+      case FLAGS.CHOICES.ABSOLUTE: return 0;
+      case FLAGS.CHOICES.RELATIVE_TO_TERRAIN: return terrainElevation;
+      case FLAGS.CHOICES.RELATIVE_TO_LAYER: return layerElevation;
+    }
+  }
+
   /**
    * Calculate the elevation min / max for a given anchor elevation.
-   * @param {number} anchorE    Elevation of the anchor point.
    * @returns {object} Elevation min and max.
    *   - {number} min   Minimum elevation
    *   - {number} max   Maximum elevation
    */
-  elevationMinMax(anchorE) {
+  _elevationMinMaxForAnchorElevation(anchorE) {
     const { offset, rangeBelow, rangeAbove } = this;
     const e = anchorE + offset;
     return { min: e + rangeBelow, max: e + rangeAbove };
+  }
+
+  /**
+   * Determine if the terrain is active at the provided elevation.
+   * @param {number} elevation
+   * @returns {boolean}
+   */
+  activeAt(elevation, { point, terrainElevation, anchorElevation } = {}) {
+    const layerElevation = 0;
+    if ( typeof terrainElevation === "undefined"
+      && point ) terrainElevation = canvas.elevation?.elevationAt(point);
+    terrainElevation ||= 0;
+    anchorElevation ??= this.getAnchorElevation({ terrainElevation, layerElevation });
+    const minMaxE = this._elevationMinMaxForAnchorElevation(anchorElevation);
+    return elevation.between(minMaxE.min, minMaxE.max);
   }
 
   // NOTE: ---- File in/out -----
