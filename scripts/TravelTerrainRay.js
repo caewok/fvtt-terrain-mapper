@@ -90,6 +90,11 @@ export class TravelTerrainRay {
     this.#path.length = 0;
   }
 
+  get path() {
+    if ( !this.#path.length ) this._walkPath();
+    return this.#path;
+  }
+
   /**
    * @param {number} t      Percent distance along origin --> destination ray in 2d.
    * @returns {PIXI.Point}
