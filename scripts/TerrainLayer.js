@@ -27,6 +27,7 @@ import { SCENE_GRAPH } from "./WallTracer.js";
 import { TerrainShapeHoled } from "./TerrainShapeHoled.js";
 import { FillByGridHelper } from "./FillByGridHelper.js";
 import { FillPolygonHelper } from "./FillPolygonHelper.js";
+import { TravelTerrainRay } from "./TravelTerrainRay.js";
 
 // TODO: What should replace this now that FullCanvasContainer is deprecated in v11?
 class FullCanvasContainer extends FullCanvasObjectMixin(PIXI.Container) {
@@ -34,6 +35,9 @@ class FullCanvasContainer extends FullCanvasObjectMixin(PIXI.Container) {
 }
 
 export class TerrainLayer extends InteractionLayer {
+
+  /** @type {TravelTerrainRay} */
+  TravelTerrainRay = TravelTerrainRay;
 
   /** @type {PIXI.Container} */
   preview = new PIXI.Container();

@@ -152,6 +152,7 @@ function addTerrainLayerSubControls(controls) {
 }
 
 function renderTerrainLayerSubControls() {
+  if ( !canvas.terrain.toolbar ) return;
   const tools = $(canvas.terrain.toolbar.form).parent();
   if ( !tools ) return;
   const controltools = $("li[data-tool='fill-by-pixel']").closest(".sub-controls");
