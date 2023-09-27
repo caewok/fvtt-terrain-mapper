@@ -5,6 +5,13 @@ PIXI
 "use strict";
 
 /**
+ * Capitalize the first letter of a string.
+ * @param {string} str
+ * @returns {string}
+ */
+export function capitalizeFirstLetter(str) { return `${str.charAt(0).toUpperCase()}${str.slice(1)}`; }
+
+/**
  * Test if something is a string.
  * See https://stackoverflow.com/questions/4059147/check-if-a-variable-is-a-string-in-javascript
  * @param {*} obj   Object to test
