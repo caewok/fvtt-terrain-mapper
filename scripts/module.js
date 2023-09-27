@@ -99,12 +99,17 @@ function initializeAPI() {
 /* TODO: Things needed
 - Null Terrain to allow terrain removal at pixel level.
 √ Display terrain names on token drag.
-- Remove settings menu
-- Rename TerrainSettings to Settings
+√ Remove settings menu
+√ Rename TerrainSettings to Settings
 - Import/export single terrain using a temp item to store.
 - Remove ability to add/subtract terrain from scenes; do behind-the-scene
+- Track terrains in scene
 - Layers
-
+- Switch to interaction layer
+  - Toggle to display all terrain shapes
+  - Allow deletion of terrain shapes
+  - Allow swapping of terrain values
+  - Allow resizing of terrain polygons
 
 Control Tools
 √ Basic layer controls
@@ -112,16 +117,15 @@ Control Tools
 - Layer selector
 
 Settings
-- Terrain configuration menu
-  - visibility to users: always/never/toggle
-  - name
-  - color
-  - numerical value?
-  - range of effect: low/high.
-  - how to measure the range center: fixed / based on terrain / based on layer
-  - icon
-  - display: icon/color/both
-- Move these to a Document Terrain subtype. https://foundryvtt.com/article/module-sub-types/
+√ Terrain configuration menu
+  √ visibility to users: always/never/toggle
+  √ name
+  √ color
+  √ numerical value?
+  √ range of effect: low/high.
+  √ how to measure the range center: fixed / based on terrain / based on layer
+  √ icon
+  √ display: icon/color/both
 
 Scene Settings
 √ Terrain configuration menu to override for specific scene
@@ -135,10 +139,15 @@ Functionality: single layer
 √ paint fill
 √ paint polygon
 
+Tiles (overhead and regular):
+- Set tile to a terrain
+- Set tile to multiple terrains
+- For overhead, use the tile elevation
+- Incorporate into travel terrain ray
+
 Advanced functionality:
 - store multiple layers
 - retrieve multiple layers
-- Terrain value for overhead tiles
 - optional display of another layer as mostly transparent
 √ display terrain using distinct colors
 √ display terrain using name
@@ -151,7 +160,7 @@ Automation:
 √ combined terrain/elevation travel ray
 √ On token animation, pause for terrain
 - integration with drag ruler
-- integration with elevation ruler
-- Active effect flag to limit vision to X feet (fog, forest, etc.)
+√ integration with elevation ruler
+- Active effect flag to limit vision to X feet (fog, forest, etc.). Use Limits?
 
 */
