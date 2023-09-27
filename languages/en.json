@@ -17,7 +17,10 @@
   "terrainmapper.controls.incrementTerrain": "Increment Terrain ID",
   "terrainmapper.controls.currentTerrain": "Current Terrain ID",
 
-
+  "terrainmapper.terrain-encountered-dialog.title": "Terrain Mapper|Terrain Encountered",
+  "terrainmapper.terrain-encountered-dialog.content": "{tokenName} has encountered {terrainName} terrain! <hr> <br>",
+  "terrainmapper.terrain-encountered-dialog.continue": "Continue token movement",
+  "terrainmapper.terrain-encountered-dialog.cancel": "Cancel token movement",
 
   "terrainmapper.settings.menu.title": "Terrain Settings",
   "terrainmapper.settings.terrain.introduction": "Configure one or more terrain types.",
@@ -38,7 +41,7 @@
   "terrainmapper.settings.auto_terrain_always": "Always",
 
   "terrainmapper.settings.auto_terrain_dialog.name": "Auto-Terrain Dialog",
-  "terrainmapper.settings.auto_terrain_dialog.hint": "Present dialog to GM when token terrain is changed by Auto-Terrain",
+  "terrainmapper.settings.auto_terrain_dialog.hint": "Present dialog to GM when token terrain is added by Auto-Terrain",
 
   "terrainmapper.phrases.terrainLayer": "Terrain Layer",
   "terrainmapper.phrases.terrain": "Terrain"

@@ -73,7 +73,13 @@ Hooks.once("socketlib.ready", () => {
   SOCKETS.socket = socketlib.registerModule(MODULE_ID);
   SOCKETS.socket.register("addTerrainEffect", addTerrainEffect);
   SOCKETS.socket.register("removeTerrainEffect", removeTerrainEffect);
+  SOCKETS.socket.register("dialog", dialog);
 });
+
+function dialog(data, options) {
+  const d = new Dialog(data, options);
+  d.render(true);
+}
 
 function initializeAPI() {
   game.modules.get(MODULE_ID).api = {
@@ -91,10 +97,18 @@ function initializeAPI() {
 }
 
 /* TODO: Things needed
+- Null Terrain to allow terrain removal at pixel level.
+- Display terrain names on token drag.
+- Remove settings menu
+- Rename TerrainSettings to Settings
+- Import/export single terrain using a temp item to store.
+- Remove ability to add/subtract terrain from scenes; do behind-the-scene
+- Layers
+
 
 Control Tools
-- Basic layer controls
-- Terrain type selector
+√ Basic layer controls
+√ Terrain type selector
 - Layer selector
 
 Settings
@@ -110,31 +124,32 @@ Settings
 - Move these to a Document Terrain subtype. https://foundryvtt.com/article/module-sub-types/
 
 Scene Settings
-- Terrain configuration menu to override for specific scene
+√ Terrain configuration menu to override for specific scene
 
 Functionality: single layer
 - Store terrain value
 - Retrieve terrain value
-- API to get terrain value for token
-- paint grid
-- paint los
-- paint fill
-- paint polygon
+√ API to get terrain value for token
+√ paint grid
+√ paint los
+√ paint fill
+√ paint polygon
 
 Advanced functionality:
 - store multiple layers
 - retrieve multiple layers
 - Terrain value for overhead tiles
 - optional display of another layer as mostly transparent
-- display terrain using distinct colors
+√ display terrain using distinct colors
+√ display terrain using name
 - display terrain using repeated icon/image
 - toggle to display hide/display terrain to users.
 
 Automation:
 - Use point or averaging to obtain terrain value for shape/token
-- travel ray for terrain
-- combined terrain/elevation travel ray
-- On token animation, pause for terrain
+√ travel ray for terrain
+√ combined terrain/elevation travel ray
+√ On token animation, pause for terrain
 - integration with drag ruler
 - integration with elevation ruler
 - Active effect flag to limit vision to X feet (fog, forest, etc.)

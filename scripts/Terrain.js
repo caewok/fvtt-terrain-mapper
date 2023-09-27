@@ -396,13 +396,23 @@ export class Terrain {
    * @param {Token} token
    * @param {boolean} [duplicate=false]     If false, don't add if already present.
    */
-  async addToToken(token, duplicate = false) {
+  async addToToken(token, { duplicate = false, removeSceneTerrains = false, removeAllTerrains = false } = {}) {
     await this.constructor.lock.acquire();
-    const currTerrains = new Set(this.constructor.getAllOnToken(token));
+    let currTerrains = new Set(this.constructor.getAllOnToken(token));
     if ( duplicate || !currTerrains.has(this) ) {
       console.debug(`Adding ${this.name} terrain to ${token.name}.`);
       await SOCKETS.socket.executeAsGM("addTerrainEffect", token.document.uuid, this.id);
     };
+
+    // Remove other terrains from the token.
+    if ( removeSceneTerrains ) currTerrains = currTerrains.filter(t => this.sceneMap.hasTerrainId(t.id));
+    if ( removeSceneTerrains || removeAllTerrains ) {
+      currTerrains.delete(this);
+      for ( const terrain of currTerrains ) {
+        console.debug(`Removing ${terrain.name} terrain from ${token.name}.`);
+        await SOCKETS.socket.executeAsGM("removeTerrainEffect", token.document.uuid, terrain.id);
+      }
+    }
     await this.constructor.lock.release();
   }
 
@@ -422,11 +432,28 @@ export class Terrain {
   }
 
   /**
+   * Remove all scene effects from the token.
+   * @param {Token} token
+   */
+  static async removeAllSceneTerrainsFromToken(token) {
+    await this.lock.acquire();
+    const terrains = new Set(this.getAllSceneTerrainsOnToken(token));
+    const promises = [];
+    const uuid = token.document.uuid
+    for ( const terrain of terrains ) {
+      console.debug(`removeAllFromToken|Removing ${terrain.name} from ${token.name}.`);
+      promises.push(SOCKETS.socket.executeAsGM("removeTerrainEffect", uuid, terrain.id));
+    }
+    await Promise.allSettled(promises);
+    await this.lock.release();
+  }
+
+  /**
    * Remove all terrain effects from the token.
    * @param {Token} token
    */
   static async removeAllFromToken(token) {
-    await this.constructor.lock.acquire();
+    await this.lock.acquire();
     const terrains = this.getAllOnToken(token);
     const promises = [];
     const uuid = token.document.uuid
@@ -435,7 +462,7 @@ export class Terrain {
       promises.push(SOCKETS.socket.executeAsGM("removeTerrainEffect", uuid, terrain.id));
     }
     await Promise.allSettled(promises);
-    await this.constructor.lock.release();
+    await this.lock.release();
   }
 
   /**
@@ -455,6 +482,25 @@ export class Terrain {
       const id = e.origin.split(".")[1];
       return this.fromEffectId(id);
     });
+  }
+
+  /**
+   * Get all scene terrains currently on the token.
+   * @param {Token} token
+   * @returns {Terrain[]}
+   */
+  static getAllSceneTerrainsOnToken(token) {
+    return this.getAllOnToken(token).filter(t => this.sceneMap.hasTerrainId(t.id));
+  }
+
+  /**
+   * Test if a token has this terrain already.
+   * @param {Token} token
+   * @returns {boolean}
+   */
+  tokenHasTerrain(token) {
+    const tokenTerrains = new Set(this.constructor.getAllOnToken(token));
+    return tokenTerrains.has(this);
   }
 
   // NOTE: ---- File in/out -----
