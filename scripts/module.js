@@ -102,9 +102,9 @@ function initializeAPI() {
 √ Display terrain names on token drag.
 √ Remove settings menu
 √ Rename TerrainSettings to Settings
-- Import/export single terrain using a temp item to store.
+√ Import/export single terrain using a temp item to store.
 √ Remove ability to add/subtract terrain from scenes; do behind-the-scene
-- Track terrains in scene
+√ Track terrains in scene
 - Layers
 - Switch to interaction layer
   - Toggle to display all terrain shapes
