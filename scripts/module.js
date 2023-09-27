@@ -103,7 +103,7 @@ function initializeAPI() {
 √ Remove settings menu
 √ Rename TerrainSettings to Settings
 - Import/export single terrain using a temp item to store.
-- Remove ability to add/subtract terrain from scenes; do behind-the-scene
+√ Remove ability to add/subtract terrain from scenes; do behind-the-scene
 - Track terrains in scene
 - Layers
 - Switch to interaction layer
