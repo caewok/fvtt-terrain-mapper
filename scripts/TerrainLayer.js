@@ -203,6 +203,7 @@ export class TerrainLayer extends InteractionLayer {
   terrainAt({x, y}) {
     if ( !this.#initialized ) return undefined;
     const pixelValue = this.pixelCache.pixelAtCanvas(x, y);
+    if ( pixelValue === 0 ) return undefined;
     return this.terrainForPixel(pixelValue);
   }
 

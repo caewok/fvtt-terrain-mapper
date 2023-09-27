@@ -164,8 +164,11 @@ void main() {
    */
   updateTerrainIcons() {
     // TODO: Handle multiple icons.
-    const t = Terrain.sceneMap.values().next().value;
-    this.uniforms.uTerrainIcon = PIXI.Texture.from(t.icon);
+    for ( const terrain of Terrain.sceneMap.values()) {
+      if ( !terrain.icon ) continue;
+      this.uniforms.uTerrainIcon = PIXI.Texture.from(terrain.icon);
+      break;
+    }
   }
 
   /**

@@ -52,7 +52,7 @@ export class TerrainMap extends Map {
       return;
     }
 
-    if ( !Number.isInteger(id) || id < 1 ) {
+    if ( !Number.isInteger(id) || id < 0 ) {
       console.error(`Id ${id} is invalid.`);
       return;
     }
@@ -132,7 +132,7 @@ export class TerrainMap extends Map {
  */
 export class Terrain {
   /** @type {number} */
-  #pixelValue;
+  #pixelValue = 0;
 
   /** @type {TerrainMap} */
   static #sceneMap;
@@ -189,7 +189,8 @@ export class Terrain {
   static loadSceneMap() {
     const mapData = canvas.scene.getFlag(MODULE_ID, FLAGS.TERRAIN_MAP);
     const map = new TerrainMap();
-    if ( !mapData ) return new TerrainMap();
+    map.set(0, new Terrain());
+    if ( !mapData ) return map;
     mapData.forEach(([key, effectId]) => {
       const terrain = this.fromEffectId(effectId, false);
       map.set(key, terrain, true);
@@ -241,7 +242,7 @@ export class Terrain {
   get activeEffect() { return this._effectHelper.effect; }
 
   /** @type {string} */
-  get name() { return this.activeEffect.name; }
+  get name() { return this.activeEffect?.name || game.i18n.localize(`${MODULE_ID}.phrases.no-terrain`); }
 
   set name(value) { this.activeEffect.name = value; }
 
@@ -251,12 +252,12 @@ export class Terrain {
   set description(value) { this.activeEffect.description = value; }
 
   /** @type {string} */
-  get icon() { return this.activeEffect.icon; }
+  get icon() { return this.activeEffect?.icon || null; }
 
   set icon(value) { this.activeEffect.icon = value; }
 
   /** @type {string} */
-  get id() { return this.activeEffect.id; }
+  get id() { return this.activeEffect?.id || ""; }
 
   /** @type {string} */
   get uuid() { return this.activeEffect.uuid; }
@@ -297,7 +298,7 @@ export class Terrain {
   async setUserVisible(value) { return this.#setAEFlag(FLAGS.USER_VISIBLE, value); }
 
   /** @type {string} */
-  get color() { return this.#getAEFlag(FLAGS.COLOR); }
+  get color() { return this.#getAEFlag(FLAGS.COLOR) ?? 0x000000; }
 
   set color(value) { this.#setAEFlag(FLAGS.COLOR, value); }
 
@@ -309,9 +310,9 @@ export class Terrain {
   }
 
   // Helpers to get/set the active effect flags.
-  #getAEFlag(flag) { return this.activeEffect.getFlag(MODULE_ID, flag); }
+  #getAEFlag(flag) { return this.activeEffect?.getFlag(MODULE_ID, flag); }
 
-  async #setAEFlag(flag, value) { return this.activeEffect.setFlag(MODULE_ID, flag, value); }
+  async #setAEFlag(flag, value) { return this.activeEffect?.setFlag(MODULE_ID, flag, value); }
 
 
   // NOTE: ----- Scene map -----
