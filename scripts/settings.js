@@ -8,7 +8,6 @@ ItemDirectory
 "use strict";
 
 import { MODULE_ID } from "./const.js";
-import { TerrainSettingsMenu } from "./TerrainSettingsMenu.js";
 
 export const PATCHES_SidebarTab = {};
 export const PATCHES_ItemDirectory = {};
@@ -46,7 +45,6 @@ export class TerrainSettings {
    * @type {object}
    */
   static KEYS = {
-    MENU: "menu",
     TERRAINS_ITEM: "terrains_item", // Stores terrain effects
     FAVORITES: "favorites", // Array of favorite terrains, by effect id.
     CURRENT_TERRAIN: "current_terrain", // Current terrain id on the terrain layer.
@@ -126,14 +124,6 @@ export class TerrainSettings {
   static registerAll() {
     const KEYS = this.KEYS;
     const localize = key => game.i18n.localize(`${MODULE_ID}.settings.${key}`);
-
-    this.registerMenu(KEYS.MENU, {
-      name: "Terrain Settings Menu",
-      label: `${MODULE_ID}.settings.menu.title`,
-      icon: "fas fa-cog",
-      type: TerrainSettingsMenu,
-      restricted: true
-    });
 
     this.register(KEYS.FAVORITES, {
       name: "Favorites",
