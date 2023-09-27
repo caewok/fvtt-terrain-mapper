@@ -114,7 +114,11 @@ PATCHES.BASIC.METHODS = {
  */
 function _getTooltipText(wrapper) {
   let text = wrapper();
-  const terrain = canvas.terrain.terrainAt(this.position);
+
+  // If not a clone, return.
+  if ( !this._original ) return text;
+
+  const terrain = canvas.terrain.terrainAt(this.center);
   if ( terrain ) text =
 `${terrain.name}
 ${text}`;
