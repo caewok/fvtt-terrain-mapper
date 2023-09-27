@@ -112,6 +112,7 @@ function initializeAPI() {
   - Allow resizing of terrain polygons
 - Add simplification on load that trims null terrains.
 √ Calculate move penalty for token
+- Display an edit scene application that lets the GM assign terrains to scene pixel values.
 
 Control Tools
 √ Basic layer controls

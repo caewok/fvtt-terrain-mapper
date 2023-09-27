@@ -46,8 +46,8 @@ export class TerrainEffectsController {
       // - All: Smart folder; displays all defined terrains.
       folders: [
         {
-          id: 'favorites',
-          name: 'Favorites',
+          id: "favorites",
+          name: "Favorites",
           effects: this._fetchFavorites(terrains).map(e => {
             return {
               name: e.name,
@@ -55,11 +55,11 @@ export class TerrainEffectsController {
               id: e.id,
               description: e.description
             };
-          }),
+          })
         },
         {
-          id: 'scene',
-          name: 'Scene',
+          id: "scene",
+          name: "Scene",
           effects: this._fetchSceneTerrains(terrains).map(e => {
             return {
               name: e.name,
@@ -67,11 +67,11 @@ export class TerrainEffectsController {
               id: e.id,
               description: e.description
             };
-          }),
+          })
         },
         {
-          id: 'all',
-          name: 'All',
+          id: "all",
+          name: "All",
           effects: terrains.map(e => {
             return {
               name: e.name,
@@ -79,7 +79,7 @@ export class TerrainEffectsController {
               id: e.id,
               description: e.description
             };
-          }),
+          })
         }
       ],
 
@@ -135,7 +135,7 @@ export class TerrainEffectsController {
    * Handles clicks on the create effect button
    * @param {MouseEvent} event
    */
-  async onCreateEffectClick(event) {
+  async onCreateEffectClick(_event) {
     console.debug("TerrainEffectsController|onCreateEffectClick");
     const terrain = new Terrain();
     await terrain.initialize();
@@ -146,7 +146,7 @@ export class TerrainEffectsController {
    * Handle editing the custom effect
    * @param {jQuery} effectItem - jQuery element representing the effect list item
    */
-  async onEditEffectClick(effectItem) {
+  async onEditEffectClick(_effectItem) {
     console.debug("TerrainEffectsController|onEditEffectClick");
     const effectId = this._findNearestEffectId(event);
     const activeEffect = EffectHelper.getTerrainEffectById(effectId);
@@ -157,7 +157,7 @@ export class TerrainEffectsController {
    * Handle deleting the custom effect
    * @param {jQuery} effectItem - jQuery element representing the effect list item
    */
-  async onDeleteEffectClick(effectItem) {
+  async onDeleteEffectClick(_effectItem) {
     console.debug("TerrainEffectsController|onDeleteEffectClick");
     const effectId = this._findNearestEffectId(event);
     const view = this._viewMvc;
@@ -168,10 +168,9 @@ export class TerrainEffectsController {
         "<h4>Are You Sure?</h4><p>This will remove the terrain from all scenes.",
       yes: async () => {
         console.debug("TerrainEffectsController|onDeleteEffectClick yes");
-        const activeEffect = EffectHelper.getTerrainEffectById(effectId);
         await EffectHelper.deleteEffectById(effectId);
         view.render();
-      },
+      }
     });
 
 //     const effectName = effectItem.data().effectName;
@@ -187,7 +186,7 @@ export class TerrainEffectsController {
    * Handles clicks on the reset status effects button
    * @param {MouseEvent} event
    */
-  async onResetStatusEffectsClick(event) {
+  async onResetStatusEffectsClick(_event) {
     return Dialog.confirm({
       title: "Reset Terrain",
       content:
@@ -196,7 +195,7 @@ export class TerrainEffectsController {
         console.debug("TerrainEffectsController|onResetStatusEffectsClick");
         // await this._settings.resetStatusEffects();
         window.location.reload();
-      },
+      }
     });
   }
 
@@ -204,7 +203,7 @@ export class TerrainEffectsController {
    * Handles clicks on the collapse all button
    * @param {MouseEvent} event - event that corresponds to clicking the collapse all
    */
-  async onCollapseAllClick(event) {
+  async onCollapseAllClick(_event) {
     this._viewMvc.collapseAllFolders();
     await Settings.clearExpandedFolders();
   }
@@ -240,7 +239,7 @@ export class TerrainEffectsController {
 
   _findNearestEffectId(event) {
     return $(event.target)
-      .closest('[data-effect-id], .terrainmapper-effect')
+      .closest("[data-effect-id], .terrainmapper-effect")
       .data()?.effectId;
   }
 
@@ -289,27 +288,6 @@ export class TerrainEffectsController {
     console.debug("TerrainEffectsController|isInScene");
     const effectId = effectItem.data().effectId;
     return Terrain.sceneMap.hasTerrainId(effectId);
-  }
-
-  /**
-   * Add the given effect to the scene terrain map.
-   */
-  async onAddToScene(effectItem) {
-    console.debug("TerrainEffectsController|onAddToScene");
-    const effectId = effectItem.data().effectId;
-    const terrain = Terrain.fromEffectId(effectId);
-    await terrain.addToScene();
-  }
-
-
-  /**
-   * Remove the given effect from the scene terrain map.
-   */
-  async onRemoveFromScene(effectItem) {
-    console.debug("TerrainEffectsController|onRemoveFromScene");
-    const effectId = effectItem.data().effectId;
-    const terrain = Terrain.fromEffectId(effectId);
-    await terrain.removeFromScene();
   }
 
   /**
@@ -371,9 +349,9 @@ export class TerrainEffectsController {
    * Handle adding/removing the effect from the to/from the status effect settings
    * @param {jQuery} effectItem - jQuery element representing the effect list item
    */
-  async onToggleStatusEffect(effectItem) {
+  async onToggleStatusEffect(_effectItem) {
     console.debug("TerrainEffectsController|onToggleStatusEffect");
-    const effectId = effectItem.data().effectId;
+    // const effectId = effectItem.data().effectId;
 
 //     const effectName = effectItem.data().effectName;
 //
@@ -406,7 +384,7 @@ export class TerrainEffectsController {
    * ActiveEffect type and data to make non-nested effects behave as core does
    * @param {DragEvent} event - event that corresponds to the drag start
    */
-  onEffectDragStart(event) {
+  onEffectDragStart(_event) {
     console.debug("TerrainEffectsController|onEffectDragStart");
 
     // const effectName = event.target.dataset.effectName;
@@ -435,7 +413,7 @@ export class TerrainEffectsController {
   }
 
   canDragStart() {
-    return game.user.role >= CONST.USER_ROLES.ASSISTANT
+    return game.user.role >= CONST.USER_ROLES.ASSISTANT;
   }
 
   /**
@@ -454,23 +432,23 @@ export class TerrainEffectsController {
       matchingItems = this._getMatchingItems(regex);
     }
 
-    for (let el of html.querySelectorAll('.directory-item')) {
-      let isEntity = el.classList.contains('entity');
-      let isFolder = el.classList.contains('folder');
+    for (let el of html.querySelectorAll(".directory-item")) {
+      let isEntity = el.classList.contains("entity");
+      let isFolder = el.classList.contains("folder");
 
       if (isEntity) {
         let match =
           isSearch && matchingItems.effectNames.has(el.dataset.effectName);
-        el.style.display = !isSearch || match ? 'flex' : 'none';
+        el.style.display = !isSearch || match ? "flex" : "none";
       } else if (isFolder) {
         let match =
           isSearch && matchingItems.folderIds.has(el.dataset.folderId);
-        el.style.display = !isSearch || match ? 'flex' : 'none';
+        el.style.display = !isSearch || match ? "flex" : "none";
 
         // Expand folders with matches
-        if (match) el.classList.remove('collapsed');
+        if (match) el.classList.remove("collapsed");
         else el.classList.toggle(
-          'collapsed',
+          "collapsed",
           !Settings.isFolderExpanded(el.dataset.folderId)
         );
       }
