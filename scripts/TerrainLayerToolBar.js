@@ -28,9 +28,6 @@ export class TerrainLayerToolBar extends Application {
       console.error("Current terrain must be an instance of terrain.", terrain);
       return;
     }
-
-    // Add to scene map if necessary.
-    terrain.addToScene();
     this.#currentTerrain = terrain;
     Settings.setByName("CURRENT_TERRAIN", terrain.id); // async
   }
@@ -42,13 +39,11 @@ export class TerrainLayerToolBar extends Application {
    */
   _loadStoredTerrain() {
     const storedId = Settings.getByName("CURRENT_TERRAIN");
-    if ( Terrain.sceneMap.hasTerrainId(storedId) ) return Terrain.fromEffectId(storedId);
+    const sceneMap = canvas.terrain.sceneMap;
+    if ( sceneMap.hasTerrainId(storedId) ) return sceneMap.get(storedId);
 
-    // Get the first scene terrain, if any.
-    const sceneMap = Terrain.sceneMap;
-    const sceneTerrains = Terrain.getAll().filter(t => sceneMap.hasTerrainId(t.id));
-    this._sortTerrains(sceneTerrains);
-    return sceneTerrains[0];
+    // Otherwise, use the null terrain.
+    return sceneMap.get(0);
   }
 
   static get defaultOptions() {
@@ -74,10 +69,10 @@ export class TerrainLayerToolBar extends Application {
   }
 
   getData(_options) {
-    const sceneMap = Terrain.sceneMap;
+    const sceneMap = canvas.terrain.sceneMap;
     const terrains = Terrain.getAll();
     this._sortTerrains(terrains);
-    terrains.unshift(Terrain.sceneMap.get(0));
+    terrains.unshift(sceneMap.get(0));
 
     const currId = this.currentTerrain?.id;
     const nonSceneTerrains = [];
@@ -117,14 +112,12 @@ export class TerrainLayerToolBar extends Application {
   _onHandleChange(event) {
     console.debug("TerrainLayerToolBar|_onHandleChange");
     const terrainId = event.target.value;
-
-    // If this terrain is not in the scene, add it.
-    const sceneMap = Terrain.sceneMap;
-    const terrain = Terrain.fromEffectId(terrainId);
-    if ( !sceneMap.hasTerrainId(terrainId) ) terrain.addToScene();
+    const sceneMap = canvas.terrain.sceneMap;
+    const toolbar = canvas.terrain.toolbar;
 
     // Update the currently selected terrain.
-    canvas.terrain.toolbar.currentTerrain = terrain;
+    if ( sceneMap.terrainIds.has(terrainId) ) toolbar.currentTerrain = sceneMap.terrainIds.get(terrainId);
+    else toolbar.currentTerrain = Terrain.fromEffectId(terrainId);
     this.render();
   }
 

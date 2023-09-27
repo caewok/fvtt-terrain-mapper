@@ -9,7 +9,8 @@ socketlib
 import { MODULE_ID, SOCKETS } from "./const.js";
 import { TerrainLayer } from "./TerrainLayer.js";
 import { Settings } from "./Settings.js";
-import { Terrain, TerrainMap, addTerrainEffect, removeTerrainEffect } from "./Terrain.js";
+import { Terrain, addTerrainEffect, removeTerrainEffect } from "./Terrain.js";
+import { TerrainMap } from "./TerrainMap.js";
 import { EffectHelper } from "./EffectHelper.js";
 import { PATCHER, initializePatching } from "./patching.js";
 import { registerGeometry } from "./geometry/registration.js";
@@ -112,6 +113,7 @@ function initializeAPI() {
   - Allow resizing of terrain polygons
 - Add simplification on load that trims null terrains.
 √ Calculate move penalty for token
+- Display an edit scene application that lets the GM assign terrains to scene pixel values.
 
 Control Tools
 √ Basic layer controls

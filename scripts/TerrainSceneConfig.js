@@ -10,7 +10,8 @@ game
 "use strict";
 
 import { MODULE_ID, LABELS } from "./const.js";
-import { Terrain, TerrainMap } from "./Terrain.js";
+import { Terrain } from "./Terrain.js";
+import { TerrainMap } from "./TerrainMap.js";
 import { EnhancedEffectConfig } from "./EnhancedEffectConfig.js";
 import { Settings } from "./Settings.js";
 
@@ -27,7 +28,7 @@ export class TerrainSceneConfig extends FormApplication {
 
   constructor(object, options) {
     const terrains = [];
-    for ( const [key, terrain] of Terrain.sceneMap) {
+    for ( const [key, terrain] of canvas.terrain.sceneMap) {
       const obj = terrain.toJSON();
       obj.pixelId = key;
       terrains.push(obj);

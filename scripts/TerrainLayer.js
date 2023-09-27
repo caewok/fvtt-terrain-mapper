@@ -12,6 +12,7 @@ ui
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
+import { MODULE_ID, FLAGS } from "./const.js";
 import { Terrain } from "./Terrain.js";
 import { Settings } from "./Settings.js";
 import { FILOQueue } from "./FILOQueue.js";
@@ -28,6 +29,8 @@ import { TerrainShapeHoled } from "./TerrainShapeHoled.js";
 import { FillByGridHelper } from "./FillByGridHelper.js";
 import { FillPolygonHelper } from "./FillPolygonHelper.js";
 import { TravelTerrainRay } from "./TravelTerrainRay.js";
+import { TerrainEffectsApp } from "./TerrainEffectsApp.js";
+import { TerrainMap } from "./TerrainMap.js";
 
 // TODO: What should replace this now that FullCanvasContainer is deprecated in v11?
 class FullCanvasContainer extends FullCanvasObjectMixin(PIXI.Container) {
@@ -35,6 +38,9 @@ class FullCanvasContainer extends FullCanvasObjectMixin(PIXI.Container) {
 }
 
 export class TerrainLayer extends InteractionLayer {
+
+  /** @type {TerrainMap} */
+  sceneMap = new TerrainMap();
 
   /** @type {boolean} */
   #initialized = false;
@@ -193,8 +199,6 @@ export class TerrainLayer extends InteractionLayer {
 
   // ----- NOTE: Access terrain data ----- //
 
-  get sceneMap() { return Terrain.sceneMap; }
-
   /**
    * Get the terrain(s) at a given position.
    * @param {Point} {x, y}
@@ -264,7 +268,7 @@ export class TerrainLayer extends InteractionLayer {
   /**
    * Set up the terrain layer for the first time once the scene is loaded.
    */
-  initialize() {
+  async initialize() {
     const currId = Settings.getByName("CURRENT_TERRAIN");
     if ( currId ) this.currentTerrain = this.sceneMap.terrainIds.get(currId);
     if ( !this.currentTerrain ) this.currentTerrain = this.sceneMap.values().next().value;
@@ -284,6 +288,10 @@ export class TerrainLayer extends InteractionLayer {
     // Set the clear color of the render texture to black. The texture needs to be opaque.
     this._terrainTexture = PIXI.RenderTexture.create(this._textureManager.textureConfiguration);
     this._terrainTexture.baseTexture.clearColor = [0, 0, 0, 1];
+
+    // TODO: load the shape queue from stored data.
+
+    await this.loadSceneMap();
 
     // Add the elevation color mesh
     const shader = TerrainLayerShader.create();
@@ -326,7 +334,7 @@ export class TerrainLayer extends InteractionLayer {
   }
 
   /** @override */
-  _deactivate() {
+  async _deactivate() {
     console.debug("De-activating Terrain Layer.");
     if ( !this.container ) return;
     canvas.stage.removeChild(this._wallDataContainer);
@@ -339,9 +347,10 @@ export class TerrainLayer extends InteractionLayer {
     wallData.forEach(d => d.destroy(true));
 
     canvas.stage.removeChild(this.terrainLabel);
-    // if ( this._requiresSave ) this.saveSceneElevationData();
     Draw.clearDrawings();
     this.container.visible = false;
+
+    if ( this._requiresSave ) await this.save();
   }
 
   /** @override */
@@ -353,7 +362,7 @@ export class TerrainLayer extends InteractionLayer {
   /** @inheritdoc */
   async _tearDown(options) {
     console.debug("_tearDown Terrain Layer");
-    // if ( this._requiresSave ) await this.saveSceneElevationData();
+    if ( this._requiresSave ) await this.save();
 
     // Probably need to figure out how to destroy and/or remove these objects
     //     this._graphicsContainer.destroy({children: true});
@@ -389,6 +398,137 @@ export class TerrainLayer extends InteractionLayer {
   _clearTerrainPixelCache() {
     this.#terrainPixelCache = undefined;
   }
+
+  /**
+   * Save data related to this scene.
+   */
+  async save() {
+    await this.saveSceneMap();
+  }
+
+  // ----- NOTE: SceneMap ----- //
+
+  /**
+   * Load the scene terrain map.
+   * @returns {TerrainMap}
+   */
+  async loadSceneMap() {
+    const sceneMap = this.sceneMap;
+    sceneMap.clear();
+
+    // Determine what terrain pixel values are in the scene.
+    const pixelValuesInScene = new Set(this.pixelCache.pixels);
+    this._shapeQueue.elements.forEach(e => pixelValuesInScene.add(e.pixelValue));
+
+    // Set the 0 pixel value just in case the entire scene is set to another pixel value.
+    const nullTerrain = new Terrain();
+    sceneMap.set(0, nullTerrain, true); // Null terrain.
+    nullTerrain.addToScene();
+
+    // Set the terrain ids for each value based on stored data for the scene.
+    // Only set ids if the pixel value is present in the scene terrain.
+    const mapData = canvas.scene.getFlag(MODULE_ID, FLAGS.TERRAIN_MAP) ?? [];
+    mapData.forEach(([key, effectId]) => {
+      if ( !pixelValuesInScene.has(key) ) return;
+      const terrain = Terrain.fromEffectId(effectId, false);
+      sceneMap.set(key, terrain, true);
+    });
+
+    // Add any missing values as new terrain.
+    // TODO: Should this be null terrain?
+    for ( const pixelValue in pixelValuesInScene ) {
+      if ( sceneMap.has(pixelValue) ) continue;
+      const newTerrain = new Terrain();
+      await newTerrain.initialize();
+      newTerrain.name = game.i18n.localize(`${MODULE_ID}.phrases.new-terrain`);
+      this.sceneMap.set(pixelValue, newTerrain);
+      newTerrain.addToScene();
+    }
+  }
+
+  async saveSceneMap() {
+    // Don't save unless it has more than the null terrain.
+    const sceneMap = this.sceneMap;
+    if ( sceneMap.size < 2 ) return;
+
+    // Store the scene map in the scene document.
+    const mapData = [...sceneMap.entries()].map(([key, terrain]) => [key, terrain.id]);
+    await canvas.scene.setFlag(MODULE_ID, FLAGS.TERRAIN_MAP, mapData);
+  }
+
+  /**
+   * Determine if a terrain is in the scene map.
+   * @param {Terrain} terrain
+   * @returns {boolean}
+   */
+  _inSceneMap(terrain) { return this.sceneMap.hasTerrainId(terrain.id); }
+
+  /**
+   * Add terrain value to the scene map and update the controls.
+   * @param {Terrain} terrain
+   * @returns {number} The integer pixel value assigned to this terrain for the scene.
+   */
+  _addTerrainToScene(terrain) {
+    if ( this._inSceneMap(terrain) ) return this.sceneMap.keyForValue(terrain);
+
+    // Add the terrain to the scene map and mark for save (avoids making this method async).
+    const pixelValue = this.sceneMap.add(terrain);
+    this._requiresSave = true;
+
+    // Refresh the UI related to the terrain.
+    this._terrainColorsMesh.shader.updateTerrainColors();
+    if ( ui.controls.activeControl === "terrain" ) ui.controls.render();
+    TerrainEffectsApp.rerender();
+
+    // Return the pixel value that was assigned.
+    return pixelValue;
+  }
+
+  /**
+   * Remove terrain value from the scene map and update the controls.
+   * @param {Terrain} terrain
+   * @returns {Terrain} New terrain that replaced the old in the scene.
+   */
+  async _removeTerrainFromScene(terrain) {
+    if ( !this._inSceneMap(terrain) || !terrain.pixelValue ) return;
+
+    // Replace this terrain with a new one in the scene map.
+    const newTerrain = new Terrain();
+    await newTerrain.initialize();
+    newTerrain.name = game.i18n.localize(`${MODULE_ID}.phrases.new-terrain`);
+    this.sceneMap.set(terrain.pixelValue, newTerrain);
+    newTerrain.addToScene();
+    this._requiresSave = true;
+
+    // Refresh the UI for the terrain.
+    this._terrainColorsMesh.shader.updateTerrainColors();
+    if ( this.toolbar.currentTerrain === this ) this.toolbar._currentTerrain = undefined;
+    if ( ui.controls.activeControl === "terrain" ) ui.controls.render();
+    TerrainEffectsApp.rerender();
+
+    return newTerrain;
+  }
+
+  /**
+   * Remove terrain from the scene map entirely, without replacement.
+   * @param {Terrain} terrain
+   */
+  #removeTerrainFromSceneMap(terrain) {
+    if ( !this._inSceneMap(terrain) || !terrain.pixelValue ) return;
+
+    // Remove this terrain from the scene map and mark for save (avoids making this method async).
+    this.sceneMap.delete(terrain.pixelValue);
+    this._requiresSave = true;
+    terrain._unassignPixel();
+
+    // Refresh the UI for the terrain.
+    this._terrainColorsMesh.shader.updateTerrainColors();
+    if ( this.toolbar.currentTerrain === this ) this.toolbar._currentTerrain = undefined;
+    if ( ui.controls.activeControl === "terrain" ) ui.controls.render();
+    TerrainEffectsApp.rerender();
+  }
+
+  // ----- NOTE: Data import/export ----- //
 
   /**
    * Download terrain data from the scene.
@@ -446,7 +586,7 @@ export class TerrainLayer extends InteractionLayer {
     draw.clearDrawings();
     for ( const e of this._shapeQueue.elements ) {
       const shape = e.shape;
-      const terrain = Terrain.sceneMap.get(shape.pixelValue);
+      const terrain = this.sceneMap.get(shape.pixelValue);
       draw.shape(shape, { fill: terrain.color, width: 0 });
     }
   }
@@ -456,7 +596,7 @@ export class TerrainLayer extends InteractionLayer {
     draw.clearLabels();
     for ( const e of this._shapeQueue.elements ) {
       const shape = e.shape;
-      const terrain = Terrain.sceneMap.get(shape.pixelValue);
+      const terrain = this.sceneMap.get(shape.pixelValue);
       const txt = draw.labelPoint(shape.origin, terrain.name, { fontSize: 24 });
       txt.anchor.set(0.5); // Center text
     }
@@ -491,7 +631,7 @@ export class TerrainLayer extends InteractionLayer {
    */
   _drawTerrainName(shape) {
     const draw = new Draw(this._terrainLabelsContainer);
-    const terrain = Terrain.sceneMap.get(shape.pixelValue);
+    const terrain = this.sceneMap.get(shape.pixelValue);
     const txt = draw.labelPoint(shape.origin, terrain.name, { fontSize: 24 });
     txt.anchor.set(0.5); // Center text
   }
@@ -595,6 +735,7 @@ export class TerrainLayer extends InteractionLayer {
    * @returns {PIXI.Graphics}
    */
   addTerrainShapeToCanvas(shape, terrain, { temporary = false } = {}) {
+    if ( !this.sceneMap.hasTerrainId(terrain.id) ) terrain.addToScene();
     shape.pixelValue = terrain.pixelValue;
     if ( temporary && this.#temporaryGraphics.has(shape.origin.key) ) {
       // Replace with this item.
@@ -607,6 +748,7 @@ export class TerrainLayer extends InteractionLayer {
     // Draw the graphics element for the shape to display to the GM.
     const graphics = this._drawTerrainShape(shape, terrain);
 
+    // Either temporarily draw or permanently draw the graphics for the shape.
     if ( temporary ) this.#temporaryGraphics.set(shape.origin.key, { shape, graphics });
     else {
       this._shapeQueue.enqueue({ shape, graphics }); // Link to PIXI.Graphics object for undo.
@@ -785,7 +927,7 @@ export class TerrainLayer extends InteractionLayer {
     const activeTool = game.activeTool;
     const o = event.interactionData.origin;
     const currT = this.toolbar.currentTerrain;
-    console.debug(`TerrainLayer|${fnName} at ${o.x}, ${o.y} with tool ${activeTool} and terrain ${currT.name}`, event);
+    console.debug(`TerrainLayer|${fnName} at ${o.x}, ${o.y} with tool ${activeTool} and terrain ${currT?.name}`, event);
   }
 
 

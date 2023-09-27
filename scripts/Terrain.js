@@ -2,7 +2,9 @@
 ActiveEffect,
 canvas,
 CONFIG,
+CONST,
 Dialog,
+foundry,
 game,
 getProperty,
 readTextFromFile,
@@ -31,101 +33,6 @@ export async function addTerrainEffect(tokenUUID, effectId) {
 export async function removeTerrainEffect(tokenUUID, effectId) {
   const terrain = Terrain.fromEffectId(effectId);
   return terrain._effectHelper.removeFromToken(tokenUUID);
-}
-
-
-/**
- * Subclass of Map that manages terrain ids and ensures only 1–31 are used.
- */
-export class TerrainMap extends Map {
-  /** @type {number} */
-  MAX_TERRAINS = Math.pow(2, 5) - 1; // No 0 id.
-
-  /** @type {number} */
-  #nextId = 1;
-
-  /** @type {Map} */
-  terrainIds = new Map();
-
-  /** @override */
-  set(id, terrain, override = false) {
-    id ??= this.#nextId;
-
-    if ( !override && this.has(id) ) {
-      console.error("Id already present and override is false.");
-      return;
-    }
-
-    if ( !Number.isInteger(id) || id < 0 ) {
-      console.error(`Id ${id} is invalid.`);
-      return;
-    }
-
-    if ( id > this.MAX_TERRAINS ) { console.warn(`Id ${id} exceeds maximum terrains (${this.MAX_TERRAINS}).`); }
-
-    super.set(id, terrain);
-    this.terrainIds.set(terrain.id, terrain);
-    this.#nextId = this.#findNextId();
-    return id;
-  }
-
-  /**
-   * Add using the next consecutive id.
-   */
-  add(terrain) {
-    const id = this.#nextId;
-    if ( id > this.MAX_TERRAINS ) { console.warn(`Id ${id} exceeds maximum terrains (${this.MAX_TERRAINS}).`); }
-    super.set(id, terrain);
-    this.terrainIds.set(terrain.id, terrain);
-    this.#nextId = this.#findNextId();
-    return id;
-  }
-
-  /**
-   * Locate the next id in consecutive order.
-   */
-  #findNextId() {
-    // Next id is always the smallest available. So if it equals the size, we can just increment by 1.
-    if ( this.size === (this.#nextId - 1) ) return this.#nextId + 1;
-
-    const keys = [...this.keys()].sort((a, b) => a - b);
-    keys.unshift(0); // For arrays like [3, 4, 6] so it returns 0 as the key.
-    const lastConsecutiveKey = keys.find((k, idx) => keys[idx + 1] !== k + 1);
-    return lastConsecutiveKey + 1 ?? 1;
-  }
-
-  /** @override */
-  clear() {
-    super.clear();
-    this.terrainIds.clear();
-    this.#nextId = 1;
-  }
-
-  /** @override */
-  delete(id) {
-    const terrain = this.get(id);
-    if ( terrain ) this.terrainIds.delete(terrain.id);
-    if ( !super.delete(id) ) return false;
-    if ( this.#nextId > id ) this.#nextId = this.#findNextId();
-    return true;
-  }
-
-  /**
-   * Does this map have a specific terrain id?
-   */
-  hasTerrainId(id) { return this.terrainIds.has(id); }
-
-  /**
-   * Get the key for a given value.
-   * @param {*} value     The value to match.
-   * @returns {*|undefined} The key associated with the value, or false if none.
-   */
-  keyForValue(value) {
-    for ( const [key, testValue] of this.entries() ) {
-      if ( value === testValue ) return key;
-    }
-    return undefined;
-  }
 }
 
 /**
@@ -160,6 +67,7 @@ export class Terrain {
   /** @type {Settings} */
   _settings;
 
+
   /**
    * @param {TerrainConfig} config
    * @param {object} [opts]
@@ -167,8 +75,8 @@ export class Terrain {
    */
   constructor(activeEffect, checkExisting = true) {
     if ( checkExisting && activeEffect ) {
-      const terrain = this.constructor.sceneMap.terrainIds.get(activeEffect.id);
-      if ( terrain ) return terrain;
+      const terrain = this.sceneMap.terrainIds.get(activeEffect.id);
+      if ( terrain ) return terrain; // eslint-disable-line no-constructor-return
     }
 
     this._effectHelper = new EffectHelper(activeEffect);
@@ -180,44 +88,13 @@ export class Terrain {
    * @returns {Terrain}  Either an existing scene terrain or a new terrain.
    */
   static fromEffectId(id, checkExisting = true) {
-    if ( checkExisting && this.sceneMap.terrainIds.has(id) ) return this.sceneMap.terrainIds.get(id);
+    const terrainIds = canvas.terrain.sceneMap.terrainIds;
+    if ( checkExisting && terrainIds.has(id) ) return terrainIds.get(id);
     return new this(EffectHelper.getTerrainEffectById(id), checkExisting);
   }
 
-  /**
-   * Load the scene terrain map.
-   * @returns {TerrainMap}
-   */
-  static loadSceneMap() {
-    const mapData = canvas.scene.getFlag(MODULE_ID, FLAGS.TERRAIN_MAP);
-    const map = new TerrainMap();
-    map.set(0, new Terrain());
-    if ( !mapData ) return map;
-    mapData.forEach(([key, effectId]) => {
-      const terrain = this.fromEffectId(effectId, false);
-      map.set(key, terrain, true);
-    });
-    return map;
-  }
-
-  /**
-   * Save the scene terrain map.
-   * @param {TerrainMap}
-   */
-  static async _saveSceneMap(terrainMap) {
-    if ( !terrainMap.size ) return;
-    const mapData = [...terrainMap.entries()].map(([key, terrain]) => [key, terrain.id]);
-    await canvas.scene.setFlag(MODULE_ID, FLAGS.TERRAIN_MAP, mapData);
-  }
-
-  static async saveSceneMap() {
-    if ( !this.#sceneMap ) return;
-    await this._saveSceneMap(this.#sceneMap);
-  }
-
-  static get sceneMap() { return this.#sceneMap || (this.#sceneMap = this.loadSceneMap()); }
-
-  get sceneMap() { return this.constructor.sceneMap; }
+  /** @type {TerrainMap} */
+  get sceneMap() { return canvas.terrain.sceneMap; }
 
   /**
    * @param {TerrainConfig} config
@@ -308,7 +185,7 @@ export class Terrain {
 
   /** @type {number} */
   get pixelValue() {
-    return this.#pixelValue || (this.#pixelValue = this.constructor.sceneMap.keyForValue(this));
+    return this.#pixelValue || (this.#pixelValue = this.sceneMap.keyForValue(this));
   }
 
   // Helpers to get/set the active effect flags.
@@ -332,51 +209,27 @@ export class Terrain {
   isUsedInScene() { return canvas.terrain.pixelValueInScene(this.pixelValue); }
 
   /**
-   * Get the walk value for the given token as if this terrain were applied.
+   * Add this terrain to the scene, which assigns a pixel value for this terrain.
    */
-  movementSpeedForToken(token) {
-    const attr = getDefaultSpeedAttribute();
-    const speed = getProperty(token, attr) ?? 0;
-    const ae = this._effectHelper.effect;
-    if ( !ae ) return speed;
+  addToScene() { this.#pixelValue = canvas.terrain._addTerrainToScene(this); }
 
-    // Locate the change to the movement in the active effect.
-    const keyArr = attr.split(".");
-    keyArr.shift();
-    const key = keyArr.join(".");
-    const change = ae.changes.find(e => e.key === key);
-    if ( !change ) return speed;
-
-    // Apply the change effect to the token actor and return the result.
-    const res = applyEffectTemporarily(ae, token.actor, change);
-    return res[key];
-  }
-
-
-  async addToScene() {
-    if ( this.isInSceneMap() ) return;
-    this.#pixelValue = this.sceneMap.add(this);
-    await this.constructor.saveSceneMap();
-
-    // Refresh the UI for the terrain.
-    canvas.terrain._terrainColorsMesh.shader.updateTerrainColors();
-    if ( ui.controls.activeControl === "terrain" ) ui.controls.render();
-    TerrainEffectsApp.rerender();
-  }
-
+  /**
+   * Remove this terrain from the scene, which removes the pixel value for this terrain.
+   * (But not necessarily the underlying pixels -- a placeholder terrain will be assigned.)
+   */
   async removeFromScene() {
-    if ( !this.isInSceneMap() ) return;
+    await canvas.terrain._removeTerrainFromScene(this);
+    this.#pixelValue = undefined;
+  }
 
-    // Remove the pixel key from the scene map.
-    const key = this.pixelValue;
-    if ( key ) this.sceneMap.delete(key);
-    await this.constructor.saveSceneMap();
-
-    // Refresh the UI for the terrain.
-    canvas.terrain._terrainColorsMesh.shader.updateTerrainColors();
-    if ( canvas.terrain.toolbar.currentTerrain === this ) canvas.terrain.toolbar._currentTerrain = undefined;
-    if ( ui.controls.activeControl === "terrain" ) ui.controls.render();
-    TerrainEffectsApp.rerender();
+  /**
+   * Reset the pixel value.
+   * Internal use when cleaning the scene.
+   */
+  _unassignPixel() {
+    if ( this.isInSceneMap() ) console.warn(`Terrain ${this.name} (${this.pixelValue}) is still present in the scene map.`);
+    if ( this.isUsedInScene() ) console.warn(`Terrain ${this.name} (${this.pixelValue}) is still present in the scene.`);
+    this.#pixelValue = undefined;
   }
 
   /* ----- NOTE: Terrain functionality ----- */
@@ -416,6 +269,8 @@ export class Terrain {
     return elevation.between(minMaxE.min, minMaxE.max);
   }
 
+  // ----- NOTE: Token interaction ----- //
+
   /**
    * Add this terrain's effect to the token.
    * @param {Token} token
@@ -446,7 +301,7 @@ export class Terrain {
    * @param {Token} token
    * @param {boolean} [all=true]    If false, remove a single effect if duplicated.
    */
-  async removeFromToken(token, all = true) {
+  async removeFromToken(token, _all = true) {
     await this.constructor.lock.acquire();
     const currTerrains = new Set(this.constructor.getAllOnToken(token));
     if ( currTerrains.has(this) ) {
@@ -515,7 +370,7 @@ export class Terrain {
    * @returns {Terrain[]}
    */
   static getAllSceneTerrainsOnToken(token) {
-    return this.getAllOnToken(token).filter(t => this.sceneMap.hasTerrainId(t.id));
+    return this.getAllOnToken(token).filter(t => canvas.terrain.sceneMap.hasTerrainId(t.id));
   }
 
   /**
@@ -526,6 +381,44 @@ export class Terrain {
   tokenHasTerrain(token) {
     const tokenTerrains = new Set(this.constructor.getAllOnToken(token));
     return tokenTerrains.has(this);
+  }
+
+  /**
+   * Get the walk value for the given token as if this terrain were applied.
+   * @param {Token} token
+   * @returns {number} The token's default speed attribute (typically, walk) if the terrain were applied.
+   */
+  movementSpeedForToken(token) {
+    const attr = getDefaultSpeedAttribute();
+    const speed = getProperty(token, attr) ?? 0;
+    const ae = this._effectHelper.effect;
+    if ( !ae ) return speed;
+
+    // Locate the change to the movement in the active effect.
+    const keyArr = attr.split(".");
+    keyArr.shift();
+    const key = keyArr.join(".");
+    const change = ae.changes.find(e => e.key === key);
+    if ( !change ) return speed;
+
+    // Apply the change effect to the token actor and return the result.
+    const res = applyEffectTemporarily(ae, token.actor, change);
+    return res[key];
+  }
+
+  /**
+   * Calculate the movement penalty (or bonus) for a token.
+   * @param {Token}
+   * @returns {number} The percent increase or decrease from default speed attribute.
+   *   Greater than 100: increase. E.g. 120% is 20% increase over baseline.
+   *   Equal to 100: no increase.
+   *   Less than 100: decrease.
+   */
+  movementPercentChangeForToken(token) {
+    const attr = getDefaultSpeedAttribute();
+    const speed = getProperty(token, attr) ?? 0;
+    const effectSpeed = this.movementSpeedForToken(token);
+    return effectSpeed / speed;
   }
 
   // NOTE: ---- File in/out -----
@@ -712,8 +605,6 @@ export class Terrain {
   }
 }
 
-
-
 /**
  * Apply this ActiveEffect to a provided Actor temporarily.
  * Same as ActiveEffect.prototype.apply but does not change the actor.
@@ -722,49 +613,48 @@ export class Terrain {
  * @param {EffectChangeData} change       The change data being applied
  */
 function applyEffectTemporarily(ae, actor, change) {
-    // Determine the data type of the target field
-    const current = foundry.utils.getProperty(actor, change.key) ?? null;
-    let target = current;
-    if ( current === null ) {
-      const model = game.model.Actor[actor.type] || {};
-      target = foundry.utils.getProperty(model, change.key) ?? null;
-    }
-    let targetType = foundry.utils.getType(target);
+  // Determine the data type of the target field
+  const current = foundry.utils.getProperty(actor, change.key) ?? null;
+  let target = current;
+  if ( current === null ) {
+    const model = game.model.Actor[actor.type] || {};
+    target = foundry.utils.getProperty(model, change.key) ?? null;
+  }
+  let targetType = foundry.utils.getType(target);
 
-    // Cast the effect change value to the correct type
-    let delta;
-    try {
-      if ( targetType === "Array" ) {
-        const innerType = target.length ? foundry.utils.getType(target[0]) : "string";
-        delta = ae._castArray(change.value, innerType);
-      }
-      else delta = ae._castDelta(change.value, targetType);
-    } catch(err) {
-      console.warn(`Actor [${actor.id}] | Unable to parse active effect change for ${change.key}: "${change.value}"`);
-      return;
+  // Cast the effect change value to the correct type
+  let delta;
+  try {
+    if ( targetType === "Array" ) {
+      const innerType = target.length ? foundry.utils.getType(target[0]) : "string";
+      delta = ae._castArray(change.value, innerType);
     }
+    else delta = ae._castDelta(change.value, targetType);
+  } catch(err) {
+    console.warn(`Actor [${actor.id}] | Unable to parse active effect change for ${change.key}: "${change.value}"`);
+    return;
+  }
 
-    // Apply the change depending on the application mode
-    const modes = CONST.ACTIVE_EFFECT_MODES;
-    const changes = {};
-    switch ( change.mode ) {
-      case modes.ADD:
-        ae._applyAdd(actor, change, current, delta, changes);
-        break;
-      case modes.MULTIPLY:
-        ae._applyMultiply(actor, change, current, delta, changes);
-        break;
-      case modes.OVERRIDE:
-        ae._applyOverride(actor, change, current, delta, changes);
-        break;
-      case modes.UPGRADE:
-      case modes.DOWNGRADE:
-        ae._applyUpgrade(actor, change, current, delta, changes);
-        break;
-      default:
-        ae._applyCustom(actor, change, current, delta, changes);
-        break;
-    }
-    return changes;
-
+  // Apply the change depending on the application mode
+  const modes = CONST.ACTIVE_EFFECT_MODES;
+  const changes = {};
+  switch ( change.mode ) {
+    case modes.ADD:
+      ae._applyAdd(actor, change, current, delta, changes);
+      break;
+    case modes.MULTIPLY:
+      ae._applyMultiply(actor, change, current, delta, changes);
+      break;
+    case modes.OVERRIDE:
+      ae._applyOverride(actor, change, current, delta, changes);
+      break;
+    case modes.UPGRADE:
+    case modes.DOWNGRADE:
+      ae._applyUpgrade(actor, change, current, delta, changes);
+      break;
+    default:
+      ae._applyCustom(actor, change, current, delta, changes);
+      break;
+  }
+  return changes;
 }
