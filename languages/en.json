@@ -44,5 +44,6 @@
   "terrainmapper.settings.auto_terrain_dialog.hint": "Present dialog to GM when token terrain is added by Auto-Terrain",
 
   "terrainmapper.phrases.terrainLayer": "Terrain Layer",
-  "terrainmapper.phrases.terrain": "Terrain"
+  "terrainmapper.phrases.terrain": "Terrain",
+  "terrainmapper.phrases.no-terrain": "No Terrain"
 }

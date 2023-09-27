@@ -77,10 +77,12 @@ export class TerrainLayerToolBar extends Application {
     const sceneMap = Terrain.sceneMap;
     const terrains = Terrain.getAll();
     this._sortTerrains(terrains);
+    terrains.unshift(Terrain.sceneMap.get(0));
 
+    const currId = this.currentTerrain?.id;
     const nonSceneTerrains = [];
     const sceneTerrains = [];
-    const currId = this.currentTerrain?.id;
+
     for ( const terrain of terrains ) {
       const obj = {
         key: terrain.id,
