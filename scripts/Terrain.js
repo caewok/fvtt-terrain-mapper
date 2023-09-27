@@ -427,17 +427,7 @@ export class Terrain {
     return this.activeEffect.toJSON();
   }
 
-  updateSource(json) {
-    const config = this.config;
-    for ( const [key, value] of Object.entries(json) ) {
-      if ( key === "id" ) continue;
-      if ( key === "activeEffect" ) {
-        config.activeEffect = config.activeEffect ? config.activeEffect.updateSource(value) : new ActiveEffect(value);
-        continue;
-      }
-      config[key] = value;
-    }
-  }
+
 
   /**
    * Export the entire terrains item to JSON.
@@ -462,8 +452,6 @@ export class Terrain {
   static async replaceFromJSON(json) {
     const item = Settings.terrainEffectsItem;
     await item.importFromJSON(json);
-    // TODO: Replace scene terrain map(s)?
-
   }
 
   /**
@@ -475,7 +463,6 @@ export class Terrain {
 
     // Transfer the active effects to the existing item.
     await item.createEmbeddedDocuments("ActiveEffect", tmp.effects.toObject());
-    // await tmp.delete();
   }
 
   /**
@@ -573,7 +560,12 @@ export class Terrain {
   }
 
   async importFromJSON(json) {
-    await this.activeEffect.importFromJSON(json);
+    const effect = this._effectHelper.effect;
+    if ( !effect ) return console.error("Terrain|importFromJSON|terrain has no effect)");
+    json = JSON.parse(json);
+    delete json._id;
+    await effect.update(json);
+    TerrainEffectsApp.rerender();
   }
 
   async importFromJSONDialog() {
