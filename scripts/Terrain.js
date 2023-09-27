@@ -176,12 +176,18 @@ export class Terrain {
 
   async setUserVisible(value) { return this.#setAEFlag(FLAGS.USER_VISIBLE, value); }
 
-  /** @type {string} */
-  get color() { return this.#getAEFlag(FLAGS.COLOR) ?? 0x000000; }
+  /** @type {Color} */
+  get color() { return new Color(this.#getAEFlag(FLAGS.COLOR) ?? 0x000000); }
 
-  set color(value) { this.#setAEFlag(FLAGS.COLOR, value); }
+  set color(value) {
+    value = Color.from(value);
+    this.#setAEFlag(FLAGS.COLOR, Number(value));
+  }
 
-  async setColor(value) { return this.#setAEFlag(FLAGS.COLOR, value); }
+  async setColor(value) {
+    value = Color.from(value);
+    return this.#setAEFlag(FLAGS.COLOR, Number(value));
+  }
 
   /** @type {number} */
   get pixelValue() {
