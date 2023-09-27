@@ -36,6 +36,9 @@ class FullCanvasContainer extends FullCanvasObjectMixin(PIXI.Container) {
 
 export class TerrainLayer extends InteractionLayer {
 
+  /** @type {boolean} */
+  #initialized = false;
+
   /** @type {TravelTerrainRay} */
   TravelTerrainRay = TravelTerrainRay;
 
@@ -198,6 +201,7 @@ export class TerrainLayer extends InteractionLayer {
    * @returns {Terrain|undefined}
    */
   terrainAt({x, y}) {
+    if ( !this.#initialized ) return undefined;
     const pixelValue = this.pixelCache.pixelAtCanvas(x, y);
     return this.terrainForPixel(pixelValue);
   }
@@ -284,6 +288,7 @@ export class TerrainLayer extends InteractionLayer {
     const shader = TerrainLayerShader.create();
     this._terrainColorsMesh = new TerrainQuadMesh(canvas.dimensions.sceneRect, shader);
     this.renderTerrain();
+    this.#initialized = true;
   }
 
   /** @override */

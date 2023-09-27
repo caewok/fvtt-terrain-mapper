@@ -106,3 +106,22 @@ PATCHES.BASIC.METHODS = {
   getAllTerrains,
   removeAllTerrains
 }
+
+// ----- NOTE: Wraps ----- //
+
+/**
+ * Display the terrain name as the token is dragged.
+ */
+function _getTooltipText(wrapper) {
+  let text = wrapper();
+  const terrain = canvas.terrain.terrainAt(this.position);
+  if ( terrain ) text =
+`${terrain.name}
+${text}`;
+  return text;
+}
+
+PATCHES.BASIC.WRAPS = {
+  _getTooltipText
+}
+
