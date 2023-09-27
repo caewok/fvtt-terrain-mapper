@@ -421,7 +421,9 @@ export class TerrainLayer extends InteractionLayer {
     this._shapeQueue.elements.forEach(e => pixelValuesInScene.add(e.pixelValue));
 
     // Set the 0 pixel value just in case the entire scene is set to another pixel value.
-    sceneMap.set(0, new Terrain()); // Null terrain.
+    const nullTerrain = new Terrain();
+    sceneMap.set(0, nullTerrain, true); // Null terrain.
+    nullTerrain.addToScene();
 
     // Set the terrain ids for each value based on stored data for the scene.
     // Only set ids if the pixel value is present in the scene terrain.
@@ -584,7 +586,7 @@ export class TerrainLayer extends InteractionLayer {
     draw.clearDrawings();
     for ( const e of this._shapeQueue.elements ) {
       const shape = e.shape;
-      const terrain = Terrain.sceneMap.get(shape.pixelValue);
+      const terrain = this.sceneMap.get(shape.pixelValue);
       draw.shape(shape, { fill: terrain.color, width: 0 });
     }
   }
@@ -594,7 +596,7 @@ export class TerrainLayer extends InteractionLayer {
     draw.clearLabels();
     for ( const e of this._shapeQueue.elements ) {
       const shape = e.shape;
-      const terrain = Terrain.sceneMap.get(shape.pixelValue);
+      const terrain = this.sceneMap.get(shape.pixelValue);
       const txt = draw.labelPoint(shape.origin, terrain.name, { fontSize: 24 });
       txt.anchor.set(0.5); // Center text
     }
@@ -629,7 +631,7 @@ export class TerrainLayer extends InteractionLayer {
    */
   _drawTerrainName(shape) {
     const draw = new Draw(this._terrainLabelsContainer);
-    const terrain = Terrain.sceneMap.get(shape.pixelValue);
+    const terrain = this.sceneMap.get(shape.pixelValue);
     const txt = draw.labelPoint(shape.origin, terrain.name, { fontSize: 24 });
     txt.anchor.set(0.5); // Center text
   }
@@ -733,6 +735,7 @@ export class TerrainLayer extends InteractionLayer {
    * @returns {PIXI.Graphics}
    */
   addTerrainShapeToCanvas(shape, terrain, { temporary = false } = {}) {
+    if ( !this.sceneMap.hasTerrainId(terrain.id) ) terrain.addToScene();
     shape.pixelValue = terrain.pixelValue;
     if ( temporary && this.#temporaryGraphics.has(shape.origin.key) ) {
       // Replace with this item.
@@ -745,6 +748,7 @@ export class TerrainLayer extends InteractionLayer {
     // Draw the graphics element for the shape to display to the GM.
     const graphics = this._drawTerrainShape(shape, terrain);
 
+    // Either temporarily draw or permanently draw the graphics for the shape.
     if ( temporary ) this.#temporaryGraphics.set(shape.origin.key, { shape, graphics });
     else {
       this._shapeQueue.enqueue({ shape, graphics }); // Link to PIXI.Graphics object for undo.
@@ -923,7 +927,7 @@ export class TerrainLayer extends InteractionLayer {
     const activeTool = game.activeTool;
     const o = event.interactionData.origin;
     const currT = this.toolbar.currentTerrain;
-    console.debug(`TerrainLayer|${fnName} at ${o.x}, ${o.y} with tool ${activeTool} and terrain ${currT.name}`, event);
+    console.debug(`TerrainLayer|${fnName} at ${o.x}, ${o.y} with tool ${activeTool} and terrain ${currT?.name}`, event);
   }
 
 

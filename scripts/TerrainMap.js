@@ -6,15 +6,16 @@
 
 /**
  * Subclass of Map that manages terrain ids and ensures only 1–31 are used.
+ * @type {Map<number, Terrain>}
  */
 export class TerrainMap extends Map {
   /** @type {number} */
   MAX_TERRAINS = Math.pow(2, 5) - 1; // No 0 id.
 
   /** @type {number} */
-  #nextId = 1;
+  #nextId = 0;
 
-  /** @type {Map} */
+  /** @type {Map<string, Terrain>} */
   terrainIds = new Map();
 
   /** @override */
@@ -55,13 +56,15 @@ export class TerrainMap extends Map {
    * Locate the next id in consecutive order.
    */
   #findNextId() {
-    // Next id is always the smallest available. So if it equals the size, we can just increment by 1.
-    if ( this.size === (this.#nextId - 1) ) return this.#nextId + 1;
+    // Next id is always the smallest available.
+    // If size 0: next id must be 0.
+    // If size is 1, then 0 must be assigned; next id is 1.
+    if ( this.size === this.#nextId ) return this.#nextId;
 
     const keys = [...this.keys()].sort((a, b) => a - b);
-    keys.unshift(0); // For arrays like [3, 4, 6] so it returns 0 as the key.
+    keys.unshift(-1); // So arrays like [3, 4, 5] work.
     const lastConsecutiveKey = keys.find((k, idx) => keys[idx + 1] !== k + 1);
-    return lastConsecutiveKey + 1 ?? 1;
+    return lastConsecutiveKey + 1 ?? 0;
   }
 
   /** @override */
