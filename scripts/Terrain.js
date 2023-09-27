@@ -452,8 +452,6 @@ export class Terrain {
   static async replaceFromJSON(json) {
     const item = Settings.terrainEffectsItem;
     await item.importFromJSON(json);
-    // TODO: Replace scene terrain map(s)?
-
   }
 
   /**
@@ -465,7 +463,6 @@ export class Terrain {
 
     // Transfer the active effects to the existing item.
     await item.createEmbeddedDocuments("ActiveEffect", tmp.effects.toObject());
-    // await tmp.delete();
   }
 
   /**
