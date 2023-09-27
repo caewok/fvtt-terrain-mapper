@@ -98,7 +98,7 @@ function initializeAPI() {
 
 /* TODO: Things needed
 - Null Terrain to allow terrain removal at pixel level.
-- Display terrain names on token drag.
+√ Display terrain names on token drag.
 - Remove settings menu
 - Rename TerrainSettings to Settings
 - Import/export single terrain using a temp item to store.
