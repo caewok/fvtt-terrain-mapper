@@ -29,9 +29,6 @@
 
   <h1> {{ localize "terrainmapper.scene-config.header-all" }} </h1>
 
-  <p> <em> {{ localize "terrainmapper.scene-config.intro-all" }} </em> </p>
-
-
   <!-- Table Header -->
   <!-- Display uses icon/color/both -->
   <!--- Id, Display, Name, Visibility (eye) Edit Trash-->
@@ -51,7 +48,7 @@
 
           <!-- Terrain color -->
           <div class="flexcol" style="flex-grow: 1" data-idx="{{idx}}">
-            <input type="color" value="{{ terrain.color }}" name="allTerrains.{{idx}}.color" style="width: 36px">
+            <input type="color" value="{{ terrain.color.css }}" name="allTerrains.{{idx}}.color" style="width: 36px">
           </div>
 
           <!-- Terrain icon (modified filePicker) -->
@@ -102,7 +99,6 @@
   </section>
 
   <footer class="sheet-footer" style="margin: auto; padding-top: 30px">
-    <hr>
     <div class="flex-table">
       <div class="flexrow">
         <div class="flexcol" style="flex-grow: 1">
