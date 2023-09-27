@@ -17,7 +17,10 @@
   "terrainmapper.controls.incrementTerrain": "Increment Terrain ID",
   "terrainmapper.controls.currentTerrain": "Current Terrain ID",
 
-
+  "terrainmapper.terrain-encountered-dialog.title": "Terrain Mapper|Terrain Encountered",
+  "terrainmapper.terrain-encountered-dialog.content": "{tokenName} has encountered {terrainName} terrain! <hr> <br>",
+  "terrainmapper.terrain-encountered-dialog.continue": "Continue token movement",
+  "terrainmapper.terrain-encountered-dialog.cancel": "Cancel token movement",
 
   "terrainmapper.settings.menu.title": "Terrain Settings",
   "terrainmapper.settings.terrain.introduction": "Configure one or more terrain types.",

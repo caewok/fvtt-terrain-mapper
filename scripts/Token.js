@@ -11,7 +11,7 @@ Methods and hooks related to tokens.
 Hook token movement to add/remove terrain effects and pause tokens dependent on settings.
 */
 
-import { MODULE_ID } from "./const.js";
+import { MODULE_ID, SOCKETS } from "./const.js";
 import { TerrainSettings } from "./settings.js";
 import { TravelTerrainRay } from "./TravelTerrainRay.js";
 import { Terrain } from "./Terrain.js";
@@ -35,10 +35,9 @@ function preUpdateTokenHook(tokenD, changes, _options, _userId) {
 
   const changeKeys = new Set(Object.keys(flattenObject(changes)));
   const token = tokenD.object;
-  token[MODULE_ID] ??= {};
   const destination = token.getCenter(changes.x ?? token.x, changes.y ?? token.y);
   const tm = token[MODULE_ID] ??= {};
-  const origTTR = token[MODULE_ID].ttr;
+  const origTTR = tm.ttr;
   if ( changeKeys.has("elevation") && origTTR ) {
     // Something, like Levels Stairs, has changed the token elevation during an animation.
     // Redo the travel terrain ray from this point.
@@ -49,7 +48,7 @@ function preUpdateTokenHook(tokenD, changes, _options, _userId) {
   if ( !(changeKeys.has("x") || changeKeys.has("y")) ) return;
 
   const ttr = new TravelTerrainRay(token, { destination });
-  token[MODULE_ID].ttr = ttr;
+  tm.ttr = ttr;
 }
 
 /**
@@ -65,23 +64,59 @@ function refreshTokenHook(token, flags) {
 
   if ( token._original ) {
     // This token is a clone in a drag operation.
-    return;
+
   } else if ( token._animation ) {
     const ttr = token[MODULE_ID].ttr;
     if ( !ttr ) return;
     const center = token.getCenter(token.position.x, token.position.y);
     const terrain = ttr.terrainAtClosestPoint(center);
-    if ( !terrain ) return;
-    terrain.addToToken(token);
+    if ( !terrain ) {
+      Terrain.removeAllSceneTerrainsFromToken(token);
+      return;
+    }
 
-    // Remove any terrains that may have been added by the path traversal except the current.
-    // This allows user-added terrains to stay if not implicated.
-    const allPathTerrains = ttr.terrainsInPath();
-    for ( const pathTerrain of allPathTerrains ) {
-      if ( pathTerrain.id === terrain.id ) continue;
-      pathTerrain.removeFromToken(token); // Async
+    if ( token.hasTerrain(terrain) ) return;
+    terrain.addToToken(token, { removeSceneTerrains: true });
+    if ( TerrainSettings.get(AUTO.DIALOG) ) {
+      token.stopAnimation();
+      token.document.update({ x: token.position.x, y: token.position.y });
+      const dialogData = terrainEncounteredDialogData(token, terrain, ttr.destination);
+      SOCKETS.socket.executeAsGM("dialog", dialogData);
     }
   }
+}
+
+
+/**
+ * Function to present dialog to GM.
+ */
+function terrainEncounteredDialogData(token, terrain, destination) {
+  const localize = key => game.i18n.localize(`${MODULE_ID}.terrain-encountered-dialog.${key}`);
+  return {
+    title: localize("title"),
+    content: game.i18n.format(`${MODULE_ID}.terrain-encountered-dialog.content`,
+      { terrainName: terrain.name, tokenName: token.name }),
+    buttons: {
+      one: {
+        icon: "<i class='fas fa-person-hiking'></i>",
+        label: localize("continue"),
+        callback: async () => {
+          console.debug("Continued animation.");
+          const tl = token.getTopLeft(destination.x, destination.y);
+          await token.document.update({x: tl.x, y: tl.y});
+        }
+      },
+
+      two: {
+        icon: "<i class='fas fa-person-falling-burst'></i>",
+        label: localize("cancel"),
+        callback: async () => {
+          console.debug("Canceled.");
+        }
+      }
+    },
+    default: "one"
+  };
 }
 
 PATCHES.BASIC.HOOKS = {
@@ -102,7 +137,16 @@ function getAllTerrains() { return Terrain.getAllOnToken(this); }
  */
 async function removeAllTerrains() { return Terrain.removeAllFromToken(this); }
 
+/**
+ * Test if token has a given terrain.
+ * @param {Terrain}
+ * @returns {boolean}
+ */
+function hasTerrain(terrain) { return terrain.tokenHasTerrain(this); }
+
+
 PATCHES.BASIC.METHODS = {
   getAllTerrains,
-  removeAllTerrains
-}
+  removeAllTerrains,
+  hasTerrain
+};

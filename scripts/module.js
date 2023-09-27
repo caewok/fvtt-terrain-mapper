@@ -73,7 +73,13 @@ Hooks.once("socketlib.ready", () => {
   SOCKETS.socket = socketlib.registerModule(MODULE_ID);
   SOCKETS.socket.register("addTerrainEffect", addTerrainEffect);
   SOCKETS.socket.register("removeTerrainEffect", removeTerrainEffect);
+  SOCKETS.socket.register("dialog", dialog);
 });
+
+function dialog(data, options) {
+  const d = new Dialog(data, options);
+  d.render(true);
+}
 
 function initializeAPI() {
   game.modules.get(MODULE_ID).api = {
