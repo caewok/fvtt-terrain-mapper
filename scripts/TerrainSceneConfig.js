@@ -20,31 +20,12 @@ import { Settings } from "./Settings.js";
  */
 export class TerrainSceneConfig extends FormApplication {
 
-  /**
-   * Temporary terrain map to hold the terrains to be updated.
-   * @type {TerrainMap}
-   */
-  terrainMap = new TerrainMap();
-
-  constructor(object, options) {
-    const terrains = [];
-    for ( const [key, terrain] of canvas.terrain.sceneMap) {
-      const obj = terrain.toJSON();
-      obj.pixelId = key;
-      terrains.push(obj);
-    }
-    super(terrains, options);
-
-    terrains.forEach(t => this.terrainMap.set(t.pixelId, t));
-
-  }
-
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, {
       template: `modules/${MODULE_ID}/templates/terrain-scene-config.html`,
       height: 800,
-      title: game.i18n.localize(`${MODULE_ID}.settings.menu.title`),
-      width: 600,
+      title: game.i18n.localize(`${MODULE_ID}.scene-config.title`),
+      width: 800,
       classes: [MODULE_ID, "settings"],
       submitOnClose: false,
       closeOnSubmit: true
@@ -53,19 +34,42 @@ export class TerrainSceneConfig extends FormApplication {
 
   getData(options={}) {
     const data = super.getData(options);
+    const allTerrains = Terrain.getAll();
+    this._sortTerrains(allTerrains);
+
+    const allTerrainLabels = {};
+    allTerrains.forEach(t => allTerrainLabels[t.id] = t.name);
+
+    const sceneTerrains = allTerrains.filter(t => canvas.terrain.sceneMap.hasTerrainId(t.id));
+
     return foundry.utils.mergeObject(data, {
       anchorAbbrOptions: LABELS.ANCHOR_ABBR_OPTIONS,
-      maxPixelId: 31
+      allTerrainLabels,
+      sceneTerrains,
+      allTerrains,
+      maxPixelId: 31,
+      noSceneTerrains: !sceneTerrains.length
     });
+  }
+
+  _sortTerrains(terrains) {
+    terrains.sort((a, b) => {
+      const nameA = a.name.toLowerCase();
+      const nameB = b.name.toLowerCase();
+      if ( nameA < nameB ) return -1;
+      if ( nameA > nameB ) return 1;
+      return 0;
+    });
+    return terrains;
   }
 
   async _updateObject(_, formData) {
     const expandedFormData = expandObject(formData);
-    if ( !expandedFormData.terrains ) return;
-    for ( const [idx, terrain] of Object.entries(expandedFormData.terrains) ) {
-      const terrainData = this.object[idx];
-      for ( const [key, value] of Object.entries(terrain) ) terrainData[key] = value;
-    }
+//     if ( !expandedFormData.terrains ) return;
+//     for ( const [idx, terrain] of Object.entries(expandedFormData.terrains) ) {
+//       const terrainData = this.object[idx];
+//       for ( const [key, value] of Object.entries(terrain) ) terrainData[key] = value;
+//     }
   }
 
   async _onSubmit(event, { updateData=null, preventClose=false, preventRender=false } = {}) {
