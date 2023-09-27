@@ -95,7 +95,7 @@ export class TerrainEffectsController {
 
   _fetchSceneTerrains(terrains) {
     console.debug("TerrainEffectsController|_fetchSceneTerrains");
-    const map = Terrain.sceneMap;
+    const map = canvas.terrain.sceneMap;
     const ids = new Set([...map.values()].map(terrain => terrain.id));
     return terrains.filter(t => ids.has(t.id));
   }
@@ -287,7 +287,7 @@ export class TerrainEffectsController {
   isInScene(effectItem) {
     console.debug("TerrainEffectsController|isInScene");
     const effectId = effectItem.data().effectId;
-    return Terrain.sceneMap.hasTerrainId(effectId);
+    return canvas.terrain.sceneMap.hasTerrainId(effectId);
   }
 
   /**

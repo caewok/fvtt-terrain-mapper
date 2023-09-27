@@ -42,10 +42,10 @@ export class TerrainLayerToolBar extends Application {
    */
   _loadStoredTerrain() {
     const storedId = Settings.getByName("CURRENT_TERRAIN");
-    if ( Terrain.sceneMap.hasTerrainId(storedId) ) return Terrain.fromEffectId(storedId);
+    const sceneMap = canvas.terrain.sceneMap;
+    if ( sceneMap.hasTerrainId(storedId) ) return Terrain.fromEffectId(storedId);
 
     // Get the first scene terrain, if any.
-    const sceneMap = Terrain.sceneMap;
     const sceneTerrains = Terrain.getAll().filter(t => sceneMap.hasTerrainId(t.id));
     this._sortTerrains(sceneTerrains);
     return sceneTerrains[0];
@@ -74,10 +74,10 @@ export class TerrainLayerToolBar extends Application {
   }
 
   getData(_options) {
-    const sceneMap = Terrain.sceneMap;
+    const sceneMap = canvas.terrain.sceneMap;
     const terrains = Terrain.getAll();
     this._sortTerrains(terrains);
-    terrains.unshift(Terrain.sceneMap.get(0));
+    terrains.unshift(sceneMap.get(0));
 
     const currId = this.currentTerrain?.id;
     const nonSceneTerrains = [];
@@ -119,7 +119,7 @@ export class TerrainLayerToolBar extends Application {
     const terrainId = event.target.value;
 
     // If this terrain is not in the scene, add it.
-    const sceneMap = Terrain.sceneMap;
+    const sceneMap = canvas.terrain.sceneMap;
     const terrain = Terrain.fromEffectId(terrainId);
     if ( !sceneMap.hasTerrainId(terrainId) ) terrain.addToScene();
 

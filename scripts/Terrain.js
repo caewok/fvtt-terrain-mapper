@@ -88,7 +88,8 @@ export class Terrain {
    * @returns {Terrain}  Either an existing scene terrain or a new terrain.
    */
   static fromEffectId(id, checkExisting = true) {
-    if ( checkExisting && this.sceneMap.terrainIds.has(id) ) return this.sceneMap.terrainIds.get(id);
+    const terrainIds = canvas.terrain.sceneMap.terrainIds;
+    if ( checkExisting && terrainIds.has(id) ) return terrainIds.get(id);
     return new this(EffectHelper.getTerrainEffectById(id), checkExisting);
   }
 
@@ -369,7 +370,7 @@ export class Terrain {
    * @returns {Terrain[]}
    */
   static getAllSceneTerrainsOnToken(token) {
-    return this.getAllOnToken(token).filter(t => this.sceneMap.hasTerrainId(t.id));
+    return this.getAllOnToken(token).filter(t => canvas.terrain.sceneMap.hasTerrainId(t.id));
   }
 
   /**

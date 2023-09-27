@@ -28,7 +28,7 @@ export class TerrainSceneConfig extends FormApplication {
 
   constructor(object, options) {
     const terrains = [];
-    for ( const [key, terrain] of Terrain.sceneMap) {
+    for ( const [key, terrain] of canvas.terrain.sceneMap) {
       const obj = terrain.toJSON();
       obj.pixelId = key;
       terrains.push(obj);
