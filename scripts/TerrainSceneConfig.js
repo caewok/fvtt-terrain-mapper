@@ -14,18 +14,22 @@ import { Terrain } from "./Terrain.js";
 import { TerrainMap } from "./TerrainMap.js";
 import { EnhancedEffectConfig } from "./EnhancedEffectConfig.js";
 import { Settings } from "./Settings.js";
+import { capitalizeFirstLetter } from "./util.js";
 
 /**
  * Submenu for viewing terrains defined in the scene.
  */
 export class TerrainSceneConfig extends FormApplication {
 
+  /** @type {Terrain[]} */
+  allTerrains;
+
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, {
       template: `modules/${MODULE_ID}/templates/terrain-scene-config.html`,
-      height: 800,
+      height: "auto",
       title: game.i18n.localize(`${MODULE_ID}.scene-config.title`),
-      width: 800,
+      width: 700,
       classes: [MODULE_ID, "settings"],
       submitOnClose: false,
       closeOnSubmit: true
@@ -34,7 +38,7 @@ export class TerrainSceneConfig extends FormApplication {
 
   getData(options={}) {
     const data = super.getData(options);
-    const allTerrains = Terrain.getAll();
+    const allTerrains = this.allTerrains = Terrain.getAll();
     this._sortTerrains(allTerrains);
 
     const allTerrainLabels = {};
@@ -65,19 +69,33 @@ export class TerrainSceneConfig extends FormApplication {
 
   async _updateObject(_, formData) {
     const expandedFormData = expandObject(formData);
-//     if ( !expandedFormData.terrains ) return;
-//     for ( const [idx, terrain] of Object.entries(expandedFormData.terrains) ) {
-//       const terrainData = this.object[idx];
-//       for ( const [key, value] of Object.entries(terrain) ) terrainData[key] = value;
-//     }
+    if ( expandedFormData.terrains ) {
+      const promises = [];
+      for ( const [idx, terrainData] of Object.entries(expandedFormData.allTerrains) ) {
+        const terrain = this.allTerrains[idx];
+        for ( const [key, value] of Object.entries(terrainData) ) {
+          promises.push(terrain[`set${capitalizeFirstLetter(key)}`](value));
+        }
+      }
+      await Promise.allSettled(promises);
+    }
+
+    if ( expandedFormData.sceneTerrains ) {
+      const sceneMap = canvas.terrain.sceneMap;
+      for ( const [idx, choiceData] of Object.entries(expandedFormData.sceneTerrains) ) {
+        const terrainId = choiceData.anchorChoice;
+        const terrain = sceneMap.terrainIds.get(terrainId);
+        if ( !terrain ) continue;
+        if ( sceneMap.get(idx) === terrain ) continue;
+        canvas.terrain._changeTerrainInScene(terrain, idx);
+      }
+    }
   }
 
   async _onSubmit(event, { updateData=null, preventClose=false, preventRender=false } = {}) {
     const formData = await super._onSubmit(event, { updateData, preventClose, preventRender });
     if ( preventClose ) return formData;
-
     const terrains = this.object.map(t => t.toJSON());
-
     await Settings.set(Settings.KEYS.TERRAINS, terrains);
     canvas.terrain._initializeTerrains();
   }
