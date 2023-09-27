@@ -528,6 +528,44 @@ export class Terrain {
     return tokenTerrains.has(this);
   }
 
+  /**
+   * Get the walk value for the given token as if this terrain were applied.
+   * @param {Token} token
+   * @returns {number} The token's default speed attribute (typically, walk) if the terrain were applied.
+   */
+  movementSpeedForToken(token) {
+    const attr = getDefaultSpeedAttribute();
+    const speed = getProperty(token, attr) ?? 0;
+    const ae = this._effectHelper.effect;
+    if ( !ae ) return speed;
+
+    // Locate the change to the movement in the active effect.
+    const keyArr = attr.split(".");
+    keyArr.shift();
+    const key = keyArr.join(".");
+    const change = ae.changes.find(e => e.key === key);
+    if ( !change ) return speed;
+
+    // Apply the change effect to the token actor and return the result.
+    const res = applyEffectTemporarily(ae, token.actor, change);
+    return res[key];
+  }
+
+  /**
+   * Calculate the movement penalty (or bonus) for a token.
+   * @param {Token}
+   * @returns {number} The percent increase or decrease from default speed attribute.
+   *   Greater than 100: increase. E.g. 120% is 20% increase over baseline.
+   *   Equal to 100: no increase.
+   *   Less than 100: decrease.
+   */
+  movementPercentChangeForToken(token) {
+    const attr = getDefaultSpeedAttribute();
+    const speed = getProperty(token, attr) ?? 0;
+    const effectSpeed = this.movementSpeedForToken(token);
+    return effectSpeed / speed;
+  }
+
   // NOTE: ---- File in/out -----
 
   toJSON() {
