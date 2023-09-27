@@ -10,7 +10,8 @@ game
 "use strict";
 
 import { MODULE_ID, LABELS } from "./const.js";
-import { Terrain, TerrainMap } from "./Terrain.js";
+import { Terrain } from "./Terrain.js";
+import { TerrainMap } from "./TerrainMap.js";
 import { EnhancedEffectConfig } from "./EnhancedEffectConfig.js";
 import { Settings } from "./Settings.js";
 
