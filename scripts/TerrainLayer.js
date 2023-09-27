@@ -13,7 +13,7 @@ ui
 "use strict";
 
 import { Terrain } from "./Terrain.js";
-import { TerrainSettings } from "./settings.js";
+import { Settings } from "./Settings.js";
 import { FILOQueue } from "./FILOQueue.js";
 import { PixelCache } from "./PixelCache.js";
 import { Draw } from "./geometry/Draw.js";
@@ -264,7 +264,7 @@ export class TerrainLayer extends InteractionLayer {
    * Set up the terrain layer for the first time once the scene is loaded.
    */
   initialize() {
-    const currId = TerrainSettings.getByName("CURRENT_TERRAIN");
+    const currId = Settings.getByName("CURRENT_TERRAIN");
     if ( currId ) this.currentTerrain = this.sceneMap.terrainIds.get(currId);
     if ( !this.currentTerrain ) this.currentTerrain = this.sceneMap.values().next().value;
 

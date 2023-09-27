@@ -10,7 +10,7 @@ mergeObject,
 import { MODULE_ID } from "./const.js";
 import { Terrain } from "./Terrain.js";
 import { TerrainEffectsApp } from "./TerrainEffectsApp.js";
-import { TerrainSettings } from "./settings.js";
+import { Settings } from "./Settings.js";
 import { isString } from "./util.js";
 
 export class TerrainLayerToolBar extends Application {
@@ -32,7 +32,7 @@ export class TerrainLayerToolBar extends Application {
     // Add to scene map if necessary.
     terrain.addToScene();
     this.#currentTerrain = terrain;
-    TerrainSettings.setByName("CURRENT_TERRAIN", terrain.id); // async
+    Settings.setByName("CURRENT_TERRAIN", terrain.id); // async
   }
 
   /**
@@ -41,7 +41,7 @@ export class TerrainLayerToolBar extends Application {
    * @returns {Terrain|undefined}
    */
   _loadStoredTerrain() {
-    const storedId = TerrainSettings.getByName("CURRENT_TERRAIN");
+    const storedId = Settings.getByName("CURRENT_TERRAIN");
     if ( Terrain.sceneMap.hasTerrainId(storedId) ) return Terrain.fromEffectId(storedId);
 
     // Get the first scene terrain, if any.

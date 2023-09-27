@@ -12,14 +12,14 @@ Hook token movement to add/remove terrain effects and pause tokens dependent on 
 */
 
 import { MODULE_ID, SOCKETS } from "./const.js";
-import { TerrainSettings } from "./settings.js";
+import { Settings } from "./Settings.js";
 import { TravelTerrainRay } from "./TravelTerrainRay.js";
 import { Terrain } from "./Terrain.js";
 
 export const PATCHES = {};
 PATCHES.BASIC = {};
 
-const SETTINGS = TerrainSettings.KEYS;
+const SETTINGS = Settings.KEYS;
 const AUTO = SETTINGS.AUTO_TERRAIN;
 
 // ----- NOTE: Hooks ----- //
@@ -29,7 +29,7 @@ const AUTO = SETTINGS.AUTO_TERRAIN;
  * If the token moves, determine its terrain status.
  */
 function preUpdateTokenHook(tokenD, changes, _options, _userId) {
-  const autoT = TerrainSettings.get(AUTO.ALGORITHM);
+  const autoT = Settings.get(AUTO.ALGORITHM);
   if ( autoT === AUTO.CHOICES.NO ) return;
   if ( autoT === AUTO.CHOICES.COMBAT && !game.combat.isActive ) return;
 
@@ -57,7 +57,7 @@ function preUpdateTokenHook(tokenD, changes, _options, _userId) {
  */
 function refreshTokenHook(token, flags) {
   token[MODULE_ID] ??= {};
-  const autoT = TerrainSettings.get(AUTO.ALGORITHM);
+  const autoT = Settings.get(AUTO.ALGORITHM);
   if ( autoT === AUTO.CHOICES.NO ) return;
   if ( autoT === AUTO.CHOICES.COMBAT && !game.combat.isActive ) return;
   if ( !(flags.refreshPosition || flags.refreshElevation) ) return;
@@ -77,7 +77,7 @@ function refreshTokenHook(token, flags) {
 
     if ( token.hasTerrain(terrain) ) return;
     terrain.addToToken(token, { removeSceneTerrains: true });
-    if ( TerrainSettings.get(AUTO.DIALOG) ) {
+    if ( Settings.get(AUTO.DIALOG) ) {
       token.stopAnimation();
       token.document.update({ x: token.position.x, y: token.position.y });
       const dialogData = terrainEncounteredDialogData(token, terrain, ttr.destination);

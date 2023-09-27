@@ -11,7 +11,7 @@ ui
 "use strict";
 
 import { FLAGS, MODULE_ID, SOCKETS } from "./const.js";
-import { TerrainSettings } from "./settings.js";
+import { Settings } from "./Settings.js";
 import { EffectHelper } from "./EffectHelper.js";
 import { TerrainEffectsApp } from "./TerrainEffectsApp.js";
 import { Lock } from "./Lock.js";
@@ -153,7 +153,7 @@ export class Terrain {
    * @property {ActiveEffect} activeEffect    Active effect associated with this terrain
    */
 
-  /** @type {TerrainSettings} */
+  /** @type {Settings} */
   _settings;
 
   /**
@@ -525,7 +525,7 @@ export class Terrain {
    * Export the entire terrains item to JSON.
    */
   static exportToJSON() {
-    const item = TerrainSettings.terrainEffectsItem;
+    const item = Settings.terrainEffectsItem;
     const data = item.toJSON();
     data.flags.exportSource = {
       world: game.world.id,
@@ -542,7 +542,7 @@ export class Terrain {
    * Import the entire terrains item and replace the existing.
    */
   static async replaceFromJSON(json) {
-    const item = TerrainSettings.terrainEffectsItem;
+    const item = Settings.terrainEffectsItem;
     await item.importFromJSON(json);
     // TODO: Replace scene terrain map(s)?
 
@@ -552,7 +552,7 @@ export class Terrain {
    * Import the entire terrains item and add all effects as additional terrains to the existing.
    */
   static async importFromJSON(json) {
-    const item = TerrainSettings.terrainEffectsItem;
+    const item = Settings.terrainEffectsItem;
     const tmp = CONFIG.Item.documentClass.fromJSON(json);
 
     // Transfer the active effects to the existing item.
