@@ -97,7 +97,7 @@ function initializeAPI() {
 }
 
 /* TODO: Things needed
-- Null Terrain to allow terrain removal at pixel level.
+√ Null Terrain to allow terrain removal at pixel level.
 √ Display terrain names on token drag.
 √ Remove settings menu
 √ Rename TerrainSettings to Settings
@@ -110,6 +110,8 @@ function initializeAPI() {
   - Allow deletion of terrain shapes
   - Allow swapping of terrain values
   - Allow resizing of terrain polygons
+- Add simplification on load that trims null terrains.
+√ Calculate move penalty for token
 
 Control Tools
 √ Basic layer controls

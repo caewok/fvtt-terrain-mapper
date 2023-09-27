@@ -124,6 +124,8 @@ export class EffectHelper {
     if ( !tokenD ) return;
 
     // TODO: Do we need to use foundry.utils.deepClone here?
+    if ( !this.effect ) return;
+
     const effectData = this.effect.toObject();
     effectData._id = undefined;
     effectData.id = this.effect.id;

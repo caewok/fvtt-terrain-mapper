@@ -1,7 +1,10 @@
 /* globals
 ActiveEffect,
+canvas,
+CONFIG,
 Dialog,
 game,
+getProperty,
 readTextFromFile,
 renderTemplate,
 saveDataToFile,
@@ -15,6 +18,7 @@ import { Settings } from "./Settings.js";
 import { EffectHelper } from "./EffectHelper.js";
 import { TerrainEffectsApp } from "./TerrainEffectsApp.js";
 import { Lock } from "./Lock.js";
+import { getDefaultSpeedAttribute } from "./systems.js";
 
 // ----- Set up sockets for changing effects on tokens and creating a dialog ----- //
 // Don't pass complex classes through the socket. Use token ids instead.
@@ -180,8 +184,6 @@ export class Terrain {
     return new this(EffectHelper.getTerrainEffectById(id), checkExisting);
   }
 
-
-
   /**
    * Load the scene terrain map.
    * @returns {TerrainMap}
@@ -329,6 +331,28 @@ export class Terrain {
    */
   isUsedInScene() { return canvas.terrain.pixelValueInScene(this.pixelValue); }
 
+  /**
+   * Get the walk value for the given token as if this terrain were applied.
+   */
+  movementSpeedForToken(token) {
+    const attr = getDefaultSpeedAttribute();
+    const speed = getProperty(token, attr) ?? 0;
+    const ae = this._effectHelper.effect;
+    if ( !ae ) return speed;
+
+    // Locate the change to the movement in the active effect.
+    const keyArr = attr.split(".");
+    keyArr.shift();
+    const key = keyArr.join(".");
+    const change = ae.changes.find(e => e.key === key);
+    if ( !change ) return speed;
+
+    // Apply the change effect to the token actor and return the result.
+    const res = applyEffectTemporarily(ae, token.actor, change);
+    return res[key];
+  }
+
+
   async addToScene() {
     if ( this.isInSceneMap() ) return;
     this.#pixelValue = this.sceneMap.add(this);
@@ -403,7 +427,7 @@ export class Terrain {
     if ( duplicate || !currTerrains.has(this) ) {
       console.debug(`Adding ${this.name} terrain to ${token.name}.`);
       await SOCKETS.socket.executeAsGM("addTerrainEffect", token.document.uuid, this.id);
-    };
+    }
 
     // Remove other terrains from the token.
     if ( removeSceneTerrains ) currTerrains = currTerrains.filter(t => this.sceneMap.hasTerrainId(t.id));
@@ -440,7 +464,7 @@ export class Terrain {
     await this.lock.acquire();
     const terrains = new Set(this.getAllSceneTerrainsOnToken(token));
     const promises = [];
-    const uuid = token.document.uuid
+    const uuid = token.document.uuid;
     for ( const terrain of terrains ) {
       console.debug(`removeAllFromToken|Removing ${terrain.name} from ${token.name}.`);
       promises.push(SOCKETS.socket.executeAsGM("removeTerrainEffect", uuid, terrain.id));
@@ -457,7 +481,7 @@ export class Terrain {
     await this.lock.acquire();
     const terrains = this.getAllOnToken(token);
     const promises = [];
-    const uuid = token.document.uuid
+    const uuid = token.document.uuid;
     for ( const terrain of terrains ) {
       console.debug(`removeAllFromToken|Removing ${terrain.name} from ${token.name}.`);
       promises.push(SOCKETS.socket.executeAsGM("removeTerrainEffect", uuid, terrain.id));
@@ -571,7 +595,7 @@ export class Terrain {
       hint2: "This operation will add the terrains in the JSON to the existing terrains set."
     });
 
-    const importPromise = new Promise((resolve, reject) => {
+    const importPromise = new Promise((resolve, _reject) => {
       new Dialog({
         title: "Import Multiple Terrains Setting Data",
         content,
@@ -611,7 +635,7 @@ export class Terrain {
       hint2: "WARNING: This operation will replace all terrain settings data and cannot be undone."
     });
 
-    const importPromise = new Promise((resolve, reject) => {
+    const importPromise = new Promise((resolve, _reject) => {
       new Dialog({
         title: "Replace All Terrain Setting Data",
         content,
@@ -686,4 +710,61 @@ export class Terrain {
       width: 400
     }).render(true);
   }
+}
+
+
+
+/**
+ * Apply this ActiveEffect to a provided Actor temporarily.
+ * Same as ActiveEffect.prototype.apply but does not change the actor.
+ * @param {ActiveEffect} ae               The active effect to apply
+ * @param {Actor} actor                   The Actor to whom this effect should be applied
+ * @param {EffectChangeData} change       The change data being applied
+ */
+function applyEffectTemporarily(ae, actor, change) {
+    // Determine the data type of the target field
+    const current = foundry.utils.getProperty(actor, change.key) ?? null;
+    let target = current;
+    if ( current === null ) {
+      const model = game.model.Actor[actor.type] || {};
+      target = foundry.utils.getProperty(model, change.key) ?? null;
+    }
+    let targetType = foundry.utils.getType(target);
+
+    // Cast the effect change value to the correct type
+    let delta;
+    try {
+      if ( targetType === "Array" ) {
+        const innerType = target.length ? foundry.utils.getType(target[0]) : "string";
+        delta = ae._castArray(change.value, innerType);
+      }
+      else delta = ae._castDelta(change.value, targetType);
+    } catch(err) {
+      console.warn(`Actor [${actor.id}] | Unable to parse active effect change for ${change.key}: "${change.value}"`);
+      return;
+    }
+
+    // Apply the change depending on the application mode
+    const modes = CONST.ACTIVE_EFFECT_MODES;
+    const changes = {};
+    switch ( change.mode ) {
+      case modes.ADD:
+        ae._applyAdd(actor, change, current, delta, changes);
+        break;
+      case modes.MULTIPLY:
+        ae._applyMultiply(actor, change, current, delta, changes);
+        break;
+      case modes.OVERRIDE:
+        ae._applyOverride(actor, change, current, delta, changes);
+        break;
+      case modes.UPGRADE:
+      case modes.DOWNGRADE:
+        ae._applyUpgrade(actor, change, current, delta, changes);
+        break;
+      default:
+        ae._applyCustom(actor, change, current, delta, changes);
+        break;
+    }
+    return changes;
+
 }
