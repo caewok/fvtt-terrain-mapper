@@ -12,7 +12,7 @@ game
 import { MODULE_ID, LABELS } from "./const.js";
 import { Terrain, TerrainMap } from "./Terrain.js";
 import { EnhancedEffectConfig } from "./EnhancedEffectConfig.js";
-import { TerrainSettings } from "./settings.js";
+import { Settings } from "./Settings.js";
 
 /**
  * Submenu for viewing terrains defined in the scene.
@@ -73,7 +73,7 @@ export class TerrainSceneConfig extends FormApplication {
 
     const terrains = this.object.map(t => t.toJSON());
 
-    await TerrainSettings.set(TerrainSettings.KEYS.TERRAINS, terrains);
+    await Settings.set(Settings.KEYS.TERRAINS, terrains);
     canvas.terrain._initializeTerrains();
   }
 

@@ -8,7 +8,7 @@ socketlib
 
 import { MODULE_ID, SOCKETS } from "./const.js";
 import { TerrainLayer } from "./TerrainLayer.js";
-import { TerrainSettings } from "./settings.js";
+import { Settings } from "./Settings.js";
 import { Terrain, TerrainMap, addTerrainEffect, removeTerrainEffect } from "./Terrain.js";
 import { EffectHelper } from "./EffectHelper.js";
 import { PATCHER, initializePatching } from "./patching.js";
@@ -37,7 +37,7 @@ Hooks.once("init", function() {
  * applications, or the Canvas have been initialized.
  */
 Hooks.once("setup", function() {
-  TerrainSettings.registerAll();
+  Settings.registerAll();
 });
 
 /**
@@ -53,7 +53,7 @@ Hooks.once("ready", function() {
  */
 Hooks.once("canvasInit", async function(canvas) {
   console.debug("canvasInit", canvas);
-  await TerrainSettings.initializeTerrainsItem();
+  await Settings.initializeTerrainsItem();
 });
 
 /**
@@ -64,7 +64,7 @@ Hooks.once("canvasReady", function(canvas, canvasEffects0, canvasEffects1, canva
   console.debug("canvasReady", canvas, canvasEffects0, canvasEffects1, canvasVisibility);
   canvas.terrain.initialize();
 
-//   await TerrainSettings.initializeTerrainsItem();
+//   await Settings.initializeTerrainsItem();
 //   TerrainLayer.initialize();
 });
 
@@ -86,7 +86,7 @@ function initializeAPI() {
     Terrain,
     TerrainMap,
     EffectHelper,
-    TerrainSettings,
+    Settings,
     PATCHER,
     TerrainLayerShader,
     WallTracerEdge,

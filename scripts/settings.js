@@ -21,7 +21,7 @@ PATCHES_ItemDirectory.BASIC = {};
  */
 function removeTerrainsItemFromSidebar(dir) {
   if ( !(dir instanceof ItemDirectory) ) return;
-  const id = TerrainSettings.getByName("TERRAINS_ITEM");
+  const id = Settings.getByName("TERRAINS_ITEM");
   if ( !id ) return;
   const li = dir.element.find(`li[data-document-id="${id}"]`);
   li.remove();
@@ -38,7 +38,7 @@ PATCHES_SidebarTab.BASIC.HOOKS = { changeSideBarTab: removeTerrainItemHook };
 PATCHES_ItemDirectory.BASIC.HOOKS = { renderItemDirectory: removeTerrainItemHook };
 
 
-export class TerrainSettings {
+export class Settings {
 
   /**
    * Keys for all the settings used in this module.

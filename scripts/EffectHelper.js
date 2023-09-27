@@ -6,7 +6,7 @@ game
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { TerrainSettings } from "./settings.js";
+import { Settings } from "./Settings.js";
 import { FLAGS, COLORS, MODULE_ID } from "./const.js";
 
 /**
@@ -66,7 +66,7 @@ export class EffectHelper {
    * @returns {ActiveEffect}
    */
   async _createActiveEffect(config = {}) {
-    const item = TerrainSettings.terrainEffectsItem;
+    const item = Settings.terrainEffectsItem;
 
     // Set needed defaults.
     config.name ??= "New Terrain";
@@ -103,7 +103,7 @@ export class EffectHelper {
    * Delete this effect from the TerrainsItem.
    */
   async delete() {
-    const item = TerrainSettings.terrainEffectsItem;
+    const item = Settings.terrainEffectsItem;
     const res = await item.deleteEmbeddedDocuments("ActiveEffect", [this.effect.id]);
     this.effect = undefined;
     return res;
@@ -114,7 +114,7 @@ export class EffectHelper {
    * @returns {EffectHelper}
    */
   async duplicate() {
-    const item = TerrainSettings.terrainEffectsItem;
+    const item = Settings.terrainEffectsItem;
     const effects = await item.createEmbeddedDocuments("ActiveEffect", [this.effect]);
     return new this.constructor(effects[0]);
   }
@@ -138,7 +138,7 @@ export class EffectHelper {
   }
 
   static async deleteEffectById(id) {
-    const item = TerrainSettings.terrainEffectsItem;
+    const item = Settings.terrainEffectsItem;
     const activeEffect = this.getTerrainEffectById(id);
     if ( !activeEffect ) return;
     await item.deleteEmbeddedDocuments("ActiveEffect", [activeEffect.id]);
@@ -149,7 +149,7 @@ export class EffectHelper {
    * @returns {ActiveEffect[]}
    */
   static getAll() {
-    const item = TerrainSettings.terrainEffectsItem;
+    const item = Settings.terrainEffectsItem;
     return item.effects;
   }
 
@@ -159,7 +159,7 @@ export class EffectHelper {
    * @returns {boolean}
    */
   static terrainEffectExists(effect) {
-    const item = TerrainSettings.terrainEffectsItem;
+    const item = Settings.terrainEffectsItem;
     return item.effects.has(effect.id);
   }
 
@@ -169,7 +169,7 @@ export class EffectHelper {
    * @returns {ActiveEffect}
    */
   static getTerrainEffectByName(name) {
-    const item = TerrainSettings.terrainEffectsItem;
+    const item = Settings.terrainEffectsItem;
     return item.effects.find(e => e.name === name);
   }
 
@@ -179,7 +179,7 @@ export class EffectHelper {
    * @returns {ActiveEffect}
    */
   static getTerrainEffectById(id) {
-    const item = TerrainSettings.terrainEffectsItem;
+    const item = Settings.terrainEffectsItem;
     return item.effects.find(e => e.id === id);
   }
 }

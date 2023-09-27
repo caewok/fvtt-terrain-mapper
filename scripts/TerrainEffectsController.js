@@ -10,7 +10,7 @@ SearchFilter
 // Much of this is from
 // https://github.com/DFreds/dfreds-convenient-effects/blob/main/scripts/app/convenient-effects-controller.js
 
-import { TerrainSettings } from "./settings.js";
+import { Settings } from "./Settings.js";
 import { Terrain } from "./Terrain.js";
 import { EffectHelper } from "./EffectHelper.js";
 import { TerrainSceneConfig } from "./TerrainSceneConfig.js";
@@ -89,7 +89,7 @@ export class TerrainEffectsController {
 
   _fetchFavorites(terrains) {
     console.debug("TerrainEffectsController|_fetchFavorites");
-    const favorites = new Set(TerrainSettings.getByName("FAVORITES"));
+    const favorites = new Set(Settings.getByName("FAVORITES"));
     return terrains.filter(t => favorites.has(t.id));
   }
 
@@ -116,7 +116,7 @@ export class TerrainEffectsController {
    * Remove the collapsed class from all saved, expanded folders
    */
   expandSavedFolders() {
-    TerrainSettings.expandedFolders.forEach(folderId => {
+    Settings.expandedFolders.forEach(folderId => {
       this._viewMvc.expandFolder(folderId);
     });
   }
@@ -206,7 +206,7 @@ export class TerrainEffectsController {
    */
   async onCollapseAllClick(event) {
     this._viewMvc.collapseAllFolders();
-    await TerrainSettings.clearExpandedFolders();
+    await Settings.clearExpandedFolders();
   }
 
   /**
@@ -222,10 +222,10 @@ export class TerrainEffectsController {
       this._viewMvc.collapseFolder(folderId);
     }
 
-    if (TerrainSettings.isFolderExpanded(folderId)) {
-      await TerrainSettings.removeExpandedFolder(folderId);
+    if (Settings.isFolderExpanded(folderId)) {
+      await Settings.removeExpandedFolder(folderId);
     } else {
-      await TerrainSettings.addExpandedFolder(folderId);
+      await Settings.addExpandedFolder(folderId);
     }
   }
 
@@ -251,7 +251,7 @@ export class TerrainEffectsController {
   async onAddFavorite(effectItem) {
     console.debug("TerrainEffectsController|onAddFavorite");
     const effectId = effectItem.data().effectId;
-    await TerrainSettings.addToFavorites(effectId);
+    await Settings.addToFavorites(effectId);
     this._viewMvc.render();
   }
 
@@ -262,7 +262,7 @@ export class TerrainEffectsController {
   async onRemoveFavorite(effectItem) {
     console.debug("TerrainEffectsController|onRemoveFavorite");
     const effectId = effectItem.data().effectId;
-    await TerrainSettings.removeFromFavorites(effectId);
+    await Settings.removeFromFavorites(effectId);
     this._viewMvc.render();
   }
 
@@ -274,7 +274,7 @@ export class TerrainEffectsController {
   isFavoritedEffect(effectItem) {
     console.debug("TerrainEffectsController|isFavoritedEffect");
     const effectId = effectItem.data().effectId;
-    return TerrainSettings.isFavorite(effectId);
+    return Settings.isFavorite(effectId);
 
 //     const effectName = effectItem.data().effectName;
 //     return this._settings.isFavoritedEffect(effectName);
@@ -471,7 +471,7 @@ export class TerrainEffectsController {
         if (match) el.classList.remove('collapsed');
         else el.classList.toggle(
           'collapsed',
-          !TerrainSettings.isFolderExpanded(el.dataset.folderId)
+          !Settings.isFolderExpanded(el.dataset.folderId)
         );
       }
     }
