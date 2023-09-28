@@ -72,7 +72,7 @@ export class TerrainSceneConfig extends FormApplication {
     if ( expandedFormData.terrains ) {
       const promises = [];
       for ( const [idx, terrainData] of Object.entries(expandedFormData.allTerrains) ) {
-        const terrain = this.allTerrains[idx];
+        const terrain = this.allTerrains[Number(idx)];
         for ( const [key, value] of Object.entries(terrainData) ) {
           promises.push(terrain[`set${capitalizeFirstLetter(key)}`](value));
         }
@@ -81,13 +81,19 @@ export class TerrainSceneConfig extends FormApplication {
     }
 
     if ( expandedFormData.sceneTerrains ) {
+      // If the user has set the same terrain to multiple pixel values, create a duplicate.
+      const terrainsUsed = new Set();
       const sceneMap = canvas.terrain.sceneMap;
       for ( const [idx, choiceData] of Object.entries(expandedFormData.sceneTerrains) ) {
         const terrainId = choiceData.anchorChoice;
-        const terrain = sceneMap.terrainIds.get(terrainId);
+        let terrain = sceneMap.terrainIds.get(terrainId);
         if ( !terrain ) continue;
-        if ( sceneMap.get(idx) === terrain ) continue;
-        canvas.terrain._changeTerrainInScene(terrain, idx);
+        if ( terrainsUsed.has(terrain) ) terrain = await terrain.duplicate();
+        else terrainsUsed.add(terrain);
+
+        const pixelValue = Number(idx);
+        if ( sceneMap.get(pixelValue) === terrain ) continue;
+        canvas.terrain._replaceTerrainInScene(terrain, pixelValue);
       }
     }
   }
@@ -95,9 +101,6 @@ export class TerrainSceneConfig extends FormApplication {
   async _onSubmit(event, { updateData=null, preventClose=false, preventRender=false } = {}) {
     const formData = await super._onSubmit(event, { updateData, preventClose, preventRender });
     if ( preventClose ) return formData;
-    const terrains = this.object.map(t => t.toJSON());
-    await Settings.set(Settings.KEYS.TERRAINS, terrains);
-    canvas.terrain._initializeTerrains();
   }
 
   async _onSelectFile(selection, filePicker) {

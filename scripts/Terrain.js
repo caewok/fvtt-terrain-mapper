@@ -219,8 +219,19 @@ export class Terrain {
    */
   _unassignPixel() {
     if ( this.isInSceneMap() ) console.warn(`Terrain ${this.name} (${this.pixelValue}) is still present in the scene map.`);
-    if ( this.isUsedInScene() ) console.warn(`Terrain ${this.name} (${this.pixelValue}) is still present in the scene.`);
+//     if ( this.isUsedInScene() ) console.warn(`Terrain ${this.name} (${this.pixelValue}) is still present in the scene.`);
     this.#pixelValue = undefined;
+  }
+
+  /**
+   * Duplicate this terrain.
+   * @returns {Terrain}
+   */
+  async duplicate() {
+    const dupe = new Terrain();
+    dupe._effectHelper = await this._effectHelper.duplicate();
+    await dupe.setName(`${this.name} Copy`);
+    return dupe;
   }
 
   /* ----- NOTE: Terrain functionality ----- */

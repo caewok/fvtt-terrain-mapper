@@ -273,7 +273,7 @@ export class TerrainLayer extends InteractionLayer {
     if ( currId ) this.currentTerrain = this.sceneMap.terrainIds.get(currId);
     if ( !this.currentTerrain ) this.currentTerrain = this.sceneMap.values().next().value;
 
-    // Initialize container to hold the elevation data and GM modifications
+    // Initialize container to hold the elevation data and GM modifications.
     const w = new FullCanvasContainer();
     this.container = this.addChild(w);
 
@@ -526,6 +526,19 @@ export class TerrainLayer extends InteractionLayer {
     if ( this.toolbar.currentTerrain === this ) this.toolbar._currentTerrain = undefined;
     if ( ui.controls.activeControl === "terrain" ) ui.controls.render();
     TerrainEffectsApp.rerender();
+  }
+
+  /**
+   * Replace terrain in scene by another at the specific pixel value..
+   * @param {Terrain} newTerrain      New terrain to use
+   * @param {number} pixelValue       Pixel value associated with the terrain to replace
+   */
+  _replaceTerrainInScene(newTerrain, pixelValue) {
+    const oldTerrain = this.sceneMap.get(pixelValue);
+    if ( oldTerrain === newTerrain || oldTerrain.id === newTerrain.id ) return;
+    this.sceneMap.set(pixelValue, newTerrain, true);
+    oldTerrain._unassignPixel(pixelValue);
+    newTerrain.addToScene();
   }
 
   // ----- NOTE: Data import/export ----- //

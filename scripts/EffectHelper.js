@@ -115,7 +115,10 @@ export class EffectHelper {
    */
   async duplicate() {
     const item = Settings.terrainEffectsItem;
-    const effects = await item.createEmbeddedDocuments("ActiveEffect", [this.effect]);
+    const effectData = foundry.utils.deepClone(this.effect.toObject());
+    delete effectData._id;
+    const effect = new CONFIG.ActiveEffect.documentClass(effectData);
+    const effects = await item.createEmbeddedDocuments("ActiveEffect", [effect]);
     return new this.constructor(effects[0]);
   }
 
