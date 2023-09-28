@@ -34,9 +34,12 @@ async function renderActiveEffectConfig(app, html, data) {
   foundry.utils.mergeObject(data, renderData, { inplace: true });
 
   // Insert the new configuration fields into the active effect config.
+  const tabName = game.i18n.localize(`${MODULE_ID}.name`);
+
   const template = `modules/${MODULE_ID}/templates/active-effect-config.html`;
   const myHTML = await renderTemplate(template, data);
-  html.find('section[data-tab="details"]').find(".form-group").first().before(myHTML);
+  html.find('nav').find('a[data-tab="details"]').first().before(`<a class="item" data-tab="${MODULE_ID}"><i class="fas fa-mountain-sun"></i>${tabName}</a>`);
+  html.find('section[data-tab="details"]').first().before(myHTML);
   app.setPosition(app.position);
 }
 
