@@ -271,7 +271,7 @@ export class TerrainEffectsApp extends Application {
   }
 
   get _editSceneTerrainsButton() {
-    return this._rootView.find(".edit-scene-terrains-map");
+    return this._rootView.find(".edit-terrains-list");
   }
 
   get _folderHeaders() {
