@@ -121,67 +121,58 @@ export class Terrain {
   get activeEffect() { return this._effectHelper.effect; }
 
   /** @type {string} */
-  get name() { return this.activeEffect?.name || game.i18n.localize(`${MODULE_ID}.phrases.no-terrain`); }
-
-  set name(value) { this.activeEffect.name = value; }
-
-  /** @type {string} */
-  get description() { return this.activeEffect.description; }
-
-  set description(value) { this.activeEffect.description = value; }
-
-  /** @type {string} */
-  get icon() { return this.activeEffect?.icon || null; }
-
-  set icon(value) { this.activeEffect.icon = value; }
-
-  /** @type {string} */
   get id() { return this.activeEffect?.id || ""; }
 
   /** @type {string} */
   get uuid() { return this.activeEffect.uuid; }
 
+  /** @type {string} */
+  get name() { return this.activeEffect?.name || game.i18n.localize(`${MODULE_ID}.phrases.no-terrain`); }
+
+  async setName(value) { return this.activeEffect.update({ name: value }); }
+
+  /** @type {string} */
+  get description() { return this.activeEffect.description; }
+
+  async setDescription(value) { return this.activeEffect.update({ description: value }); }
+
+  /** @type {string} */
+  get icon() { return this.activeEffect?.icon || null; }
+
+  async setIcon(value) { return this.activeEffect.update({ icon: value }); }
+
   /** @type {FLAGS.ANCHOR.CHOICES} */
   get anchor() { return this.#getAEFlag(FLAGS.ANCHOR.VALUE); }
-
-  set anchor(value) { this.#setAEFlag(FLAGS.ANCHOR.VALUE, value); }
 
   async setAnchor(value) { return this.#setAEFlag(FLAGS.ANCHOR, value); }
 
   /** @type {number} */
   get offset() { return this.#getAEFlag(FLAGS.OFFSET); }
 
-  set offset(value) { this.#setAEFlag(FLAGS.OFFSET, value); }
-
   async setOffset(value) { return this.#setAEFlag(FLAGS.OFFSET, value); }
 
   /** @type {number} */
   get rangeBelow() { return this.#getAEFlag(FLAGS.RANGE_BELOW); }
-
-  set rangeBelow(value) { this.#setAEFlag(FLAGS.RANGE_BELOW, value); }
 
   async setRangeBelow(value) { return this.#setAEFlag(FLAGS.RANGE_BELOW, value); }
 
   /** @type {number} */
   get rangeAbove() { return this.#getAEFlag(FLAGS.RANGE_ABOVE); }
 
-  set rangeAbove(value) { this.#setAEFlag(FLAGS.RANGE_ABOVE, value); }
-
   async setRangeAbove(value) { return this.#setAEFlag(FLAGS.RANGE_ABOVE, value); }
 
   /** @type {boolean} */
   get userVisible() { return this.#getAEFlag(FLAGS.USER_VISIBLE); }
 
-  set userVisible(value) { this.#setAEFlag(FLAGS.USER_VISIBLE, value); }
-
   async setUserVisible(value) { return this.#setAEFlag(FLAGS.USER_VISIBLE, value); }
 
-  /** @type {string} */
-  get color() { return this.#getAEFlag(FLAGS.COLOR) ?? 0x000000; }
+  /** @type {Color} */
+  get color() { return new Color(this.#getAEFlag(FLAGS.COLOR) ?? 0x000000); }
 
-  set color(value) { this.#setAEFlag(FLAGS.COLOR, value); }
-
-  async setColor(value) { return this.#setAEFlag(FLAGS.COLOR, value); }
+  async setColor(value) {
+    value = Color.from(value);
+    return this.#setAEFlag(FLAGS.COLOR, Number(value));
+  }
 
   /** @type {number} */
   get pixelValue() {
@@ -228,8 +219,19 @@ export class Terrain {
    */
   _unassignPixel() {
     if ( this.isInSceneMap() ) console.warn(`Terrain ${this.name} (${this.pixelValue}) is still present in the scene map.`);
-    if ( this.isUsedInScene() ) console.warn(`Terrain ${this.name} (${this.pixelValue}) is still present in the scene.`);
+//     if ( this.isUsedInScene() ) console.warn(`Terrain ${this.name} (${this.pixelValue}) is still present in the scene.`);
     this.#pixelValue = undefined;
+  }
+
+  /**
+   * Duplicate this terrain.
+   * @returns {Terrain}
+   */
+  async duplicate() {
+    const dupe = new Terrain();
+    dupe._effectHelper = await this._effectHelper.duplicate();
+    await dupe.setName(`${this.name} Copy`);
+    return dupe;
   }
 
   /* ----- NOTE: Terrain functionality ----- */
