@@ -18,6 +18,8 @@ import { registerGeometry } from "./geometry/registration.js";
 import { TerrainLayerShader } from "./glsl/TerrainLayerShader.js";
 import { WallTracerEdge, WallTracerVertex, WallTracer, SCENE_GRAPH } from "./WallTracer.js";
 
+import { TerrainDrawingsLayer } from "./TerrainDrawingsLayer.js";
+
 // Self-executing hooks.
 import "./controls.js";
 
@@ -64,6 +66,8 @@ Hooks.once("canvasInit", async function(canvas) {
 Hooks.once("canvasReady", function(canvas, canvasEffects0, canvasEffects1, canvasVisibility) {
   console.debug("canvasReady", canvas, canvasEffects0, canvasEffects1, canvasVisibility);
   canvas.terrain.initialize();
+
+  //canvas.terraindrawings.initialize();
 
 //   await Settings.initializeTerrainsItem();
 //   TerrainLayer.initialize();

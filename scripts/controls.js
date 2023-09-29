@@ -117,6 +117,14 @@ function addTerrainLayerSceneControls(controls) {
       toggle: true,
       active: false,
       onClick: active => canvas.terrain.toggleTerrainNames(active)
+    },
+
+    {
+      name: "terrain-edit-toggle",
+      title: game.i18n.localize(`${MODULE_ID}.controls.terrain-edit-toggle.name`),
+      icon: "fas fa-edit",
+      toggle: false,
+      active: false
     }
 
   ];

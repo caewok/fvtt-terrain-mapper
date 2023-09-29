@@ -12,6 +12,7 @@
   "terrainmapper.controls.undo.name": "Undo",
   "terrainmapper.controls.terrain-menu.name": "Terrains",
   "terrainmapper.controls.terrain-view-toggle.name": "Toggle terrain names",
+  "terrainmapper.controls.terrain-edit-toggle.name": "Edit terrain shapes",
 
   "terrainmapper.controls.decrementTerrain": "Decrement Terrain ID",
   "terrainmapper.controls.incrementTerrain": "Increment Terrain ID",

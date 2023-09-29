@@ -14,6 +14,7 @@ getDocumentClass
 
 import { ControlHelper } from "./ControlHelper.js";
 import { TerrainPolygon } from "./TerrainPolygon.js";
+import { TerrainDrawing } from "./TerrainDrawing.js";
 
 /**
  * Handle when the polygon control is used.
@@ -176,8 +177,8 @@ export class FillPolygonHelper extends ControlHelper {
         data.shape.points.push(data.shape.points[0], data.shape.points[1]);
 
         // Wipe the preview.
-        preview._chain = false;
-        this.tm.clearPreviewContainer();
+        //preview._chain = false;
+        //this.tm.clearPreviewContainer();
 
         // Create the terrain shape and move to correct position.
         const shape = (new TerrainPolygon(data.shape.points)).translate(data.x, data.y);
@@ -189,6 +190,21 @@ export class FillPolygonHelper extends ControlHelper {
         const currT = this.tm.toolbar.currentTerrain;
         shape.pixelValue = currT.pixelValue;
         this.tm.addTerrainShapeToCanvas(shape, currT);
+
+        // Create a TerrainDrawing object
+        preview._chain = false;
+        const cls = getDocumentClass("Drawing");
+        const createData = DrawingsLayer.placeableClass.normalizeShape(data);
+        let drawing;
+        try {
+          drawing = await cls.create(createData, { parent: canvas.scene });
+        } finally {
+          this.tm.clearPreviewContainer();
+        }
+        const o = drawing.object;
+        o._creating = true;
+        o._pendingText = "";
+        o.control({ isNew: true });
 
         // Create the object
 //         preview._chain = false;

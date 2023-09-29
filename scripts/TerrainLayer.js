@@ -31,13 +31,18 @@ import { FillPolygonHelper } from "./FillPolygonHelper.js";
 import { TravelTerrainRay } from "./TravelTerrainRay.js";
 import { TerrainEffectsApp } from "./TerrainEffectsApp.js";
 import { TerrainMap } from "./TerrainMap.js";
+import { TerrainDrawing } from "./TerrainDrawing.js";
 
 // TODO: What should replace this now that FullCanvasContainer is deprecated in v11?
 class FullCanvasContainer extends FullCanvasObjectMixin(PIXI.Container) {
 
 }
 
-export class TerrainLayer extends InteractionLayer {
+export class TerrainLayer extends PlaceablesLayer {
+
+  static documentName = "Drawing";
+
+  // static get placeableClass() { return TerrainDrawing; }
 
   /** @type {TerrainMap} */
   sceneMap = new TerrainMap();
@@ -304,6 +309,8 @@ export class TerrainLayer extends InteractionLayer {
   _activate() {
     console.debug("Activating Terrain Layer.");
 
+    super._activate();
+
     // Draw walls
     for ( const wall of canvas.walls.placeables ) {
       this._drawWallSegment(wall);
@@ -336,6 +343,8 @@ export class TerrainLayer extends InteractionLayer {
   /** @override */
   async _deactivate() {
     console.debug("De-activating Terrain Layer.");
+    super._deactivate();
+
     if ( !this.container ) return;
     canvas.stage.removeChild(this._wallDataContainer);
 
@@ -353,11 +362,6 @@ export class TerrainLayer extends InteractionLayer {
     if ( this._requiresSave ) await this.save();
   }
 
-  /** @override */
-  async _draw(options) { // eslint-disable-line no-unused-vars
-  // Not needed?
-  // if ( canvas.elevation.active ) this.drawElevation();
-  }
 
   /** @inheritdoc */
   async _tearDown(options) {
@@ -734,7 +738,13 @@ export class TerrainLayer extends InteractionLayer {
    */
   _clearPixelCache() { this.#pixelCache = undefined; }
 
-  /* ----- Update grid terrain ----- */
+  /* ----- NOTE: Terrain drawing editing ----- */
+//   addDrawing(drawing) {
+//     this.terrainDrawings.addChild(drawing);
+//   }
+
+
+  /* ----- NOTE: Update grid terrain ----- */
 
   /**
    * Apply a give shape with a given terrain value.
