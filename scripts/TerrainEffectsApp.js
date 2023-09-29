@@ -203,19 +203,6 @@ export class TerrainEffectsApp extends Application {
       },
 
       {
-        name: "Add to Scene",
-        icon: '<i class="fas fa-mountain-city"></i>',
-        condition: effectItem => game.user.isGM && !this._controller.isInScene(effectItem),
-        callback: this._controller.onAddToScene.bind(this._controller)
-      },
-      {
-        name: "Remove from Scene",
-        icon: '<i class="fas fa-strikethrough"></i>',
-        condition: effectItem => game.user.isGM && this._controller.isInScene(effectItem),
-        callback: this._controller.onRemoveFromScene.bind(this._controller)
-      },
-
-      {
         name: "Add Favorite",
         icon: '<i class="fas fa-star fa-fw"></i>',
         condition: effectItem => {
@@ -284,7 +271,7 @@ export class TerrainEffectsApp extends Application {
   }
 
   get _editSceneTerrainsButton() {
-    return this._rootView.find(".edit-scene-terrains-map");
+    return this._rootView.find(".edit-terrains-list");
   }
 
   get _folderHeaders() {

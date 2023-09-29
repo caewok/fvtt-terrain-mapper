@@ -22,9 +22,12 @@
   "terrainmapper.terrain-encountered-dialog.continue": "Continue token movement",
   "terrainmapper.terrain-encountered-dialog.cancel": "Cancel token movement",
 
-  "terrainmapper.settings.menu.title": "Terrain Settings",
-  "terrainmapper.settings.terrain.introduction": "Configure one or more terrain types.",
-  "terrainmapper.settings.terrain.addTerrain": "Add Terrain",
+  "terrainmapper.scene-config.title": "Advanced Terrain Configuration",
+  "terrainmapper.scene-config.header-scene": "Scene Terrain Configuration",
+  "terrainmapper.scene-config.header-all": "All Terrain Configuration",
+  "terrainmapper.scene-config.intro-scene": "Select which terrains are represented in the scene.",
+  "terrainmapper.scene-config.intro-no-scene": "No terrains currently present in the scene.",
+  "terrainmapper.scene-config.intro-all": "Edit all terrains.",
 
   "terrainmapper.settings.terrain.anchorOptions.absolute": "Absolute",
   "terrainmapper.settings.terrain.anchorOptions.relativeToTerrain": "Relative to Ground Elevation",
@@ -45,5 +48,6 @@
 
   "terrainmapper.phrases.terrainLayer": "Terrain Layer",
   "terrainmapper.phrases.terrain": "Terrain",
-  "terrainmapper.phrases.no-terrain": "No Terrain"
+  "terrainmapper.phrases.no-terrain": "No Terrain",
+  "terrainmapper.phrases.new-terrain": "New Terrain"
 }

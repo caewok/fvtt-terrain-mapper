@@ -9,7 +9,8 @@ socketlib
 import { MODULE_ID, SOCKETS } from "./const.js";
 import { TerrainLayer } from "./TerrainLayer.js";
 import { Settings } from "./Settings.js";
-import { Terrain, TerrainMap, addTerrainEffect, removeTerrainEffect } from "./Terrain.js";
+import { Terrain, addTerrainEffect, removeTerrainEffect } from "./Terrain.js";
+import { TerrainMap } from "./TerrainMap.js";
 import { EffectHelper } from "./EffectHelper.js";
 import { PATCHER, initializePatching } from "./patching.js";
 import { registerGeometry } from "./geometry/registration.js";
@@ -101,9 +102,9 @@ function initializeAPI() {
 √ Display terrain names on token drag.
 √ Remove settings menu
 √ Rename TerrainSettings to Settings
-- Import/export single terrain using a temp item to store.
-- Remove ability to add/subtract terrain from scenes; do behind-the-scene
-- Track terrains in scene
+√ Import/export single terrain using a temp item to store.
+√ Remove ability to add/subtract terrain from scenes; do behind-the-scene
+√ Track terrains in scene
 - Layers
 - Switch to interaction layer
   - Toggle to display all terrain shapes
@@ -112,6 +113,7 @@ function initializeAPI() {
   - Allow resizing of terrain polygons
 - Add simplification on load that trims null terrains.
 √ Calculate move penalty for token
+√ Display an edit scene application that lets the GM assign terrains to scene pixel values.
 
 Control Tools
 √ Basic layer controls

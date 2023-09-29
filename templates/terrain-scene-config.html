@@ -1,9 +1,33 @@
 <form class="{{classes}} settings-list">
   <section class="terrainmapper scrollable">
-  <h2> Terrains </h2>
+  <h1> {{ localize "terrainmapper.scene-config.header-scene" }} </h1>
 
-  <p> <em> {{ localize "terrainmapper.settings.terrain.introduction"}} </em> </p>
+  <p> <em> {{ifThen noSceneTerrains (localize 'terrainmapper.scene-config.intro-no-scene') (localize 'terrainmapper.scene-config.intro-scene')}} </em> </p>
 
+    <div style="column-count: 1">
+      <ol>
+      {{#each sceneTerrains as |terrain idx|}}
+
+          <!-- Input for terrain selection -->
+
+          <div class="form-fields slim" >
+            <li>
+            <select name="sceneTerrains.{{idx}}.anchorChoice">
+              {{ selectOptions @root.allTerrainLabels selected=terrain.id localize=true }}
+            </select>
+            </li>
+          </div>
+      {{/each}}
+      </ol>
+    <div>
+
+  </section>
+
+  <br>
+
+  <section>
+
+  <h1> {{ localize "terrainmapper.scene-config.header-all" }} </h1>
 
   <!-- Table Header -->
   <!-- Display uses icon/color/both -->
@@ -12,15 +36,8 @@
   <!-- Table Rows -->
     <div class="flextable">
 
-      {{#each object as |terrain idx|}}
+      {{#each allTerrains as |terrain idx|}}
         <div class="flexrow">
-
-          <!-- Set pixel value -->
-          <div class="flexcol" style="flex-grow: 1">
-            <div class="form-fields slim">
-              <input type="number" name="terrains.{{idx}}.pixelId" value="{{ terrain.pixelId }}" min="1" max="{{@root.maxPixelId}}" step="1">
-            </div>
-          </div>
 
           <!-- Toggle user visibility -->
           <div class="flexcol" style="flex-grow: 1">
@@ -31,7 +48,7 @@
 
           <!-- Terrain color -->
           <div class="flexcol" style="flex-grow: 1" data-idx="{{idx}}">
-            <input type="color" value="{{ terrain.color }}" name="terrains.{{idx}}.color">
+            <input type="color" value="{{ terrain.color.css }}" name="allTerrains.{{idx}}.color" style="width: 36px">
           </div>
 
           <!-- Terrain icon (modified filePicker) -->
@@ -44,36 +61,33 @@
           <!--- Input for terrain name -->
           <div class="flexcol" style="flex-grow: 5" data-idx="{{idx}}">
               <div class='form-fields slim'>
-                <input type="text" name="terrains.{{idx}}.name" placeholder="Terrain Name" value="{{ terrain.name }}">
+                <input type="text" name="allTerrains.{{idx}}.name" placeholder="Terrain Name" value="{{ terrain.name }}">
               </div>
           </div>
 
           <!--- Input for terrain offset|range below|range above -->
           <div class="flexcol" style="flex-grow: 2" data-idx="{{idx}}">
             <div class='form-fields slim'>
-              <input type="number" name="terrains.{{idx}}.offset" placeholder="0" style="width:30px" value="{{ terrain.offset }}">
-              <input type="number" name="terrains.{{idx}}.rangeBelow" placeholder="0" style="width:30px" max="0" step="1" value="{{ terrain.rangeBelow }}">
-              <input type="number" name="terrains.{{idx}}.rangeAbove" placeholder="0" style="width:30px" min="0" step="1" value="{{ terrain.rangeAbove }}">
+              <input type="number" name="allTerrains.{{idx}}.offset" placeholder="0" style="width:30px" value="{{ terrain.offset }}">
+              <input type="number" name="allTerrains.{{idx}}.rangeBelow" placeholder="0" style="width:30px" max="0" step="1" value="{{ terrain.rangeBelow }}">
+              <input type="number" name="allTerrains.{{idx}}.rangeAbove" placeholder="0" style="width:30px" min="0" step="1" value="{{ terrain.rangeAbove }}">
             </div>
           </div>
 
           <!-- Input for anchor choice -->
           <div class="flexcol" style="flex-grow: 1">
               <div class="form-fields slim" >
-                <select name="terrains.{{idx}}.anchorChoice">
+                <select name="allTerrains.{{idx}}.anchorChoice">
                   {{ selectOptions @root.anchorAbbrOptions selected=terrain.anchor localize=true }}
                 </select>
               </div>
           </div>
 
-          <!-- Buttons for active effect and remove terrain -->
+          <!-- Button for editing the terrain / effect -->
           <div class="flexcol" style="flex-grow: 2">
             <div class='form-fields'>
               <button class="button tm-edit-ae" data-idx="{{idx}}" style="width: 27px; text-align: center">
                 <i class="fas fa-bolt-lightning"></i>
-              </button>
-              <button class="button tm-remove-terrain" data-idx="{{idx}}" style="width: 27px; text-align: center">
-                <i class="fas fa-trash"></i>
               </button>
             </div>
           </div>
@@ -84,15 +98,7 @@
     </div>
   </section>
 
-  <br>
-  <div class="flexcol" style="flex-grow: 1">
-    <button class="button tm-add-terrain">
-      <i class="far fa-plus-square"></i>{{localize "terrainmapper.settings.terrain.addTerrain"}}
-    </button>
-  </div>
-
   <footer class="sheet-footer" style="margin: auto; padding-top: 30px">
-    <hr>
     <div class="flex-table">
       <div class="flexrow">
         <div class="flexcol" style="flex-grow: 1">

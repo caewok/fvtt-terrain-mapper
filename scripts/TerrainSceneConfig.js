@@ -10,40 +10,26 @@ game
 "use strict";
 
 import { MODULE_ID, LABELS } from "./const.js";
-import { Terrain, TerrainMap } from "./Terrain.js";
+import { Terrain } from "./Terrain.js";
+import { TerrainMap } from "./TerrainMap.js";
 import { EnhancedEffectConfig } from "./EnhancedEffectConfig.js";
 import { Settings } from "./Settings.js";
+import { capitalizeFirstLetter } from "./util.js";
 
 /**
  * Submenu for viewing terrains defined in the scene.
  */
 export class TerrainSceneConfig extends FormApplication {
 
-  /**
-   * Temporary terrain map to hold the terrains to be updated.
-   * @type {TerrainMap}
-   */
-  terrainMap = new TerrainMap();
-
-  constructor(object, options) {
-    const terrains = [];
-    for ( const [key, terrain] of Terrain.sceneMap) {
-      const obj = terrain.toJSON();
-      obj.pixelId = key;
-      terrains.push(obj);
-    }
-    super(terrains, options);
-
-    terrains.forEach(t => this.terrainMap.set(t.pixelId, t));
-
-  }
+  /** @type {Terrain[]} */
+  allTerrains;
 
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, {
       template: `modules/${MODULE_ID}/templates/terrain-scene-config.html`,
-      height: 800,
-      title: game.i18n.localize(`${MODULE_ID}.settings.menu.title`),
-      width: 600,
+      height: "auto",
+      title: game.i18n.localize(`${MODULE_ID}.scene-config.title`),
+      width: 700,
       classes: [MODULE_ID, "settings"],
       submitOnClose: false,
       closeOnSubmit: true
@@ -52,29 +38,69 @@ export class TerrainSceneConfig extends FormApplication {
 
   getData(options={}) {
     const data = super.getData(options);
+    const allTerrains = this.allTerrains = Terrain.getAll();
+    this._sortTerrains(allTerrains);
+
+    const allTerrainLabels = {};
+    allTerrains.forEach(t => allTerrainLabels[t.id] = t.name);
+
+    const sceneTerrains = allTerrains.filter(t => canvas.terrain.sceneMap.hasTerrainId(t.id));
+
     return foundry.utils.mergeObject(data, {
       anchorAbbrOptions: LABELS.ANCHOR_ABBR_OPTIONS,
-      maxPixelId: 31
+      allTerrainLabels,
+      sceneTerrains,
+      allTerrains,
+      maxPixelId: 31,
+      noSceneTerrains: !sceneTerrains.length
     });
+  }
+
+  _sortTerrains(terrains) {
+    terrains.sort((a, b) => {
+      const nameA = a.name.toLowerCase();
+      const nameB = b.name.toLowerCase();
+      if ( nameA < nameB ) return -1;
+      if ( nameA > nameB ) return 1;
+      return 0;
+    });
+    return terrains;
   }
 
   async _updateObject(_, formData) {
     const expandedFormData = expandObject(formData);
-    if ( !expandedFormData.terrains ) return;
-    for ( const [idx, terrain] of Object.entries(expandedFormData.terrains) ) {
-      const terrainData = this.object[idx];
-      for ( const [key, value] of Object.entries(terrain) ) terrainData[key] = value;
+    if ( expandedFormData.terrains ) {
+      const promises = [];
+      for ( const [idx, terrainData] of Object.entries(expandedFormData.allTerrains) ) {
+        const terrain = this.allTerrains[Number(idx)];
+        for ( const [key, value] of Object.entries(terrainData) ) {
+          promises.push(terrain[`set${capitalizeFirstLetter(key)}`](value));
+        }
+      }
+      await Promise.allSettled(promises);
+    }
+
+    if ( expandedFormData.sceneTerrains ) {
+      // If the user has set the same terrain to multiple pixel values, create a duplicate.
+      const terrainsUsed = new Set();
+      const sceneMap = canvas.terrain.sceneMap;
+      for ( const [idx, choiceData] of Object.entries(expandedFormData.sceneTerrains) ) {
+        const terrainId = choiceData.anchorChoice;
+        let terrain = sceneMap.terrainIds.get(terrainId);
+        if ( !terrain ) continue;
+        if ( terrainsUsed.has(terrain) ) terrain = await terrain.duplicate();
+        else terrainsUsed.add(terrain);
+
+        const pixelValue = Number(idx);
+        if ( sceneMap.get(pixelValue) === terrain ) continue;
+        canvas.terrain._replaceTerrainInScene(terrain, pixelValue);
+      }
     }
   }
 
   async _onSubmit(event, { updateData=null, preventClose=false, preventRender=false } = {}) {
     const formData = await super._onSubmit(event, { updateData, preventClose, preventRender });
     if ( preventClose ) return formData;
-
-    const terrains = this.object.map(t => t.toJSON());
-
-    await Settings.set(Settings.KEYS.TERRAINS, terrains);
-    canvas.terrain._initializeTerrains();
   }
 
   async _onSelectFile(selection, filePicker) {

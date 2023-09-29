@@ -15,8 +15,8 @@ const MAX_TERRAINS = 32; // Including 0 as no terrain.
 Draw = CONFIG.GeometryLib.Draw
 api = game.modules.get("terrainmapper").api
 Terrain = api.Terrain;
-t1 = Terrain.sceneMap.get(1);
-t2 = Terrain.sceneMap.get(2);
+t1 = canvas.terrain.sceneMap.get(1);
+t2 = canvas.terrain.sceneMap.get(2);
 
 canvas.terrain._debugDraw();
 canvas.terrain._debugClear();
@@ -45,7 +45,7 @@ for ( const e of canvas.terrain._shapeQueue.elements ) {
 
 draw = new Draw();
 for ( const e of canvas.terrain._shapeQueue.elements ) {
-  const t = Terrain.sceneMap.get(e.shape.pixelValue);
+  const t = canvas.terrain.sceneMap.get(e.shape.pixelValue);
   const txt = draw.labelPoint(e.shape.origin, t.name, { fontSize: 24 })
   txt.anchor.set(0.5); // Center text
 }
@@ -164,7 +164,7 @@ void main() {
    */
   updateTerrainIcons() {
     // TODO: Handle multiple icons.
-    for ( const terrain of Terrain.sceneMap.values()) {
+    for ( const terrain of canvas.terrain.sceneMap.values()) {
       if ( !terrain.icon ) continue;
       this.uniforms.uTerrainIcon = PIXI.Texture.from(terrain.icon);
       break;
@@ -177,7 +177,7 @@ void main() {
   updateTerrainColors() {
     const colors = this.uniforms.uTerrainColors;
     colors.fill(0);
-    Terrain.sceneMap.forEach(t => {
+    canvas.terrain.sceneMap.forEach(t => {
       const i = t.pixelValue;
       const idx = i * 4;
       // const rgba = this.constructor.getColorArray(t.color).map(x => x * 255);
