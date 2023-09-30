@@ -32,6 +32,17 @@ export class TerrainLayerToolBar extends Application {
     Settings.setByName("CURRENT_TERRAIN", terrain.id); // async
   }
 
+  /** @type {number} */
+  #currentLayer = 0;
+
+  get currentLayer() { return this.#currentLayer; }
+
+  set currentLayer(value) {
+    this.#currentLayer = Math.clamped(value, 0, 7);
+
+    // TODO: Does anything need to be refreshed/re-rendered?
+  }
+
   /**
    * Check if the last stored terrain is present and return it if it is in the scene.
    * Otherwise, return the first terrain in the scene (may be undefined).
@@ -65,7 +76,8 @@ export class TerrainLayerToolBar extends Application {
 
   activateListeners(html) {
     super.activateListeners(html);
-    $("#terrainmapper-tool-select", html).on("change", this._onHandleChange.bind(this));
+    $("#terrainmapper-tool-select", html).on("change", this._onHandleTerrainChange.bind(this));
+    $("#terrainmapper-tool-layer", html).on("change", this._onHandleLayerChange)
   }
 
   getData(_options) {
@@ -90,7 +102,8 @@ export class TerrainLayerToolBar extends Application {
 
     return {
       sceneTerrains,
-      nonSceneTerrains
+      nonSceneTerrains,
+      currentLayer: this.currentLayer
     };
   }
 
@@ -107,10 +120,10 @@ export class TerrainLayerToolBar extends Application {
 
   /**
    * Handle when the user manually changes the terrain selection.
-   * @param {Event} event
+   * @param {MouseEvent} event
    */
-  _onHandleChange(event) {
-    console.debug("TerrainLayerToolBar|_onHandleChange");
+  _onHandleTerrainChange(event) {
+    console.debug("TerrainLayerToolBar|_onHandleTerrainChange");
     const terrainId = event.target.value;
     const sceneMap = canvas.terrain.sceneMap;
     const toolbar = canvas.terrain.toolbar;
@@ -120,6 +133,17 @@ export class TerrainLayerToolBar extends Application {
     else toolbar.currentTerrain = Terrain.fromEffectId(terrainId);
     this.render();
   }
+
+  /**
+   * Handle when the user manually changes the terrain selection.
+   * @param {MouseEvent} event
+   */
+  _onHandleLayerChange(event) {
+    console.debug("TerrainLayerToolBar|_onHandleLayerChange");
+    this.currentLayer = Number(event.target.value);
+    this.render();
+  }
+
 
   async _render(...args) {
     await super._render(...args);

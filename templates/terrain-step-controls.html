@@ -30,3 +30,24 @@
     </select>
   </li>
 </ol>
+
+<ol id="terrainmapper-tools" class="sub-controls app control-tools flexcol" role="tabpanel">
+  <li id="terrainmapper-tool"
+      class="control-tool"
+      role="button"
+      data-tooltip="Select terrain to use with the tool"
+      title="{{ localize 'terrainmapper.controls.currentTerrain' }}"
+      style="width: 100px;"
+      >
+    <input type="number"
+           value="{{currentLayer}}"
+           name="currentLayer"
+           id="terrainmapper-tool-layer"
+           min=0
+           max=7
+           step=1
+           class="form-fields"
+           style="text-align: center; width: 20px; font-size: 14px; border: 0px; color: #f0f0e0" >
+    </select>
+  </li>
+</ol>
