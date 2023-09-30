@@ -6,6 +6,7 @@ Color
 
 // Color representation specific to Terrain pixel.
 // Unlike Color class, this treats alpha as the fourth 8-bit channel.
+// See https://stackoverflow.com/questions/6798111/bitwise-operations-on-32-bit-unsigned-ints
 
 /**
  * A representation of a color in hexadecimal format.
@@ -48,21 +49,33 @@ export class AlphaColor extends Color {
 
   // NOTE: New methods to account for alpha and to facilitate calcs.
 
-  static _red(x) { return shiftRight(x, 16) & 0xFF; }
+// TODO: Switch to ABGR representation.
+// TODO: Add mix, multiply, etc. code that can handle alpha correctly.
+//   function cArrayToABGR(va) {
+//       var res = 0;
+//       for (var i = 0; i < va.length; ++i) {
+//           var color = va[i];
+//           color <<= (8 * i);
+//           res += color;
+//       }
+//       return res >>> 0;
+//   }
 
-  static _green(x) { return shiftRight(x, 8) & 0xFF; }
+  static _red(x) { return (((x >>> 16) & 0xFF) >>> 0); }
 
-  static _blue(x) { return x & 0xFF; }
+  static _green(x) { return (((x >>> 8) & 0xFF) >>> 0); }
 
-  static _alpha(x) { return shiftRight(x, 24) & 0xFF; }
+  static _blue(x) { return (x & 0xFF); }
 
-  static _fromRed(r) { return shiftLeft(r, 16); }
+  static _alpha(x) { return (((x >>> 24) & 0xFF) >>> 0);; }
 
-  static _fromGreen(g) { return shiftLeft(g, 8); }
+  static _fromRed(r) { return ((r << 16) >>> 0); }
 
-  static _fromBlue(b) { return b | 0; }
+  static _fromGreen(g) { return ((g << 8) >>> 0); }
 
-  static _fromAlpha(a) { return shiftLeft(a, 24); }
+  static _fromBlue(b) { return (b | 0); }
+
+  static _fromAlpha(a) { return ((a << 24) >>> 0); }
 
 
   get rInt() { return this.constructor._red(this); }
