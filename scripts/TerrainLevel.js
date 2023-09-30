@@ -18,6 +18,14 @@ export class TerrainLevel {
     this.scene = canvas.scene;
   }
 
+  // Simple getters used to pass through terrain values.
+
+  /** @type {string} */
+  get name() { return this.terrain.name; }
+
+  /** @type {number} */
+  get pixelValue() { return this.terrain.pixelValue; }
+
   /**
    * Retrieve the anchor elevation of this level in this scene.
    * @returns {number}

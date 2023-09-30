@@ -7,7 +7,7 @@
 
       <!-- Input for terrain layer elevation -->
       <div class="form-group">
-        <label>{{ localize "terrainmapper.phrases.terrainLayer"}} idx <span class="units">({{gridUnits}})</span> </label>
+        <label>{{ localize "terrainmapper.phrases.terrainLayer"}} {{@index}} <span class="units">({{@root.gridUnits}})</span> </label>
           <div class="form-fields">
             <input type="number" placeholder="0" name="layerElevations.{{@index}}" value="{{ elevation }}">
           </div>

@@ -196,7 +196,7 @@ export class TerrainLayer extends InteractionLayer {
    * @param {number} y
    */
   updateTerrainLabel({x, y}) {
-    const terrain = this.terrainAt({x, y});
+    const terrain = this.#terrainAt({x, y});
     this.terrainLabel.text = terrain?.name || "";
     this.terrainLabel.position = {x, y};
   }
@@ -230,6 +230,15 @@ export class TerrainLayer extends InteractionLayer {
       terrainLayers[i] = new TerrainLevel(terrain, i);
     }
     return terrainLayers;
+  }
+
+  /**
+   * Get the terrain given the current level.
+   */
+  #terrainAt(pt) {
+    const layers = this._terrainLayersAt(pt);
+    const currLayer = this.toolbar.currentLayer;
+    return layers[currLayer];
   }
 
   /**

@@ -44,6 +44,7 @@ export class TerrainSceneConfig extends FormApplication {
       layerElevations,
       sceneTerrains,
       allTerrainLabels,
+      gridUnits: canvas.scene.grid.units || game.i18n.localize("GridUnits"),
       noSceneTerrains: !sceneTerrains.length
     });
   }
