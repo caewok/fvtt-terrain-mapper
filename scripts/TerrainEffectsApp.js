@@ -162,6 +162,11 @@ export class TerrainEffectsApp extends Application {
       this._controller.onEditSceneTerrains.bind(this._controller)
     );
 
+    this._listTerrainsButton.on(
+      "click",
+      this._controller.onListTerrains.bind(this._controller)
+    );
+
     // Import/Export all terrains from the All folder buttons.
     this._importAllTerrainsButton.on(
       "click",
@@ -238,7 +243,7 @@ export class TerrainEffectsApp extends Application {
         icon: '<i class="fas fa-trash fa-fw"></i>',
         condition: () => game.user.isGM,
         callback: this._controller.onDeleteEffectClick.bind(this._controller)
-      },
+      }
     ]);
   }
 
@@ -271,7 +276,11 @@ export class TerrainEffectsApp extends Application {
   }
 
   get _editSceneTerrainsButton() {
-    return this._rootView.find(".edit-terrains-list");
+    return this._rootView.find(".edit-scene-terrains");
+  }
+
+  get _listTerrainsButton() {
+    return this._rootView.find(".list-terrains");
   }
 
   get _folderHeaders() {

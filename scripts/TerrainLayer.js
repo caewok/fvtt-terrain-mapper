@@ -31,6 +31,8 @@ import { FillPolygonHelper } from "./FillPolygonHelper.js";
 import { TravelTerrainRay } from "./TravelTerrainRay.js";
 import { TerrainEffectsApp } from "./TerrainEffectsApp.js";
 import { TerrainMap } from "./TerrainMap.js";
+import { TerrainColor } from "./TerrainColor.js";
+import { TerrainLevel } from "./TerrainLevel.js";
 
 // TODO: What should replace this now that FullCanvasContainer is deprecated in v11?
 class FullCanvasContainer extends FullCanvasObjectMixin(PIXI.Container) {
@@ -38,6 +40,8 @@ class FullCanvasContainer extends FullCanvasObjectMixin(PIXI.Container) {
 }
 
 export class TerrainLayer extends InteractionLayer {
+
+  TerrainColor = TerrainColor;
 
   /** @type {TerrainMap} */
   sceneMap = new TerrainMap();
@@ -202,13 +206,30 @@ export class TerrainLayer extends InteractionLayer {
   /**
    * Get the terrain(s) at a given position.
    * @param {Point} {x, y}
-   * @returns {Terrain|undefined}
+   * @returns {TerrainLevel[]}
    */
-  terrainAt({x, y}) {
+  terrainsAt(pt) {
+    if ( !this.#initialized ) return undefined;
+
+    // Return only terrains that are non-zero.
+    const terrainLayers = this._terrainLayersAt(pt);
+    return terrainLayers.filter(t => t.pixelValue);
+  }
+
+  _terrainLayersAt({x, y}) {
     if ( !this.#initialized ) return undefined;
     const pixelValue = this.pixelCache.pixelAtCanvas(x, y);
-    if ( pixelValue === 0 ) return undefined;
-    return this.terrainForPixel(pixelValue);
+    if ( pixelValue === 0 ) return [];
+
+    // Find the terrain at each layer and return the terrains.
+    const layers = this._layersFromPixel(pixelValue);
+    const terrainLayers = new Array(8);
+    for ( let i = 0; i < 8; i += 1 ) {
+      const terrainPixel = layers[i];
+      const terrain = this.terrainForPixel(terrainPixel);
+      terrainLayers[i] = new TerrainLevel(terrain, i);
+    }
+    return terrainLayers;
   }
 
   /**
@@ -227,23 +248,13 @@ export class TerrainLayer extends InteractionLayer {
 
   /**
    * Get the color that represents the terrain and layer.
-   * @param {Terrain}
-   * @return {PIXI.Color}
+   * @param {Terrain}   terrain
+   * @param {number}    layer
+   * @return {TerrainColor}
    */
-  _terrainPixelColor(terrain) { return new PIXI.Color(this._terrainToPixelChannels(terrain)); }
-
-  /**
-   * Convert a terrain value to a pixel value between 0 and 255 per channel
-   * @param {Terrain} terrain    Terrain to convert
-   * @param {number} layer       Layer number
-   * @returns {object}
-   *   - {number} r   Red channel, integer between 0 and 255
-   *   - {number} g   Green channel, integer between 0 and 255
-   *   - {number} b   Blue channel, currently unused
-   */
-  _terrainToPixelChannels(terrain, _layer = 0) {
-    // TODO: Handle layers.
-    return { r: terrain.pixelValue ?? 0, g: 0, b: 0 };
+  _terrainPixelColor(terrain, layer) {
+    layer ??= this.controls.currentLayer;
+    return TerrainColor.fromTerrainValue(terrain.pixelValue, layer);
   }
 
   /**
@@ -257,11 +268,22 @@ export class TerrainLayer extends InteractionLayer {
   }
 
   /**
-   * Given red 8-bit channels of a color, return an integer value representing terrain.
-   * @param {number} r    Red channel value, between 0 and 255.
-   * @returns {number} Number between 0 and 31
+   * Given red 8-bit channels of a color, return an integer value representing terrain and layer.
+   * Used by the pixel cache.
+   * @param {number} r    Red channel value, between 0 and 255
+   * @param {number} g    Green channel value, between 0 and 255
+   * @param {number} b    Blue channel value, between 0 and 255
+   * @param {number} a    Alpha channel value, between 0 and 255
+   * @returns {number} Integer between 0 and 2^32.
    */
-  _decodeTerrainChannels(r, _g, _b, _a) { return this.clampTerrainId(r); }
+  _decodeTerrainChannels(r, g, b, a) { return TerrainColor.fromRGBAIntegers(r, g, b, a); }
+
+  /**
+   * From a pixel integer, get the layers array.
+   * @param {number} pixel    Pixel value (likely from the pixel cache), between 0 and 2^32
+   * @returns {Uint8Array[8]} layers
+   */
+  _layersFromPixel(pixel) { return (new TerrainColor(pixel)).toTerrainLayers(); }
 
   // ----- NOTE: Initialize, activate, deactivate, destroy ----- //
 
@@ -574,7 +596,7 @@ export class TerrainLayer extends InteractionLayer {
     const combineFn = this._decodeTerrainChannels.bind(this);
     return PixelCache.fromTexture(
       this._terrainTexture,
-      { x, y, arrayClass: Uint8Array, combineFn });
+      { x, y, arrayClass: Uint32Array, combineFn });
   }
 
   /**
