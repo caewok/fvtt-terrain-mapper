@@ -199,8 +199,7 @@ export class TerrainLayer extends InteractionLayer {
     const terrain = this.#terrainAt({x, y});
     this.terrainLabel.text = terrain?.name || "";
     this.terrainLabel.position = {x, y};
-
-    console.debug(`Terrain ${terrain?.name} at ${x},${y}`);
+    // Debug: console.debug(`Terrain ${terrain?.name} at ${x},${y}`);
   }
 
   // ----- NOTE: Access terrain data ----- //
