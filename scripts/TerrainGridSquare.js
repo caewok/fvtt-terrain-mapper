@@ -14,6 +14,9 @@ export class TerrainGridSquare extends Square {
   /** @type {number} */
   pixelValue = 0;
 
+  /** @type {number} */
+  layer = 0;
+
   constructor(origin, radius, opts = {}) {
     super(origin, radius, opts);
     if ( opts.pixelValue ) this.pixelValue = opts.pixelValue;
@@ -65,7 +68,13 @@ export class TerrainGridSquare extends Square {
    * Upon import, will be resized to current grid size.
    * @returns {object}
    */
-  toJSON() { return { gridPosition: this.gridPosition, pixelValue: this.pixelValue, type: "TerrainGridSquare" }; }
+  toJSON() {
+    return {
+      gridPosition: this.gridPosition,
+      pixelValue: this.pixelValue,
+      layer: this.layer,
+      type: "TerrainGridSquare" };
+    }
 
   /**
    * Convert from JSON.
@@ -78,9 +87,10 @@ export class TerrainGridSquare extends Square {
       return undefined;
     }
 
-    const { gridPosition, pixelValue } = json;
+    const { gridPosition, pixelValue, layer } = json;
     const sq = this.fromGridPosition(gridPosition);
     sq.pixelValue = pixelValue;
+    sq.layer = layer;
     return sq;
   }
 }

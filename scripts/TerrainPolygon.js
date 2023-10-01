@@ -8,6 +8,9 @@ export class TerrainPolygon extends PIXI.Polygon {
   /** @type {number} */
   pixelValue = 0;
 
+  /** @type {number} */
+  layer = 0;
+
   /** @type PIXI.Point */
   origin = new PIXI.Point();
 
@@ -26,6 +29,7 @@ export class TerrainPolygon extends PIXI.Polygon {
     return {
       pixelValue: this.pixelValue,
       points: this.points,
+      layer: this.layer,
       type: "TerrainPolygon"
     };
   }
@@ -36,9 +40,10 @@ export class TerrainPolygon extends PIXI.Polygon {
    * @param {number} [pixelValue=0]
    * @returns {TerrainPolygon}
    */
-  static fromPolygon(poly, pixelValue = 0) {
+  static fromPolygon(poly, pixelValue = 0, layer = 0) {
     const shape = new this(poly.points);
     shape.pixelValue = pixelValue;
+    shape.layer = layer;
     return shape;
   }
 
@@ -53,9 +58,10 @@ export class TerrainPolygon extends PIXI.Polygon {
       return undefined;
     }
 
-    const { pixelValue, points } = json;
+    const { pixelValue, points, layer } = json;
     const poly = new PIXI.Polygon(points);
     poly.pixelValue = pixelValue;
+    poly.layer = layer;
     return poly;
   }
 }

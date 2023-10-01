@@ -199,6 +199,8 @@ export class TerrainLayer extends InteractionLayer {
     const terrain = this.#terrainAt({x, y});
     this.terrainLabel.text = terrain?.name || "";
     this.terrainLabel.position = {x, y};
+
+    console.debug(`Terrain ${terrain?.name} at ${x},${y}`);
   }
 
   // ----- NOTE: Access terrain data ----- //
@@ -262,7 +264,7 @@ export class TerrainLayer extends InteractionLayer {
    * @return {TerrainColor}
    */
   _terrainPixelColor(terrain, layer) {
-    layer ??= this.controls.currentLayer;
+    layer ??= this.toolbar.currentLayer;
     return TerrainColor.fromTerrainValue(terrain.pixelValue, layer);
   }
 
@@ -282,7 +284,6 @@ export class TerrainLayer extends InteractionLayer {
    * @param {number} r    Red channel value, between 0 and 255
    * @param {number} g    Green channel value, between 0 and 255
    * @param {number} b    Blue channel value, between 0 and 255
-   * @param {number} a    Alpha channel value, between 0 and 255
    * @returns {number} Integer between 0 and 2^32.
    */
   _decodeTerrainChannels(r, g, b) { return TerrainColor.fromRGBIntegers(r, g, b); }
@@ -817,10 +818,9 @@ export class TerrainLayer extends InteractionLayer {
     // TODO: Handle drawing of icon, displaying selected terrain color.
     const graphics = this._graphicsContainer.addChild(new PIXI.Graphics());
     const color = this._terrainPixelColor(terrain);
-
+    const draw = new Draw(graphics);
     // Set width = 0 to avoid drawing a border line. The border line will use antialiasing
     // and that causes a lighter-color border to appear outside the shape.
-    const draw = new Draw(graphics);
     draw.shape(shape, { width: 0, fill: color});
     this.renderTerrain();
     return graphics;

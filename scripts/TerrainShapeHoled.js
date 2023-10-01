@@ -11,6 +11,9 @@ export class TerrainShapeHoled extends ShapeHoled {
   /** @type {number} */
   pixelValue = 0;
 
+  /** @type {number} */
+  layer = 0;
+
   /** @type PIXI.Point */
   origin = new PIXI.Point();
 
@@ -27,6 +30,7 @@ export class TerrainShapeHoled extends ShapeHoled {
     else this.origin.copyFrom(this.bounds.center);
 
     if ( opts.pixelValue ) this.pixelValue = opts.pixelValue;
+    if ( opts.layer ) this.layer = opts.layer;
 
     // Transform all shapes into terrain shapes.
     this.shapes = this.shapes.map(s => this.#convertShapeToTerrainShape(s));
@@ -43,7 +47,7 @@ export class TerrainShapeHoled extends ShapeHoled {
       shape.pixelValue = this.pixelValue;
       return shape;
     }
-    const poly = TerrainPolygon.fromPolygon(shape.toPolygon(), this.pixelValue);
+    const poly = TerrainPolygon.fromPolygon(shape.toPolygon(), this.pixelValue, this.layer);
     poly.isHole = shape.isHole;
     return poly;
   }
@@ -58,6 +62,7 @@ export class TerrainShapeHoled extends ShapeHoled {
       shapes: this.shapes.map(s => s.toJSON()),
       holes: this.holes.map(s => s.toJSON()),
       pixelValue: this.pixelValue,
+      layer: this.layer,
       origin: this.origin,
       type: "TerrainShapeHoled"
     };
@@ -76,8 +81,8 @@ export class TerrainShapeHoled extends ShapeHoled {
       return poly;
     });
 
-    const { pixelValue, origin } = json;
-    return new this([...shapes, ...holes], { pixelValue, origin });
+    const { pixelValue, origin, layer } = json;
+    return new this([...shapes, ...holes], { pixelValue, layer, origin });
   }
 
   /**

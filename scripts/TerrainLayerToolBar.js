@@ -41,7 +41,8 @@ export class TerrainLayerToolBar extends Application {
     this.#currentLayer = Math.clamped(Math.round(value), 0, 7);
     Settings.setByName("CURRENT_LAYER", this.#currentLayer); // async
 
-    // TODO: Does anything need to be refreshed/re-rendered?
+    // Update the layer variable in the shader that displays terrain.
+    canvas.terrain._terrainColorsMesh.shader.updateTerrainLayer();
   }
 
   /**

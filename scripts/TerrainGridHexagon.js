@@ -15,6 +15,9 @@ export class TerrainGridHexagon extends Hexagon {
   /** @type {number} */
   pixelValue = 0;
 
+  /** @type {number} */
+  layer = 0;
+
   constructor(origin, radius, opts = {}) {
     super(origin, radius, opts);
     if ( opts.pixelValue ) this.pixelValue = opts.pixelValue;
@@ -69,6 +72,7 @@ export class TerrainGridHexagon extends Hexagon {
     return {
       gridPosition: this.gridPosition,
       pixelValue: this.pixelValue,
+      layer: this.layer,
       type: "TerrainGridHexagon"
     };
   }
@@ -84,9 +88,10 @@ export class TerrainGridHexagon extends Hexagon {
       return undefined;
     }
 
-    const { gridPosition, pixelValue } = json;
+    const { gridPosition, pixelValue, layer } = json;
     const sq = this.fromGridPosition(gridPosition);
     sq.pixelValue = pixelValue;
+    sq.layer = layer;
     return sq;
   }
 }
