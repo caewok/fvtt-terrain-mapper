@@ -26,12 +26,12 @@ canvas.stage.addChild(s)
 canvas.stage.removeChild(s)
 
 
-graphicChildren = canvas.terrain._graphicsContainer.children
-for ( const g of graphicChildren ) {
+graphicsChildren = canvas.terrain._graphicsContainer.children
+for ( const g of graphicsChildren ) {
   canvas.stage.addChild(g)
 }
 
-for ( const g of graphicChildren ) {
+for ( const g of graphicsChildren ) {
   canvas.stage.removeChild(g)
 }
 
@@ -134,9 +134,10 @@ void main() {
   // if ( terrainPixel.r == 0.0 ) fragColor = vec4(0.0);
   // else fragColor = vec4(1.0, 0.0, 0.0, 1.0);
   // ivec2 iconSize = textureSize(uTerrainIcon);
-  vec4 iconColor = texture(uTerrainIcon, vTextureCoord);
+  // vec4 iconColor = texture(uTerrainIcon, vTextureCoord);
   vec4 terrainColor = colorForTerrain(terrainId);
-  fragColor = mix(terrainColor, iconColor, 0.5);
+  // fragColor = mix(terrainColor, iconColor, 0.5);
+  fragColor = terrainColor;
 }`;
 
   /**
