@@ -267,7 +267,7 @@ export class TerrainTextureManager {
       mipmap: PIXI.MIPMAP_MODES.OFF,
       scaleMode: PIXI.SCALE_MODES.NEAREST,
       multisample: PIXI.MSAA_QUALITY.NONE,
-      format: PIXI.FORMATS.RG, // 256 * 256 = 65,536 elevation increments in total.
+      format: PIXI.FORMATS.RGB,
       type: PIXI.TYPES.UNSIGNED_BYTE
     };
   }

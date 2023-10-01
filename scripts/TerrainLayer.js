@@ -285,7 +285,7 @@ export class TerrainLayer extends InteractionLayer {
    * @param {number} a    Alpha channel value, between 0 and 255
    * @returns {number} Integer between 0 and 2^32.
    */
-  _decodeTerrainChannels(r, g, b, a) { return TerrainColor.fromRGBAIntegers(r, g, b, a); }
+  _decodeTerrainChannels(r, g, b) { return TerrainColor.fromRGBIntegers(r, g, b); }
 
   /**
    * From a pixel integer, get the layers array.

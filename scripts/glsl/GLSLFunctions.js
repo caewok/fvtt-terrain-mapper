@@ -286,13 +286,48 @@ vec2 random2(vec2 p) { return random2(p.xyx); }
 GLSLFunctions.decodeTerrainChannels =
 `
 /**
- * Return the terrain value for a given color representation.
+ * Return the terrain value for a given color representation at a given layer.
  * @param {vec4} pixel    Color representation of terrain value on canvas
  * @returns {float} The terrain value, between 0 and 31.
  */
-int decodeTerrainChannels(in vec4 color) {
+uint decodeTerrainChannels(in vec4 color, in int layer) {
   color = color * 255.0;
-  return int(clamp(color.r, 0.0, 31.0));
+
+  uint channel;
+  uint terrain;
+  switch ( layer ) {
+    // Red
+    case 0:
+      channel = uint(color.r * 255.0);
+      terrain = (channel & 15u);
+      break;
+    case 1:
+      channel = uint(color.r * 255.0);
+      terrain = (channel >> 4u);
+      break;
+
+    // Green
+    case 2:
+      channel = uint(color.g * 255.0);
+      terrain = (channel & 15u);
+      break;
+    case 3:
+      channel = uint(color.g * 255.0);
+      terrain = (channel >> 4u);
+      break;
+
+    // Blue
+    case 4:
+      channel = uint(color.b * 255.0);
+      terrain = (channel & 15u);
+      break;
+    case 5:
+      channel = uint(color.b * 255.0);
+      terrain = (channel >> 4u);
+      break;
+  }
+
+  return terrain;
 }`;
 
 

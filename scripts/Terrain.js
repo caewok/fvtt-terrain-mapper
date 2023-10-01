@@ -42,6 +42,13 @@ export async function removeTerrainEffect(tokenUUID, effectId) {
  * Scenes store a TerrainMap that links each terrain to a pixel value.
  */
 export class Terrain {
+
+  /** @type {number} */
+  static MAX_LEVELS = 6; // red, green, blue
+
+  /** @type {number} */
+  static MAX_TERRAINS = Math.pow(2, 4) - 1;
+
   /** @type {number} */
   #pixelValue = 0;
 
