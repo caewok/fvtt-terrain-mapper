@@ -236,11 +236,14 @@ export class TerrainLayer extends InteractionLayer {
 
   /**
    * Get the terrain given the current level.
+   * @param {Point} {x, y}
+   * @returns {Terrain|undefined} Terrain, or undefined if no terrain at this level.
    */
   #terrainAt(pt) {
     const layers = this._terrainLayersAt(pt);
     const currLayer = this.toolbar.currentLayer;
-    return layers[currLayer];
+    const terrain = layers[currLayer];
+    return terrain?.pixelValue ? terrain : undefined; // Don't return the null terrain.
   }
 
   /**
