@@ -1,13 +1,12 @@
-<ol id="terrainmapper-tools" class="sub-controls app control-tools flexcol" role="tabpanel">
-  <li id="terrainmapper-tool"
-      class="control-tool"
+<ol class="sub-controls app control-tools flexcol" role="tabpanel">
+  <li class="control-tool"
       role="button"
       data-tooltip="Select terrain to use with the tool"
       title="{{ localize 'terrainmapper.controls.currentTerrain' }}"
       style="width: 100px;"
       >
     <select name="terrain-selected"
-            id="terrainmapper-tool-select"
+            id="terrainmapper-tool-select-terrain"
             class="form-fields"
             style="text-align: left; width: 100px; font-size: 14px; border: 0px; color: #f0f0e0">
 
@@ -29,25 +28,23 @@
 
     </select>
   </li>
-</ol>
 
-<ol id="terrainmapper-tools" class="sub-controls app control-tools flexcol" role="tabpanel">
-  <li id="terrainmapper-tool"
-      class="control-tool"
+  <li class="control-tool"
       role="button"
-      data-tooltip="Select terrain to use with the tool"
+      data-tooltip="Select terrain layer for applying the terrain"
       title="{{ localize 'terrainmapper.controls.currentLayer' }}"
       style="width: 100px;"
       >
-    <input type="number"
-           value="{{currentLayer}}"
-           name="currentLayer"
-           id="terrainmapper-tool-layer"
-           min=0
-           max=7
-           step=1
-           class="form-fields"
-           style="text-align: center; width: 20px; font-size: 14px; border: 0px; color: #f0f0e0" >
+    <select name="terrain-selected"
+            id="terrainmapper-tool-select-layer"
+            class="form-fields"
+            style="text-align: left; width: 100px; font-size: 14px; border: 0px; color: #f0f0e0">
+
+      {{#each sceneLayers as |layer|}}
+        <option value="{{ layer.key }}" {{ifThen layer.isSelected "selected" : ""}}>{{ layer.label }} </option>
+      {{/each}}
+
     </select>
   </li>
 </ol>
+
