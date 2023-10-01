@@ -33,14 +33,25 @@ export class TerrainLayerToolBar extends Application {
   }
 
   /** @type {number} */
-  #currentLayer = 0;
+  #currentLayer;
 
-  get currentLayer() { return this.#currentLayer; }
+  get currentLayer() { return this.#currentLayer ?? (this.#currentLayer = this._loadStoredLayer()); }
 
   set currentLayer(value) {
-    this.#currentLayer = Math.clamped(value, 0, 7);
+    this.#currentLayer = Math.clamped(Math.round(value), 0, 7);
+    Settings.setByName("CURRENT_LAYER", this.#currentLayer); // async
 
     // TODO: Does anything need to be refreshed/re-rendered?
+  }
+
+  /**
+   * Check if the last stored layer is present and return it if it is in the scene.
+   * Otherwise, return the first layer (0) in the scene.
+   * @returns {number}
+   */
+  _loadStoredLayer() {
+    const storedId = Settings.getByName("CURRENT_LAYER");
+    return storedId ?? 0;
   }
 
   /**
@@ -76,8 +87,8 @@ export class TerrainLayerToolBar extends Application {
 
   activateListeners(html) {
     super.activateListeners(html);
-    $("#terrainmapper-tool-select", html).on("change", this._onHandleTerrainChange.bind(this));
-    $("#terrainmapper-tool-layer", html).on("change", this._onHandleLayerChange)
+    $("#terrainmapper-tool-select-terrain", html).on("change", this._onHandleTerrainChange.bind(this));
+    $("#terrainmapper-tool-select-layer", html).on("change", this._onHandleLayerChange.bind(this))
   }
 
   getData(options) {
@@ -102,10 +113,20 @@ export class TerrainLayerToolBar extends Application {
       arr.push(obj);
     }
 
+    const sceneLayers = [];
+    for ( let i = 0; i < 8; i += 1 ) {
+      const obj = {
+        key: i,
+        label: game.i18n.format(`${MODULE_ID}.phrases.layer-number`, { layerNumber: i }),
+        isSelected: i === this.currentLayer
+      }
+      sceneLayers.push(obj);
+    }
+
     return foundry.utils.mergeObject(data, {
       sceneTerrains,
       nonSceneTerrains,
-      currentLayer: this.currentLayer
+      sceneLayers
     });
   }
 
@@ -128,11 +149,10 @@ export class TerrainLayerToolBar extends Application {
     console.debug("TerrainLayerToolBar|_onHandleTerrainChange");
     const terrainId = event.target.value;
     const sceneMap = canvas.terrain.sceneMap;
-    const toolbar = canvas.terrain.toolbar;
 
     // Update the currently selected terrain.
-    if ( sceneMap.terrainIds.has(terrainId) ) toolbar.currentTerrain = sceneMap.terrainIds.get(terrainId);
-    else toolbar.currentTerrain = Terrain.fromEffectId(terrainId);
+    if ( sceneMap.terrainIds.has(terrainId) ) this.currentTerrain = sceneMap.terrainIds.get(terrainId);
+    else this.currentTerrain = Terrain.fromEffectId(terrainId);
     this.render();
   }
 

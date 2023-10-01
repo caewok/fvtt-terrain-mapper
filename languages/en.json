@@ -55,5 +55,6 @@
   "terrainmapper.phrases.terrainLayer": "Terrain Layer",
   "terrainmapper.phrases.terrain": "Terrain",
   "terrainmapper.phrases.no-terrain": "No Terrain",
-  "terrainmapper.phrases.new-terrain": "New Terrain"
+  "terrainmapper.phrases.new-terrain": "New Terrain",
+  "terrainmapper.phrases.layer-number": "Layer {layerNumber}"
 }
