@@ -80,7 +80,9 @@ export class TerrainLayerToolBar extends Application {
     $("#terrainmapper-tool-layer", html).on("change", this._onHandleLayerChange)
   }
 
-  getData(_options) {
+  getData(options) {
+    const data = super.getData(options);
+
     const sceneMap = canvas.terrain.sceneMap;
     const terrains = Terrain.getAll();
     this._sortTerrains(terrains);
@@ -100,11 +102,11 @@ export class TerrainLayerToolBar extends Application {
       arr.push(obj);
     }
 
-    return {
+    return foundry.utils.mergeObject(data, {
       sceneTerrains,
       nonSceneTerrains,
       currentLayer: this.currentLayer
-    };
+    });
   }
 
   _sortTerrains(terrains) {
