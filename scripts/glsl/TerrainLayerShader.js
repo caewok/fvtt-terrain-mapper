@@ -125,10 +125,11 @@ vec4 colorForTerrain(uint terrainId) {
 }
 
 void main() {
+  fragColor = vec4(0.0);
+
   // Terrain is sized to the scene.
   vec4 terrainPixel = texture(uTerrainSampler, vTextureCoord);
   uint terrainId = decodeTerrainChannels(terrainPixel, uTerrainLayer);
-  fragColor = vec4(0.0);
   if ( terrainId == 0u ) return;
 
   // if ( terrainPixel.r == 0.0 ) fragColor = vec4(0.0);

@@ -291,39 +291,33 @@ GLSLFunctions.decodeTerrainChannels =
  * @returns {float} The terrain value, between 0 and 31.
  */
 uint decodeTerrainChannels(in vec4 color, in int layer) {
-  color = color * 255.0;
+  color *= 255.0;
+  uvec4 channels = uvec4(color);
 
-  uint channel;
   uint terrain;
   switch ( layer ) {
     // Red
     case 0:
-      channel = uint(color.r * 255.0);
-      terrain = (channel & 15u);
+      terrain = (channels.r & 15u);
       break;
     case 1:
-      channel = uint(color.r * 255.0);
-      terrain = (channel >> 4u);
+      terrain = (channels.r >> 4u);
       break;
 
     // Green
     case 2:
-      channel = uint(color.g * 255.0);
-      terrain = (channel & 15u);
+      terrain = (channels.g & 15u);
       break;
     case 3:
-      channel = uint(color.g * 255.0);
-      terrain = (channel >> 4u);
+      terrain = (channels.g >> 4u);
       break;
 
     // Blue
     case 4:
-      channel = uint(color.b * 255.0);
-      terrain = (channel & 15u);
+      terrain = (channels.b & 15u);
       break;
     case 5:
-      channel = uint(color.b * 255.0);
-      terrain = (channel >> 4u);
+      terrain = (channels.b >> 4u);
       break;
   }
 
@@ -340,7 +334,7 @@ GLSLFunctions.decodeElevationChannels =
  * @returns {float} The normalized elevation value, between 0 and 65,536.
  */
 float decodeElevationChannels(in vec4 color) {
-  color = color * 255.0;
+  color *= 255.0;
   return (color.g * 256.0) + color.r;
 }`;
 
