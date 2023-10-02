@@ -784,6 +784,7 @@ export class TerrainLayer extends InteractionLayer {
   addTerrainShapeToCanvas(shape, terrain, { temporary = false } = {}) {
     if ( !this.sceneMap.hasTerrainId(terrain.id) ) terrain.addToScene();
     shape.pixelValue = terrain.pixelValue;
+    shape.layer = this.toolbar.currentLayer;
     if ( temporary && this.#temporaryGraphics.has(shape.origin.key) ) {
       // Replace with this item.
       // It is anticipated that copying over a shape, perhaps with a different terrain value,
