@@ -29,6 +29,8 @@ export class TerrainColor extends Color {
 
   /**
    * Convert a terrain value and a layer to a color.
+   * Layers 0, 1, and 2 use the first 4 bits of the RGB channels.
+   * Layers 3, 4, and 5 use the second 4 bits of the RGB channels.
    * @param {number} terrainValue   Integer between 0 and 15.
    * @param {number} layer          Integer between 0 and 7.
    * @returns {TerrainColor}
@@ -41,10 +43,10 @@ export class TerrainColor extends Color {
     let b = 0;
     switch ( layer ) {
       case 0: r = terrainValue; break;
-      case 1: r = (terrainValue << 4); break;
-      case 2: g = terrainValue; break;
-      case 3: g = (terrainValue << 4); break;
-      case 4: b = terrainValue; break;
+      case 1: g = terrainValue; break;
+      case 2: b = terrainValue; break;
+      case 3: r = (terrainValue << 4); break;
+      case 4: g = (terrainValue << 4); break;
       case 5: b = (terrainValue << 4); break;
     }
     return this.fromRGBIntegers(r, g, b);
@@ -57,9 +59,9 @@ export class TerrainColor extends Color {
    */
   static fromTerrainLayers(layers) {
     layers = layers.map(l => Math.clamped(Math.floor(l), 0, 15));
-    const r = (layers[1] << 4) + layers[0];
-    const g = (layers[3] << 4) + layers[2];
-    const b = (layers[5] << 4) + layers[4];
+    const r = (layers[3] << 4) + layers[0];
+    const g = (layers[4] << 4) + layers[1];
+    const b = (layers[5] << 4) + layers[2];
     return this.fromRGBIntegers(r, g, b);
   }
 
@@ -71,8 +73,8 @@ export class TerrainColor extends Color {
     const rgbInt = this.rgbInt;
     const layers = new Uint8Array(6);
     for ( let channel = 0; channel < 3; channel += 1 ) {
-      const first8 = channel * 2;
-      const second8 = (channel * 2) + 1;
+      const first8 = channel;
+      const second8 = channel + 3;
       layers[first8] = (rgbInt[channel] & 15);  // Even
       layers[second8] = (rgbInt[channel] >> 4); // Odd
     }
@@ -89,40 +91,9 @@ export class TerrainColor extends Color {
   overwriteTerrainValue(terrainValue, layer) {
     terrainValue = Math.clamped(Math.floor(terrainValue), 0, 15);
     layer = Math.clamped(Math.floor(layer), 0, 5);
-
-    const rgbInt = this.rgbInt;
-    let rInt = rgbInt[0];
-    let gInt = rgbInt[1];
-    let bInt = rgbInt[2];
-
-    let layer0 = terrainValue;
-    let layer1 = terrainValue;
-    switch ( layer ) {
-      case 0: layer1 = (rInt >> 4); break;
-      case 1: layer0 = (rInt & 15); break;
-      case 2: layer1 = (gInt >> 4); break;
-      case 3: layer0 = (gInt & 15); break;
-      case 4: layer1 = (bInt >> 4); break;
-      case 5: layer0 = (bInt & 15); break;
-    }
-
-    const newInt = (layer1 << 4) + layer0;
-    switch ( layer ) {
-      case 0:
-      case 1:
-        rInt = newInt;
-        break;
-      case 2:
-      case 3:
-        gInt = newInt;
-        break;
-      case 4:
-      case 5:
-        bInt = newInt;
-        break;
-    }
-
-    return this.constructor.fromRGBIntegers(rInt, gInt, bInt);
+    const currentLayers = this.toTerrainLayers();
+    currentLayers[layer] = terrainValue;
+    return this.constructor.fromTerrainLayers(currentLayers);
   }
 
   /**

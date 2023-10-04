@@ -1,6 +1,6 @@
 /* globals
-ActiveEffect,
 canvas,
+Color,
 CONFIG,
 CONST,
 Dialog,
@@ -44,10 +44,9 @@ export async function removeTerrainEffect(tokenUUID, effectId) {
 export class Terrain {
 
   /** @type {number} */
-  static MAX_LEVELS = 6; // red, green, blue
+  static #MAX_TERRAINS = Math.pow(2, 4) - 1;
 
-  /** @type {number} */
-  static MAX_TERRAINS = Math.pow(2, 4) - 1;
+  static get MAX_TERRAINS() { return this.#MAX_TERRAINS; }
 
   /** @type {number} */
   #pixelValue = 0;
@@ -226,7 +225,7 @@ export class Terrain {
    */
   _unassignPixel() {
     if ( this.isInSceneMap() ) console.warn(`Terrain ${this.name} (${this.pixelValue}) is still present in the scene map.`);
-//     if ( this.isUsedInScene() ) console.warn(`Terrain ${this.name} (${this.pixelValue}) is still present in the scene.`);
+    // if ( this.isUsedInScene() ) console.warn(`Terrain ${this.name} (${this.pixelValue}) is still present in the scene.`);
     this.#pixelValue = undefined;
   }
 
@@ -243,8 +242,6 @@ export class Terrain {
 
   /* ----- NOTE: Terrain functionality ----- */
 
-
-
   /**
    * Calculate the elevation min / max for a given anchor elevation.
    * @returns {object} Elevation min and max.
@@ -256,8 +253,6 @@ export class Terrain {
     const e = anchorE + offset;
     return { min: e + rangeBelow, max: e + rangeAbove };
   }
-
-
 
   // ----- NOTE: Token interaction ----- //
 
@@ -416,8 +411,6 @@ export class Terrain {
   toJSON() {
     return this.activeEffect.toJSON();
   }
-
-
 
   /**
    * Export the entire terrains item to JSON.
