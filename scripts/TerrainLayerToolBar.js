@@ -1,6 +1,7 @@
 /* globals
 Application,
 canvas,
+foundry,
 game,
 mergeObject,
 */
@@ -9,7 +10,6 @@ mergeObject,
 
 import { MODULE_ID } from "./const.js";
 import { Terrain } from "./Terrain.js";
-import { TerrainEffectsApp } from "./TerrainEffectsApp.js";
 import { Settings } from "./Settings.js";
 import { isString } from "./util.js";
 
@@ -29,7 +29,7 @@ export class TerrainLayerToolBar extends Application {
       return;
     }
     this.#currentTerrain = terrain;
-    Settings.setByName("CURRENT_TERRAIN", terrain.id); // async
+    Settings.setByName("CURRENT_TERRAIN", terrain.id); // Async
   }
 
   /** @type {number} */
@@ -38,8 +38,8 @@ export class TerrainLayerToolBar extends Application {
   get currentLayer() { return this.#currentLayer ?? (this.#currentLayer = this._loadStoredLayer()); }
 
   set currentLayer(value) {
-    this.#currentLayer = Math.clamped(Math.round(value), 0, 7);
-    Settings.setByName("CURRENT_LAYER", this.#currentLayer); // async
+    this.#currentLayer = Math.clamped(Math.round(value), 0, canvas.terrain.constructor.MAX_LAYERS);
+    Settings.setByName("CURRENT_LAYER", this.#currentLayer); // Async
 
     // Update the layer variable in the shader that displays terrain.
     canvas.terrain._terrainColorsMesh.shader.updateTerrainLayer();
@@ -89,7 +89,7 @@ export class TerrainLayerToolBar extends Application {
   activateListeners(html) {
     super.activateListeners(html);
     $("#terrainmapper-tool-select-terrain", html).on("change", this._onHandleTerrainChange.bind(this));
-    $("#terrainmapper-tool-select-layer", html).on("change", this._onHandleLayerChange.bind(this))
+    $("#terrainmapper-tool-select-layer", html).on("change", this._onHandleLayerChange.bind(this));
   }
 
   getData(options) {
@@ -114,14 +114,15 @@ export class TerrainLayerToolBar extends Application {
       arr.push(obj);
     }
 
-    const sceneLayers = [];
-    for ( let i = 0; i < 8; i += 1 ) {
-      const obj = {
+
+    const nLayers = canvas.terrain.constructor.MAX_LAYERS;
+    const sceneLayers = new Array(nLayers);
+    for ( let i = 0; i < nLayers; i += 1 ) {
+      sceneLayers[i] = {
         key: i,
         label: game.i18n.format(`${MODULE_ID}.phrases.layer-number`, { layerNumber: i }),
         isSelected: i === this.currentLayer
-      }
-      sceneLayers.push(obj);
+      };
     }
 
     return foundry.utils.mergeObject(data, {
