@@ -21,10 +21,20 @@ t2 = canvas.terrain.sceneMap.get(2);
 canvas.terrain._debugDraw();
 canvas.terrain._debugClear();
 
-s = new PIXI.Sprite(canvas.terrain._terrainTexture)
+tex0 = canvas.terrain._terrainTextures[0]
+tex1 = canvas.terrain._terrainTextures[1]
+
+
+s = new PIXI.Sprite(tex0)
 canvas.stage.addChild(s)
 canvas.stage.removeChild(s)
 
+s = new PIXI.Sprite(tex1)
+canvas.stage.addChild(s)
+canvas.stage.removeChild(s)
+
+pt = _token.center
+canvas.terrain.pixelCache.pixelAtCanvas(pt.x, pt.y)
 
 graphicsChildren = canvas.terrain._graphicsContainer.children
 for ( const g of graphicsChildren ) {
@@ -101,7 +111,8 @@ in vec2 vTextureCoord;
 
 out vec4 fragColor;
 
-uniform sampler2D uTerrainSampler; // Terrain Texture
+uniform sampler2D uTerrainSampler0; // Terrain Texture
+uniform sampler2D uTerrainSampler1; // Terrain Texture
 uniform sampler2D uTerrainIcon;
 uniform vec4[${MAX_TERRAINS}] uTerrainColors;
 uniform int uTerrainLayer;
@@ -128,7 +139,10 @@ void main() {
   fragColor = vec4(0.0);
 
   // Terrain is sized to the scene.
-  vec4 terrainPixel = texture(uTerrainSampler, vTextureCoord);
+  vec4 terrainPixel;
+  if ( uTerrainLayer < 3 ) terrainPixel = texture(uTerrainSampler0, vTextureCoord);
+  else terrainPixel = texture(uTerrainSampler1, vTextureCoord);
+
   uint terrainId = decodeTerrainChannels(terrainPixel, uTerrainLayer);
   if ( terrainId == 0u ) return;
 
@@ -149,7 +163,8 @@ void main() {
    * uMaxNormalizedElevation: Maximum elevation, normalized units
    */
   static defaultUniforms = {
-    uTerrainSampler: 0,
+    uTerrainSampler0: 0,
+    uTerrainSampler1: 0,
     // uTerrainColors: new Uint8Array(MAX_TERRAINS * 4).fill(0)
     uTerrainColors: new Array(MAX_TERRAINS * 4).fill(0),
     uTerrainIcon: 0,
@@ -158,7 +173,8 @@ void main() {
 
   static create(defaultUniforms = {}) {
     const tm = canvas.terrain;
-    defaultUniforms.uTerrainSampler = tm._terrainTexture;
+    defaultUniforms.uTerrainSampler0 = tm._terrainTextures[0];
+    defaultUniforms.uTerrainSampler1 = tm._terrainTextures[1];
     const shader = super.create(defaultUniforms);
     shader.updateTerrainColors();
     shader.updateTerrainIcons();
