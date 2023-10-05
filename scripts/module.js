@@ -18,6 +18,9 @@ import { registerGeometry } from "./geometry/registration.js";
 import { TerrainLayerShader } from "./glsl/TerrainLayerShader.js";
 import { WallTracerEdge, WallTracerVertex, WallTracer, SCENE_GRAPH } from "./WallTracer.js";
 
+// import { BlendFilter } from "./pixi-picture/BlendFilter.js";
+// import { applyMixins } from "./pixi-picture/FilterSystemMixin.js";
+
 // Self-executing hooks.
 import "./controls.js";
 

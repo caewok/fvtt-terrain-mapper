@@ -35,7 +35,9 @@ export const FLAGS = {
   RANGE_ABOVE: "rangeAbove",
   USER_VISIBLE: "userVisible",
   COLOR: "color",
-  TERRAIN_MAP: "terrainMap"
+  TERRAIN_MAP: "terrainMap",
+
+  LAYER_ELEVATIONS: "layerElevations", // Stored per scene.
 };
 
 

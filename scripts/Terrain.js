@@ -1,6 +1,6 @@
 /* globals
-ActiveEffect,
 canvas,
+Color,
 CONFIG,
 CONST,
 Dialog,
@@ -42,6 +42,12 @@ export async function removeTerrainEffect(tokenUUID, effectId) {
  * Scenes store a TerrainMap that links each terrain to a pixel value.
  */
 export class Terrain {
+
+  /** @type {number} */
+  static #MAX_TERRAINS = Math.pow(2, 4) - 1;
+
+  static get MAX_TERRAINS() { return this.#MAX_TERRAINS; }
+
   /** @type {number} */
   #pixelValue = 0;
 
@@ -219,7 +225,7 @@ export class Terrain {
    */
   _unassignPixel() {
     if ( this.isInSceneMap() ) console.warn(`Terrain ${this.name} (${this.pixelValue}) is still present in the scene map.`);
-//     if ( this.isUsedInScene() ) console.warn(`Terrain ${this.name} (${this.pixelValue}) is still present in the scene.`);
+    // if ( this.isUsedInScene() ) console.warn(`Terrain ${this.name} (${this.pixelValue}) is still present in the scene.`);
     this.#pixelValue = undefined;
   }
 
@@ -236,14 +242,6 @@ export class Terrain {
 
   /* ----- NOTE: Terrain functionality ----- */
 
-  getAnchorElevation({ terrainElevation = 0, layerElevation = 0 } = {}) {
-    switch ( this.anchor ) {
-      case FLAGS.CHOICES.ABSOLUTE: return 0;
-      case FLAGS.CHOICES.RELATIVE_TO_TERRAIN: return terrainElevation;
-      case FLAGS.CHOICES.RELATIVE_TO_LAYER: return layerElevation;
-    }
-  }
-
   /**
    * Calculate the elevation min / max for a given anchor elevation.
    * @returns {object} Elevation min and max.
@@ -254,21 +252,6 @@ export class Terrain {
     const { offset, rangeBelow, rangeAbove } = this;
     const e = anchorE + offset;
     return { min: e + rangeBelow, max: e + rangeAbove };
-  }
-
-  /**
-   * Determine if the terrain is active at the provided elevation.
-   * @param {number} elevation
-   * @returns {boolean}
-   */
-  activeAt(elevation, { point, terrainElevation, anchorElevation } = {}) {
-    const layerElevation = 0;
-    if ( typeof terrainElevation === "undefined"
-      && point ) terrainElevation = canvas.elevation?.elevationAt(point);
-    terrainElevation ||= 0;
-    anchorElevation ??= this.getAnchorElevation({ terrainElevation, layerElevation });
-    const minMaxE = this._elevationMinMaxForAnchorElevation(anchorElevation);
-    return elevation.between(minMaxE.min, minMaxE.max);
   }
 
   // ----- NOTE: Token interaction ----- //
@@ -428,8 +411,6 @@ export class Terrain {
   toJSON() {
     return this.activeEffect.toJSON();
   }
-
-
 
   /**
    * Export the entire terrains item to JSON.

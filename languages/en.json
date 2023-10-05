@@ -17,17 +17,23 @@
   "terrainmapper.controls.incrementTerrain": "Increment Terrain ID",
   "terrainmapper.controls.currentTerrain": "Current Terrain ID",
 
+  "terrainmapper.controls.currentLayer": "Current layer",
+
   "terrainmapper.terrain-encountered-dialog.title": "Terrain Mapper|Terrain Encountered",
   "terrainmapper.terrain-encountered-dialog.content": "{tokenName} has encountered {terrainName} terrain! <hr> <br>",
   "terrainmapper.terrain-encountered-dialog.continue": "Continue token movement",
   "terrainmapper.terrain-encountered-dialog.cancel": "Cancel token movement",
 
-  "terrainmapper.scene-config.title": "Advanced Terrain Configuration",
-  "terrainmapper.scene-config.header-scene": "Scene Terrain Configuration",
-  "terrainmapper.scene-config.header-all": "All Terrain Configuration",
-  "terrainmapper.scene-config.intro-scene": "Select which terrains are represented in the scene.",
-  "terrainmapper.scene-config.intro-no-scene": "No terrains currently present in the scene.",
-  "terrainmapper.scene-config.intro-all": "Edit all terrains.",
+  "terrainmapper.scene-config.title": "Advanced Scene Configuration",
+  "terrainmapper.scene-config.layer-elevation.header": "Terrain Layer Elevations",
+  "terrainmapper.scene-config.layer-elevation.hint": "Each layer can represent a distinct terrain at each pixel on the scene. To overlap terrains at a given pixel, you must use a different terrain layer for each overlapping terrain. A scene can hold a maximum of eight terrain layers. Each terrain layer can be set to a specific anchor elevation. Set the terrain property 'Anchor' to 'Relative to Layer Elevation' to force the terrain to follow the elevation of its respective layer.",
+
+  "terrainmapper.scene-config.pixels.header": "Terrain Pixel Representation",
+  "terrainmapper.scene-config.pixels.hint-empty": "No terrains currently present in the scene. Please add terrains to the scene first.",
+  "terrainmapper.scene-config.pixels.hint": "Select which terrains are represented in the scene by changing which pixel value is associated with a given terrain. This will change the terrain for every pixel of this value in the scene, on every terrain layer. A scene can hold a maximum of 15 terrains.",
+
+  "terrainmapper.list-config.title": "Terrain List",
+  "terrainmapper.list-config.header": "All Terrains",
 
   "terrainmapper.settings.terrain.anchorOptions.absolute": "Absolute",
   "terrainmapper.settings.terrain.anchorOptions.relativeToTerrain": "Relative to Ground Elevation",
@@ -49,5 +55,6 @@
   "terrainmapper.phrases.terrainLayer": "Terrain Layer",
   "terrainmapper.phrases.terrain": "Terrain",
   "terrainmapper.phrases.no-terrain": "No Terrain",
-  "terrainmapper.phrases.new-terrain": "New Terrain"
+  "terrainmapper.phrases.new-terrain": "New Terrain",
+  "terrainmapper.phrases.layer-number": "Layer {layerNumber}"
 }

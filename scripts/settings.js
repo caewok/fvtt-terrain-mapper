@@ -48,6 +48,7 @@ export class Settings {
     TERRAINS_ITEM: "terrains_item", // Stores terrain effects
     FAVORITES: "favorites", // Array of favorite terrains, by effect id.
     CURRENT_TERRAIN: "current_terrain", // Current terrain id on the terrain layer.
+    CURRENT_LAYER: "current_layer", // Current layer id on the terrain layer.
 
     // Automatically set terrain on tokens.
     AUTO_TERRAIN: {
@@ -153,6 +154,14 @@ export class Settings {
       config: false,
       default: "",
       type: String
+    });
+
+    this.register(KEYS.CURRENT_LAYER, {
+      name: "Current Terrain",
+      scope: "client",
+      config: false,
+      default: 0,
+      type: Number
     });
 
     const AUTO_CHOICES = KEYS.AUTO_TERRAIN.CHOICES;

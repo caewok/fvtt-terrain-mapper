@@ -9,7 +9,7 @@ import { defineFunction } from "./GLSLFunctions.js";
 import { AbstractTerrainShader } from "./AbstractTerrainShader.js";
 import { Terrain } from "../Terrain.js";
 
-const MAX_TERRAINS = 32; // Including 0 as no terrain.
+const MAX_TERRAINS = 16; // Including 0 as no terrain.
 
 /* Testing
 Draw = CONFIG.GeometryLib.Draw
@@ -21,15 +21,27 @@ t2 = canvas.terrain.sceneMap.get(2);
 canvas.terrain._debugDraw();
 canvas.terrain._debugClear();
 
-s = new PIXI.Sprite(canvas.terrain._terrainTexture)
+tex0 = canvas.terrain._terrainTextures[0]
+tex1 = canvas.terrain._terrainTextures[1]
+
+
+s = new PIXI.Sprite(tex0)
 canvas.stage.addChild(s)
 canvas.stage.removeChild(s)
 
-for ( const g of canvas.terrain._graphicsContainer.children ) {
+s = new PIXI.Sprite(tex1)
+canvas.stage.addChild(s)
+canvas.stage.removeChild(s)
+
+pt = _token.center
+canvas.terrain.pixelCache.pixelAtCanvas(pt.x, pt.y)
+
+graphicsChildren = canvas.terrain._graphicsContainer.children
+for ( const g of graphicsChildren ) {
   canvas.stage.addChild(g)
 }
 
-for ( const g of canvas.terrain._graphicsContainer.children ) {
+for ( const g of graphicsChildren ) {
   canvas.stage.removeChild(g)
 }
 
@@ -99,9 +111,11 @@ in vec2 vTextureCoord;
 
 out vec4 fragColor;
 
-uniform sampler2D uTerrainSampler; // Terrain Texture
+uniform sampler2D uTerrainSampler0; // Terrain Texture
+uniform sampler2D uTerrainSampler1; // Terrain Texture
 uniform sampler2D uTerrainIcon;
 uniform vec4[${MAX_TERRAINS}] uTerrainColors;
+uniform int uTerrainLayer;
 // uniform uvec4[${MAX_TERRAINS}] uTerrainColors;
 
 ${defineFunction("decodeTerrainChannels")}
@@ -110,7 +124,7 @@ ${defineFunction("decodeTerrainChannels")}
  * Determine the color for a given terrain value.
  * Currently draws increasing shades of red with a gamma correction to avoid extremely light alpha.
  */
-vec4 colorForTerrain(int terrainId) {
+vec4 colorForTerrain(uint terrainId) {
   // uvec4 uColor = uTerrainColors[terrainId];
   // vec4 color = vec4(uColor) / 255.0;
   vec4 color = uTerrainColors[terrainId];
@@ -122,18 +136,23 @@ vec4 colorForTerrain(int terrainId) {
 }
 
 void main() {
-  // Terrain is sized to the scene.
-  vec4 terrainPixel = texture(uTerrainSampler, vTextureCoord);
-  int terrainId = decodeTerrainChannels(terrainPixel);
   fragColor = vec4(0.0);
-  if ( terrainId == 0 ) return;
+
+  // Terrain is sized to the scene.
+  vec4 terrainPixel;
+  if ( uTerrainLayer < 3 ) terrainPixel = texture(uTerrainSampler0, vTextureCoord);
+  else terrainPixel = texture(uTerrainSampler1, vTextureCoord);
+
+  uint terrainId = decodeTerrainChannels(terrainPixel, uTerrainLayer);
+  if ( terrainId == 0u ) return;
 
   // if ( terrainPixel.r == 0.0 ) fragColor = vec4(0.0);
   // else fragColor = vec4(1.0, 0.0, 0.0, 1.0);
   // ivec2 iconSize = textureSize(uTerrainIcon);
-  vec4 iconColor = texture(uTerrainIcon, vTextureCoord);
+  // vec4 iconColor = texture(uTerrainIcon, vTextureCoord);
   vec4 terrainColor = colorForTerrain(terrainId);
-  fragColor = mix(terrainColor, iconColor, 0.5);
+  // fragColor = mix(terrainColor, iconColor, 0.5);
+  fragColor = terrainColor;
 }`;
 
   /**
@@ -144,18 +163,22 @@ void main() {
    * uMaxNormalizedElevation: Maximum elevation, normalized units
    */
   static defaultUniforms = {
-    uTerrainSampler: 0,
+    uTerrainSampler0: 0,
+    uTerrainSampler1: 0,
     // uTerrainColors: new Uint8Array(MAX_TERRAINS * 4).fill(0)
     uTerrainColors: new Array(MAX_TERRAINS * 4).fill(0),
-    uTerrainIcon: 0
+    uTerrainIcon: 0,
+    uTerrainLayer: 0
   };
 
   static create(defaultUniforms = {}) {
     const tm = canvas.terrain;
-    defaultUniforms.uTerrainSampler = tm._terrainTexture;
+    defaultUniforms.uTerrainSampler0 = tm._terrainTextures[0];
+    defaultUniforms.uTerrainSampler1 = tm._terrainTextures[1];
     const shader = super.create(defaultUniforms);
     shader.updateTerrainColors();
     shader.updateTerrainIcons();
+    shader.updateTerrainLayer();
     return shader;
   }
 
@@ -186,6 +209,13 @@ void main() {
       const rgba = this.constructor.getColorArray(t.color);
       colors.splice(idx, 4, ...rgba);
     });
+  }
+
+  /**
+   * Update the terrain layer currently represented in the scene.
+   */
+  updateTerrainLayer() {
+    this.uniforms.uTerrainLayer = canvas.terrain?.toolbar?.currentLayer ?? 0;
   }
 
   /**

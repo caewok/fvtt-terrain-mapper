@@ -10,9 +10,6 @@
  */
 export class TerrainMap extends Map {
   /** @type {number} */
-  MAX_TERRAINS = Math.pow(2, 5) - 1; // No 0 id.
-
-  /** @type {number} */
   #nextId = 0;
 
   /** @type {Map<string, Terrain>} */
@@ -32,8 +29,6 @@ export class TerrainMap extends Map {
       return;
     }
 
-    if ( id > this.MAX_TERRAINS ) { console.warn(`Id ${id} exceeds maximum terrains (${this.MAX_TERRAINS}).`); }
-
     super.set(id, terrain);
     this.terrainIds.set(terrain.id, terrain);
     this.#nextId = this.#findNextId();
@@ -45,7 +40,6 @@ export class TerrainMap extends Map {
    */
   add(terrain) {
     const id = this.#nextId;
-    if ( id > this.MAX_TERRAINS ) { console.warn(`Id ${id} exceeds maximum terrains (${this.MAX_TERRAINS}).`); }
     super.set(id, terrain);
     this.terrainIds.set(terrain.id, terrain);
     this.#nextId = this.#findNextId();

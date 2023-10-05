@@ -1,6 +1,7 @@
 /* globals
 Application,
 canvas,
+foundry,
 game,
 mergeObject,
 */
@@ -9,7 +10,6 @@ mergeObject,
 
 import { MODULE_ID } from "./const.js";
 import { Terrain } from "./Terrain.js";
-import { TerrainEffectsApp } from "./TerrainEffectsApp.js";
 import { Settings } from "./Settings.js";
 import { isString } from "./util.js";
 
@@ -29,7 +29,30 @@ export class TerrainLayerToolBar extends Application {
       return;
     }
     this.#currentTerrain = terrain;
-    Settings.setByName("CURRENT_TERRAIN", terrain.id); // async
+    Settings.setByName("CURRENT_TERRAIN", terrain.id); // Async
+  }
+
+  /** @type {number} */
+  #currentLayer;
+
+  get currentLayer() { return this.#currentLayer ?? (this.#currentLayer = this._loadStoredLayer()); }
+
+  set currentLayer(value) {
+    this.#currentLayer = Math.clamped(Math.round(value), 0, canvas.terrain.constructor.MAX_LAYERS);
+    Settings.setByName("CURRENT_LAYER", this.#currentLayer); // Async
+
+    // Update the layer variable in the shader that displays terrain.
+    canvas.terrain._terrainColorsMesh.shader.updateTerrainLayer();
+  }
+
+  /**
+   * Check if the last stored layer is present and return it if it is in the scene.
+   * Otherwise, return the first layer (0) in the scene.
+   * @returns {number}
+   */
+  _loadStoredLayer() {
+    const storedId = Settings.getByName("CURRENT_LAYER");
+    return storedId ?? 0;
   }
 
   /**
@@ -65,10 +88,13 @@ export class TerrainLayerToolBar extends Application {
 
   activateListeners(html) {
     super.activateListeners(html);
-    $("#terrainmapper-tool-select", html).on("change", this._onHandleChange.bind(this));
+    $("#terrainmapper-tool-select-terrain", html).on("change", this._onHandleTerrainChange.bind(this));
+    $("#terrainmapper-tool-select-layer", html).on("change", this._onHandleLayerChange.bind(this));
   }
 
-  getData(_options) {
+  getData(options) {
+    const data = super.getData(options);
+
     const sceneMap = canvas.terrain.sceneMap;
     const terrains = Terrain.getAll();
     this._sortTerrains(terrains);
@@ -88,10 +114,22 @@ export class TerrainLayerToolBar extends Application {
       arr.push(obj);
     }
 
-    return {
+
+    const nLayers = canvas.terrain.constructor.MAX_LAYERS;
+    const sceneLayers = new Array(nLayers);
+    for ( let i = 0; i < nLayers; i += 1 ) {
+      sceneLayers[i] = {
+        key: i,
+        label: game.i18n.format(`${MODULE_ID}.phrases.layer-number`, { layerNumber: i }),
+        isSelected: i === this.currentLayer
+      };
+    }
+
+    return foundry.utils.mergeObject(data, {
       sceneTerrains,
-      nonSceneTerrains
-    };
+      nonSceneTerrains,
+      sceneLayers
+    });
   }
 
   _sortTerrains(terrains) {
@@ -107,19 +145,29 @@ export class TerrainLayerToolBar extends Application {
 
   /**
    * Handle when the user manually changes the terrain selection.
-   * @param {Event} event
+   * @param {MouseEvent} event
    */
-  _onHandleChange(event) {
-    console.debug("TerrainLayerToolBar|_onHandleChange");
+  _onHandleTerrainChange(event) {
+    console.debug("TerrainLayerToolBar|_onHandleTerrainChange");
     const terrainId = event.target.value;
     const sceneMap = canvas.terrain.sceneMap;
-    const toolbar = canvas.terrain.toolbar;
 
     // Update the currently selected terrain.
-    if ( sceneMap.terrainIds.has(terrainId) ) toolbar.currentTerrain = sceneMap.terrainIds.get(terrainId);
-    else toolbar.currentTerrain = Terrain.fromEffectId(terrainId);
+    if ( sceneMap.terrainIds.has(terrainId) ) this.currentTerrain = sceneMap.terrainIds.get(terrainId);
+    else this.currentTerrain = Terrain.fromEffectId(terrainId);
     this.render();
   }
+
+  /**
+   * Handle when the user manually changes the terrain selection.
+   * @param {MouseEvent} event
+   */
+  _onHandleLayerChange(event) {
+    console.debug("TerrainLayerToolBar|_onHandleLayerChange");
+    this.currentLayer = Number(event.target.value);
+    this.render();
+  }
+
 
   async _render(...args) {
     await super._render(...args);

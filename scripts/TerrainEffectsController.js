@@ -1,4 +1,5 @@
 /* globals
+canvas,
 CONST,
 Dialog,
 game,
@@ -14,6 +15,7 @@ import { Settings } from "./Settings.js";
 import { Terrain } from "./Terrain.js";
 import { EffectHelper } from "./EffectHelper.js";
 import { TerrainSceneConfig } from "./TerrainSceneConfig.js";
+import { TerrainListConfig } from "./TerrainListConfig.js";
 
 /**
  * Controller class to handle app events and manipulate underlying Foundry data.
@@ -129,6 +131,15 @@ export class TerrainEffectsController {
   async onEditSceneTerrains() {
     console.debug("TerrainEffectsController|onEditSceneTerrains");
     new TerrainSceneConfig().render(true);
+  }
+
+  /**
+   * Handles clicks on the list terrains button.
+   * Displays a mini-configuration that lists all terrains, allows for quick editing.
+   */
+  async onListTerrains() {
+    console.debug("TerrainEffectsController|onListTerrains");
+    new TerrainListConfig().render(true);
   }
 
   /**
