@@ -39,6 +39,8 @@ class FullCanvasContainer extends FullCanvasObjectMixin(PIXI.Container) {
 
 }
 
+const LAYER_COLORS = ["RED", "GREEN", "BLUE"];
+
 export class TerrainLayer extends InteractionLayer {
 
   TerrainColor = TerrainColor;
@@ -49,12 +51,15 @@ export class TerrainLayer extends InteractionLayer {
 
   static get MAX_LAYERS() { return this.#MAX_LAYERS; }
 
-
   // TODO: Can we use the alpha channel, perhaps with a custom blend or filter?
   /** @type {number}*/
   static #MAX_CHANNELS = 3;  // R,G,B. No storage in the alpha channel.
 
   static get MAX_CHANNELS() { return this.#MAX_CHANNELS; }
+
+  static #NUM_TEXTURES = Math.ceil(this.#MAX_LAYERS / 3);
+
+  static get NUM_TEXTURES() { return this.#NUM_TEXTURES; }
 
   /** @type {TerrainMap} */
   sceneMap = new TerrainMap();
@@ -67,9 +72,6 @@ export class TerrainLayer extends InteractionLayer {
 
   /** @type {PIXI.Container} */
   preview = new PIXI.Container();
-
-  /** @type {PixelFrame} */
-  #terrainPixelCache;
 
   /** @type {FillByGridHelper} */
   #controlsHelper;
@@ -91,12 +93,20 @@ export class TerrainLayer extends InteractionLayer {
   _backgroundTerrain = PIXI.Sprite.from(PIXI.Texture.EMPTY);
 
   /**
-   * Map holds current graphics containers representing layers.
-   * Each container holds 3 layers (RGB).
-   * Each key points to a different set of 3.
-   * @type {Map<number, PIXI.Container>}
+   * Holds current PIXI.Graphics objects, one per layer.
+   * Each layer is either red, green, or blue.
+   * @type {PIXI.Graphics[]}
    */
-  _graphicsLayers = new Map();
+  _graphicsLayers = new Array(this.constructor.MAX_LAYERS);
+
+  /**
+   * The terrain layer data is rendered into this texture, which is then used for
+   * calculating terrain at given points.
+   * Every 3 layers (RGB) are combined into one render texture.
+   * @type {PIXI.RenderTexture[]}
+   */
+  _terrainTextures = new Array(this.constructor.NUM_TEXTURES);
+
 
   /**
    * Container to hold terrain names, when toggled on.
@@ -109,13 +119,6 @@ export class TerrainLayer extends InteractionLayer {
    * @type {FILOQueue}
    */
   _shapeQueue = new FILOQueue(1e04); // Maximum size of the stored values.
-
-  /**
-   * The terrain layer data is rendered into this texture, which is then used for
-   * calculating terrain at given points.
-   * @type {PIXI.RenderTexture}
-   */
-  _terrainTexture;
 
   /**
    * PIXI.Mesh used to display the elevation colors when the layer is active.
@@ -227,22 +230,38 @@ export class TerrainLayer extends InteractionLayer {
 
     // Return only terrains that are non-zero.
     const terrainLayers = this._terrainLayersAt(pt);
-    return terrainLayers.filter(t => t.pixelValue);
+    const terrainArr = [];
+    const nLayers = terrainLayers.length;
+    for ( let i = 0; i < nLayers; i += 1 ) {
+      const px = terrainLayers[i];
+      if ( !px ) continue;
+      const terrain = this.terrainForPixel(px);
+      terrainArr.push(new TerrainLevel(terrain, i));
+    }
+    return terrainArr;
   }
 
+  /**
+   * Return an array of terrain pixel values for every layer.
+   * @param {Point} {x, y}
+   * @returns {Uint8Array[MAX_LAYERS]}
+   */
   _terrainLayersAt({x, y}) {
-    if ( !this.#initialized ) return undefined;
-    const pixelValue = this.pixelCache.pixelAtCanvas(x, y);
-    if ( pixelValue === 0 ) return [];
+    // TODO: Combine the two pixel caches into one, using bit math and TerrainColor.
+    // (This should work even if the textures have to be kept separate.)
 
-    // Find the terrain at each layer and return the terrains.
-    const layers = this._layersFromPixel(pixelValue);
-    const ln = layers.length;
-    const terrainLayers = new Array(ln);
-    for ( let i = 0; i < ln; i += 1 ) {
-      const terrainPixel = layers[i];
-      const terrain = this.terrainForPixel(terrainPixel);
-      terrainLayers[i] = new TerrainLevel(terrain, i);
+    if ( !this.#initialized ) return undefined;
+
+    const nLayers = this.constructor.MAX_LAYERS;
+    const terrainLayers = new Uint8Array(nLayers);
+    const cacheArr = this.pixelCacheArray;
+    const nCaches = cacheArr.length;
+
+    for ( let i = 0; i < nCaches; i += 1 ) {
+      const cache = cacheArr[i];
+      const pixelValue = cache.pixelAtCanvas(x, y);
+      const layers = this._layersFromPixel(pixelValue);
+      terrainLayers.set(layers.slice(0, 3), i * 3);
     }
     return terrainLayers;
   }
@@ -250,13 +269,16 @@ export class TerrainLayer extends InteractionLayer {
   /**
    * Get the terrain given the current level.
    * @param {Point} {x, y}
-   * @returns {Terrain|undefined} Terrain, or undefined if no terrain at this level.
+   * @returns {TerrainLevel|undefined} Terrain, or undefined if no terrain at this level.
    */
   #terrainAt(pt) {
     const layers = this._terrainLayersAt(pt);
     const currLayer = this.toolbar.currentLayer;
-    const terrain = layers[currLayer];
-    return terrain?.pixelValue ? terrain : undefined; // Don't return the null terrain.
+    const pixelValue = layers[currLayer];
+    if ( !pixelValue ) return undefined; // Don't return the null terrain.
+
+    const terrain = this.terrainForPixel(pixelValue);
+    return new TerrainLevel(terrain, currLayer);
   }
 
   /**
@@ -335,11 +357,23 @@ export class TerrainLayer extends InteractionLayer {
     //       for the foreground.
     // this._graphicsContainer.addChild(this._backgroundTerrain);
 
+    // Create the graphics layers.
+    const nLayers = this.constructor.MAX_LAYERS;
+    for ( let i = 0; i < nLayers; i += 1 ) {
+      const colorName = LAYER_COLORS[i % 3];
+      const g = this._graphicsLayers[i] = new PIXI.Container();
+      g.mask = new PIXI.MaskData();
+      g.mask.colorMask = PIXI.COLOR_MASK_BITS[colorName] | PIXI.COLOR_MASK_BITS.ALPHA;
+      // TODO: Do we need temp graphics?
+      // g._tempGraphics = g.addChild(new PIXI.Container()); // For temporary rendering during drag operations.
+    }
 
-    // Add the render texture for displaying terrain information to the GM
-    // Set the clear color of the render texture to black. The texture needs to be opaque.
-    this._terrainTexture = PIXI.RenderTexture.create(this._textureManager.textureConfiguration);
-    this._terrainTexture.baseTexture.clearColor = [0, 0, 0, 1];
+    // Construct the render textures that are used for the layers.
+    const nTextures = Math.ceil(nLayers / 3);
+    for ( let i = 0; i < nTextures; i += 1 ) {
+      const tex = this._terrainTextures[i] = PIXI.RenderTexture.create(this._textureManager.textureConfiguration);
+      tex.baseTexture.clearColor = [0, 0, 0, 0];
+    }
 
     // TODO: load the shape queue from stored data.
 
@@ -430,16 +464,15 @@ export class TerrainLayer extends InteractionLayer {
   #destroy() {
     this._shapeQueue.elements.length = 0;
 
-    this._clearTerrainPixelCache();
+    this._clearPixelCacheArray();
     this._backgroundTerrain.destroy();
     this._backgroundTerrain = PIXI.Sprite.from(PIXI.Texture.EMPTY);
     this._terrainColorsMesh?.destroy();
 
-    for ( const layer of this._graphicsLayers ) { layer.destroy({ children: true }); }
-    this._graphicsLayers.clear();
-
-    // this._graphicsContainer.destroy({children: true});
-    // this._graphicsContainer = new PIXI.Container();
+    for ( const layer of this._graphicsLayers ) {
+      if ( !layer ) continue; // Layer array could be empty if not yet initialized.
+      layer.destroy({ children: true });
+    }
 
     this._terrainLabelsContainer.destroy({children: true});
     this._terrainLabelsContainer = new PIXI.Graphics();
@@ -447,12 +480,7 @@ export class TerrainLayer extends InteractionLayer {
     this._terrainTexture?.destroy();
   }
 
-  /**
-   * Clear the pixel cache
-   */
-  _clearTerrainPixelCache() {
-    this.#terrainPixelCache = undefined;
-  }
+
 
   /**
    * Save data related to this scene.
@@ -472,8 +500,8 @@ export class TerrainLayer extends InteractionLayer {
     sceneMap.clear();
 
     // Determine what terrain pixel values are in the scene.
-    const pixelValuesInScene = new Set(this.pixelCache.pixels);
-    this._shapeQueue.elements.forEach(e => pixelValuesInScene.add(e.pixelValue));
+//     const pixelValuesInScene = new Set(this.pixelCache.pixels);
+//     this._shapeQueue.elements.forEach(e => pixelValuesInScene.add(e.pixelValue));
 
     // Set the 0 pixel value just in case the entire scene is set to another pixel value.
     const nullTerrain = new Terrain();
@@ -482,23 +510,23 @@ export class TerrainLayer extends InteractionLayer {
 
     // Set the terrain ids for each value based on stored data for the scene.
     // Only set ids if the pixel value is present in the scene terrain.
-    const mapData = canvas.scene.getFlag(MODULE_ID, FLAGS.TERRAIN_MAP) ?? [];
-    mapData.forEach(([key, effectId]) => {
-      if ( !pixelValuesInScene.has(key) ) return;
-      const terrain = Terrain.fromEffectId(effectId, false);
-      sceneMap.set(key, terrain, true);
-    });
+//     const mapData = canvas.scene.getFlag(MODULE_ID, FLAGS.TERRAIN_MAP) ?? [];
+//     mapData.forEach(([key, effectId]) => {
+//       if ( !pixelValuesInScene.has(key) ) return;
+//       const terrain = Terrain.fromEffectId(effectId, false);
+//       sceneMap.set(key, terrain, true);
+//     });
 
     // Add any missing values as new terrain.
     // TODO: Should this be null terrain?
-    for ( const pixelValue in pixelValuesInScene ) {
-      if ( sceneMap.has(pixelValue) ) continue;
-      const newTerrain = new Terrain();
-      await newTerrain.initialize();
-      newTerrain.name = game.i18n.localize(`${MODULE_ID}.phrases.new-terrain`);
-      this.sceneMap.set(pixelValue, newTerrain);
-      newTerrain.addToScene();
-    }
+//     for ( const pixelValue in pixelValuesInScene ) {
+//       if ( sceneMap.has(pixelValue) ) continue;
+//       const newTerrain = new Terrain();
+//       await newTerrain.initialize();
+//       newTerrain.name = game.i18n.localize(`${MODULE_ID}.phrases.new-terrain`);
+//       this.sceneMap.set(pixelValue, newTerrain);
+//       newTerrain.addToScene();
+//     }
   }
 
   async saveSceneMap() {
@@ -612,25 +640,42 @@ export class TerrainLayer extends InteractionLayer {
     console.debug("I should be importing terrain data for the scene...");
   }
 
-  /* ----- NOTE: Pixel data ----- */
+  /* ----- NOTE: Pixel Cache ----- */
 
-  /** @type {PixelFrame} */
-  #pixelCache;
+  /** @type {PixelFrame[]|undefined} */
+  #pixelCacheArray = new Array(this.constructor.NUM_TEXTURES);
 
-  get pixelCache() {
-    return this.#pixelCache ?? (this.#pixelCache = this.#refreshPixelCache());
+  /** @type {boolean} */
+  #pixelCacheDirty = false;
+
+  /** @type {PixelCache[]} */
+  get pixelCacheArray() {
+    if ( this.#pixelCacheDirty ) this.#refreshPixelCacheArray();
+    return this.#pixelCacheArray;
   }
+
+  /**
+   * Clear the pixel cache
+   */
+  _clearPixelCacheArray() { this.#pixelCacheDirty = true; }
 
   /**
    * Refresh the pixel array cache from the elevation texture.
    */
-  #refreshPixelCache() {
+  #refreshPixelCacheArray() {
+    const nTextures = this.constructor.NUM_TEXTURES;
     const { sceneX: x, sceneY: y } = canvas.dimensions;
     const combineFn = this._decodeTerrainChannels.bind(this);
-    return PixelCache.fromTexture(
-      this._terrainTexture,
-      { x, y, arrayClass: Uint32Array, combineFn });
+
+    // TODO: Keep the existing PixelCaches and just reset the pixel values.
+    for ( let i = 0; i < nTextures; i += 1 ) {
+      this.#pixelCacheArray[i] = PixelCache.fromTexture(this._terrainTextures[i],
+        { x, y, arrayClass: Uint32Array, combineFn });
+    }
+    this.#pixelCacheDirty = false;
   }
+
+  /* ----- NOTE: Pixel data ----- */
 
   /**
    * Is this pixel id actually present in the scene?
@@ -711,21 +756,20 @@ export class TerrainLayer extends InteractionLayer {
     const dims = canvas.dimensions;
     const transform = new PIXI.Matrix(1, 0, 0, 1, -dims.sceneX, -dims.sceneY);
 
-    // Render each of the layers additively.
-    // (The colors are set to allow for additive blending.)
+    // Render each of the 3 color layers, using a separate render texture for each set of 3.
+    // TODO: Can we instead render additively such that the first 4 and second 4 bits are placed together?
     let clear = true;
-    const oldMode = canvas.app.renderer.state.blendMode;
-    canvas.app.renderer.state.blendMode = PIXI.BLEND_MODES.ADD;
-    for ( const layer of this._graphicsLayers.values() ) {
-      canvas.app.renderer.render(layer, { renderTexture: this._terrainTexture, transform, clear });
+    const nLayers = this._graphicsLayers.length;
+    for ( let i = 0; i < nLayers; i += 1 ) {
+      const texIdx = Math.floor(i / 3);
+      const renderTexture = this._terrainTextures[texIdx];
+      const layer = this._graphicsLayers[i];
+      canvas.app.renderer.render(layer, { renderTexture, transform, clear });
       clear = false;
     }
-    canvas.app.renderer.state.blendMode = oldMode;
-
-    // canvas.app.renderer.render(this._graphicsContainer, { renderTexture: this._terrainTexture, transform });
 
     // Destroy the cache
-    this._clearPixelCache();
+    this._clearPixelCacheArray();
   }
 
   /**
@@ -796,11 +840,6 @@ export class TerrainLayer extends InteractionLayer {
     this._wallDataContainer.addChild(text);
   }
 
-  /**
-   * Clear the pixel cache
-   */
-  _clearPixelCache() { this.#pixelCache = undefined; }
-
   /* ----- Update grid terrain ----- */
 
   /**
@@ -849,36 +888,8 @@ export class TerrainLayer extends InteractionLayer {
    * @param {PIXI.Graphics} graphics    The graphics object to remove.
    */
   _removeTerrainShape(shape, graphics) {
-    const layer = shape.layer;
-    const mapKey = Math.floor(layer / 3);
-    const layerContainer = this._graphicsLayers.get(mapKey) ?? this._addLayerGraphics(mapKey);
+    const layerContainer = this._graphicsLayers[shape.layer];
     layerContainer.removeChild(graphics);
-  }
-
-  /**
-   * Add a new container to the layer map.
-   * @param {number} mapKey   Key for the layer. Equals Math.floor(layer / 3).
-   * @returns {PIXI.Container}  The newly added container.
-   */
-  _addLayerGraphics(mapKey) {
-    const c = new PIXI.Container();
-    this._graphicsLayers.set(mapKey, c);
-    return c;
-  }
-
-  /**
-   * Calculate the key for the graphics map based on the layer.
-   * Each layer represents a single color channel. (For now.)
-   * TODO: Find a way to combine so R, G, or B shapes can be added to a single container.
-   * @param {number} layerId      The numeric id (0–MAX_LAYERS) of the layer.
-   * @returns {number} The numeric map key.
-   */
-  _layerMapKey(layer) {
-    layer = Math.clamped(Math.round(layer), 0, this.constructor.MAX_LAYERS);
-    const nChannels = this.constructor.MAX_CHANNELS;
-    const channel = layer % nChannels; // R, G, or B
-    const bit4 = Math.floor(layer / nChannels); // Layer 0–2: first 4 bits; Layer 3–5: second 4 bits.
-    return (bit4 * nChannels) + channel;
   }
 
   /**
@@ -892,12 +903,14 @@ export class TerrainLayer extends InteractionLayer {
    */
   _drawTerrainShape(shape, terrain) {
     const layer = shape.layer;
-    const mapKey = this._layerMapKey(layer);
-    const layerContainer = this._graphicsLayers.get(mapKey) ?? this._addLayerGraphics(mapKey);
+    const layerContainer = this._graphicsLayers[layer];
+    const channel = layer % 3;
+    const colorArr = new Array(3).fill(0);
+    colorArr[channel] = terrain.pixelValue / 255;
+    const color = new PIXI.Color(colorArr);
 
     // Draw the shape into the layer container.
     const graphics = layerContainer.addChild(new PIXI.Graphics());
-    const color = this._terrainPixelColor(terrain, layer);
     const draw = new Draw(graphics);
 
     // Set width = 0 to avoid drawing a border line. The border line will use antialiasing
@@ -1012,13 +1025,14 @@ export class TerrainLayer extends InteractionLayer {
   async clearData() {
     this._shapeQueue.elements.length = 0;
 
-    this._clearTerrainPixelCache();
+    this.__clearPixelCacheArray();
     this._backgroundTerrain.destroy();
     this._backgroundTerrain = PIXI.Sprite.from(PIXI.Texture.EMPTY);
 
     for ( const layer of this._graphicsLayers ) { layer.destroy({ children: true }); }
     this._graphicsLayers.clear();
 
+    // TODO: Is this necessary? Probably.
     // this._graphicsContainer.destroy({children: true});
     // this._graphicsContainer = new PIXI.Container();
 
