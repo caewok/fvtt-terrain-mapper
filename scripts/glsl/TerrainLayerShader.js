@@ -8,6 +8,7 @@ PIXI
 import { defineFunction } from "./GLSLFunctions.js";
 import { AbstractTerrainShader } from "./AbstractTerrainShader.js";
 import { Terrain } from "../Terrain.js";
+import { Settings } from "../settings.js";
 
 const MAX_TERRAINS = 16; // Including 0 as no terrain.
 
@@ -215,7 +216,7 @@ void main() {
    * Update the terrain layer currently represented in the scene.
    */
   updateTerrainLayer() {
-    this.uniforms.uTerrainLayer = canvas.terrain?.toolbar?.currentLayer ?? 0;
+    this.uniforms.uTerrainLayer = canvas.terrain?.toolbar?.currentLayer ?? Settings.getByName("CURRENT_LAYER") ?? 0;
   }
 
   /**
