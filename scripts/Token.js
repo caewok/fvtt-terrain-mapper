@@ -31,7 +31,7 @@ const AUTO = SETTINGS.AUTO_TERRAIN;
 function preUpdateTokenHook(tokenD, changes, _options, _userId) {
   const autoT = Settings.get(AUTO.ALGORITHM);
   if ( autoT === AUTO.CHOICES.NO ) return;
-  if ( autoT === AUTO.CHOICES.COMBAT && !game.combat.isActive ) return;
+  if ( autoT === AUTO.CHOICES.COMBAT && !game.combat?.isActive ) return;
 
   const changeKeys = new Set(Object.keys(flattenObject(changes)));
   const token = tokenD.object;
@@ -59,7 +59,7 @@ function refreshTokenHook(token, flags) {
   token[MODULE_ID] ??= {};
   const autoT = Settings.get(AUTO.ALGORITHM);
   if ( autoT === AUTO.CHOICES.NO ) return;
-  if ( autoT === AUTO.CHOICES.COMBAT && !game.combat.isActive ) return;
+  if ( autoT === AUTO.CHOICES.COMBAT && !game.combat?.isActive ) return;
   if ( !(flags.refreshPosition || flags.refreshElevation) ) return;
 
   if ( token._original ) {

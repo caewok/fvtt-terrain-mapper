@@ -841,7 +841,7 @@ Hooks.on("deleteWall", function(document, _options, _userId) {
 });
 
 Hooks.on("canvasReady", async function() {
-  console.debug("canvasReady");
+  console.debug("WallTracer|canvasReady");
 
   const t0 = performance.now();
 
@@ -856,5 +856,5 @@ Hooks.on("canvasReady", async function() {
   const t1 = performance.now();
   SCENE_GRAPH.updateCyclePolygons();
   const t2 = performance.now();
-  console.debug(`Tracked ${walls.length} walls in ${t1 - t0} ms. Updated polygons in ${t2 - t1} ms. Total ${t2 - t0} ms`);
+  console.debug(`WallTracer|Tracked ${walls.length} walls in ${t1 - t0} ms. Updated polygons in ${t2 - t1} ms. Total ${t2 - t0} ms`);
 });
