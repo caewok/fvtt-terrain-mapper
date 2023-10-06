@@ -31,8 +31,8 @@ import { FillPolygonHelper } from "./FillPolygonHelper.js";
 import { TravelTerrainRay } from "./TravelTerrainRay.js";
 import { TerrainEffectsApp } from "./TerrainEffectsApp.js";
 import { TerrainMap } from "./TerrainMap.js";
-import { TerrainColor } from "./TerrainColor.js";
 import { TerrainLevel } from "./TerrainLevel.js";
+import { TerrainPixelCache, TerrainLayerPixelCache } from "./TerrainPixelCache.js";
 
 // TODO: What should replace this now that FullCanvasContainer is deprecated in v11?
 class FullCanvasContainer extends FullCanvasObjectMixin(PIXI.Container) {
@@ -42,8 +42,6 @@ class FullCanvasContainer extends FullCanvasObjectMixin(PIXI.Container) {
 const LAYER_COLORS = ["RED", "GREEN", "BLUE"];
 
 export class TerrainLayer extends InteractionLayer {
-
-  TerrainColor = TerrainColor;
 
   // TODO: If we can use the alpha channel, can this increase to 8?
   /** @type {number} */
@@ -77,7 +75,7 @@ export class TerrainLayer extends InteractionLayer {
   #controlsHelper;
 
   /** @type {number} */
-  static MAX_TERRAIN_ID = Math.pow(2, 5) - 1;
+  static MAX_TERRAIN_ID = Math.pow(2, 5) - 1; // 31
 
   /**
    * Container to hold objects to display wall information on the canvas
@@ -247,23 +245,8 @@ export class TerrainLayer extends InteractionLayer {
    * @returns {Uint8Array[MAX_LAYERS]}
    */
   _terrainLayersAt({x, y}) {
-    // TODO: Combine the two pixel caches into one, using bit math and TerrainColor.
-    // (This should work even if the textures have to be kept separate.)
-
     if ( !this.#initialized ) return undefined;
-
-    const nLayers = this.constructor.MAX_LAYERS;
-    const terrainLayers = new Uint8Array(nLayers);
-    const cacheArr = this.pixelCacheArray;
-    const nCaches = cacheArr.length;
-
-    for ( let i = 0; i < nCaches; i += 1 ) {
-      const cache = cacheArr[i];
-      const pixelValue = cache.pixelAtCanvas(x, y);
-      const layers = this._layersFromPixel(pixelValue);
-      terrainLayers.set(layers.slice(0, 3), i * 3);
-    }
-    return terrainLayers;
+    return this.pixelCache.terrainLayersAt(x, y);
   }
 
   /**
@@ -296,17 +279,6 @@ export class TerrainLayer extends InteractionLayer {
   terrainForId(terrainId) { return this.sceneMap.terrainIds.get(terrainId); }
 
   /**
-   * Get the color that represents the terrain and layer.
-   * @param {Terrain}   terrain
-   * @param {number}    layer
-   * @return {TerrainColor}
-   */
-  _terrainPixelColor(terrain, layer) {
-    layer ??= this.toolbar.currentLayer;
-    return TerrainColor.fromTerrainValue(terrain.pixelValue, layer);
-  }
-
-  /**
    * Force the terrain id to be between 0 and the maximum value.
    * @param {number} id
    * @returns {number}
@@ -315,23 +287,6 @@ export class TerrainLayer extends InteractionLayer {
     id ??= 0;
     return Math.clamped(Math.round(id), 0, this.constructor.MAX_TERRAIN_ID);
   }
-
-  /**
-   * Given red 8-bit channels of a color, return an integer value representing terrain and layer.
-   * Used by the pixel cache.
-   * @param {number} r    Red channel value, between 0 and 255
-   * @param {number} g    Green channel value, between 0 and 255
-   * @param {number} b    Blue channel value, between 0 and 255
-   * @returns {number} Integer between 0 and 2^32.
-   */
-  _decodeTerrainChannels(r, g, b) { return TerrainColor.fromRGBIntegers(r, g, b); }
-
-  /**
-   * From a pixel integer, get the layers array.
-   * @param {number} pixel    Pixel value (likely from the pixel cache), between 0 and 2^32
-   * @returns {Uint8Array[MAX_LAYERS]} layers
-   */
-  _layersFromPixel(pixel) { return (new TerrainColor(pixel)).toTerrainLayers(); }
 
   // ----- NOTE: Initialize, activate, deactivate, destroy ----- //
 
@@ -374,6 +329,9 @@ export class TerrainLayer extends InteractionLayer {
       const tex = this._terrainTextures[i] = PIXI.RenderTexture.create(this._textureManager.textureConfiguration);
       tex.baseTexture.clearColor = [0, 0, 0, 0];
     }
+
+    // Initialize the pixel cache objects for the render textures.
+    this.#initializePixelCache();
 
     // TODO: load the shape queue from stored data.
 
@@ -479,8 +437,6 @@ export class TerrainLayer extends InteractionLayer {
 
     this._terrainTexture?.destroy();
   }
-
-
 
   /**
    * Save data related to this scene.
@@ -642,37 +598,75 @@ export class TerrainLayer extends InteractionLayer {
 
   /* ----- NOTE: Pixel Cache ----- */
 
-  /** @type {PixelFrame[]|undefined} */
+  /** @type {TerrainLayerPixelCache[]} */
   #pixelCacheArray = new Array(this.constructor.NUM_TEXTURES);
 
-  /** @type {boolean} */
-  #pixelCacheDirty = false;
+  /** @type {TerrainPixelCache|undefined} */
+  #pixelCache;
+
+  /** @type {boolean[]} */
+  #pixelCacheDirty = (new Uint8Array(this.constructor.NUM_TEXTURES)).fill(1);
+
+  get pixelCacheDirty() { return this.#pixelCacheDirty[0] || this.#pixelCacheDirty[1]; }
 
   /** @type {PixelCache[]} */
-  get pixelCacheArray() {
-    if ( this.#pixelCacheDirty ) this.#refreshPixelCacheArray();
-    return this.#pixelCacheArray;
+  get pixelCache() {
+    if ( this.pixelCacheDirty ) this.#refreshPixelCache();
+    return this.#pixelCache;
+  }
+
+  /**
+   * Initialize the pixel cache, so that future updates can rely on the fact that the
+   * cache objects exist.
+   * See #refreshPixelCache and #refreshPixelCacheArray
+   */
+  #initializePixelCache() {
+    const nTex = this.constructor.NUM_TEXTURES;
+    for ( let i = 0; i < nTex; i += 1 ) {
+      const tex = this._terrainTextures[i];
+      this.#pixelCacheArray[i] = TerrainLayerPixelCache.fromTexture(tex);
+    }
+
+    const cache0 = this.#pixelCacheArray[0];
+    const cache1 = this.#pixelCacheArray[1];
+    this.#pixelCache = TerrainPixelCache.fromTerrainLayerCaches(this.#pixelCacheArray[0], this.#pixelCacheArray[1]);
   }
 
   /**
    * Clear the pixel cache
+   * @param {number} [layer=-1]   Layer that requires clearing.
    */
-  _clearPixelCacheArray() { this.#pixelCacheDirty = true; }
+  _clearPixelCacheArray(layer = -1) {
+    if ( ~layer ) this.#pixelCacheDirty.fill(1);
+    else {
+      const idx = Math.floor(layer / 3);
+      this.#pixelCacheDirty[idx] = 1;
+    }
+  }
+
+  /**
+   * Refresh the pixel cache and the underlying array of caches for specific RGB representations.
+   * Keeps the underlying cache array, trading memory for speed by only redoing the specific
+   * three layers that have changed.
+   */
+  #refreshPixelCache() {
+    if ( this.#pixelCacheDirty[0] ) this.#refreshPixelCacheArray(0);
+    if ( this.#pixelCacheDirty[1] ) this.#refreshPixelCacheArray(1);
+
+    // Update the primary terrain cache, which represents all 6 layers.
+    const cache0 = this.#pixelCacheArray[0];
+    const cache1 = this.#pixelCacheArray[1];
+    this.#pixelCache.updateFromTerrainLayerCaches(cache0, cache1);
+  }
 
   /**
    * Refresh the pixel array cache from the elevation texture.
+   * @param {number} i    The index of the cache array to refresh.
    */
-  #refreshPixelCacheArray() {
-    const nTextures = this.constructor.NUM_TEXTURES;
-    const { sceneX: x, sceneY: y } = canvas.dimensions;
-    const combineFn = this._decodeTerrainChannels.bind(this);
-
-    // TODO: Keep the existing PixelCaches and just reset the pixel values.
-    for ( let i = 0; i < nTextures; i += 1 ) {
-      this.#pixelCacheArray[i] = PixelCache.fromTexture(this._terrainTextures[i],
-        { x, y, arrayClass: Uint32Array, combineFn });
-    }
-    this.#pixelCacheDirty = false;
+  #refreshPixelCacheArray(i) {
+    const tex = this._terrainTextures[i];
+    this.#pixelCacheArray[i].updateFromTexture(tex);
+    this.#pixelCacheDirty[i] = 0;
   }
 
   /* ----- NOTE: Pixel data ----- */
@@ -751,8 +745,10 @@ export class TerrainLayer extends InteractionLayer {
 
   /**
    * (Re)render the graphics stored in the container.
+   * @param {number} [layer=-1]   Layer that requires rendering.
+   *   Used to render only one of the textures.
    */
-  renderTerrain() {
+  renderTerrain(layer = -1) {
     const dims = canvas.dimensions;
     const transform = new PIXI.Matrix(1, 0, 0, 1, -dims.sceneX, -dims.sceneY);
 
@@ -760,16 +756,18 @@ export class TerrainLayer extends InteractionLayer {
     // TODO: Can we instead render additively such that the first 4 and second 4 bits are placed together?
     let clear = true;
     const nLayers = this._graphicsLayers.length;
+    const texToRender = Math.floor(layer / 3);
     for ( let i = 0; i < nLayers; i += 1 ) {
       const texIdx = Math.floor(i / 3);
+      if ( ~layer && texIdx !== texToRender ) continue; // Only render to the texture for the chosen layer.
       const renderTexture = this._terrainTextures[texIdx];
-      const layer = this._graphicsLayers[i];
-      canvas.app.renderer.render(layer, { renderTexture, transform, clear });
+      const layerContainer = this._graphicsLayers[i];
+      canvas.app.renderer.render(layerContainer, { renderTexture, transform, clear });
       clear = false;
     }
 
     // Destroy the cache
-    this._clearPixelCacheArray();
+    this._clearPixelCacheArray(layer);
   }
 
   /**
@@ -916,7 +914,7 @@ export class TerrainLayer extends InteractionLayer {
     // Set width = 0 to avoid drawing a border line. The border line will use antialiasing
     // and that causes a lighter-color border to appear outside the shape.
     draw.shape(shape, { width: 0, fill: color});
-    this.renderTerrain();
+    this.renderTerrain(layer);
     return graphics;
   }
 
@@ -1016,7 +1014,7 @@ export class TerrainLayer extends InteractionLayer {
     this._graphicsContainer.removeChild(res.graphics);
     res.graphics.destroy();
     this._requiresSave = true;
-    this.renderTerrain();
+    this.renderTerrain(res.shape.layer);
   }
 
   /**

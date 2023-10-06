@@ -281,6 +281,45 @@ export class PixelCache extends PIXI.Rectangle {
     this.localFrame.height = this.#localHeight;
   }
 
+
+  /**
+   * Refresh this pixel cache from a texture.
+   * Just like PixelCache.texture except that it overwrites this texture.
+   * Does not overwrite other texture parameters.
+   * @param {PIXI.Texture} texture      Texture from which to pull pixel data
+   * @param {object} [options]          Options affecting which pixel data is used
+   * @param {PIXI.Rectangle} [options.frame]    Optional rectangle to trim the extraction
+   * @param {number} [options.resolution=1]     At what resolution to pull the pixels
+   * @param {number} [options.x=0]              Move the texture in the x direction by this value
+   * @param {number} [options.y=0]              Move the texture in the y direction by this value
+   * @param {number} [options.channel=0]        Which RGBA channel, where R = 0, A = 3.
+   * @param {function} [options.scalingMethod=PixelCache.nearestNeighborScaling]
+   * @param {function} [options.combineFn]      Function to combine multiple channels of pixel data.
+   *   Will be passed the r, g, b, and a channels.
+   * @param {TypedArray} [options.arr]
+   * @returns {PixelCache}
+   */
+  updateFromTexture(texture, opts = {}) {
+    const { pixels, width, height } = extractPixels(canvas.app.renderer, texture, opts.frame);
+    const combinedPixels = opts.combineFn
+      ? this.constructor.combinePixels(pixels, opts.combineFn, opts.arrayClass) : pixels;
+
+    opts.x ??= 0;
+    opts.y ??= 0;
+    opts.resolution ??= 1;
+    opts.channel ??= 0;
+    opts.scalingMethod ??= this.constructor.nearestNeighborScaling;
+    opts.scalingMethod(combinedPixels, width, height, opts.resolution, {
+      channel: opts.channel,
+      skip: opts.combineFn ? 1 : 4,
+      arr: this.pixels });
+
+    // Clear cached parameters.
+    this.clearTransforms();
+    this._clearLocalThresholdBoundingBoxes();
+    return this;
+  }
+
   /**
    * Test whether the pixel cache contains a specific canvas point.
    * See Tile.prototype.containsPixel
@@ -932,7 +971,7 @@ export class PixelCache extends PIXI.Rectangle {
    * @param {number} [threshold]    Optional pixel value used by "count" methods
    * @returns {function}
    */
-  static pixelAggregator(type, threshold = -1, finalize) {
+  static pixelAggregator(type, threshold = -1) {
     let reducerFn;
     let startValue;
     switch ( type ) {
@@ -1463,7 +1502,7 @@ export class PixelCache extends PIXI.Rectangle {
    * @param {number[]} pixels       Array of pixels to consolidate. Assumed 4 channels.
    * @param {function} combineFn    Function to combine multiple channels of pixel data.
    *   Will be passed the r, g, b, and a channels.
-   * @param {TypedArray} [options.arrayClass]        What array class to use to store the resulting pixel values
+   * @param {class TypedArray} [options.arrayClass]        What array class to use to store the resulting pixel values
    */
   static combinePixels(pixels, combineFn, arrayClass = Float32Array) {
     const numPixels = pixels.length;
@@ -1493,7 +1532,7 @@ export class PixelCache extends PIXI.Rectangle {
    * @param {TypedArray}   [options.arrayClass=Uint8Array]  What array class to use to store the resulting pixel values
    * @returns {number[]}
    */
-  static nearestNeighborScaling(pixels, width, height, resolution, { channel, skip, arrayClass } = {}) {
+  static nearestNeighborScaling(pixels, width, height, resolution, { channel, skip, arrayClass, arr } = {}) {
     channel ??= 0;
     skip ??= 4;
     arrayClass ??= Uint8Array;
@@ -1502,7 +1541,12 @@ export class PixelCache extends PIXI.Rectangle {
     const localWidth = Math.round(width * resolution);
     const localHeight = Math.round(height * resolution);
     const N = localWidth * localHeight;
-    const arr = new arrayClass(N);
+
+    if ( arr && arr.length !== N ) {
+      console.error(`PixelCache.nearestNeighborScaling|Array provided must be length ${N}`);
+      arr = undefined;
+    }
+    arr ??= new arrayClass(N);
 
     for ( let col = 0; col < localWidth; col += 1 ) {
       for ( let row = 0; row < localHeight; row += 1 ) {
@@ -1533,7 +1577,7 @@ export class PixelCache extends PIXI.Rectangle {
    * @param {TypedArray}   [options.arrayClass=Uint8Array]  What array class to use to store the resulting pixel values
    * @returns {number[]}
    */
-  static boxDownscaling(pixels, width, height, resolution, { channel, skip, arrayClass } = {}) {
+  static boxDownscaling(pixels, width, height, resolution, { channel, skip, arrayClass, arr } = {}) {
     channel ??= 0;
     skip ??= 4;
     arrayClass ??= Uint8Array;
@@ -1542,7 +1586,11 @@ export class PixelCache extends PIXI.Rectangle {
     const localWidth = Math.round(width * resolution);
     const localHeight = Math.round(height * resolution);
     const N = localWidth * localHeight;
-    const arr = new arrayClass(N);
+    if ( arr && arr.length !== N ) {
+      console.error(`PixelCache.nearestNeighborScaling|Array provided must be length ${N}`);
+      arr = undefined;
+    }
+    arr ??= new arrayClass(N);
 
     const boxWidth = Math.ceil(invResolution);
     const boxHeight = Math.ceil(invResolution);
@@ -1859,3 +1907,97 @@ export class TilePixelCache extends PixelCache {
     }
   }
 }
+
+// ----- Marker class ----- //
+
+/**
+ * Store a point, a t value, and the underlying coordinate system
+ */
+export class Marker {
+  /** @type {PIXI.Point} */
+  #point;
+
+  /** @type {number} */
+  t = -1;
+
+  /** @type {object} */
+  range = {
+    start: new PIXI.Point(),  /** @type {PIXI.Point} */
+    end: new PIXI.Point()       /** @type {PIXI.Point} */
+  };
+
+  /** @type {object} */
+  options = {};
+
+  /** @type {Marker} */
+  next;
+
+  constructor(t, start, end, opts = {}) {
+    this.t = t;
+    this.options = opts;
+    this.range.start.copyFrom(start);
+    this.range.end.copyFrom(end);
+  }
+
+  /** @type {PIXI.Point} */
+  get point() { return this.#point ?? (this.#point = this.pointAtT(this.t)); }
+
+  /**
+   * Given a t position, project the location given this marker's range.
+   * @param {number} t
+   * @returns {PIXI.Point}
+   */
+  pointAtT(t) { return this.range.start.projectToward(this.range.end, t); }
+
+  /**
+   * Build a new marker and link it as the next marker to this one.
+   * If this marker has a next marker, insert in-between.
+   * Will insert at later spot as necessary
+   * @param {number} t      Must be greater than or equal to this t.
+   * @param {object} opts   Will be combined with this marker options.
+   * @returns {Marker}
+   */
+  addSubsequentMarker(t, opts) {
+    if ( this.t === t ) { return this; }
+
+    // Insert further down the line if necessary.
+    if ( this.next && this.next.t < t ) return this.next.addSubsequentMarker(t, opts);
+
+    // Merge the options with this marker's options and create a new marker.
+    if ( t < this.t ) console.error("Marker asked to create a next marker with a previous t value.");
+    const next = new this.constructor(t, this.range.start, this.range.end, { ...this.options, ...opts });
+
+    // Insert at the correct position.
+    if ( this.next ) next.next = this.next;
+    this.next = next;
+    return next;
+  }
+
+  /**
+   * Like addSubsequentMarker but does not merge options and performs less checks.
+   * Assumes it should be the very next item and does not check for existing next object.
+   */
+  _addSubsequentMarkerFast(t, opts) {
+    const next = new this.constructor(t, this.range.start, this.range.end, opts);
+    this.next = next;
+    return next;
+  }
+}
+
+/**
+ * Class used by #markPixelsForLocalCoords to store relevant data for the pixel point.
+ */
+export class PixelMarker extends Marker {
+
+  static calculateOptsFn(cache, coords ) {
+    const width = cache.localFrame.width;
+    return i => {
+      const localX = coords[i];
+      const localY = coords[i+1];
+      const idx = (localY * width) + localX;
+      const currPixel = cache.pixels[idx];
+      return { localX, localY, currPixel };
+    };
+  }
+}
+

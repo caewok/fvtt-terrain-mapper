@@ -298,24 +298,24 @@ uint decodeTerrainChannels(in vec4 color, in int layer) {
   switch ( layer ) {
     // First 4 bits
     case 0:
-      terrain = (channels.r & 15u);
+      terrain = (channels.r & 31u);
       break;
     case 1:
-      terrain = (channels.g & 15u);
+      terrain = (channels.g & 31u);
       break;
     case 2:
-      terrain = (channels.b & 15u);
+      terrain = (channels.b & 31u);
       break;
 
-    // Second 4 bits.
+    // Second layer
     case 3:
-      terrain = (channels.r >> 4u);
+      terrain = (channels.r & 31u);
       break;
     case 4:
-      terrain = (channels.g >> 4u);
+      terrain = (channels.g & 31u);
       break;
     case 5:
-      terrain = (channels.b >> 4u);
+      terrain = (channels.b & 31u);
       break;
   }
 
