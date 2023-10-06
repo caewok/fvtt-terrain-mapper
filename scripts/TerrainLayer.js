@@ -16,7 +16,6 @@ import { MODULE_ID, FLAGS } from "./const.js";
 import { Terrain } from "./Terrain.js";
 import { Settings } from "./Settings.js";
 import { FILOQueue } from "./FILOQueue.js";
-import { PixelCache } from "./PixelCache.js";
 import { Draw } from "./geometry/Draw.js";
 import { TerrainGridSquare } from "./TerrainGridSquare.js";
 import { TerrainGridHexagon } from "./TerrainGridHexagon.js";
@@ -294,6 +293,9 @@ export class TerrainLayer extends InteractionLayer {
    * Set up the terrain layer for the first time once the scene is loaded.
    */
   async initialize() {
+    // Set up the shared graphics object used to color grid spaces.
+    this.#initializeGridShape();
+
     const currId = Settings.getByName("CURRENT_TERRAIN");
     if ( currId ) this.currentTerrain = this.sceneMap.terrainIds.get(currId);
     if ( !this.currentTerrain ) this.currentTerrain = this.sceneMap.values().next().value;
@@ -629,7 +631,7 @@ export class TerrainLayer extends InteractionLayer {
 
     const cache0 = this.#pixelCacheArray[0];
     const cache1 = this.#pixelCacheArray[1];
-    this.#pixelCache = TerrainPixelCache.fromTerrainLayerCaches(this.#pixelCacheArray[0], this.#pixelCacheArray[1]);
+    this.#pixelCache = TerrainPixelCache.fromTerrainLayerCaches(cache0, cache1);
   }
 
   /**
@@ -684,6 +686,26 @@ export class TerrainLayer extends InteractionLayer {
 
   /* ----- NOTE: Rendering ----- */
 
+  #gridShape = new PIXI.Graphics();
+
+  /**
+   * Create a grid shape that can be shared among drawn instances
+   */
+  #initializeGridShape() {
+    const useHex = canvas.grid.isHex;
+    const p = { x: 0, y: 0 };
+    const shape = useHex ? this._hexGridShape(p) : this._squareGridShape(p);
+
+    // Move to origin to line up with the grid.
+    shape.x = 0;
+    shape.y = 0;
+    const draw = new Draw(this.#gridShape);
+    draw.clearDrawings();
+
+    // Set width = 0 to avoid drawing a border line. The border line will use antialiasing
+    // and that causes a lighter-color border to appear outside the shape.
+    draw.shape(shape, { width: 0, fill: new PIXI.Color([1, 1, 1])});
+  }
 
   /**
    * Draw all the graphics in the queue for purposes of debugging.
@@ -907,13 +929,25 @@ export class TerrainLayer extends InteractionLayer {
     colorArr[channel] = terrain.pixelValue / 255;
     const color = new PIXI.Color(colorArr);
 
-    // Draw the shape into the layer container.
-    const graphics = layerContainer.addChild(new PIXI.Graphics());
-    const draw = new Draw(graphics);
+    let graphics;
+    if ( shape instanceof TerrainGridSquare || shape instanceof TerrainGridHexagon ) {
+      graphics = new PIXI.Graphics(this.#gridShape.geometry);
+      graphics.tint = color;
+      graphics.position.x = shape.x;
+      graphics.position.y = shape.y;
+    } else {
+      graphics = layerContainer.addChild(new PIXI.Graphics());
+      const draw = new Draw(graphics);
 
-    // Set width = 0 to avoid drawing a border line. The border line will use antialiasing
-    // and that causes a lighter-color border to appear outside the shape.
-    draw.shape(shape, { width: 0, fill: color});
+      // Set width = 0 to avoid drawing a border line. The border line will use antialiasing
+      // and that causes a lighter-color border to appear outside the shape.
+      draw.shape(shape, { width: 0, fill: color});
+    }
+
+    // Draw the shape into the layer container.
+    layerContainer.addChild(graphics);
+
+    // Update the terrain drawing.
     this.renderTerrain(layer);
     return graphics;
   }
