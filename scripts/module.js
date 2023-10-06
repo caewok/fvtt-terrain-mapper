@@ -56,7 +56,7 @@ Hooks.once("ready", function() {
  * @param {Canvas} canvas   The Canvas instance being initialized
  */
 Hooks.once("canvasInit", async function(canvas) {
-  console.debug("canvasInit", canvas);
+  console.debug("TerrainMapper|canvasInit");
   await Settings.initializeTerrainsItem();
 });
 
@@ -64,8 +64,8 @@ Hooks.once("canvasInit", async function(canvas) {
  * A hook event that fires when the Canvas is ready.
  * @param {Canvas} canvas The Canvas which is now ready for use
  */
-Hooks.once("canvasReady", function(canvas, canvasEffects0, canvasEffects1, canvasVisibility) {
-  console.debug("canvasReady", canvas, canvasEffects0, canvasEffects1, canvasVisibility);
+Hooks.on("canvasReady", async function(canvas) {
+  console.debug("TerrainMapper|canvasReady");
   canvas.terrain.initialize();
 
 //   await Settings.initializeTerrainsItem();
