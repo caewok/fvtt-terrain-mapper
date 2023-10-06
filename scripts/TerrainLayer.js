@@ -696,7 +696,7 @@ export class TerrainLayer extends InteractionLayer {
     const p = { x: 0, y: 0 };
     const shape = useHex ? this._hexGridShape(p) : this._squareGridShape(p);
 
-    // Move to origin to line up with the grid.
+    // Zero origin to line up with the grid when it gets translated later.
     shape.x = 0;
     shape.y = 0;
     const draw = new Draw(this.#gridShape);
