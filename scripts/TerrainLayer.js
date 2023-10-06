@@ -675,11 +675,14 @@ export class TerrainLayer extends InteractionLayer {
     const nTextures = this.constructor.NUM_TEXTURES;
     const { sceneX: x, sceneY: y } = canvas.dimensions;
     const combineFn = this._decodeTerrainChannels.bind(this);
+    const tex = this._terrainTextures[i];
+    const opts = { x, y, arrayClass: Uint32Array, combineFn };
 
-    // TODO: Keep the existing PixelCaches and just reset the pixel values.
-    this.#pixelCacheArray[i] = PixelCache.fromTexture(this._terrainTextures[i],
-        { x, y, arrayClass: Uint32Array, combineFn });
-
+    if ( this.#pixelCacheArray[i] instanceof PixelCache ) {
+      this.#pixelCacheArray[i].updateFromTexture(tex, opts);
+    } else {
+      this.#pixelCacheArray[i] = PixelCache.fromTexture(tex, opts);
+    }
     this.#pixelCacheDirty[i] = 0;
   }
 
