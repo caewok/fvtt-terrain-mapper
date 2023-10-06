@@ -480,8 +480,6 @@ export class TerrainLayer extends InteractionLayer {
     this._terrainTexture?.destroy();
   }
 
-
-
   /**
    * Save data related to this scene.
    */
@@ -645,34 +643,44 @@ export class TerrainLayer extends InteractionLayer {
   /** @type {PixelFrame[]|undefined} */
   #pixelCacheArray = new Array(this.constructor.NUM_TEXTURES);
 
-  /** @type {boolean} */
-  #pixelCacheDirty = false;
+  /** @type {boolean[]} */
+  #pixelCacheDirty = new Uint8Array(this.constructor.NUM_TEXTURES);
 
   /** @type {PixelCache[]} */
   get pixelCacheArray() {
-    if ( this.#pixelCacheDirty ) this.#refreshPixelCacheArray();
+    const ln = this.#pixelCacheDirty.length;
+    for ( let i = 0; i < ln; i += 1 ) {
+      if ( this.#pixelCacheDirty[i] ) this.#refreshPixelCache(i);
+    }
     return this.#pixelCacheArray;
   }
 
   /**
    * Clear the pixel cache
+   * @param {number} [layer=-1]   Layer that requires clearing.
    */
-  _clearPixelCacheArray() { this.#pixelCacheDirty = true; }
+  _clearPixelCacheArray(layer) {
+    if ( ~layer ) this.#pixelCacheDirty.fill(1);
+    else {
+      const idx = Math.floor(layer / 3);
+      this.#pixelCacheDirty[idx] = 1;
+    }
+  }
 
   /**
    * Refresh the pixel array cache from the elevation texture.
+   * @param {number} i    The index of the cache array to refresh.
    */
-  #refreshPixelCacheArray() {
+  #refreshPixelCache(i) {
     const nTextures = this.constructor.NUM_TEXTURES;
     const { sceneX: x, sceneY: y } = canvas.dimensions;
     const combineFn = this._decodeTerrainChannels.bind(this);
 
     // TODO: Keep the existing PixelCaches and just reset the pixel values.
-    for ( let i = 0; i < nTextures; i += 1 ) {
-      this.#pixelCacheArray[i] = PixelCache.fromTexture(this._terrainTextures[i],
+    this.#pixelCacheArray[i] = PixelCache.fromTexture(this._terrainTextures[i],
         { x, y, arrayClass: Uint32Array, combineFn });
-    }
-    this.#pixelCacheDirty = false;
+
+    this.#pixelCacheDirty[i] = 0;
   }
 
   /* ----- NOTE: Pixel data ----- */
@@ -751,8 +759,10 @@ export class TerrainLayer extends InteractionLayer {
 
   /**
    * (Re)render the graphics stored in the container.
+   * @param {number} [layer=-1]   Layer that requires rendering.
+   *   Used to render only one of the textures.
    */
-  renderTerrain() {
+  renderTerrain(layer = -1) {
     const dims = canvas.dimensions;
     const transform = new PIXI.Matrix(1, 0, 0, 1, -dims.sceneX, -dims.sceneY);
 
@@ -760,16 +770,18 @@ export class TerrainLayer extends InteractionLayer {
     // TODO: Can we instead render additively such that the first 4 and second 4 bits are placed together?
     let clear = true;
     const nLayers = this._graphicsLayers.length;
+    const texToRender = Math.floor(layer / 3);
     for ( let i = 0; i < nLayers; i += 1 ) {
       const texIdx = Math.floor(i / 3);
+      if ( ~layer && texIdx !== texToRender ) continue; // Only render to the texture for the chosen layer.
       const renderTexture = this._terrainTextures[texIdx];
-      const layer = this._graphicsLayers[i];
-      canvas.app.renderer.render(layer, { renderTexture, transform, clear });
+      const layerContainer = this._graphicsLayers[i];
+      canvas.app.renderer.render(layerContainer, { renderTexture, transform, clear });
       clear = false;
     }
 
     // Destroy the cache
-    this._clearPixelCacheArray();
+    this._clearPixelCacheArray(layer);
   }
 
   /**
@@ -916,7 +928,7 @@ export class TerrainLayer extends InteractionLayer {
     // Set width = 0 to avoid drawing a border line. The border line will use antialiasing
     // and that causes a lighter-color border to appear outside the shape.
     draw.shape(shape, { width: 0, fill: color});
-    this.renderTerrain();
+    this.renderTerrain(layer);
     return graphics;
   }
 
@@ -1016,7 +1028,7 @@ export class TerrainLayer extends InteractionLayer {
     this._graphicsContainer.removeChild(res.graphics);
     res.graphics.destroy();
     this._requiresSave = true;
-    this.renderTerrain();
+    this.renderTerrain(res.shape.layer);
   }
 
   /**
