@@ -1859,3 +1859,97 @@ export class TilePixelCache extends PixelCache {
     }
   }
 }
+
+// ----- Marker class ----- //
+
+/**
+ * Store a point, a t value, and the underlying coordinate system
+ */
+export class Marker {
+  /** @type {PIXI.Point} */
+  #point;
+
+  /** @type {number} */
+  t = -1;
+
+  /** @type {object} */
+  range = {
+    start: new PIXI.Point(),  /** @type {PIXI.Point} */
+    end: new PIXI.Point()       /** @type {PIXI.Point} */
+  };
+
+  /** @type {object} */
+  options = {};
+
+  /** @type {Marker} */
+  next;
+
+  constructor(t, start, end, opts = {}) {
+    this.t = t;
+    this.options = opts;
+    this.range.start.copyFrom(start);
+    this.range.end.copyFrom(end);
+  }
+
+  /** @type {PIXI.Point} */
+  get point() { return this.#point ?? (this.#point = this.pointAtT(this.t)); }
+
+  /**
+   * Given a t position, project the location given this marker's range.
+   * @param {number} t
+   * @returns {PIXI.Point}
+   */
+  pointAtT(t) { return this.range.start.projectToward(this.range.end, t); }
+
+  /**
+   * Build a new marker and link it as the next marker to this one.
+   * If this marker has a next marker, insert in-between.
+   * Will insert at later spot as necessary
+   * @param {number} t      Must be greater than or equal to this t.
+   * @param {object} opts   Will be combined with this marker options.
+   * @returns {Marker}
+   */
+  addSubsequentMarker(t, opts) {
+    if ( this.t === t ) { return this; }
+
+    // Insert further down the line if necessary.
+    if ( this.next && this.next.t < t ) return this.next.addSubsequentMarker(t, opts);
+
+    // Merge the options with this marker's options and create a new marker.
+    if ( t < this.t ) console.error("Marker asked to create a next marker with a previous t value.");
+    const next = new this.constructor(t, this.range.start, this.range.end, { ...this.options, ...opts });
+
+    // Insert at the correct position.
+    if ( this.next ) next.next = this.next;
+    this.next = next;
+    return next;
+  }
+
+  /**
+   * Like addSubsequentMarker but does not merge options and performs less checks.
+   * Assumes it should be the very next item and does not check for existing next object.
+   */
+  _addSubsequentMarkerFast(t, opts) {
+    const next = new this.constructor(t, this.range.start, this.range.end, opts);
+    this.next = next;
+    return next;
+  }
+}
+
+/**
+ * Class used by #markPixelsForLocalCoords to store relevant data for the pixel point.
+ */
+export class PixelMarker extends Marker {
+
+  static calculateOptsFn(cache, coords ) {
+    const width = cache.localFrame.width;
+    return i => {
+      const localX = coords[i];
+      const localY = coords[i+1];
+      const idx = (localY * width) + localX;
+      const currPixel = cache.pixels[idx];
+      return { localX, localY, currPixel };
+    };
+  }
+}
+
