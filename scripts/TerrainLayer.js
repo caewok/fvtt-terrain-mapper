@@ -261,7 +261,7 @@ export class TerrainLayer extends InteractionLayer {
    * @returns {TerrainLevel[]}
    */
   activeTerrainLevelsAt(pt, elevation) {
-    elevation ??= pt.z ?? 0;
+    elevation ??= CONFIG.GeometryLib.utils.pixelsToGridUnits(pt.z) || 0;
     const terrainLevels = this.terrainLevelsAt(pt);
     return terrainLevels.filter(t => t.activeAt(elevation, pt));
   }

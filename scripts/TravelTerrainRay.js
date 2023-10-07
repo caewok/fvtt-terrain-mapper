@@ -77,7 +77,12 @@ export class TravelTerrainRay {
     if ( destination ) this.destination.copyFrom(destination);
   }
 
-  static terrainsForKey(key) { return canvas.terrain._layersToTerrains(key.toTerrainLayers()); }
+  /**
+   * Retrieve all terrain levels for a given pixel key.
+   * @param {TerrainKey} key
+   * @returns {TerrainLevels[]}
+   */
+  static terrainLevelsForKey(key) { return canvas.terrain._layersToTerrainLevels(key.toTerrainLayers()); }
 
   /** @type {Point3d} */
   get origin() { return this.#origin; }
@@ -107,31 +112,54 @@ export class TravelTerrainRay {
   pointAtT(t) { return this.origin.to2d().projectToward(this.destination.to2d(), t); }
 
   /**
-   * List all terrains encountered at this point along the path.
+   * All unique terrains encountered at this point along the path.
    * @param {number} t    Percent distance along the ray
-   * @returns {TerrainLevel[]} Terrains at that location.
+   * @returns {Set<Terrain>} Terrains at that location.
    */
   terrainsAtT(t) {
     const mark = this._pathMarkerAtT(t);
     if ( !mark ) return [];
-    return this.constructor.terrainsForKey(mark.terrainKey);
+
+    const terrainLevels = this.constructor.terrainLevelsForKey(mark.terrainKey);
+    return new Set(terrainLevels.map(t => t.terrain));
   }
 
   /**
-   * List terrains that are enabled given the elevation of the path at this point.
+   * List all terrain levels encountered at this point along the path.
+   * @param {number} t    Percent distance along the ray
+   * @returns {TerrainLevel[]} Terrains at that location.
+   */
+  terrainLevelsAtT(t) {
+    const mark = this._pathMarkerAtT(t);
+    if ( !mark ) return [];
+    return this.constructor.terrainLevelsForKey(mark.terrainKey);
+  }
+
+  /**
+   * Active unique terrains active at this point along the path.
+   * @param {number} t    Percent distance along the ray
+   * @returns {Set<Terrain>} Active terrains at this location, given the path elevation.
+   */
+  activeTerrainsAtT(t) {
+    const terrainLevels = this.activeTerrainLevelsAtT(t);
+    return new Set(terrainLevels.map(t => t.terrain));
+  }
+
+  /**
+   * List terrain levels that are enabled given the elevation of the path at this point.
    * Depending on the terrain setting, it may be enabled for a specific fixed elevation range,
    * or be enabled based on a range relative to the ground terrain or the layer elevation.
    * @param {number} t    Percent distance along the ray
    * @returns {TerrainLevel[]} Terrains enabled at that location.
    */
-  activeTerrainsAtT(t) {
+  activeTerrainLevelsAtT(t) {
     const mark = this._pathMarkerAtT(t);
     if ( !mark ) return [];
 
     // Filter the active terrains based on elevation and position at this mark.
     const location = this.pointAtT(t);
     const elevation = mark.elevation;
-    const terrains = this.constructor.terrainsForKey(mark.terrainKey);
+    const terrains = this.constructor.terrainLevelsForKey(mark.terrainKey);
     return terrains.filter(t => t.activeAt(elevation, location));
   }
 
@@ -148,19 +176,34 @@ export class TravelTerrainRay {
   }
 
   /**
-   * Terrains on the ray nearest to a point on the canvas.
+   * Unique terrains on the ray nearest to a point on the canvas.
    * @param {Point} pt    Point to check
    * @returns {TerrainLevel[]} Terrains nearest to that location on the ray.
    */
   terrainsAtClosestPoint(pt) { return this.terrainsAtT(this.tForPoint(pt)); }
 
   /**
-   * List terrains that are enabled given the elevation of the path at the point
+   * Unique terrains that are enabled given the elevation of the path at the point
    * on the ray nearest to this canvas point.
    * @param {Point} pt    Point to check
    * @returns {TerrainLevel[]} Terrains enabled nearest to that location on the ray.
    */
   activeTerrainsAtClosestPoint(pt) { return this.activeTerrainsAtT(this.tForPoint(pt)); }
+
+  /**
+   * List terrain levels on the ray nearest to a point on the canvas.
+   * @param {Point} pt    Point to check
+   * @returns {TerrainLevel[]} Terrains nearest to that location on the ray.
+   */
+  terrainLevelsAtClosestPoint(pt) { return this.terrainLevelsAtT(this.tForPoint(pt)); }
+
+  /**
+   * List terrain levels that are enabled given the elevation of the path at the point
+   * on the ray nearest to this canvas point.
+   * @param {Point} pt    Point to check
+   * @returns {TerrainLevel[]} Terrains enabled nearest to that location on the ray.
+   */
+  activeTerrainLevelsAtClosestPoint(pt) { return this.activeTerrainLevelsAtT(this.tForPoint(pt)); }
 
   /**
    * Closest point on the ray and return the t value for that location.

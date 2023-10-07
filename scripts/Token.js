@@ -72,15 +72,14 @@ function refreshTokenHook(token, flags) {
 
     // Determine if there are any active terrains based on the center of this token.
     const center = token.getCenter(token.position.x, token.position.y);
-    const terrains = ttr.activeTerrainsAtClosestPoint(center);
-    if ( !terrains.length ) {
+    const pathTerrains = ttr.activeTerrainsAtClosestPoint(center);
+    if ( !pathTerrains.size ) {
       Terrain.removeAllSceneTerrainsFromToken(token); // Async
       return;
     }
 
     // Determine if terrains must be added or removed from the token at this point.
-    const pathTerrains = new Set(terrains.map(t => t.terrain));
-    const tokenTerrains = new Set(Terrain.getAllSceneTerrainsOnToken(token));
+    const tokenTerrains = new Set(Terrain.allSceneTerrainsOnToken(token));
     const terrainsToRemove = tokenTerrains.difference(pathTerrains);
     const terrainsToAdd = pathTerrains.difference(tokenTerrains);
 
@@ -103,6 +102,7 @@ function refreshTokenHook(token, flags) {
  * Function to present dialog to GM.
  */
 function terrainEncounteredDialogData(token, terrains, destination) {
+  const names = [...terrains].map(t => t.name);
   const localize = key => game.i18n.localize(`${MODULE_ID}.terrain-encountered-dialog.${key}`);
   const intro = game.i18n.format(`${MODULE_ID}.terrain-encountered-dialog.content`, { tokenName: token.name });
   const content = `${intro}: ${toNames(terrains).join(", ")}<br><hr>`;
@@ -186,25 +186,16 @@ function _getTooltipText(wrapper) {
   // If not a clone, return.
   if ( !this._original ) return text;
 
-  // Get every terrain below the center of the token.
-  const terrains = canvas.terrain.terrainsAt(this.center);
-  if ( !terrains.length ) return text;
+  // Get every active terrain below the center of the token.
+  const terrains = canvas.terrain.activeTerrainsAt(this.center, this.elevationE);
+  if ( !terrains.size ) return text;
 
   // Combine all the terrains.
-  return `${toNames(terrains).join("\n")}
-${text}`;
+  const names = [...terrains].map(t => t.name);
+
+  return `${names.join("\n")}\n${text}`;
 }
 
 PATCHES.BASIC.WRAPS = {
   _getTooltipText
 };
-
-/**
- * Convert a set of terrains into names, with level in parenthetical.
- * e.g. Ice (Layer 0)
- * @param {Terrain[]}
- * @returns {string[]}
- */
-function toNames(terrains) {
-  return terrains.map(t => `${t.name} (${game.i18n.format("terrainmapper.phrases.layer-number", { layerNumber: t.level })})`);
-}
