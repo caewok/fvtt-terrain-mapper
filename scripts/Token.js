@@ -105,7 +105,7 @@ function terrainEncounteredDialogData(token, terrains, destination) {
   const names = [...terrains].map(t => t.name);
   const localize = key => game.i18n.localize(`${MODULE_ID}.terrain-encountered-dialog.${key}`);
   const intro = game.i18n.format(`${MODULE_ID}.terrain-encountered-dialog.content`, { tokenName: token.name });
-  const content = `${intro}: ${toNames(terrains).join(", ")}<br><hr>`;
+  const content = `${intro}: ${names.join(", ")}<br><hr>`;
   return {
     title: localize("title"),
     content,
