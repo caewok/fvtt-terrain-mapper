@@ -239,7 +239,7 @@ for ( let terrainValue = 0; terrainValue < 16; terrainValue += 1 ) {
     const c = TerrainKey.fromTerrainValue(terrainValue, layer);
     const layers = c.toTerrainLayers();
     if ( layers[layer] !== terrainValue ) {
-      console.debug(`Fail at ${terrainValue}, ${layer}`);
+      console.error(`Fail at ${terrainValue}, ${layer}`);
       break;
     }
   }
@@ -251,7 +251,7 @@ for ( let i = 0; i < 1000; i += 1 ) {
   const c = TerrainKey.fromTerrainLayers(layers);
   const newLayers = Array(...c.toTerrainLayers()); // TerrainKey returns Uint8Array; convert.
   if ( !layers.equals(newLayers) ) {
-    console.debug(`Fail at ${i}`, layers, newLayers);
+    console.error(`Fail at ${i}`, layers, newLayers);
     break;
   }
 }
@@ -262,7 +262,7 @@ for ( let i = 0; i < 1000; i += 1 ) {
   const c = TerrainKey.fromTerrainLayers(layers);
   const newLayers = Array(...c.toTerrainLayers()); // TerrainKey returns Uint8Array; convert.
   if ( !layers.equals(newLayers) ) {
-    console.debug(`Fail at ${i}`, layers, newLayers);
+    console.error(`Fail at ${i}`, layers, newLayers);
     break;
   }
 
@@ -273,9 +273,9 @@ for ( let i = 0; i < 1000; i += 1 ) {
   for ( let i = 0; i < 6; i += 1 ) {
     if ( i === addedLayer ) {
       if ( addedLayers[i] !== addedTerrain )
-        console.debug(`Fail at adding layer ${addedLayer} with terrain ${addedTerrain}.`, layers);
+        console.error(`Fail at adding layer ${addedLayer} with terrain ${addedTerrain}.`, layers);
     } else if ( addedLayers[i] !== layers[i] )
-      console.debug(`Fail at adding layer ${addedLayer} with terrain ${addedTerrain} (other layers modified).`, layers);
+      console.error(`Fail at adding layer ${addedLayer} with terrain ${addedTerrain} (other layers modified).`, layers);
   }
 
   const removedC = c.removeTerrainValue(addedLayer);
@@ -283,11 +283,25 @@ for ( let i = 0; i < 1000; i += 1 ) {
   for ( let i = 0; i < 6; i += 1 ) {
     if ( i === addedLayer ) {
       if ( removedLayers[i] !== 0 )
-        console.debug(`Fail at removing layer ${addedLayer} with terrain ${addedTerrain}.`, layers);
+        console.error(`Fail at removing layer ${addedLayer} with terrain ${addedTerrain}.`, layers);
     } else if ( removedLayers[i] !== layers[i] )
-      console.debug(`Fail removing layer ${addedLayer} with terrain ${addedTerrain} (other layers modified).`, layers);
+      console.error(`Fail removing layer ${addedLayer} with terrain ${addedTerrain} (other layers modified).`, layers);
   }
 
+  if ( i % 100 === 0 ) console.debug(`Finished i === ${i}`);
+}
+
+// Combining two pixels
+for ( let i = 0; i < 1000; i += 1 ) {
+  const layers = (new Uint8Array(6)).fill(0).map(l => randomTerrain());
+  const px0 = TerrainKey.fromTerrainLayers(layers.slice(0, 3));
+  const px1 = TerrainKey.fromTerrainLayers(layers.slice(3, 6));
+  const pxCombined = TerrainKey.combineTwoPixels(px0, px1);
+  const combinedLayers = pxCombined.toTerrainLayers();
+  if ( ![...layers].equals([...combinedLayers]) ) {
+    console.error(`Fail combining`, layers);
+    break;
+  }
   if ( i % 100 === 0 ) console.debug(`Finished i === ${i}`);
 }
 
