@@ -177,7 +177,7 @@ export class TerrainLayer extends InteractionLayer {
       || !canvas.terrain.active
       || !this.terrainLabel ) return;
 
-    // Get the canvas position of the mouse pointer.
+    // Canvas position of the mouse pointer.
     const pos = event.getLocalPosition(canvas.app.stage);
     if ( !canvas.dimensions.sceneRect.contains(pos.x, pos.y) ) {
       this.terrainLabel.visible = false;
@@ -220,16 +220,50 @@ export class TerrainLayer extends InteractionLayer {
   // ----- NOTE: Access terrain data ----- //
 
   /**
-   * Get the terrain(s) at a given position.
+   * Unique terrain(s) at a given position.
    * @param {Point} {x, y}
-   * @returns {TerrainLevel[]}
+   * @returns {Set<Terrain>}
    */
   terrainsAt(pt) {
     if ( !this.#initialized ) return [];
 
     // Return only terrains that are non-zero.
+    return new Set(this.terrainLevelsAt(pt).map(t => t.terrain));
+  }
+
+  /**
+   * Active unique terrain(s) at a given position and elevation.
+   * @param {Point|Point3d} {x, y, z}   2d or 3d point
+   * @param {number} [elevation]        Optional elevation (if not pt.z or 0)
+   * @returns {Set<Terrain>}
+   */
+  activeTerrainsAt(pt, elevation) {
+    return new Set(this.activeTerrainLevelsAt(pt, elevation).map(t => t.terrain));
+  }
+
+  /**
+   * Terrain levels at a given position.
+   * @param {Point} {x, y}
+   * @returns {TerrainLevel[]}
+   */
+  terrainLevelsAt(pt) {
+    if ( !this.#initialized ) return [];
+
+    // Return only terrains that are non-zero.
     const terrainLayers = this._terrainLayersAt(pt);
-    return this._layersToTerrains(terrainLayers);
+    return this._layersToTerrainLevels(terrainLayers);
+  }
+
+  /**
+   * Active terrain levels at a given position and elevation.
+   * @param {Point|Point3d} {x, y, z}   2d or 3d point
+   * @param {number} [elevation]        Optional elevation (if not pt.z or 0)
+   * @returns {TerrainLevel[]}
+   */
+  activeTerrainLevelsAt(pt, elevation) {
+    elevation ??= pt.z ?? 0;
+    const terrainLevels = this.terrainLevelsAt(pt);
+    return terrainLevels.filter(t => t.activeAt(elevation, pt));
   }
 
   /**
@@ -243,7 +277,7 @@ export class TerrainLayer extends InteractionLayer {
   }
 
   /**
-   * Get the terrain given the current level.
+   * Terrain given the current level.
    * @param {Point} {x, y}
    * @returns {TerrainLevel|undefined} Terrain, or undefined if no terrain at this level.
    */
@@ -258,14 +292,14 @@ export class TerrainLayer extends InteractionLayer {
   }
 
   /**
-   * Get the terrain data for a given pixel value.
+   * Terrain data for a given pixel value.
    * @param {number} pixelValue
    * @returns {Terrain}
    */
   terrainForPixel(pixelValue) { return this.sceneMap.get(pixelValue); }
 
   /**
-   * Get the terrain data for a given terrain id
+   * Terrain data for a given terrain id
    * @param {string} terrainId
    * @returns {Terrain}
    */
@@ -282,11 +316,11 @@ export class TerrainLayer extends InteractionLayer {
   }
 
   /**
-   * Get the terrains for a given array of layers
+   * Terrains for a given array of layers
    * @param {Uint8Array[MAX_LAYERS]} terrainLayers
    * @returns {TerrainLevels[]}
    */
-  _layersToTerrains(terrainLayers) {
+  _layersToTerrainLevels(terrainLayers) {
     const terrainArr = [];
     const nLayers = terrainLayers.length;
     for ( let i = 0; i < nLayers; i += 1 ) {
