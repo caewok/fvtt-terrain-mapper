@@ -112,7 +112,7 @@ export class TravelTerrainRay {
    * @returns {TerrainLevel[]} Terrains at that location.
    */
   terrainsAtT(t) {
-    const mark = this._pathMarkerAt(t);
+    const mark = this._pathMarkerAtT(t);
     if ( !mark ) return [];
     return this.constructor.terrainsForKey(mark.terrainKey);
   }
@@ -125,7 +125,7 @@ export class TravelTerrainRay {
    * @returns {TerrainLevel[]} Terrains enabled at that location.
    */
   activeTerrainsAtT(t) {
-    const mark = this._pathMarkerAt(t);
+    const mark = this._pathMarkerAtT(t);
     if ( !mark ) return [];
 
     // Filter the active terrains based on elevation and position at this mark.
@@ -140,7 +140,7 @@ export class TravelTerrainRay {
    * @param {number} t    Percent distance along the ray
    * @returns {object|undefined} The maker
    */
-  _pathMakerAtT(t) {
+  _pathMarkerAtT(t) {
     const path = this.path;
     if ( t >= 1 ) return path.at(-1);
     if ( t <= 0 ) return path.at(0);
@@ -213,7 +213,7 @@ export class TravelTerrainRay {
     terrainMarkers.forEach(m => {
       if ( markerMap.has(m.t) ) {
         const marker = markerMap.get(m.t);
-        marker.terrain = m;
+        marker.terrains = m;
       } else markerMap.set(m.t, { terrains: m });
     });
 
@@ -225,7 +225,7 @@ export class TravelTerrainRay {
       const markerObj = markerMap.get(t);
       const pathObj = {};
       const eObj = markerObj.elevation;
-      const tObj = markerObj.terrain;
+      const tObj = markerObj.terrains;
 
       if ( eObj ) {
         eObj.currElevationPixel = eObj.currPixel;
