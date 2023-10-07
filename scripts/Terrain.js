@@ -261,7 +261,7 @@ export class Terrain {
    * @param {Token} token
    * @param {boolean} [duplicate=false]     If false, don't add if already present.
    */
-  async addToToken(token, { duplicate = false, removeSceneTerrains = false, removeAllTerrains = false } = {}) {
+  async addToToken(token, { duplicate = false, removeOtherSceneTerrains = false, removeAllOtherTerrains = false } = {}) {
     await this.constructor.lock.acquire();
     let currTerrains = new Set(this.constructor.getAllOnToken(token));
     if ( duplicate || !currTerrains.has(this) ) {
@@ -270,8 +270,8 @@ export class Terrain {
     }
 
     // Remove other terrains from the token.
-    if ( removeSceneTerrains ) currTerrains = currTerrains.filter(t => this.sceneMap.hasTerrainId(t.id));
-    if ( removeSceneTerrains || removeAllTerrains ) {
+    if ( removeOtherSceneTerrains ) currTerrains = currTerrains.filter(t => this.sceneMap.hasTerrainId(t.id));
+    if ( removeOtherSceneTerrains || removeAllOtherTerrains ) {
       currTerrains.delete(this);
       for ( const terrain of currTerrains ) {
         console.debug(`Removing ${terrain.name} terrain from ${token.name}.`);

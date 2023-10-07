@@ -1,4 +1,5 @@
 /* globals
+canvas,
 flattenObject,
 game
 */
@@ -68,34 +69,46 @@ function refreshTokenHook(token, flags) {
   } else if ( token._animation ) {
     const ttr = token[MODULE_ID].ttr;
     if ( !ttr ) return;
+
+    // Determine if there are any active terrains based on the center of this token.
     const center = token.getCenter(token.position.x, token.position.y);
-    const terrain = ttr.terrainAtClosestPoint(center);
-    if ( !terrain ) {
-      Terrain.removeAllSceneTerrainsFromToken(token);
+    const terrains = ttr.activeTerrainsAtClosestPoint(center);
+    if ( !terrains.length ) {
+      Terrain.removeAllSceneTerrainsFromToken(token); // Async
       return;
     }
 
-    if ( token.hasTerrain(terrain) ) return;
-    terrain.addToToken(token, { removeSceneTerrains: true });
+    // Determine if terrains must be added or removed from the token at this point.
+    const pathTerrains = new Set(terrains.map(t => t.terrain));
+    const tokenTerrains = new Set(Terrain.getAllSceneTerrainsOnToken(token));
+    const terrainsToRemove = tokenTerrains.difference(pathTerrains);
+    const terrainsToAdd = pathTerrains.difference(tokenTerrains);
+
+    // Following remove/add is async.
+    terrainsToRemove.forEach(t => t.removeFromToken(token));
+    terrainsToAdd.forEach(t => t.addToToken(token));
+
+    // If no terrains added or no dialog required when adding terrains, we are done.
+    if ( !terrainsToAdd.size ) return;
     if ( Settings.get(AUTO.DIALOG) ) {
       token.stopAnimation();
       token.document.update({ x: token.position.x, y: token.position.y });
-      const dialogData = terrainEncounteredDialogData(token, terrain, ttr.destination);
+      const dialogData = terrainEncounteredDialogData(token, [...terrainsToAdd], ttr.destination);
       SOCKETS.socket.executeAsGM("dialog", dialogData);
     }
   }
 }
 
-
 /**
  * Function to present dialog to GM.
  */
-function terrainEncounteredDialogData(token, terrain, destination) {
+function terrainEncounteredDialogData(token, terrains, destination) {
   const localize = key => game.i18n.localize(`${MODULE_ID}.terrain-encountered-dialog.${key}`);
+  const intro = game.i18n.format(`${MODULE_ID}.terrain-encountered-dialog.content`, { tokenName: token.name });
+  const content = `${intro}: ${toNames(terrains).join(", ")}<br><hr>`;
   return {
     title: localize("title"),
-    content: game.i18n.format(`${MODULE_ID}.terrain-encountered-dialog.content`,
-      { terrainName: terrain.name, tokenName: token.name }),
+    content,
     buttons: {
       one: {
         icon: "<i class='fas fa-person-hiking'></i>",
@@ -162,14 +175,25 @@ function _getTooltipText(wrapper) {
   // If not a clone, return.
   if ( !this._original ) return text;
 
-  const terrain = canvas.terrain.terrainAt(this.center);
-  if ( terrain ) text =
-`${terrain.name}
+  // Get every terrain below the center of the token.
+  const terrains = canvas.terrain.terrainsAt(this.center);
+  if ( !terrains.length ) return text;
+
+  // Combine all the terrains.
+  return `${toNames(terrains).join("\n")}
 ${text}`;
-  return text;
 }
 
 PATCHES.BASIC.WRAPS = {
   _getTooltipText
-}
+};
 
+/**
+ * Convert a set of terrains into names, with level in parenthetical.
+ * e.g. Ice (Layer 0)
+ * @param {Terrain[]}
+ * @returns {string[]}
+ */
+function toNames(terrains) {
+  return terrains.map(t => `${t.name} (${game.i18n.format("terrainmapper.phrases.layer-number", t.level)})`);
+}

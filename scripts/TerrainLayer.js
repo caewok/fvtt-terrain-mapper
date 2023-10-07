@@ -31,7 +31,7 @@ import { TravelTerrainRay } from "./TravelTerrainRay.js";
 import { TerrainEffectsApp } from "./TerrainEffectsApp.js";
 import { TerrainMap } from "./TerrainMap.js";
 import { TerrainLevel } from "./TerrainLevel.js";
-import { TerrainPixelCache, TerrainLayerPixelCache } from "./TerrainPixelCache.js";
+import { TerrainPixelCache, TerrainLayerPixelCache, TerrainKey } from "./TerrainPixelCache.js";
 
 // TODO: What should replace this now that FullCanvasContainer is deprecated in v11?
 class FullCanvasContainer extends FullCanvasObjectMixin(PIXI.Container) {
@@ -41,6 +41,8 @@ class FullCanvasContainer extends FullCanvasObjectMixin(PIXI.Container) {
 const LAYER_COLORS = ["RED", "GREEN", "BLUE"];
 
 export class TerrainLayer extends InteractionLayer {
+
+  static TerrainKey;
 
   // TODO: If we can use the alpha channel, can this increase to 8?
   /** @type {number} */
@@ -223,19 +225,11 @@ export class TerrainLayer extends InteractionLayer {
    * @returns {TerrainLevel[]}
    */
   terrainsAt(pt) {
-    if ( !this.#initialized ) return undefined;
+    if ( !this.#initialized ) return [];
 
     // Return only terrains that are non-zero.
     const terrainLayers = this._terrainLayersAt(pt);
-    const terrainArr = [];
-    const nLayers = terrainLayers.length;
-    for ( let i = 0; i < nLayers; i += 1 ) {
-      const px = terrainLayers[i];
-      if ( !px ) continue;
-      const terrain = this.terrainForPixel(px);
-      terrainArr.push(new TerrainLevel(terrain, i));
-    }
-    return terrainArr;
+    return this._layersToTerrains(terrainLayers);
   }
 
   /**
@@ -285,6 +279,23 @@ export class TerrainLayer extends InteractionLayer {
   clampTerrainId(id) {
     id ??= 0;
     return Math.clamped(Math.round(id), 0, this.constructor.MAX_TERRAIN_ID);
+  }
+
+  /**
+   * Get the terrains for a given array of layers
+   * @param {Uint8Array[MAX_LAYERS]} terrainLayers
+   * @returns {TerrainLevels[]}
+   */
+  _layersToTerrains(terrainLayers) {
+    const terrainArr = [];
+    const nLayers = terrainLayers.length;
+    for ( let i = 0; i < nLayers; i += 1 ) {
+      const px = terrainLayers[i];
+      if ( !px ) continue;
+      const terrain = this.terrainForPixel(px);
+      terrainArr.push(new TerrainLevel(terrain, i));
+    }
+    return terrainArr;
   }
 
   // ----- NOTE: Initialize, activate, deactivate, destroy ----- //

@@ -1,4 +1,5 @@
 /* globals
+canvas
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
@@ -13,7 +14,7 @@ export class TerrainLayerPixelCache extends PixelCache {
   /**
    * Take RGB values and convert to a value.
    */
-  static #decodeTerrainChannels(r, g, b) { return TerrainLayerPixel.fromRGBIntegers(r, g, b); }
+  static #decodeTerrainChannels(r, g, b) { return TerrainKey.fromRGBIntegers(r, g, b); }
 
   /**
    * Return the terrain layers at this cache.
@@ -21,7 +22,7 @@ export class TerrainLayerPixelCache extends PixelCache {
    */
   terrainLayersAt(x, y) {
     const pixelValue = this.pixelAtCanvas(x, y);
-    const px = new TerrainLayerPixel(pixelValue);
+    const px = new TerrainKey(pixelValue);
     return px.toTerrainLayers();
   }
 
@@ -79,7 +80,7 @@ export class TerrainPixelCache extends TerrainLayerPixelCache {
     // Instead of constructing and saving the layers for each pixel, use bit math.
     // Shift the second cache and combine.
     for ( let i = 0; i < ln; i += 1 ) {
-      cache.pixels[i] = TerrainLayerPixel.combineTwoPixels(pixels0[i], pixels1[i]);
+      cache.pixels[i] = TerrainKey.combineTwoPixels(pixels0[i], pixels1[i]);
     }
 
     // Because this is a new cache, no need to reset cached values.
@@ -100,7 +101,7 @@ export class TerrainPixelCache extends TerrainLayerPixelCache {
     const pixels1 = cache1.pixels;
     const ln = pixels0.length;
     for ( let i = 0; i < ln; i += 1 ) {
-      this.pixels[i] = TerrainLayerPixel.combineTwoPixels(pixels0[i], pixels1[i]);
+      this.pixels[i] = TerrainKey.combineTwoPixels(pixels0[i], pixels1[i]);
     }
 
     // Clear cached parameters.
@@ -121,13 +122,13 @@ const NUM_LAYERS = 6;
  * Handles 6 layers.
  * Mostly follows the approach of Color class.
  */
-export class TerrainLayerPixel extends Number {
+export class TerrainKey extends Number {
   /**
-   * Use the first 5 bits of the RGB values to construct a TerrainLayerPixel.
+   * Use the first 5 bits of the RGB values to construct a TerrainKey.
    * @param {number} r      The red value (0 to 31)
    * @param {number} g      The green value (0 to 31)
    * @param {number} b      The blue value (0 to 31)
-   * @returns {TerrainLayerPixel}
+   * @returns {TerrainKey}
    */
   static fromRGBIntegers(r, g, b) {
     r = Math.clamped(Math.floor(r), 0, NUM_VALUES);
@@ -139,7 +140,7 @@ export class TerrainLayerPixel extends Number {
   /**
    * Store up to 6 layers of terrain values as an unsigned integer (number).
    * @param {number[6]} layers     Array with terrain values between 0 and 31.
-   * @returns {TerrainLayerPixel}
+   * @returns {TerrainKey}
    */
   static fromTerrainLayers(layers) {
     layers ??= new Uint8Array(NUM_LAYERS);
@@ -154,9 +155,9 @@ export class TerrainLayerPixel extends Number {
   /**
    * Combine two pixels, where the first 3 layers are represented by the first pixel,
    * and the second 3 layers by the second pixel.
-   * @param {TerrainLayerPixel} layer123   First pixel, with only layers 0–2.
-   * @param {TerrainLayerPixel} layer456   Second pixel, with only layers 0–2.
-   * @returns {TerrainLayerPixel}
+   * @param {TerrainKey} layer123   First pixel, with only layers 0–2.
+   * @param {TerrainKey} layer456   Second pixel, with only layers 0–2.
+   * @returns {TerrainKey}
    */
   static combineTwoPixels(layer123, layer456) {
     return new this((layer123 + (layer456 << (BITS * 3))));
@@ -177,10 +178,10 @@ export class TerrainLayerPixel extends Number {
   }
 
   /**
-   * Convert a terrain value and a layer to a TerrainLayerPixel.
+   * Convert a terrain value and a layer to a TerrainKey.
    * @param {number} terrainValue   Integer between 0 and 31.
    * @param {number} layer          Integer between 0 and 5.
-   * @returns {TerrainLayerPixel}
+   * @returns {TerrainKey}
    */
   static fromTerrainValue(terrainValue, layer) {
     terrainValue = Math.clamped(Math.floor(terrainValue), 0, NUM_VALUES);
@@ -223,11 +224,11 @@ randomTerrain = () => Math.clamped(Math.round(Math.random() * 15), 0, 31);
 random8Bit = () => Math.clamped(Math.round(Math.random() * 255), 0, 255);
 
 // Can convert to/from rgba integers
-minC = TerrainLayerPixel.fromRGBIntegers(0, 0, 0)
+minC = TerrainKey.fromRGBIntegers(0, 0, 0)
 minMatches = minC.toTerrainLayers().every(elem => elem === 0);
 console.debug(`min matches: ${minMatches}`);
 
-maxC = TerrainLayerPixel.fromRGBIntegers(255, 255, 255)
+maxC = TerrainKey.fromRGBIntegers(255, 255, 255)
 tmp = maxC.toTerrainLayers();
 maxMatches = tmp[0] === 31 && tmp[1] === 31 && tmp[2] === 31 && tmp[3] === 0 && tmp[4] === 0 && tmp[5] === 0
 console.debug(`max matches: ${maxMatches}`)
@@ -235,7 +236,7 @@ console.debug(`max matches: ${maxMatches}`)
 // Can convert to/from terrain layers
 for ( let terrainValue = 0; terrainValue < 16; terrainValue += 1 ) {
   for ( let layer = 0; layer < 6; layer += 1 ) {
-    const c = TerrainLayerPixel.fromTerrainValue(terrainValue, layer);
+    const c = TerrainKey.fromTerrainValue(terrainValue, layer);
     const layers = c.toTerrainLayers();
     if ( layers[layer] !== terrainValue ) {
       console.debug(`Fail at ${terrainValue}, ${layer}`);
@@ -247,8 +248,8 @@ for ( let terrainValue = 0; terrainValue < 16; terrainValue += 1 ) {
 
 for ( let i = 0; i < 1000; i += 1 ) {
   const layers = (new Array(6)).fill(0).map(l => randomTerrain());
-  const c = TerrainLayerPixel.fromTerrainLayers(layers);
-  const newLayers = Array(...c.toTerrainLayers()); // TerrainLayerPixel returns Uint8Array; convert.
+  const c = TerrainKey.fromTerrainLayers(layers);
+  const newLayers = Array(...c.toTerrainLayers()); // TerrainKey returns Uint8Array; convert.
   if ( !layers.equals(newLayers) ) {
     console.debug(`Fail at ${i}`, layers, newLayers);
     break;
@@ -258,8 +259,8 @@ for ( let i = 0; i < 1000; i += 1 ) {
 // Can add/remove terrain value
 for ( let i = 0; i < 1000; i += 1 ) {
   const layers = (new Array(6)).fill(0).map(l => randomTerrain());
-  const c = TerrainLayerPixel.fromTerrainLayers(layers);
-  const newLayers = Array(...c.toTerrainLayers()); // TerrainLayerPixel returns Uint8Array; convert.
+  const c = TerrainKey.fromTerrainLayers(layers);
+  const newLayers = Array(...c.toTerrainLayers()); // TerrainKey returns Uint8Array; convert.
   if ( !layers.equals(newLayers) ) {
     console.debug(`Fail at ${i}`, layers, newLayers);
     break;
@@ -271,16 +272,20 @@ for ( let i = 0; i < 1000; i += 1 ) {
   const addedLayers = addedC.toTerrainLayers();
   for ( let i = 0; i < 6; i += 1 ) {
     if ( i === addedLayer ) {
-      if ( addedLayers[i] !== addedTerrain ) console.debug(`Fail at adding layer ${addedLayer} with terrain ${addedTerrain}.`, layers);
-    } else if ( addedLayers[i] !== layers[i] ) console.debug(`Fail at adding layer ${addedLayer} with terrain ${addedTerrain} (other layers modified).`, layers);
+      if ( addedLayers[i] !== addedTerrain )
+        console.debug(`Fail at adding layer ${addedLayer} with terrain ${addedTerrain}.`, layers);
+    } else if ( addedLayers[i] !== layers[i] )
+      console.debug(`Fail at adding layer ${addedLayer} with terrain ${addedTerrain} (other layers modified).`, layers);
   }
 
   const removedC = c.removeTerrainValue(addedLayer);
   const removedLayers = removedC.toTerrainLayers();
   for ( let i = 0; i < 6; i += 1 ) {
     if ( i === addedLayer ) {
-      if ( removedLayers[i] !== 0 ) console.debug(`Fail at removing layer ${addedLayer} with terrain ${addedTerrain}.`, layers);
-    } else if ( removedLayers[i] !== layers[i] ) console.debug(`Fail at removing layer ${addedLayer} with terrain ${addedTerrain} (other layers modified).`, layers);
+      if ( removedLayers[i] !== 0 )
+        console.debug(`Fail at removing layer ${addedLayer} with terrain ${addedTerrain}.`, layers);
+    } else if ( removedLayers[i] !== layers[i] )
+      console.debug(`Fail removing layer ${addedLayer} with terrain ${addedTerrain} (other layers modified).`, layers);
   }
 
   if ( i % 100 === 0 ) console.debug(`Finished i === ${i}`);
