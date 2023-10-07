@@ -35,7 +35,7 @@
   "terrainmapper.list-config.title": "Terrain List",
   "terrainmapper.list-config.header": "All Terrains",
 
-  "terrainmapper.settings.terrain.anchorOptions.absolute": "Fixed",
+  "terrainmapper.settings.terrain.anchorOptions.absolute": "Absolute",
   "terrainmapper.settings.terrain.anchorOptions.relativeToTerrain": "Relative to Ground Elevation",
   "terrainmapper.settings.terrain.anchorOptions.relativeToLayer": "Relative to Layer Elevation",
 

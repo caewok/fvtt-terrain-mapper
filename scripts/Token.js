@@ -195,5 +195,5 @@ PATCHES.BASIC.WRAPS = {
  * @returns {string[]}
  */
 function toNames(terrains) {
-  return terrains.map(t => `${t.name} (${game.i18n.format("terrainmapper.phrases.layer-number", t.level)})`);
+  return terrains.map(t => `${t.name} (${game.i18n.format("terrainmapper.phrases.layer-number", { layerNumber: t.level })})`);
 }
