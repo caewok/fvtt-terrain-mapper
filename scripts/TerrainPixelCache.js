@@ -41,7 +41,7 @@ export class TerrainLayerPixelCache extends PixelCache {
    * @returns {TerrainLayerPixelCache}
    */
   updateFromTexture(texture) {
-    return super.updateFromTexture(texture, this._textureOptions);
+    return super.updateFromTexture(texture, this.constructor._textureOptions);
   }
 
   /**

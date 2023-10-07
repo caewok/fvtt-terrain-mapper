@@ -312,6 +312,7 @@ export class PixelCache extends PIXI.Rectangle {
     opts.scalingMethod(combinedPixels, width, height, opts.resolution, {
       channel: opts.channel,
       skip: opts.combineFn ? 1 : 4,
+      arrayClass: opts.arrayClass,
       arr: this.pixels });
 
     // Clear cached parameters.

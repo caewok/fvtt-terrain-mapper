@@ -675,8 +675,7 @@ export class TerrainLayer extends InteractionLayer {
     // Update the primary terrain cache, which represents all 6 layers.
     const cache0 = this.#pixelCacheArray[0];
     const cache1 = this.#pixelCacheArray[1];
-    // this.#pixelCache.updateFromTerrainLayerCaches(cache0, cache1);
-    this.#pixelCache = TerrainPixelCache.fromTerrainLayerCaches(cache0, cache1);
+    this.#pixelCache.updateFromTerrainLayerCaches(cache0, cache1);
   }
 
   /**
@@ -685,9 +684,7 @@ export class TerrainLayer extends InteractionLayer {
    */
   #refreshPixelCacheArray(i) {
     const tex = this._terrainTextures[i];
-    this.#pixelCacheArray[i] = TerrainLayerPixelCache.fromTexture(tex);
-
-    // this.#pixelCacheArray[i].updateFromTexture(tex);
+    this.#pixelCacheArray[i].updateFromTexture(tex);
     this.#pixelCacheDirty[i] = 0;
   }
 
