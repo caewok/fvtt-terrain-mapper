@@ -140,7 +140,7 @@ export class TerrainTextureManager {
   }
 
   /**
-   * Get the elevation data from the scene flag, save it to the folder, and test loading it.
+   * Retrieve elevation data from the scene flag, save it to the folder, and test loading it.
    * If all that works, remove the data from the scene flag and update the scene flag version.
    */
   async convertFromSceneFlag() {

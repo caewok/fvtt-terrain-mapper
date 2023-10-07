@@ -157,11 +157,22 @@ async function removeAllTerrains() { return Terrain.removeAllFromToken(this); }
  */
 function hasTerrain(terrain) { return terrain.tokenHasTerrain(this); }
 
+/**
+ * Calculate the top left corner location for a token given an assumed center point.
+ * Used for automatic terrain determination.
+ * @param {number} x    Assumed x center coordinate
+ * @param {number} y    Assumed y center coordinate
+ * @returns {PIXI.Point}
+ */
+function getTopLeft(x, y) {
+  return new PIXI.Point(x - (this.w * 0.5), y - (this.h * 0.5));
+}
 
 PATCHES.BASIC.METHODS = {
   getAllTerrains,
   removeAllTerrains,
-  hasTerrain
+  hasTerrain,
+  getTopLeft
 };
 
 // ----- NOTE: Wraps ----- //

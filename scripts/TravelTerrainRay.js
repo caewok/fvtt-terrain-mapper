@@ -136,7 +136,7 @@ export class TravelTerrainRay {
   }
 
   /**
-   * Get the path marker object at a given percentage distance along the path.
+   * Path marker object at a given percentage distance along the path.
    * @param {number} t    Percent distance along the ray
    * @returns {object|undefined} The maker
    */
@@ -148,7 +148,7 @@ export class TravelTerrainRay {
   }
 
   /**
-   * Get the terrains on the ray nearest to a point on the canvas.
+   * Terrains on the ray nearest to a point on the canvas.
    * @param {Point} pt    Point to check
    * @returns {TerrainLevel[]} Terrains nearest to that location on the ray.
    */
@@ -163,7 +163,7 @@ export class TravelTerrainRay {
   activeTerrainsAtClosestPoint(pt) { return this.activeTerrainsAtT(this.tForPoint(pt)); }
 
   /**
-   * Get the closest point on the ray and return the t value for that location.
+   * Closest point on the ray and return the t value for that location.
    * @param {Point} pt    Point to use to determine the closest point to the ray
    * @returns {number} The t value, where origin = 0, destination = 1
    */

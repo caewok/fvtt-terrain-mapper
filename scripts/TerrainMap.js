@@ -83,7 +83,7 @@ export class TerrainMap extends Map {
   hasTerrainId(id) { return this.terrainIds.has(id); }
 
   /**
-   * Get the key for a given value.
+   * Key for a given value.
    * @param {*} value     The value to match.
    * @returns {*|undefined} The key associated with the value, or false if none.
    */

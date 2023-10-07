@@ -369,7 +369,7 @@ export class Terrain {
   }
 
   /**
-   * Get the walk value for the given token as if this terrain were applied.
+   * Walk value for the given token as if this terrain were applied.
    * @param {Token} token
    * @returns {number} The token's default speed attribute (typically, walk) if the terrain were applied.
    */
