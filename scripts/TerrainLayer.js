@@ -31,7 +31,7 @@ import { TravelTerrainRay } from "./TravelTerrainRay.js";
 import { TerrainEffectsApp } from "./TerrainEffectsApp.js";
 import { TerrainMap } from "./TerrainMap.js";
 import { TerrainLevel } from "./TerrainLevel.js";
-import { TerrainPixelCache, TerrainLayerPixelCache } from "./TerrainPixelCache.js";
+import { TerrainPixelCache, TerrainLayerPixelCache, TerrainKey } from "./TerrainPixelCache.js";
 
 // TODO: What should replace this now that FullCanvasContainer is deprecated in v11?
 class FullCanvasContainer extends FullCanvasObjectMixin(PIXI.Container) {
@@ -41,6 +41,8 @@ class FullCanvasContainer extends FullCanvasObjectMixin(PIXI.Container) {
 const LAYER_COLORS = ["RED", "GREEN", "BLUE"];
 
 export class TerrainLayer extends InteractionLayer {
+
+  static TerrainKey;
 
   // TODO: If we can use the alpha channel, can this increase to 8?
   /** @type {number} */
@@ -175,7 +177,7 @@ export class TerrainLayer extends InteractionLayer {
       || !canvas.terrain.active
       || !this.terrainLabel ) return;
 
-    // Get the canvas position of the mouse pointer.
+    // Canvas position of the mouse pointer.
     const pos = event.getLocalPosition(canvas.app.stage);
     if ( !canvas.dimensions.sceneRect.contains(pos.x, pos.y) ) {
       this.terrainLabel.visible = false;
@@ -218,24 +220,50 @@ export class TerrainLayer extends InteractionLayer {
   // ----- NOTE: Access terrain data ----- //
 
   /**
-   * Get the terrain(s) at a given position.
+   * Unique terrain(s) at a given position.
+   * @param {Point} {x, y}
+   * @returns {Set<Terrain>}
+   */
+  terrainsAt(pt) {
+    if ( !this.#initialized ) return [];
+
+    // Return only terrains that are non-zero.
+    return new Set(this.terrainLevelsAt(pt).map(t => t.terrain));
+  }
+
+  /**
+   * Active unique terrain(s) at a given position and elevation.
+   * @param {Point|Point3d} {x, y, z}   2d or 3d point
+   * @param {number} [elevation]        Optional elevation (if not pt.z or 0)
+   * @returns {Set<Terrain>}
+   */
+  activeTerrainsAt(pt, elevation) {
+    return new Set(this.activeTerrainLevelsAt(pt, elevation).map(t => t.terrain));
+  }
+
+  /**
+   * Terrain levels at a given position.
    * @param {Point} {x, y}
    * @returns {TerrainLevel[]}
    */
-  terrainsAt(pt) {
-    if ( !this.#initialized ) return undefined;
+  terrainLevelsAt(pt) {
+    if ( !this.#initialized ) return [];
 
     // Return only terrains that are non-zero.
     const terrainLayers = this._terrainLayersAt(pt);
-    const terrainArr = [];
-    const nLayers = terrainLayers.length;
-    for ( let i = 0; i < nLayers; i += 1 ) {
-      const px = terrainLayers[i];
-      if ( !px ) continue;
-      const terrain = this.terrainForPixel(px);
-      terrainArr.push(new TerrainLevel(terrain, i));
-    }
-    return terrainArr;
+    return this._layersToTerrainLevels(terrainLayers);
+  }
+
+  /**
+   * Active terrain levels at a given position and elevation.
+   * @param {Point|Point3d} {x, y, z}   2d or 3d point
+   * @param {number} [elevation]        Optional elevation (if not pt.z or 0)
+   * @returns {TerrainLevel[]}
+   */
+  activeTerrainLevelsAt(pt, elevation) {
+    elevation ??= CONFIG.GeometryLib.utils.pixelsToGridUnits(pt.z) || 0;
+    const terrainLevels = this.terrainLevelsAt(pt);
+    return terrainLevels.filter(t => t.activeAt(elevation, pt));
   }
 
   /**
@@ -249,7 +277,7 @@ export class TerrainLayer extends InteractionLayer {
   }
 
   /**
-   * Get the terrain given the current level.
+   * Terrain given the current level.
    * @param {Point} {x, y}
    * @returns {TerrainLevel|undefined} Terrain, or undefined if no terrain at this level.
    */
@@ -264,14 +292,14 @@ export class TerrainLayer extends InteractionLayer {
   }
 
   /**
-   * Get the terrain data for a given pixel value.
+   * Terrain data for a given pixel value.
    * @param {number} pixelValue
    * @returns {Terrain}
    */
   terrainForPixel(pixelValue) { return this.sceneMap.get(pixelValue); }
 
   /**
-   * Get the terrain data for a given terrain id
+   * Terrain data for a given terrain id
    * @param {string} terrainId
    * @returns {Terrain}
    */
@@ -285,6 +313,23 @@ export class TerrainLayer extends InteractionLayer {
   clampTerrainId(id) {
     id ??= 0;
     return Math.clamped(Math.round(id), 0, this.constructor.MAX_TERRAIN_ID);
+  }
+
+  /**
+   * Terrains for a given array of layers
+   * @param {Uint8Array[MAX_LAYERS]} terrainLayers
+   * @returns {TerrainLevels[]}
+   */
+  _layersToTerrainLevels(terrainLayers) {
+    const terrainArr = [];
+    const nLayers = terrainLayers.length;
+    for ( let i = 0; i < nLayers; i += 1 ) {
+      const px = terrainLayers[i];
+      if ( !px ) continue;
+      const terrain = this.terrainForPixel(px);
+      terrainArr.push(new TerrainLevel(terrain, i));
+    }
+    return terrainArr;
   }
 
   // ----- NOTE: Initialize, activate, deactivate, destroy ----- //
@@ -615,6 +660,12 @@ export class TerrainLayer extends InteractionLayer {
   get pixelCache() {
     if ( this.pixelCacheDirty ) this.#refreshPixelCache();
     return this.#pixelCache;
+  }
+
+  /** @type {PixelCacheArray[]} */
+  get pixelCacheArray() {
+    if ( this.pixelCacheDirty ) this.#refreshPixelCache();
+    return this.#pixelCacheArray;
   }
 
   /**

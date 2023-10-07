@@ -5,6 +5,7 @@ canvas
 "use strict";
 
 import { MODULE_ID, FLAGS } from "./const.js";
+import { TerrainKey } from "./TerrainPixelCache.js";
 
 /**
  * Represent the terrain at a specific level.
@@ -12,10 +13,15 @@ import { MODULE_ID, FLAGS } from "./const.js";
  * Stores the level information for this terrain.
  */
 export class TerrainLevel {
+
+  /** @type {TerrainKey} */
+  key = new TerrainKey(0);
+
   constructor(terrain, level) {
     this.terrain = terrain ?? canvas.terrain.controls.currentTerrain;
     this.level = level ?? canvas.terrain.controls.currentLevel;
     this.scene = canvas.scene;
+    this.key = TerrainKey.fromTerrainValue(this.terrain.pixelValue, this.level);
   }
 
   // Simple getters used to pass through terrain values.
@@ -25,6 +31,9 @@ export class TerrainLevel {
 
   /** @type {number} */
   get pixelValue() { return this.terrain.pixelValue; }
+
+  /** @type {FLAGS.ANCHOR.CHOICES} */
+  get anchor() { return this.terrain.anchor; }
 
   /**
    * Retrieve the anchor elevation of this level in this scene.
@@ -39,7 +48,7 @@ export class TerrainLevel {
    * Retrieve the elevation of the terrain at this point.
    * @returns {number}
    */
-  _terrainElevation() { return canvas?.elevation.elevationAt(location) ?? 0; }
+  _canvasElevation(location) { return canvas.elevation?.elevationAt(location) ?? 0; }
 
   /**
    * Determine the anchor elevation for this terrain.
@@ -47,10 +56,11 @@ export class TerrainLevel {
    * @returns {number}
    */
   getAnchorElevation(location) {
+    const CHOICES = FLAGS.ANCHOR.CHOICES;
     switch ( this.anchor ) {
-      case FLAGS.CHOICES.ABSOLUTE: return 0;
-      case FLAGS.CHOICES.RELATIVE_TO_TERRAIN: return location ? terrainElevation(location) : 0;
-      case FLAGS.CHOICES.RELATIVE_TO_LAYER: return this._layerElevation;
+      case CHOICES.ABSOLUTE: return 0;
+      case CHOICES.RELATIVE_TO_TERRAIN: return location ? this._canvasElevation(location) : 0;
+      case CHOICES.RELATIVE_TO_LAYER: return this._layerElevation;
     }
   }
 

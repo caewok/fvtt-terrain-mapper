@@ -261,17 +261,17 @@ export class Terrain {
    * @param {Token} token
    * @param {boolean} [duplicate=false]     If false, don't add if already present.
    */
-  async addToToken(token, { duplicate = false, removeSceneTerrains = false, removeAllTerrains = false } = {}) {
+  async addToToken(token, { duplicate = false, removeOtherSceneTerrains = false, removeAllOtherTerrains = false } = {}) {
     await this.constructor.lock.acquire();
-    let currTerrains = new Set(this.constructor.getAllOnToken(token));
+    let currTerrains = new Set(this.constructor.allOnToken(token));
     if ( duplicate || !currTerrains.has(this) ) {
       console.debug(`Adding ${this.name} terrain to ${token.name}.`);
       await SOCKETS.socket.executeAsGM("addTerrainEffect", token.document.uuid, this.id);
     }
 
     // Remove other terrains from the token.
-    if ( removeSceneTerrains ) currTerrains = currTerrains.filter(t => this.sceneMap.hasTerrainId(t.id));
-    if ( removeSceneTerrains || removeAllTerrains ) {
+    if ( removeOtherSceneTerrains ) currTerrains = currTerrains.filter(t => this.sceneMap.hasTerrainId(t.id));
+    if ( removeOtherSceneTerrains || removeAllOtherTerrains ) {
       currTerrains.delete(this);
       for ( const terrain of currTerrains ) {
         console.debug(`Removing ${terrain.name} terrain from ${token.name}.`);
@@ -288,7 +288,7 @@ export class Terrain {
    */
   async removeFromToken(token, _all = true) {
     await this.constructor.lock.acquire();
-    const currTerrains = new Set(this.constructor.getAllOnToken(token));
+    const currTerrains = new Set(this.constructor.allOnToken(token));
     if ( currTerrains.has(this) ) {
       console.debug(`Removing ${this.name} terrain from ${token.name}.`);
       await SOCKETS.socket.executeAsGM("removeTerrainEffect", token.document.uuid, this.id);
@@ -302,7 +302,7 @@ export class Terrain {
    */
   static async removeAllSceneTerrainsFromToken(token) {
     await this.lock.acquire();
-    const terrains = new Set(this.getAllSceneTerrainsOnToken(token));
+    const terrains = new Set(this.allSceneTerrainsOnToken(token));
     const promises = [];
     const uuid = token.document.uuid;
     for ( const terrain of terrains ) {
@@ -319,7 +319,7 @@ export class Terrain {
    */
   static async removeAllFromToken(token) {
     await this.lock.acquire();
-    const terrains = this.getAllOnToken(token);
+    const terrains = this.allOnToken(token);
     const promises = [];
     const uuid = token.document.uuid;
     for ( const terrain of terrains ) {
@@ -335,7 +335,7 @@ export class Terrain {
    * @param {Token} token
    * @returns {Terrain[]}
    */
-  static getAllOnToken(token) {
+  static allOnToken(token) {
     console.debug(`Getting all terrains on ${token.name}.`);
     const allEffects = token.actor?.appliedEffects;
     if ( !allEffects ) return [];
@@ -354,8 +354,8 @@ export class Terrain {
    * @param {Token} token
    * @returns {Terrain[]}
    */
-  static getAllSceneTerrainsOnToken(token) {
-    return this.getAllOnToken(token).filter(t => canvas.terrain.sceneMap.hasTerrainId(t.id));
+  static allSceneTerrainsOnToken(token) {
+    return this.allOnToken(token).filter(t => canvas.terrain.sceneMap.hasTerrainId(t.id));
   }
 
   /**
@@ -364,12 +364,12 @@ export class Terrain {
    * @returns {boolean}
    */
   tokenHasTerrain(token) {
-    const tokenTerrains = new Set(this.constructor.getAllOnToken(token));
+    const tokenTerrains = new Set(this.constructor.allOnToken(token));
     return tokenTerrains.has(this);
   }
 
   /**
-   * Get the walk value for the given token as if this terrain were applied.
+   * Walk value for the given token as if this terrain were applied.
    * @param {Token} token
    * @returns {number} The token's default speed attribute (typically, walk) if the terrain were applied.
    */

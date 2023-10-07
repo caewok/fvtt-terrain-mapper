@@ -115,7 +115,7 @@ float toDegrees(in float radians) {
 GLSLFunctions.angleBetween =
 `
 /**
- * Get the angle between three 2d points, A --> B --> C.
+ * Angle between three 2d points, A --> B --> C.
  * Assumes A|B and B|C have lengths > 0.
  * @param {vec2} a   First point
  * @param {vec2} b   Second point
@@ -384,7 +384,7 @@ GLSLFunctions.terrainElevation =
 ${defineFunction("texelToElevationPixelUnits")}
 
 /**
- * Get the terrain elevation at this fragment.
+ * Terrain elevation at this fragment.
  * vTerrainTexCoord must be scaled to the scene dimensions.
  * @param {sampler2D} terrainTex  The terrain elevation texture
  * @param {vec2} texCoord         The texture coordinate

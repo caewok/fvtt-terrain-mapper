@@ -312,6 +312,7 @@ export class PixelCache extends PIXI.Rectangle {
     opts.scalingMethod(combinedPixels, width, height, opts.resolution, {
       channel: opts.channel,
       skip: opts.combineFn ? 1 : 4,
+      arrayClass: opts.arrayClass,
       arr: this.pixels });
 
     // Clear cached parameters.
@@ -515,7 +516,7 @@ export class PixelCache extends PIXI.Rectangle {
   }
 
   /**
-   * Get the pixel index for a specific texture location
+   * Pixel index for a specific texture location
    * @param {number} x      Local texture x coordinate
    * @param {number} y      Local texture y coordinate
    * @returns {number}
@@ -552,7 +553,7 @@ export class PixelCache extends PIXI.Rectangle {
   }
 
   /**
-   * Get the pixel index for a specific texture location
+   * Pixel index for a specific texture location
    * @param {number} x      Canvas x coordinate
    * @param {number} y      Canvas y coordinate
    * @returns {number}

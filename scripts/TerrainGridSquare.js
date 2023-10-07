@@ -48,7 +48,6 @@ export class TerrainGridSquare extends Square {
   static fromGridPosition(row, col) {
     const [tlx, tly] = canvas.grid.grid.getPixelsFromGridPosition(row, col);
     return this._fromTopLeft(tlx, tly);
-
   }
 
   /**

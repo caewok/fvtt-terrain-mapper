@@ -1,4 +1,5 @@
 /* globals
+canvas,
 flattenObject,
 game
 */
@@ -68,34 +69,46 @@ function refreshTokenHook(token, flags) {
   } else if ( token._animation ) {
     const ttr = token[MODULE_ID].ttr;
     if ( !ttr ) return;
+
+    // Determine if there are any active terrains based on the center of this token.
     const center = token.getCenter(token.position.x, token.position.y);
-    const terrain = ttr.terrainAtClosestPoint(center);
-    if ( !terrain ) {
-      Terrain.removeAllSceneTerrainsFromToken(token);
+    const pathTerrains = ttr.activeTerrainsAtClosestPoint(center);
+    if ( !pathTerrains.size ) {
+      Terrain.removeAllSceneTerrainsFromToken(token); // Async
       return;
     }
 
-    if ( token.hasTerrain(terrain) ) return;
-    terrain.addToToken(token, { removeSceneTerrains: true });
+    // Determine if terrains must be added or removed from the token at this point.
+    const tokenTerrains = new Set(Terrain.allSceneTerrainsOnToken(token));
+    const terrainsToRemove = tokenTerrains.difference(pathTerrains);
+    const terrainsToAdd = pathTerrains.difference(tokenTerrains);
+
+    // Following remove/add is async.
+    terrainsToRemove.forEach(t => t.removeFromToken(token));
+    terrainsToAdd.forEach(t => t.addToToken(token));
+
+    // If no terrains added or no dialog required when adding terrains, we are done.
+    if ( !terrainsToAdd.size ) return;
     if ( Settings.get(AUTO.DIALOG) ) {
       token.stopAnimation();
       token.document.update({ x: token.position.x, y: token.position.y });
-      const dialogData = terrainEncounteredDialogData(token, terrain, ttr.destination);
+      const dialogData = terrainEncounteredDialogData(token, [...terrainsToAdd], ttr.destination);
       SOCKETS.socket.executeAsGM("dialog", dialogData);
     }
   }
 }
 
-
 /**
  * Function to present dialog to GM.
  */
-function terrainEncounteredDialogData(token, terrain, destination) {
+function terrainEncounteredDialogData(token, terrains, destination) {
+  const names = [...terrains].map(t => t.name);
   const localize = key => game.i18n.localize(`${MODULE_ID}.terrain-encountered-dialog.${key}`);
+  const intro = game.i18n.format(`${MODULE_ID}.terrain-encountered-dialog.content`, { tokenName: token.name });
+  const content = `${intro}: ${names.join(", ")}<br><hr>`;
   return {
     title: localize("title"),
-    content: game.i18n.format(`${MODULE_ID}.terrain-encountered-dialog.content`,
-      { terrainName: terrain.name, tokenName: token.name }),
+    content,
     buttons: {
       one: {
         icon: "<i class='fas fa-person-hiking'></i>",
@@ -144,11 +157,22 @@ async function removeAllTerrains() { return Terrain.removeAllFromToken(this); }
  */
 function hasTerrain(terrain) { return terrain.tokenHasTerrain(this); }
 
+/**
+ * Calculate the top left corner location for a token given an assumed center point.
+ * Used for automatic terrain determination.
+ * @param {number} x    Assumed x center coordinate
+ * @param {number} y    Assumed y center coordinate
+ * @returns {PIXI.Point}
+ */
+function getTopLeft(x, y) {
+  return new PIXI.Point(x - (this.w * 0.5), y - (this.h * 0.5));
+}
 
 PATCHES.BASIC.METHODS = {
   getAllTerrains,
   removeAllTerrains,
-  hasTerrain
+  hasTerrain,
+  getTopLeft
 };
 
 // ----- NOTE: Wraps ----- //
@@ -162,14 +186,16 @@ function _getTooltipText(wrapper) {
   // If not a clone, return.
   if ( !this._original ) return text;
 
-  const terrain = canvas.terrain.terrainAt(this.center);
-  if ( terrain ) text =
-`${terrain.name}
-${text}`;
-  return text;
+  // Get every active terrain below the center of the token.
+  const terrains = canvas.terrain.activeTerrainsAt(this.center, this.elevationE);
+  if ( !terrains.size ) return text;
+
+  // Combine all the terrains.
+  const names = [...terrains].map(t => t.name);
+
+  return `${names.join("\n")}\n${text}`;
 }
 
 PATCHES.BASIC.WRAPS = {
   _getTooltipText
-}
-
+};

@@ -17,6 +17,7 @@ import { registerGeometry } from "./geometry/registration.js";
 
 import { TerrainLayerShader } from "./glsl/TerrainLayerShader.js";
 import { WallTracerEdge, WallTracerVertex, WallTracer, SCENE_GRAPH } from "./WallTracer.js";
+import { TerrainLayerPixelCache, TerrainPixelCache, TerrainKey } from "./TerrainPixelCache.js";
 
 // import { BlendFilter } from "./pixi-picture/BlendFilter.js";
 // import { applyMixins } from "./pixi-picture/FilterSystemMixin.js";
@@ -96,7 +97,10 @@ function initializeAPI() {
     WallTracerEdge,
     WallTracerVertex,
     WallTracer,
-    SCENE_GRAPH
+    SCENE_GRAPH,
+    TerrainLayerPixelCache,
+    TerrainPixelCache,
+    TerrainKey
   };
 }
 

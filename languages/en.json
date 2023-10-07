@@ -20,7 +20,7 @@
   "terrainmapper.controls.currentLayer": "Current layer",
 
   "terrainmapper.terrain-encountered-dialog.title": "Terrain Mapper|Terrain Encountered",
-  "terrainmapper.terrain-encountered-dialog.content": "{tokenName} has encountered {terrainName} terrain! <hr> <br>",
+  "terrainmapper.terrain-encountered-dialog.content": "{tokenName} has encountered terrain!",
   "terrainmapper.terrain-encountered-dialog.continue": "Continue token movement",
   "terrainmapper.terrain-encountered-dialog.cancel": "Cancel token movement",
 
