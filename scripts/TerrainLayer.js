@@ -548,11 +548,9 @@ export class TerrainLayer extends InteractionLayer {
    */
   async saveSceneData() {
     const sceneMap = [...this.sceneMap.entries()].map(([key, terrain]) => [key, terrain.id]);
-    const terrains = Terrain.exportToJSON();
     const shapeQueue = this._shapeQueue.elements.map(elem => elem.shape.toJSON());
     const saveData = {
       sceneMap,
-      terrains,
       shapeQueue
     };
     return this._fileManager.saveData(saveData);
@@ -563,9 +561,6 @@ export class TerrainLayer extends InteractionLayer {
    */
   async loadSceneData() {
     const data = await this._fileManager.loadData();
-
-    // Replace the terrains.
-    await Terrain.replaceFromJSON(JSON.stringify(data.terrains));
 
     // Clear the scene map.
     const sceneMap = this.sceneMap;
