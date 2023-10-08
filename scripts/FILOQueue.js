@@ -27,4 +27,8 @@ export class FILOQueue {
   peek() {
     return this.elements[this.length - 1];
   }
+
+  clear() {
+    this.elements.length = 0;
+  }
 }
