@@ -3,13 +3,12 @@
 */
 "use strict";
 
-// FILO queue.
-// Used by ElevationLayerToolBar to store undo history
+/**
+ * Basic first-in, last-out queue structure.
+ */
 export class FILOQueue {
-  constructor(max = 50) {
-    this.elements = [];
-    this.max = max;
-  }
+  /** @type {*[]} */
+  elements = [];
 
   get length() {
     return this.elements.length;
@@ -17,7 +16,6 @@ export class FILOQueue {
 
   enqueue(element) {
     this.elements.push(element);
-    if ( this.elements.length > this.max ) this.elements.shift();
   }
 
   dequeue() {
@@ -30,5 +28,21 @@ export class FILOQueue {
 
   clear() {
     this.elements.length = 0;
+  }
+}
+
+/**
+ * FILO queue that has a fixed length. Oldest items drop off.
+ * Used to store, e.g., undo history.
+ */
+export class FILOFixedQueue extends FILOQueue {
+  constructor(max = 50) {
+    super();
+    this.max = max;
+  }
+
+  enqueue(element) {
+    super.enqueue(element);
+    if ( this.elements.length > this.max ) this.elements.shift();
   }
 }
