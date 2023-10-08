@@ -495,6 +495,7 @@ export class TerrainLayer extends InteractionLayer {
    * Save data related to this scene.
    */
   async save() {
+    this.cleanAllShapeQueues();
     await this.saveSceneData();
   }
 
@@ -781,12 +782,15 @@ export class TerrainLayer extends InteractionLayer {
   }
 
   #cleanShapeQueue(layerNum) {
-    const skip = 0; // TODO: skip = this.constructor.NUM_UNDO;
+    const skip = this.constructor.NUM_UNDO;
     const queue = this._shapeQueueArray[layerNum];
+    if ( queue.length < skip ) return;
+
+    // Remove duplicative shapes from the queue.
     const removedElements = queue.clean(skip);
     if ( !removedElements.length ) return;
     removedElements.forEach(elem => this.#removeShape(elem));
-    this.renderTerrain(layerNum);
+    this.renderTerrain(layerNum); // TODO: Is rendering necessary here?
   }
 
   #removeShape(queueObj) {
