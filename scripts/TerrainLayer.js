@@ -584,8 +584,8 @@ export class TerrainLayer extends InteractionLayer {
       terrain.addToScene();
     }
 
-    // Clear the graphics layers and name graphics.
-    this._graphicsLayers.forEach(c => c.removeChildren);
+    // Clear the graphics layers, name graphics, cache.
+    this._graphicsLayers.forEach(c => c.removeChildren());
     this._terrainLabelsContainer.clear();
 
     // Construct the shape queue.
@@ -595,11 +595,12 @@ export class TerrainLayer extends InteractionLayer {
       const shape = cl.fromJSON(shapeData);
       const terrain = this.sceneMap.get(shapeData.pixelValue);
       const graphics = this._drawTerrainShape(shape, terrain);
-      this._shapeQueue.enqueue({ shape, graphics });
-      this._drawTerrainName(shape);
+      const text = this._drawTerrainName(shape);
+      this._shapeQueue.enqueue({ shape, graphics, text });
     }
 
     // Finally, render the terrain.
+    this._clearPixelCacheArray();
     this.renderTerrain();
   }
 
@@ -879,12 +880,17 @@ export class TerrainLayer extends InteractionLayer {
 
   /**
    * Draw the terrain name into the container that stores names.
+   * @param {TerrainGridSquare
+            |TerrainGridHexagon
+            |TerrainPolygon} shape      A PIXI shape with origin and pixelValue properties
+   * @returns {PIXI.Text}
    */
   _drawTerrainName(shape) {
     const draw = new Draw(this._terrainLabelsContainer);
     const terrain = this.sceneMap.get(shape.pixelValue);
     const txt = draw.labelPoint(shape.origin, terrain.name, { fontSize: 24 });
     txt.anchor.set(0.5); // Center text
+    return txt;
   }
 
   /**
@@ -1014,8 +1020,8 @@ export class TerrainLayer extends InteractionLayer {
     // Either temporarily draw or permanently add the graphics for the shape.
     if ( temporary ) this.#temporaryGraphics.set(shape.origin.key, { shape, graphics });
     else {
-      this._shapeQueue.enqueue({ shape, graphics }); // Link to PIXI.Graphics object for undo.
-      this._drawTerrainName(shape);
+      const text = this._drawTerrainName(shape);
+      this._shapeQueue.enqueue({ shape, graphics, text }); // Link to PIXI.Graphics, PIXI.Text objects for undo.
     }
 
     // Trigger save if necessary.
