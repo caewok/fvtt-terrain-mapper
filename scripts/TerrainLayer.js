@@ -20,11 +20,11 @@ import { Draw } from "./geometry/Draw.js";
 import { TerrainGridSquare } from "./TerrainGridSquare.js";
 import { TerrainGridHexagon } from "./TerrainGridHexagon.js";
 import { TerrainPolygon } from "./TerrainPolygon.js";
-import { TerrainTextureManager } from "./TerrainTextureManager.js";
+import { TerrainShapeHoled } from "./TerrainShapeHoled.js";
+import { TerrainFileManager } from "./TerrainFileManager.js";
 import { TerrainLayerShader } from "./glsl/TerrainLayerShader.js";
 import { TerrainQuadMesh } from "./glsl/TerrainQuadMesh.js";
 import { SCENE_GRAPH } from "./WallTracer.js";
-import { TerrainShapeHoled } from "./TerrainShapeHoled.js";
 import { FillByGridHelper } from "./FillByGridHelper.js";
 import { FillPolygonHelper } from "./FillPolygonHelper.js";
 import { TravelTerrainRay } from "./TravelTerrainRay.js";
@@ -39,6 +39,13 @@ class FullCanvasContainer extends FullCanvasObjectMixin(PIXI.Container) {
 }
 
 const LAYER_COLORS = ["RED", "GREEN", "BLUE"];
+
+const TERRAIN_SHAPES = {
+  "TerrainGridSquare": TerrainGridSquare,
+  "TerrainGridHexagon": TerrainGridHexagon,
+  "TerrainPolygon": TerrainPolygon,
+  "TerrainShapeHoled": TerrainShapeHoled
+};
 
 export class TerrainLayer extends InteractionLayer {
 
@@ -144,8 +151,8 @@ export class TerrainLayer extends InteractionLayer {
    */
   _requiresSave = false; // Avoid private field here b/c it causes problems for arrow functions
 
-  /** @type {TerrainTextureManager} */
-  _textureManager = new TerrainTextureManager();
+  /** @type {TerrainFileManager} */
+  _fileManager = new TerrainFileManager();
 
   constructor() {
     super();
@@ -341,6 +348,9 @@ export class TerrainLayer extends InteractionLayer {
     // Set up the shared graphics object used to color grid spaces.
     this.#initializeGridShape();
 
+    // Initialize the file manager for loading and storing terrain data.
+    await this._fileManager.initialize();
+
     const currId = Settings.getByName("CURRENT_TERRAIN");
     if ( currId ) this.currentTerrain = this.sceneMap.terrainIds.get(currId);
     if ( !this.currentTerrain ) this.currentTerrain = this.sceneMap.values().next().value;
@@ -373,7 +383,7 @@ export class TerrainLayer extends InteractionLayer {
     // Construct the render textures that are used for the layers.
     const nTextures = Math.ceil(nLayers / 3);
     for ( let i = 0; i < nTextures; i += 1 ) {
-      const tex = this._terrainTextures[i] = PIXI.RenderTexture.create(this._textureManager.textureConfiguration);
+      const tex = this._terrainTextures[i] = PIXI.RenderTexture.create(this._fileManager.textureConfiguration);
       tex.baseTexture.clearColor = [0, 0, 0, 0];
     }
 
@@ -492,6 +502,7 @@ export class TerrainLayer extends InteractionLayer {
     await this.saveSceneMap();
   }
 
+
   // ----- NOTE: SceneMap ----- //
 
   /**
@@ -530,6 +541,67 @@ export class TerrainLayer extends InteractionLayer {
 //       this.sceneMap.set(pixelValue, newTerrain);
 //       newTerrain.addToScene();
 //     }
+  }
+
+  /**
+   * Save the scene data to the worlds folder.
+   */
+  async saveSceneData() {
+    const sceneMap = [...this.sceneMap.entries()].map(([key, terrain]) => [key, terrain.id]);
+    const terrains = Terrain.exportToJSON();
+    const shapeQueue = this._shapeQueue.elements.map(elem => elem.shape.toJSON());
+    const saveData = {
+      sceneMap,
+      terrains,
+      shapeQueue
+    };
+    return this._fileManager.saveData(saveData);
+  }
+
+  /**
+   * Load the scene data from the worlds folder.
+   */
+  async loadSceneData() {
+    const data = await this._fileManager.loadData();
+
+    // Replace the terrains.
+    await Terrain.replaceFromJSON(JSON.stringify(data.terrains));
+
+    // Clear the scene map.
+    const sceneMap = this.sceneMap;
+    sceneMap.clear();
+
+    // Set the 0 pixel value just in case the entire scene is set to another pixel value.
+    const nullTerrain = new Terrain();
+    sceneMap.set(0, nullTerrain, true); // Null terrain.
+    nullTerrain.addToScene();
+
+    // Add all other terrains to the scene map.
+    for ( const [key, id] of data.sceneMap ) {
+      if ( !key ) continue;
+      const terrain = Terrain.fromEffectId(id);
+      sceneMap.set(key, terrain);
+      terrain.addToScene();
+    }
+
+    // Clear the graphics layers, name graphics, cache.
+    this._graphicsLayers.forEach(c => c.removeChildren());
+    this._terrainLabelsContainer.clear();
+
+    // Construct the shape queue.
+    this._shapeQueue.clear();
+    for ( const shapeData of data.shapeQueue ) {
+      const cl = TERRAIN_SHAPES[shapeData.type];
+      const shape = cl.fromJSON(shapeData);
+      const terrain = this.sceneMap.get(shapeData.pixelValue);
+      const graphics = this._drawTerrainShape(shape, terrain);
+      const text = this._drawTerrainName(shape);
+      this._shapeQueue.enqueue({ shape, graphics, text });
+    }
+
+    // Finally, render the terrain.
+    this._clearPixelCacheArray();
+    this.renderTerrain();
   }
 
   async saveSceneMap() {
@@ -808,12 +880,17 @@ export class TerrainLayer extends InteractionLayer {
 
   /**
    * Draw the terrain name into the container that stores names.
+   * @param {TerrainGridSquare
+            |TerrainGridHexagon
+            |TerrainPolygon} shape      A PIXI shape with origin and pixelValue properties
+   * @returns {PIXI.Text}
    */
   _drawTerrainName(shape) {
     const draw = new Draw(this._terrainLabelsContainer);
     const terrain = this.sceneMap.get(shape.pixelValue);
     const txt = draw.labelPoint(shape.origin, terrain.name, { fontSize: 24 });
     txt.anchor.set(0.5); // Center text
+    return txt;
   }
 
   /**
@@ -938,12 +1015,13 @@ export class TerrainLayer extends InteractionLayer {
 
     // Draw the graphics element for the shape to display to the GM.
     const graphics = this._drawTerrainShape(shape, terrain);
+    this.renderTerrain(shape.layer);
 
-    // Either temporarily draw or permanently draw the graphics for the shape.
+    // Either temporarily draw or permanently add the graphics for the shape.
     if ( temporary ) this.#temporaryGraphics.set(shape.origin.key, { shape, graphics });
     else {
-      this._shapeQueue.enqueue({ shape, graphics }); // Link to PIXI.Graphics object for undo.
-      this._drawTerrainName(shape);
+      const text = this._drawTerrainName(shape);
+      this._shapeQueue.enqueue({ shape, graphics, text }); // Link to PIXI.Graphics, PIXI.Text objects for undo.
     }
 
     // Trigger save if necessary.
@@ -998,8 +1076,6 @@ export class TerrainLayer extends InteractionLayer {
     // Draw the shape into the layer container.
     layerContainer.addChild(graphics);
 
-    // Update the terrain drawing.
-    this.renderTerrain(layer);
     return graphics;
   }
 

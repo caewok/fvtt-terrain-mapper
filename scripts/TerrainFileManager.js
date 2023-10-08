@@ -3,19 +3,20 @@ canvas,
 CONFIG,
 FilePicker,
 game,
-isNewerVersion,
 PIXI,
+readTextFromFile,
+saveDataToFile,
 TextureLoader
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { MODULE_ID, FLAGS } from "./const.js";
+import { MODULE_ID } from "./const.js";
 
 
-// Class to manage loading and saving of the elevation texture.
+// Class to manage loading and saving of the terrain texture.
 
-export class TerrainTextureManager {
+export class TerrainFileManager {
   /**
    * The maximum allowable visibility texture size.
    * In v11, this is equal to CanvasVisibility.#MAXIMUM_VISIBILITY_TEXTURE_SIZE
@@ -33,7 +34,10 @@ export class TerrainTextureManager {
   #filePath = "";
 
   /** @type {string} */
-  #fileName = "";
+  #textureFileName = "";
+
+  /** @type {string} */
+  #dataFileName = "";
 
   /**
    * @typedef {object} ElevationTextureConfiguration
@@ -50,49 +54,35 @@ export class TerrainTextureManager {
   #textureConfiguration;
 
   /**
-   * Initialize the elevation texture - resetting it when switching scenes or redrawing canvas.
-   * @param {object} [opts]               Optional parameters that affect storage location
-   * @param {string} [opts.filePath]      Directory path of the elevation image file
-   * @param {string} [opts.fileName]      Name of the file, without file extension (.webp will be added)
-   * @param {string} [opts.fileURL]       Full path of the file with file extension.
-   *                                      If provided, filePath and fileName are ignored.
+   * Initialize the terrain texture - resetting it when switching scenes or redrawing canvas.
    * @returns {Promise<void>}
    */
-  async initialize({filePath, fileName, fileURL} = {}) {
+  async initialize() {
     this.#initialized = false;
     this.#textureConfiguration = undefined;
 
-    // Set default values.
-    if ( fileURL ) {
-      const pathArr = fileURL.split("/");
-      fileName = pathArr.at(-1);
-      filePath = pathArr.slice(0, -1).join("/");
-    } else {
-      const fileExt = "webp";
-      filePath ??= `worlds/${game.world.id}/assets/${MODULE_ID}`;
-      fileName ??= `${game.world.id}-${canvas.scene.id}-elevationMap`;
-      fileName += `.${fileExt}`;
-      filePath = await this.constructor.constructSaveDirectory(filePath);
-    }
-
-    // Set the file path for the texture and ensure that the folder structure is present
-    this.#filePath = filePath;
-    this.#fileName = fileName;
-
-    // Conversion from older versions of EV.
-    this.#initialized = await this.convertFromSceneFlag();
+    // Set the file path and ensure that the folder structure is present
+    const filePath = `worlds/${game.world.id}/assets/${MODULE_ID}`;
+    this.#filePath = await this.constructor.constructSaveDirectory(filePath);
+    this.#textureFileName = `${game.world.id}-${canvas.scene.id}-terrainMap`;
+    this.#dataFileName = `${game.world.id}-${canvas.scene.id}-terrainData`;
+    this.#initialized = true;
   }
 
   get textureConfiguration() {
-    return this.#textureConfiguration ?? (this.#textureConfiguration = this._getElevationTextureConfiguration());
+    return this.#textureConfiguration ?? (this.#textureConfiguration = this._textureConfiguration());
   }
 
   /**
-   * Load the elevation texture from the stored file for the world and scene.
+   * Load the terrain data from the stored file for the world and scene.
+   *
+
+  /**
+   * Load the terrain texture from the stored file for the world and scene.
    * @returns {PIXI.Texture}
    */
-  async load() {
-    let filePath = `${this.#filePath}/${this.#fileName}`;
+  async loadTexture() {
+    let filePath = `${this.#filePath}/${this.#textureFileName}.webp`;
 
     // Bust the caching of the texture (The Forge issue).
     if ( filePath.startsWith("https://")
@@ -102,9 +92,9 @@ export class TerrainTextureManager {
     try {
       const baseTexture = await TextureLoader.loader.loadTexture(filePath);
       const texture = new PIXI.Texture(baseTexture);
-      return this._formatElevationTexture(texture);
+      return this._formatTexture(texture);
     } catch(err) {
-      console.warn("ElevatedVision|ElevationTextureManager load threw error", err);
+      console.warn("TerrainMapper|TerrainFileManager load threw error", err);
       return undefined; // May or may not be an error depending on whether texture should be there.
     }
   }
@@ -114,58 +104,29 @@ export class TerrainTextureManager {
    * @param {File} file
    * @returns {PIXI.Texture}
    */
-  async loadFromFile(file) {
+  async loadTextureFromFile(file) {
     console.debug("Loading from file");
     try {
       const texture = await PIXI.Texture.fromURL(file);
-      return this._formatElevationTexture(texture);
+      return this._formatTexture(texture);
 
     } catch(err) {
-      console.error("ElevatedVision|loadFromFile encountered error", err, file);
+      console.error("TerrainMapper|loadFromFile encountered error", err, file);
       return undefined;
     }
   }
 
   /**
-   * Format a texture for use as an elevation texture.
+   * Format a texture for use as an terrain texture.
    * @param {PIXI.Texture}
    * @returns {PIXI.Texture}
    */
-  _formatElevationTexture(texture) {
+  _formatTexture(texture) {
     const { width, height } = canvas.dimensions.sceneRect;
     const resolution = texture.width > texture.height ? texture.width / width : texture.height / height;
     texture.baseTexture.setSize(width, height, resolution);
     texture.baseTexture.setStyle(this.textureConfiguration.scaleMode, this.textureConfiguration.mipmap);
     return texture;
-  }
-
-  /**
-   * Retrieve elevation data from the scene flag, save it to the folder, and test loading it.
-   * If all that works, remove the data from the scene flag and update the scene flag version.
-   */
-  async convertFromSceneFlag() {
-    const elevationImage = canvas.scene.getFlag(MODULE_ID, FLAGS.ELEVATION_IMAGE);
-    if ( !elevationImage || !elevationImage.imageData || isNewerVersion(elevationImage.version, "0.5.0") ) return true;
-
-    console.debug(`Converting from scene flag to ${this.#filePath}/${this.#fileName}`);
-    try {
-      const saveRes = await this.constructor.uploadBase64(
-        elevationImage.imageData, this.#fileName, this.#filePath, { type: "image", notify: true });
-      const texture = await this.load();
-      if ( !texture.valid ) throw new Error("Elevation texture is invalid.");
-
-      elevationImage.imageURL = saveRes.path;
-      elevationImage.version = game.modules.get(MODULE_ID).version;
-      elevationImage.timestamp = Date.now();
-      elevationImage.imageData = null;
-      await canvas.scene.setFlag(MODULE_ID, FLAGS.ELEVATION_IMAGE, elevationImage);
-
-    } catch(err) {
-      console.error("ElevatedVision|Conversion of elevation texture from scene flag failed.", err);
-      return false;
-    }
-
-    return true;
   }
 
   /**
@@ -187,10 +148,37 @@ export class TerrainTextureManager {
    * @param {PIXI.Texture} texture      Texture to save as the elevation map
    * @returns {Promise<object>}  The response object from FilePicker.upload.
    */
-  async save(texture) {
-    console.debug(`Saving texture to ${this.#filePath}/${this.#fileName}`);
+  async saveTexture(texture) {
+    console.debug(`Saving texture to ${this.#filePath}/${this.#textureFileName}.webp`);
     const base64image = await this.convertTextureToImage(texture);
-    return this.constructor.uploadBase64(base64image, this.#fileName, this.#filePath, { type: "image", notify: false });
+    return this.constructor.uploadBase64(base64image, `${this.#textureFileName}.webp`, this.#filePath, { type: "image", notify: false });
+  }
+
+  /**
+   * Load a json file with terrain data.
+   * @returns {object|undefined} The data object unless an error occurs, then undefined.
+   */
+  async loadData() {
+    const filePath = `${this.#filePath}/${this.#dataFileName}.json`;
+    let data;
+    try {
+      data = await foundry.utils.fetchJsonWithTimeout(foundry.utils.getRoute(filePath, {prefix: ROUTE_PREFIX}));
+    } catch (err) {
+      console.error(err);
+    }
+    return data;
+  }
+
+  /**
+   * Save a json file with data to the world scene folder.
+   */
+  async saveData(json) {
+    json = JSON.stringify(json, null, 2);
+    const fileName = `${this.#dataFileName}.json`;
+    const type = "text/json";
+    const blob = new Blob([json], { type });
+    const file = new File([blob], fileName, { type });
+    return FilePicker.upload("data", this.#filePath, file, {}, { notify: false });
   }
 
   /**
@@ -224,7 +212,7 @@ export class TerrainTextureManager {
   }
 
   /**
-   * @typedef {object} ElevationTextureConfiguration
+   * @typedef {object} TextureConfiguration
    * @property {number} resolution    Resolution of the texture
    * @property {number} width         Width, based on sceneWidth
    * @property {number} height        Height, based on sceneHeight
@@ -234,14 +222,13 @@ export class TerrainTextureManager {
    * @property {PIXI.FORMATS} format
    */
 
-
   /**
    * Values used when rendering elevation data to a texture representing the scene canvas.
-   * It may be important that width/height of the elevation texture is evenly divisible
+   * It may be important that width/height of the terrain texture is evenly divisible
    * by the downscaling resolution. (It is important for fog manager to prevent drift.)
-   * @returns {ElevationTextureConfiguration}
+   * @returns {TextureConfiguration}
    */
-  _getElevationTextureConfiguration() {
+  _textureConfiguration() {
     // In v11, see CanvasVisibility.prototype.#configureVisibilityTexture
     const dims = canvas.scene.dimensions;
     let width = dims.sceneWidth;

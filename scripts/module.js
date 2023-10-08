@@ -150,6 +150,13 @@ Functionality: single layer
 √ paint fill
 √ paint polygon
 
+Shape Queue:
+- Restore from save
+- Use separate queue per layer
+- Trim queue after X objects:
+  - grid shapes
+  - polygons
+
 Tiles (overhead and regular):
 - Set tile to a terrain
 - Set tile to multiple terrains

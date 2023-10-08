@@ -353,7 +353,7 @@ export class TerrainEffectsController {
   onExportAllTerrains(event) {
     console.debug("TerrainEffectsController|onExportAllTerrains", event);
     event.stopPropagation();
-    Terrain.exportToJSON();
+    Terrain.saveToJSON();
   }
 
   /**
