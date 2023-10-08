@@ -87,7 +87,7 @@ export class TerrainGridSquare extends Square {
     }
 
     const { gridPosition, pixelValue, layer } = json;
-    const sq = this.fromGridPosition(gridPosition);
+    const sq = this.fromGridPosition(gridPosition[0], gridPosition[1]);
     sq.pixelValue = pixelValue;
     sq.layer = layer;
     return sq;
