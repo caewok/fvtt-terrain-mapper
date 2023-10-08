@@ -104,6 +104,21 @@ function initializeAPI() {
   };
 }
 
+/* Data Storage
+
+1. Layer elevations: Scene Flag
+2. Terrains and terrain effects:
+  - Invisible item stored to world.
+  - Manual JSON export / import per terrain
+  - Manual JSON export / import all terrains
+3. Scene map: JSON file at worlds/world-name/assests/terrainmapper/
+4. Scene shape queue: JSON file at worlds/world-name/assests/terrainmapper/
+
+
+
+
+*/
+
 /* TODO: Things needed
 √ Null Terrain to allow terrain removal at pixel level.
 √ Display terrain names on token drag.
