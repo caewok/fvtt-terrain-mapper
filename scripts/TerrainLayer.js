@@ -391,8 +391,7 @@ export class TerrainLayer extends InteractionLayer {
     this.#initializePixelCache();
 
     // TODO: load the shape queue from stored data.
-
-    await this.loadSceneMap();
+    await this.loadSceneData();
 
     // Add the elevation color mesh
     const shader = TerrainLayerShader.create();
@@ -495,52 +494,13 @@ export class TerrainLayer extends InteractionLayer {
     this._terrainTexture?.destroy();
   }
 
+  // ----- NOTE: Save and load data ----- //
+
   /**
    * Save data related to this scene.
    */
   async save() {
-    await this.saveSceneMap();
-  }
-
-
-  // ----- NOTE: SceneMap ----- //
-
-  /**
-   * Load the scene terrain map.
-   * @returns {TerrainMap}
-   */
-  async loadSceneMap() {
-    const sceneMap = this.sceneMap;
-    sceneMap.clear();
-
-    // Determine what terrain pixel values are in the scene.
-//     const pixelValuesInScene = new Set(this.pixelCache.pixels);
-//     this._shapeQueue.elements.forEach(e => pixelValuesInScene.add(e.pixelValue));
-
-    // Set the 0 pixel value just in case the entire scene is set to another pixel value.
-    const nullTerrain = new Terrain();
-    sceneMap.set(0, nullTerrain, true); // Null terrain.
-    nullTerrain.addToScene();
-
-    // Set the terrain ids for each value based on stored data for the scene.
-    // Only set ids if the pixel value is present in the scene terrain.
-//     const mapData = canvas.scene.getFlag(MODULE_ID, FLAGS.TERRAIN_MAP) ?? [];
-//     mapData.forEach(([key, effectId]) => {
-//       if ( !pixelValuesInScene.has(key) ) return;
-//       const terrain = Terrain.fromEffectId(effectId, false);
-//       sceneMap.set(key, terrain, true);
-//     });
-
-    // Add any missing values as new terrain.
-    // TODO: Should this be null terrain?
-//     for ( const pixelValue in pixelValuesInScene ) {
-//       if ( sceneMap.has(pixelValue) ) continue;
-//       const newTerrain = new Terrain();
-//       await newTerrain.initialize();
-//       newTerrain.name = game.i18n.localize(`${MODULE_ID}.phrases.new-terrain`);
-//       this.sceneMap.set(pixelValue, newTerrain);
-//       newTerrain.addToScene();
-//     }
+    await this.saveSceneData();
   }
 
   /**
@@ -599,15 +559,7 @@ export class TerrainLayer extends InteractionLayer {
     this.renderTerrain();
   }
 
-  async saveSceneMap() {
-    // Don't save unless it has more than the null terrain.
-    const sceneMap = this.sceneMap;
-    if ( sceneMap.size < 2 ) return;
-
-    // Store the scene map in the scene document.
-    const mapData = [...sceneMap.entries()].map(([key, terrain]) => [key, terrain.id]);
-    await canvas.scene.setFlag(MODULE_ID, FLAGS.TERRAIN_MAP, mapData);
-  }
+  // ----- NOTE: Scene map ----- //
 
   /**
    * Determine if a terrain is in the scene map.
