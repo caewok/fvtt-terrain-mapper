@@ -92,4 +92,18 @@ export class TerrainGridSquare extends Square {
     sq.layer = layer;
     return sq;
   }
+
+  /**
+   * Does this grid shape envelop some other shape?
+   * @param {TerrainShape} other
+   * @returns {boolean}
+   */
+  envelops(other) {
+    if ( other instanceof TerrainGridSquare ) {
+      const [row, col] = this.gridPosition;
+      const [r, c] = other.gridPosition;
+      return (row === r && col === c);
+    }
+    return super.envelops(other)
+  }
 }

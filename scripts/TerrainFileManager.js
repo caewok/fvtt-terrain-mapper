@@ -164,7 +164,6 @@ export class TerrainFileManager {
     try {
       data = await foundry.utils.fetchJsonWithTimeout(foundry.utils.getRoute(filePath, {prefix: ROUTE_PREFIX}));
     } catch (err) {
-      console.error(err);
     }
     return data;
   }
