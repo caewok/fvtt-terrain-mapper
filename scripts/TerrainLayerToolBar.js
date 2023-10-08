@@ -63,7 +63,7 @@ export class TerrainLayerToolBar extends Application {
   _loadStoredTerrain() {
     const storedId = Settings.getByName("CURRENT_TERRAIN");
     const sceneMap = canvas.terrain.sceneMap;
-    if ( sceneMap.hasTerrainId(storedId) ) return sceneMap.get(storedId);
+    if ( sceneMap.hasTerrainId(storedId) ) return sceneMap.terrainIds.get(storedId);
 
     // Otherwise, use the null terrain.
     return sceneMap.get(0);
