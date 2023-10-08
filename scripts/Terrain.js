@@ -425,6 +425,11 @@ export class Terrain {
       systemVersion: game.system.version,
       terrainMapperVersion: game.modules.get(MODULE_ID).version
     };
+    return data;
+  }
+
+  static saveToJSON() {
+    const data = this.exportToJSON();
     const filename = `${MODULE_ID}_terrains`;
     saveDataToFile(JSON.stringify(data, null, 2), "text/json", `${filename}.json`);
   }
