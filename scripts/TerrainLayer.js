@@ -1267,19 +1267,22 @@ export class TerrainLayer extends InteractionLayer {
   /**
    * Remove all terrain data from the scene.
    */
-  async clearData() {
+  clearData() {
     this._shapeQueueArray.forEach(shapeQueue => shapeQueue.clear());
 
     this._clearPixelCacheArray();
     this._backgroundTerrain.destroy();
     this._backgroundTerrain = PIXI.Sprite.from(PIXI.Texture.EMPTY);
 
-    for ( const layer of this._graphicsLayers ) { layer.destroy({ children: true }); }
-    this._graphicsLayers.clear();
+    this._graphicsLayers.forEach(g => {
+      const children = g.removeChildren();
+      children.forEach(c => c.destroy());
+    });
 
-    // TODO: Is this necessary? Probably.
-    // this._graphicsContainer.destroy({children: true});
-    // this._graphicsContainer = new PIXI.Container();
+    this._terrainLabelsArray.forEach(g => {
+      const children = g.polygonText?.removeChildren() ?? [];
+      children.forEach(c => c.destroy());
+    });
 
     this._requiresSave = false;
     this.renderTerrain();
