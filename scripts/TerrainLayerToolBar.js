@@ -165,10 +165,11 @@ export class TerrainLayerToolBar extends Application {
    */
   _onHandleLayerChange(event) {
     console.debug("TerrainLayerToolBar|_onHandleLayerChange");
-    this.currentLayer = Number(event.target.value);
+    const newLayer = Number(event.target.value);
+    canvas.terrain.updateTerrainNames(this.currentLayer, newLayer);
+    this.currentLayer = newLayer;
     this.render();
   }
-
 
   async _render(...args) {
     await super._render(...args);

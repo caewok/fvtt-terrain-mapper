@@ -19,6 +19,7 @@ import { terrainEncounteredDialog } from "./Token.js";
 import { TerrainLayerShader } from "./glsl/TerrainLayerShader.js";
 import { WallTracerEdge, WallTracerVertex, WallTracer, SCENE_GRAPH } from "./WallTracer.js";
 import { TerrainLayerPixelCache, TerrainPixelCache, TerrainKey } from "./TerrainPixelCache.js";
+import { buildDirPath } from "./TerrainFileManager.js";
 
 // import { BlendFilter } from "./pixi-picture/BlendFilter.js";
 // import { applyMixins } from "./pixi-picture/FilterSystemMixin.js";
@@ -80,6 +81,7 @@ Hooks.once("socketlib.ready", () => {
   SOCKETS.socket.register("addTerrainEffect", addTerrainEffect);
   SOCKETS.socket.register("removeTerrainEffect", removeTerrainEffect);
   SOCKETS.socket.register("dialog", dialog);
+  SOCKETS.socket.register("buildDirPath", buildDirPath);
   SOCKETS.socket.register("terrainEncounteredDialog", terrainEncounteredDialog);
 });
 
