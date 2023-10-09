@@ -123,12 +123,11 @@ export class TerrainLayer extends InteractionLayer {
    */
   _terrainTextures = new Array(this.constructor.NUM_TEXTURES);
 
-
   /**
    * Container to hold terrain names, when toggled on.
-   * @type {PIXI.Graphics}
+   * @type {PIXI.Graphics[]}
    */
-  _terrainLabelsContainer = new PIXI.Graphics();
+  _terrainLabelsArray = new Array(this.constructor.MAX_LAYERS);
 
   /**
    * PIXI.Mesh used to display the elevation colors when the layer is active.
@@ -144,7 +143,7 @@ export class TerrainLayer extends InteractionLayer {
 
   /**
    * Store the string indicating the terrain at a given mouse point.
-   * @type {string}
+   * @type {PreciseText}
    */
   terrainLabel = new PreciseText(undefined,
     PreciseText.getTextStyle({
@@ -167,7 +166,6 @@ export class TerrainLayer extends InteractionLayer {
 
   constructor() {
     super();
-    this.controls = ui.controls.controls.find(obj => obj.name === "terrain");
     this._activateHoverListener();
   }
 
@@ -176,6 +174,10 @@ export class TerrainLayer extends InteractionLayer {
     return mergeObject(super.layerOptions, {
       name: "Terrain"
     });
+  }
+
+  get controls() {
+    return ui.controls.controls.find(obj => obj.name === "terrain");
   }
 
   /**
@@ -386,6 +388,8 @@ export class TerrainLayer extends InteractionLayer {
       g.mask.colorMask = PIXI.COLOR_MASK_BITS[colorName] | PIXI.COLOR_MASK_BITS.ALPHA;
       // TODO: Do we need temp graphics?
       // g._tempGraphics = g.addChild(new PIXI.Container()); // For temporary rendering during drag operations.
+
+      this._terrainLabelsArray[i] = new PIXI.Graphics();
     }
 
     // Construct the render textures that are used for the layers.
@@ -495,10 +499,8 @@ export class TerrainLayer extends InteractionLayer {
       layer.destroy({ children: true });
     }
 
-    this._terrainLabelsContainer.destroy({children: true});
-    this._terrainLabelsContainer = new PIXI.Graphics();
-
-    this._terrainTexture?.destroy();
+    this._terrainLabelsArray.forEach(g => g.destroy({children: true}));
+    this._terrainTextures.forEach(rt => rt.destroy());
   }
 
   // ----- NOTE: Save and load data ----- //
@@ -550,7 +552,7 @@ export class TerrainLayer extends InteractionLayer {
 
     // Clear the graphics layers, name graphics, cache.
     this._graphicsLayers.forEach(c => c.removeChildren());
-    this._terrainLabelsContainer.clear();
+    this._terrainLabelsArray.forEach(g => g.clear());
 
     // Construct the shape queues.
     const ln = this._shapeQueueArray.length;
@@ -862,7 +864,7 @@ export class TerrainLayer extends InteractionLayer {
     queueObj.graphics.destroy();
 
     // Remove the associated text label.
-    this._terrainLabelsContainer.polygonText.removeChild(queueObj.text);
+    if ( queuObj.text ) this._terrainLabelsArray[layerIdx].polygonText.removeChild(queueObj.text)
   }
 
   /**
@@ -939,7 +941,8 @@ export class TerrainLayer extends InteractionLayer {
    * @param {boolean} force
    */
   toggleTerrainNames(force) {
-    const polygonText = this._terrainLabelsContainer.polygonText;
+    const layerIdx = this.toolbar.currentLayer;
+    const polygonText = this._terrainLabelsArray[layerIdx].polygonText;
     if ( !polygonText ) return;
 
     // If already set and we want to force to a specific setting, do not toggle.
@@ -953,15 +956,35 @@ export class TerrainLayer extends InteractionLayer {
   }
 
   /**
+   * Update the terrain names to the current layer.
+   * @param {number} oldLayerIdx    Number of the old layer to disable
+   * @param {number} newLayerIdx    Number of the new layer to enable
+   */
+  updateTerrainNames(oldLayerIdx, newLayerIdx) {
+    const oldPolygonText = this._terrainLabelsArray[oldLayerIdx].polygonText;
+    if ( typeof oldPolygonText !== "undefined" ) canvas.controls.removeChild(oldPolygonText);
+
+    const newPolygonText = this._terrainLabelsArray[newLayerIdx].polygonText;
+    if ( typeof newPolygonText !== "undefined"
+      && this.controls.tools.find(t => t.name === "terrain-view-toggle")?.active )
+      canvas.controls.addChild(newPolygonText);
+  }
+
+  /**
    * Draw the terrain name into the container that stores names.
    * @param {TerrainGridSquare
             |TerrainGridHexagon
             |TerrainPolygon} shape      A PIXI shape with origin and pixelValue properties
-   * @returns {PIXI.Text}
+   * @returns {PIXI.Text|undefined} The added text or undefined if "no terrain" and text not previously there.
    */
   _drawTerrainName(shape) {
-    const draw = new Draw(this._terrainLabelsContainer);
     const terrain = this.sceneMap.get(shape.pixelValue);
+    const draw = new Draw(this._terrainLabelsArray[shape.layer]);
+
+    // Do not label "No terrain" shapes and remove the prior.
+    if ( !shape.pixelValue ) return draw.removeLabel(shape.origin);
+
+    // Draw the terrain name.
     const txt = draw.labelPoint(shape.origin, terrain.name, { fontSize: 24 });
     txt.anchor.set(0.5); // Center text
     return txt;
