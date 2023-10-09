@@ -39,7 +39,8 @@ export class TerrainEffectsController {
    */
   get data() {
     const terrains = Terrain.getAll();
-    this._sortTerrains(terrains);
+    const userTerrains = game.user.isGM ? terrains : terrains.filter(t => t.userVisible);
+    this._sortTerrains(userTerrains);
 
     return {
       // Folders:
@@ -50,7 +51,7 @@ export class TerrainEffectsController {
         {
           id: "favorites",
           name: "Favorites",
-          effects: this._fetchFavorites(terrains).map(e => {
+          effects: this._fetchFavorites(userTerrains).map(e => {
             return {
               name: e.name,
               icon: e.icon,
@@ -62,7 +63,7 @@ export class TerrainEffectsController {
         {
           id: "scene",
           name: "Scene",
-          effects: this._fetchSceneTerrains(terrains).map(e => {
+          effects: this._fetchSceneTerrains(userTerrains).map(e => {
             return {
               name: e.name,
               icon: e.icon,
@@ -74,7 +75,7 @@ export class TerrainEffectsController {
         {
           id: "all",
           name: "All",
-          effects: terrains.map(e => {
+          effects: userTerrains.map(e => {
             return {
               name: e.name,
               icon: e.icon,
