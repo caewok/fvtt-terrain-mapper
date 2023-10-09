@@ -32,6 +32,7 @@ import { TerrainEffectsApp } from "./TerrainEffectsApp.js";
 import { TerrainMap } from "./TerrainMap.js";
 import { TerrainLevel } from "./TerrainLevel.js";
 import { TerrainPixelCache, TerrainLayerPixelCache } from "./TerrainPixelCache.js";
+import { Lock } from "./Lock.js";
 
 // TODO: What should replace this now that FullCanvasContainer is deprecated in v11?
 class FullCanvasContainer extends FullCanvasObjectMixin(PIXI.Container) {
@@ -48,6 +49,9 @@ const TERRAIN_SHAPES = {
 };
 
 export class TerrainLayer extends InteractionLayer {
+
+  /** @type {Lock} */
+  static lock = new Lock();
 
   static TerrainKey;
 
@@ -495,8 +499,11 @@ export class TerrainLayer extends InteractionLayer {
    * Save data related to this scene.
    */
   async save() {
+    // Don't engage more than one save at a time.
+    await this.constructor.lock.acquire();
     this.cleanAllShapeQueues();
     await this.saveSceneData();
+    await this.constructor.lock.release();
   }
 
   /**
