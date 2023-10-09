@@ -1,12 +1,16 @@
 /* globals
 canvas,
 CONFIG,
+Dialog,
 FullCanvasObjectMixin,
 game,
 InteractionLayer,
 mergeObject,
 PIXI,
 PreciseText,
+readTextFromFile,
+renderTemplate,
+saveDataToFile,
 ui
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
@@ -506,33 +510,23 @@ export class TerrainLayer extends InteractionLayer {
     await this.constructor.lock.release();
   }
 
-  /**
-   * Save the scene data to the worlds folder.
-   */
-  async saveSceneData() {
+  #saveData() {
     const sceneMap = [...this.sceneMap.entries()].map(([key, terrain]) => [key, terrain.id]);
     const shapeQueueArray = this._shapeQueueArray.map(shapeQueue => shapeQueue.toJSON());
-    const saveData = {
+    return {
       sceneMap,
       shapeQueueArray
     };
-    return this._fileManager.saveData(saveData);
   }
 
   /**
-   * Load the scene data from the worlds folder.
+   * Save the scene data to the worlds folder.
    */
-  async loadSceneData() {
+  async saveSceneData() { return this._fileManager.saveData(this.#saveData()); }
+
+  importFromJSON(json) {
+    const data = json;
     const sceneMap = this.sceneMap;
-    const data = await this._fileManager.loadData();
-    if ( !data ) {
-      if ( !sceneMap.has(0) ) {
-        const nullTerrain = new Terrain();
-        sceneMap.set(0, nullTerrain, true); // Null terrain.
-        nullTerrain.addToScene();
-      }
-      return;
-    }
 
     // Clear the scene map.
     sceneMap.clear();
@@ -574,6 +568,21 @@ export class TerrainLayer extends InteractionLayer {
     // Finally, render the terrain.
     this._clearPixelCacheArray();
     this.renderTerrain();
+  }
+
+  /**
+   * Load the scene data from the worlds folder.
+   */
+  async loadSceneData() {
+    const data = await this._fileManager.loadData();
+    if ( data ) return this.importFromJSON(data);
+
+    // TODO: This should really happen elsewhere.
+    if ( !this.sceneMap.has(0) ) {
+      const nullTerrain = new Terrain();
+      this.sceneMap.set(0, nullTerrain, true); // Null terrain.
+      nullTerrain.addToScene();
+    }
   }
 
   // ----- NOTE: Scene map ----- //
@@ -668,8 +677,49 @@ export class TerrainLayer extends InteractionLayer {
   /**
    * Download terrain data from the scene.
    */
-  downloadData() {
-    console.debug("I should be downloading terrain data for the scene...");
+  async downloadData() {
+    const data = this.#saveData();
+    const filename = `${MODULE_ID}_scene_${canvas.scene.id}`;
+    return saveDataToFile(JSON.stringify(data, null, 2), "text/json", `${filename}.json`);
+  }
+
+  /**
+   * Upload terrain data for the scene.
+   */
+  async uploadData() { await this.importFromJSONDialog(); }
+
+  /**
+   * Dialog to let the user select a json file to import.
+   */
+  async importFromJSONDialog() {
+    // See https://github.com/DFreds/dfreds-convenient-effects/blob/c2d5e81eb1d28d4db3cb0889c22a775c765c24e3/scripts/effects/custom-effects-handler.js#L156
+    const content = await renderTemplate("templates/apps/import-data.html", {
+      hint1: "You may import terrain data from an exported JSON file.",
+      hint2: "This operation will replace the terrain information in the scene. This cannot be undone!"
+    });
+
+    new Dialog({
+      title: "Import Multiple Terrains Setting Data",
+      content,
+      buttons: {
+        import: {
+          icon: '<i class="fas fa-file-import"></i>',
+          label: "Import",
+          callback: html => {
+            const form = html.find("form")[0];
+            if ( !form.data.files.length ) return ui.notifications.error("You did not upload a data file!");
+            readTextFromFile(form.data.files[0]).then(json => this.importFromJSON(JSON.parse(json)));
+          }
+        },
+        no: {
+          icon: '<i class="fas fa-times"></i>',
+          label: "Cancel"
+        }
+      },
+      default: "import"
+    }, {
+      width: 400
+    }).render(true);
   }
 
   /**
