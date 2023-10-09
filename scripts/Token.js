@@ -92,21 +92,35 @@ function refreshTokenHook(token, flags) {
     if ( Settings.get(AUTO.DIALOG) ) {
       token.stopAnimation();
       token.document.update({ x: token.position.x, y: token.position.y });
-      const dialogData = terrainEncounteredDialogData(token, [...terrainsToAdd], ttr.destination);
-      SOCKETS.socket.executeAsGM("dialog", dialogData);
+      const dialogContent = terrainEncounteredDialogContent(token, [...terrainsToAdd]);
+      SOCKETS.socket.executeAsGM("terrainEncounteredDialog", token.document.uuid, dialogContent, ttr.destination);
     }
   }
 }
 
 /**
- * Function to present dialog to GM.
+ * Terrain encountered dialog html content.
+ * @param {Token} token
+ * @param {Set<Terrain>} terrains
+ * @returns {string} HTML string
  */
-function terrainEncounteredDialogData(token, terrains, destination) {
+function terrainEncounteredDialogContent(token, terrains) {
   const names = [...terrains].map(t => t.name);
-  const localize = key => game.i18n.localize(`${MODULE_ID}.terrain-encountered-dialog.${key}`);
   const intro = game.i18n.format(`${MODULE_ID}.terrain-encountered-dialog.content`, { tokenName: token.name });
-  const content = `${intro}: ${names.join(", ")}<br><hr>`;
-  return {
+  return `${intro}: ${names.join(", ")}<br><hr>`;
+}
+
+/**
+ * Function to present dialog to GM. Assumed it may be run via socket.
+ * @param {string} tokenUUID    Token uuid string for token that is currently moving
+ * @param {string} content      Dialog content, as html string
+ * @param {Point} destination   Intended destination for the token
+ */
+export function terrainEncounteredDialog(tokenUUID, content, destination) {
+  const token = fromUuidSync(tokenUUID)?.object;
+  if ( !token ) return;
+  const localize = key => game.i18n.localize(`${MODULE_ID}.terrain-encountered-dialog.${key}`);
+  const data = {
     title: localize("title"),
     content,
     buttons: {
@@ -130,6 +144,9 @@ function terrainEncounteredDialogData(token, terrains, destination) {
     },
     default: "one"
   };
+
+  const d = new Dialog(data);
+  d.render(true);
 }
 
 PATCHES.BASIC.HOOKS = {
