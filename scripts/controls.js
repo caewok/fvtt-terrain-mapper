@@ -23,14 +23,16 @@ function addTerrainLayerSceneControls(controls) {
       name: "fill-by-grid",
       title: game.i18n.localize(`${MODULE_ID}.controls.fill-by-grid.name`),
       icon: "fas fa-brush",
-      onClick: () => canvas.terrain._updateControlsHelper()
+      onClick: () => canvas.terrain._updateControlsHelper(),
+      visible: game.user.isGM
     },
 
     {
       name: "fill-by-los",
       title: game.i18n.localize(`${MODULE_ID}.controls.fill-by-los.name`),
       icon: "fas fa-eye",
-      onClick: () => canvas.terrain._updateControlsHelper()
+      onClick: () => canvas.terrain._updateControlsHelper(),
+      visible: game.user.isGM
     },
 
     /* TODO: How feasible would be a "painting" option with circle or square brush?
@@ -47,14 +49,16 @@ function addTerrainLayerSceneControls(controls) {
       name: "fill-space",
       title: game.i18n.localize(`${MODULE_ID}.controls.fill-space.name`),
       icon: "fas fa-fill-drip",
-      onClick: () => canvas.terrain._updateControlsHelper()
+      onClick: () => canvas.terrain._updateControlsHelper(),
+      visible: game.user.isGM
     },
 
     {
       name: "fill-polygon",
       title: game.i18n.localize(`${MODULE_ID}.controls.fill-polygon.name`),
       icon: "fas fa-draw-polygon",
-      onClick: () => canvas.terrain._updateControlsHelper()
+      onClick: () => canvas.terrain._updateControlsHelper(),
+      visible: game.user.isGM
     },
 
     {
@@ -68,7 +72,8 @@ function addTerrainLayerSceneControls(controls) {
           content: game.i18n.localize(`${MODULE_ID}.controls.clear.confirm.content`),
           yes: () => canvas.terrain.clearData()
         });
-      }
+      },
+      visible: game.user.isGM
     },
 
     {
@@ -76,7 +81,8 @@ function addTerrainLayerSceneControls(controls) {
       title: game.i18n.localize(`${MODULE_ID}.controls.upload.name`),
       icon: "fas fa-file-arrow-up",
       button: true,
-      onClick: () => { canvas.terrain.uploadData(); }
+      onClick: () => { canvas.terrain.uploadData(); },
+      visible: game.user.isGM
     },
 
     {
@@ -84,7 +90,8 @@ function addTerrainLayerSceneControls(controls) {
       title: game.i18n.localize(`${MODULE_ID}.controls.download.name`),
       icon: "fas fa-file-arrow-down",
       button: true,
-      onClick: () => { canvas.terrain.downloadData(); }
+      onClick: () => { canvas.terrain.downloadData(); },
+      visible: game.user.isGM
     },
 
     {
@@ -92,7 +99,8 @@ function addTerrainLayerSceneControls(controls) {
       title: game.i18n.localize(`${MODULE_ID}.controls.undo.name`),
       icon: "fas fa-rotate-left",
       button: true,
-      onClick: () => { canvas.terrain.undo(); }
+      onClick: () => { canvas.terrain.undo(); },
+      visible: game.user.isGM
     },
 
     {
@@ -100,7 +108,8 @@ function addTerrainLayerSceneControls(controls) {
       title: game.i18n.localize(`${MODULE_ID}.controls.terrain-menu.name`),
       icon: "fas fa-book",
       button: true,
-      onClick: () => { new TerrainEffectsApp().render(true); }
+      onClick: () => { new TerrainEffectsApp().render(true); },
+      visible: true
     },
 
     {
@@ -109,7 +118,8 @@ function addTerrainLayerSceneControls(controls) {
       icon: "fas fa-font",
       toggle: true,
       active: false,
-      onClick: active => canvas.terrain.toggleTerrainNames(active)
+      onClick: active => canvas.terrain.toggleTerrainNames(active),
+      visible: true
     }
 
   ];
@@ -119,7 +129,7 @@ function addTerrainLayerSceneControls(controls) {
     icon: "fas fa-mountain-sun",
     layer: "terrain",
     activeTool: "fill-by-grid",
-    visible: game.user.isGM,
+    visible: true,
     title: game.i18n.localize(`${MODULE_ID}.name`),
     tools
   };
