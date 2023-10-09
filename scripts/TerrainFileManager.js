@@ -11,7 +11,7 @@ TextureLoader
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { MODULE_ID } from "./const.js";
+import { MODULE_ID, SOCKETS } from "./const.js";
 
 
 // Class to manage loading and saving of the terrain texture.
@@ -137,7 +137,7 @@ export class TerrainFileManager {
    */
   static async constructSaveDirectory(filePath) {
     const dirs = filePath.split("/");
-    const res = await buildDirPath(dirs);
+    const res = await SOCKETS.socket.executeAsGM("buildDirPath", dirs);
     if ( !res ) { console.error(`Error constructing the file path ${filePath}.`); }
     return filePath;
   }
@@ -266,7 +266,7 @@ export class TerrainFileManager {
  * @param {number} [idx]    Used internally to control the recursion through the folders
  * @returns {boolean} True if successful or path already exists.
  */
-async function buildDirPath(dirs, idx = dirs.length) {
+export async function buildDirPath(dirs, idx = dirs.length) {
   // Need to build the folder structure in steps or it will error out.
   // Browse is more expensive than createDirectory.
 
