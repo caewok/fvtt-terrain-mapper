@@ -228,7 +228,7 @@ export class TerrainLayer extends InteractionLayer {
 
     // Hide terrains from the user.
     if ( !game.user.isGM
-      && !(terrain.userVisible
+      && !(terrain?.userVisible
         && canvas.effects.visibility.testVisibility({x, y}, { tolerance: 0})) ) this.terrainLabel.text = "";
 
     // Debug: console.debug(`Terrain ${terrain?.name} at ${x},${y}`);
