@@ -92,6 +92,7 @@ function refreshTokenHook(token, flags) {
     if ( Settings.get(AUTO.DIALOG) ) {
       token.stopAnimation();
       token.document.update({ x: token.position.x, y: token.position.y });
+      game.togglePause(true); // Pause for this user only.
       const dialogContent = terrainEncounteredDialogContent(token, [...terrainsToAdd]);
       SOCKETS.socket.executeAsGM("terrainEncounteredDialog", token.document.uuid, dialogContent, ttr.destination);
     }
@@ -119,6 +120,7 @@ function terrainEncounteredDialogContent(token, terrains) {
 export function terrainEncounteredDialog(tokenUUID, content, destination) {
   const token = fromUuidSync(tokenUUID)?.object;
   if ( !token ) return;
+  game.togglePause(true);
   const localize = key => game.i18n.localize(`${MODULE_ID}.terrain-encountered-dialog.${key}`);
   const data = {
     title: localize("title"),
@@ -142,7 +144,8 @@ export function terrainEncounteredDialog(tokenUUID, content, destination) {
         }
       }
     },
-    default: "one"
+    default: "one",
+    close: () => game.togglePause(false, true)
   };
 
   const d = new Dialog(data);
