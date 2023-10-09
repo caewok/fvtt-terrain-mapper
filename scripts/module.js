@@ -114,9 +114,6 @@ function initializeAPI() {
 3. Scene map: JSON file at worlds/world-name/assests/terrainmapper/
 4. Scene shape queue: JSON file at worlds/world-name/assests/terrainmapper/
 
-
-
-
 */
 
 /* TODO: Things needed
@@ -127,20 +124,20 @@ function initializeAPI() {
 √ Import/export single terrain using a temp item to store.
 √ Remove ability to add/subtract terrain from scenes; do behind-the-scene
 √ Track terrains in scene
-- Layers
+√ Layers
 - Switch to interaction layer
   - Toggle to display all terrain shapes
   - Allow deletion of terrain shapes
   - Allow swapping of terrain values
   - Allow resizing of terrain polygons
-- Add simplification on load that trims null terrains.
+√ Add simplification on load that trims null terrains.
 √ Calculate move penalty for token
 √ Display an edit scene application that lets the GM assign terrains to scene pixel values.
 
 Control Tools
 √ Basic layer controls
 √ Terrain type selector
-- Layer selector
+√ Layer selector
 
 Settings
 √ Terrain configuration menu
@@ -157,8 +154,8 @@ Scene Settings
 √ Terrain configuration menu to override for specific scene
 
 Functionality: single layer
-- Store terrain value
-- Retrieve terrain value
+√ Store terrain value
+√ Retrieve terrain value
 √ API to get terrain value for token
 √ paint grid
 √ paint los
@@ -166,11 +163,11 @@ Functionality: single layer
 √ paint polygon
 
 Shape Queue:
-- Restore from save
-- Use separate queue per layer
-- Trim queue after X objects:
-  - grid shapes
-  - polygons
+√ Restore from save
+√ Use separate queue per layer
+√ Trim queue after X objects:
+  √ grid shapes
+  √ polygons
 
 Tiles (overhead and regular):
 - Set tile to a terrain
@@ -179,8 +176,8 @@ Tiles (overhead and regular):
 - Incorporate into travel terrain ray
 
 Advanced functionality:
-- store multiple layers
-- retrieve multiple layers
+√ store multiple layers
+√ retrieve multiple layers
 - optional display of another layer as mostly transparent
 √ display terrain using distinct colors
 √ display terrain using name
