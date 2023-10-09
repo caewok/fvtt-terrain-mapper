@@ -146,7 +146,14 @@ export class TerrainLayer extends InteractionLayer {
    * Store the string indicating the terrain at a given mouse point.
    * @type {string}
    */
-  terrainLabel;
+  terrainLabel = new PreciseText(undefined,
+    PreciseText.getTextStyle({
+      fontSize: 24,
+      fill: "#333333",
+      strokeThickness: 2,
+      align: "right",
+      dropShadow: false
+    }));
 
   /**
    * Flag for when the elevation data has changed for the scene, requiring a save.
@@ -202,15 +209,6 @@ export class TerrainLayer extends InteractionLayer {
 
   _activateHoverListener() {
     console.debug("activatingHoverListener");
-    const textStyle = PreciseText.getTextStyle({
-      fontSize: 24,
-      fill: "#333333",
-      strokeThickness: 2,
-      align: "right",
-      dropShadow: false
-    });
-
-    this.terrainLabel = new PreciseText(undefined, textStyle);
     this.terrainLabel.anchor = {x: 0, y: 1};
     canvas.stage.addChild(this.terrainLabel);
   }
@@ -225,6 +223,12 @@ export class TerrainLayer extends InteractionLayer {
     const terrain = this.#terrainAt({x, y});
     this.terrainLabel.text = terrain?.name || "";
     this.terrainLabel.position = {x, y};
+
+    // Hide terrains from the user.
+    if ( !game.user.isGM
+      && !(terrain.userVisible
+        && canvas.effects.visibility.testVisibility({x, y}, { tolerance: 0})) ) this.terrainLabel.text = "";
+
     // Debug: console.debug(`Terrain ${terrain?.name} at ${x},${y}`);
   }
 
