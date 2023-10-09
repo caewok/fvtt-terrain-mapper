@@ -76,14 +76,7 @@ function addTerrainLayerSceneControls(controls) {
       title: game.i18n.localize(`${MODULE_ID}.controls.upload.name`),
       icon: "fas fa-file-arrow-up",
       button: true,
-      onClick: () => {
-        new FilePicker({
-          type: "image",
-          displayMode: "thumbs",
-          tileSize: false,
-          callback: file => { canvas.terrain.importFromImageFile(file); }
-        }).render(true);
-      }
+      onClick: () => { canvas.terrain.uploadData(); }
     },
 
     {
@@ -91,7 +84,7 @@ function addTerrainLayerSceneControls(controls) {
       title: game.i18n.localize(`${MODULE_ID}.controls.download.name`),
       icon: "fas fa-file-arrow-down",
       button: true,
-      onClick: () => { canvas.terrain.downloadData({format: "image/webp"}); }
+      onClick: () => { canvas.terrain.downloadData(); }
     },
 
     {
