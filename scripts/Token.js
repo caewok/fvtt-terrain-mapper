@@ -92,21 +92,39 @@ function refreshTokenHook(token, flags) {
     if ( Settings.get(AUTO.DIALOG) ) {
       token.stopAnimation();
       token.document.update({ x: token.position.x, y: token.position.y });
-      const dialogData = terrainEncounteredDialogData(token, [...terrainsToAdd], ttr.destination);
-      SOCKETS.socket.executeAsGM("dialog", dialogData);
+      game.togglePause(true); // Pause for this user only.
+      const dialogContent = terrainEncounteredDialogContent(token, [...terrainsToAdd]);
+      SOCKETS.socket.executeAsGM("terrainEncounteredDialog", token.document.uuid, dialogContent, ttr.destination, game.user.id);
     }
   }
 }
 
 /**
- * Function to present dialog to GM.
+ * Terrain encountered dialog html content.
+ * @param {Token} token
+ * @param {Set<Terrain>} terrains
+ * @returns {string} HTML string
  */
-function terrainEncounteredDialogData(token, terrains, destination) {
+function terrainEncounteredDialogContent(token, terrains) {
   const names = [...terrains].map(t => t.name);
-  const localize = key => game.i18n.localize(`${MODULE_ID}.terrain-encountered-dialog.${key}`);
   const intro = game.i18n.format(`${MODULE_ID}.terrain-encountered-dialog.content`, { tokenName: token.name });
-  const content = `${intro}: ${names.join(", ")}<br><hr>`;
-  return {
+  return `${intro}: ${names.join(", ")}<br><hr>`;
+}
+
+/**
+ * Function to present dialog to GM. Assumed it may be run via socket.
+ * @param {string} tokenUUID    Token uuid string for token that is currently moving
+ * @param {string} content      Dialog content, as html string
+ * @param {Point} destination   Intended destination for the token
+ * @param {string} [userId]       User that triggered this dialog.
+ */
+export function terrainEncounteredDialog(tokenUUID, content, destination, userId) {
+  const token = fromUuidSync(tokenUUID)?.object;
+  if ( !token ) return;
+  game.togglePause(true);
+  userId ??= game.user.id;
+  const localize = key => game.i18n.localize(`${MODULE_ID}.terrain-encountered-dialog.${key}`);
+  const data = {
     title: localize("title"),
     content,
     buttons: {
@@ -117,6 +135,7 @@ function terrainEncounteredDialogData(token, terrains, destination) {
           console.debug("Continued animation.");
           const tl = token.getTopLeft(destination.x, destination.y);
           await token.document.update({x: tl.x, y: tl.y});
+          // SOCKETS.socket.executeAsUser("updateTokenDocument", userId, tokenUUID, {x: tl.x, y: tl.y});
         }
       },
 
@@ -128,8 +147,23 @@ function terrainEncounteredDialogData(token, terrains, destination) {
         }
       }
     },
-    default: "one"
+    default: "one",
+    close: () => game.togglePause(false, true)
   };
+
+  const d = new Dialog(data);
+  d.render(true);
+}
+
+/**
+ * Function to update token data as a specific user.
+ * This allows the GM to continue token movement but as that user.
+ * By doing so, this allows the pause-for-user to work as expected.
+ */
+export async function updateTokenDocument(tokenUUID, data) {
+  const token = fromUuidSync(tokenUUID)?.object;
+  if ( !token ) return;
+  token.document.update(data);
 }
 
 PATCHES.BASIC.HOOKS = {
@@ -190,8 +224,11 @@ function _getTooltipText(wrapper) {
   const terrains = canvas.terrain.activeTerrainsAt(this.center, this.elevationE);
   if ( !terrains.size ) return text;
 
+  // Limit to visible terrains for the user.
+  const userTerrains = game.user.isGM ? terrains : terrains.filter(t => t.userVisible);
+
   // Combine all the terrains.
-  const names = [...terrains].map(t => t.name);
+  const names = [...userTerrains].map(t => t.name);
 
   return `${names.join("\n")}\n${text}`;
 }

@@ -228,7 +228,7 @@ export class TerrainLayer extends InteractionLayer {
 
     // Hide terrains from the user.
     if ( !game.user.isGM
-      && !(terrain.userVisible
+      && !(terrain?.userVisible
         && canvas.effects.visibility.testVisibility({x, y}, { tolerance: 0})) ) this.terrainLabel.text = "";
 
     // Debug: console.debug(`Terrain ${terrain?.name} at ${x},${y}`);
@@ -417,15 +417,17 @@ export class TerrainLayer extends InteractionLayer {
     console.debug("Activating Terrain Layer.");
 
     // Draw walls
-    for ( const wall of canvas.walls.placeables ) {
-      this._drawWallSegment(wall);
-      this._drawWallRange(wall);
+    if ( game.user.isGM ) {
+      for ( const wall of canvas.walls.placeables ) {
+        this._drawWallSegment(wall);
+        this._drawWallRange(wall);
+      }
+      canvas.stage.addChild(this._wallDataContainer);
     }
 
     this.drawTerrain();
     this.container.visible = true;
     canvas.stage.addChild(this.terrainLabel);
-    canvas.stage.addChild(this._wallDataContainer);
 
     // Enable the preview container, for polygon drawing, etc.
     this.addChild(this.preview);
@@ -864,7 +866,7 @@ export class TerrainLayer extends InteractionLayer {
     queueObj.graphics.destroy();
 
     // Remove the associated text label.
-    if ( queuObj.text ) this._terrainLabelsArray[layerIdx].polygonText.removeChild(queueObj.text)
+    if ( queueObj.text ) this._terrainLabelsArray[layerIdx].polygonText.removeChild(queueObj.text)
   }
 
   /**

@@ -128,7 +128,8 @@ export class TerrainLayerToolBar extends Application {
     return foundry.utils.mergeObject(data, {
       sceneTerrains,
       nonSceneTerrains,
-      sceneLayers
+      sceneLayers,
+      isGM: game.user.isGM
     });
   }
 

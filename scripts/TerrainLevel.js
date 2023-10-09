@@ -35,6 +35,9 @@ export class TerrainLevel {
   /** @type {FLAGS.ANCHOR.CHOICES} */
   get anchor() { return this.terrain.anchor; }
 
+  /** @type {boolean} */
+  get userVisible() { return this.terrain.userVisible; }
+
   /**
    * Retrieve the anchor elevation of this level in this scene.
    * @returns {number}
