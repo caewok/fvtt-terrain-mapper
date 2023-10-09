@@ -26,9 +26,7 @@ export class TerrainShapeHoled extends ShapeHoled {
    */
   constructor(shapes = [], opts = {}) {
     super(shapes, { });
-    if ( opts.origin ) this.origin.copyFrom(opts.origin);
-    else this.origin.copyFrom(this.bounds.center);
-
+    this.origin = opts.origin ?? this.bounds.center;
     if ( opts.pixelValue ) this.pixelValue = opts.pixelValue;
     if ( opts.layer ) this.layer = opts.layer;
 
@@ -36,6 +34,8 @@ export class TerrainShapeHoled extends ShapeHoled {
     this.shapes = this.shapes.map(s => this.#convertShapeToTerrainShape(s));
     this.holes = this.holes.map(s => this.#convertShapeToTerrainShape(s));
   }
+
+  set origin(value) { this.origin.copyFrom(value); }
 
   /**
    * Convert shape to terrain shape.
@@ -47,7 +47,9 @@ export class TerrainShapeHoled extends ShapeHoled {
       shape.pixelValue = this.pixelValue;
       return shape;
     }
-    const poly = TerrainPolygon.fromPolygon(shape.toPolygon(), this.pixelValue, this.layer);
+
+    const { pixelValue, layer } = this;
+    const poly = TerrainPolygon.fromPolygon(shape.toPolygon(), { pixelValue, layer });
     poly.isHole = shape.isHole;
     return poly;
   }

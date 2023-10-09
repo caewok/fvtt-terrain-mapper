@@ -1162,8 +1162,7 @@ export class TerrainLayer extends InteractionLayer {
    */
   fillLOS(origin, terrain, { type = "light"} = {}) {
     const los = CONFIG.Canvas.polygonBackends[type].create(origin, { type });
-    const shape = TerrainPolygon.fromPolygon(los);
-    shape.origin.copyFrom(origin);
+    const shape = TerrainPolygon.fromPolygon(los, { origin });
     return this.addTerrainShapeToCanvas(shape, terrain);
   }
 

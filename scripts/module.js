@@ -183,6 +183,7 @@ Advanced functionality:
 √ display terrain using name
 - display terrain using repeated icon/image
 - toggle to display hide/display terrain to users.
+- nested conditions (apply DFred's conditions as a group)
 
 Automation:
 - Use point or averaging to obtain terrain value for shape/token

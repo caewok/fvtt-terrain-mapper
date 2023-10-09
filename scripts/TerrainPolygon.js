@@ -16,8 +16,10 @@ export class TerrainPolygon extends PIXI.Polygon {
 
   constructor(...args) {
     super(...args);
-    this.origin.copyFrom(this.center);
+    this.origin = this.center;
   }
+
+  set origin(value) { this.origin.copyFrom(value); }
 
   /**
    * Convert to JSON.
@@ -30,20 +32,25 @@ export class TerrainPolygon extends PIXI.Polygon {
       pixelValue: this.pixelValue,
       points: this.points,
       layer: this.layer,
+      origin: this.origin,
       type: "TerrainPolygon"
     };
   }
 
   /**
    * Convert a PIXI.Polygon to a TerrainPolygon.
-   * @param {PIXI.Polygon} poly
-   * @param {number} [pixelValue=0]
+   * @param {PIXI.Polygon} poly           Polygon to convert to TerrainPolygon
+   * @param {object} [opts]               Options specific to Terrain polygons
+   * @param {number} [opts.pixelValue=0]  Pixel value associated with this polygon
+   * @param {number} [opts.layer]         Layer on which this polygon resides
+   * @param {Point} [opts.origin]         Defined origin point, if not center of polygon
    * @returns {TerrainPolygon}
    */
-  static fromPolygon(poly, pixelValue = 0, layer = 0) {
+  static fromPolygon(poly, { pixelValue = 0, layer = 0, origin } = {}) {
     const shape = new this(poly.points);
     shape.pixelValue = pixelValue;
     shape.layer = layer;
+    if ( origin ) shape.origin = origin;
     return shape;
   }
 
@@ -58,10 +65,12 @@ export class TerrainPolygon extends PIXI.Polygon {
       return undefined;
     }
 
-    const { pixelValue, points, layer } = json;
-    const poly = new PIXI.Polygon(points);
+    const { pixelValue, points, layer, origin } = json;
+
+    const poly = new this(points);
     poly.pixelValue = pixelValue;
     poly.layer = layer;
+    poly.origin = origin;
     return poly;
   }
 }

@@ -396,31 +396,17 @@ export class TerrainEffectsController {
    * @param {DragEvent} event - event that corresponds to the drag start
    */
   onEffectDragStart(_event) {
-    console.debug("TerrainEffectsController|onEffectDragStart");
+    console.debug(`TerrainEffectsController|onEffectDragStart for ${event.target.dataset.effectName}`);
 
-    // const effectName = event.target.dataset.effectName;
-//
-//     const effect = game.dfreds.effectInterface.findEffectByName(effectName);
-//
-//     // special handling for nested effects
-//     if (game.dfreds.effectInterface.hasNestedEffects(effect)) {
-//       event.dataTransfer.setData(
-//         'text/plain',
-//         JSON.stringify({
-//           effectName,
-//         })
-//       );
-//       return;
-//     }
-//
-//     event.dataTransfer.setData(
-//       'text/plain',
-//       JSON.stringify({
-//         effectName,
-//         type: 'ActiveEffect',
-//         data: effect,
-//       })
-//     );
+    const terrain = Terrain.fromEffectId(event.target.dataset.effectId);
+    event.dataTransfer.setData(
+      "text/plain",
+      JSON.stringify({
+        name: terrain.name,
+        type: "ActiveEffect",
+        data: terrain._effectHelper.effect
+      })
+    );
   }
 
   canDragStart() {
