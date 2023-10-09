@@ -866,7 +866,7 @@ export class TerrainLayer extends InteractionLayer {
     queueObj.graphics.destroy();
 
     // Remove the associated text label.
-    if ( queuObj.text ) this._terrainLabelsArray[layerIdx].polygonText.removeChild(queueObj.text)
+    if ( queueObj.text ) this._terrainLabelsArray[layerIdx].polygonText.removeChild(queueObj.text)
   }
 
   /**
