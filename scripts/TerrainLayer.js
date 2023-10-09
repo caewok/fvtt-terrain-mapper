@@ -417,15 +417,17 @@ export class TerrainLayer extends InteractionLayer {
     console.debug("Activating Terrain Layer.");
 
     // Draw walls
-    for ( const wall of canvas.walls.placeables ) {
-      this._drawWallSegment(wall);
-      this._drawWallRange(wall);
+    if ( game.user.isGM ) {
+      for ( const wall of canvas.walls.placeables ) {
+        this._drawWallSegment(wall);
+        this._drawWallRange(wall);
+      }
+      canvas.stage.addChild(this._wallDataContainer);
     }
 
     this.drawTerrain();
     this.container.visible = true;
     canvas.stage.addChild(this.terrainLabel);
-    canvas.stage.addChild(this._wallDataContainer);
 
     // Enable the preview container, for polygon drawing, etc.
     this.addChild(this.preview);
