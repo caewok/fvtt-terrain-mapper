@@ -25,7 +25,7 @@ export class TerrainGridHexagon extends Hexagon {
 
   /**
    * Determine the grid location for this shape.
-   * @type {[{number}, {number}]}  [row, col] location
+   * @type {[number, number]}  [row, col] location
    */
   get gridPosition() { return canvas.grid.grid.getGridPositionFromPixels(this.origin.x, this.origin.y); }
 
@@ -93,5 +93,19 @@ export class TerrainGridHexagon extends Hexagon {
     sq.pixelValue = pixelValue;
     sq.layer = layer;
     return sq;
+  }
+
+  /**
+   * Does this grid shape envelop some other shape?
+   * @param {TerrainShape} other
+   * @returns {boolean}
+   */
+  envelops(other) {
+    if ( other instanceof TerrainGridHexagon ) {
+      const [row, col] = this.gridPosition;
+      const [r, c] = other.gridPosition;
+      return (row === r && col === c);
+    }
+    return super.envelops(other)
   }
 }

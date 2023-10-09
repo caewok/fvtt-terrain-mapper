@@ -12,10 +12,10 @@ ui
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { MODULE_ID, FLAGS } from "./const.js";
+import { MODULE_ID } from "./const.js";
 import { Terrain } from "./Terrain.js";
 import { Settings } from "./Settings.js";
-import { FILOQueue } from "./FILOQueue.js";
+import { ShapeQueue } from "./ShapeQueue.js";
 import { Draw } from "./geometry/Draw.js";
 import { TerrainGridSquare } from "./TerrainGridSquare.js";
 import { TerrainGridHexagon } from "./TerrainGridHexagon.js";
@@ -31,7 +31,8 @@ import { TravelTerrainRay } from "./TravelTerrainRay.js";
 import { TerrainEffectsApp } from "./TerrainEffectsApp.js";
 import { TerrainMap } from "./TerrainMap.js";
 import { TerrainLevel } from "./TerrainLevel.js";
-import { TerrainPixelCache, TerrainLayerPixelCache, TerrainKey } from "./TerrainPixelCache.js";
+import { TerrainPixelCache, TerrainLayerPixelCache } from "./TerrainPixelCache.js";
+import { Lock } from "./Lock.js";
 
 // TODO: What should replace this now that FullCanvasContainer is deprecated in v11?
 class FullCanvasContainer extends FullCanvasObjectMixin(PIXI.Container) {
@@ -41,13 +42,16 @@ class FullCanvasContainer extends FullCanvasObjectMixin(PIXI.Container) {
 const LAYER_COLORS = ["RED", "GREEN", "BLUE"];
 
 const TERRAIN_SHAPES = {
-  "TerrainGridSquare": TerrainGridSquare,
-  "TerrainGridHexagon": TerrainGridHexagon,
-  "TerrainPolygon": TerrainPolygon,
-  "TerrainShapeHoled": TerrainShapeHoled
+  TerrainGridSquare,
+  TerrainGridHexagon,
+  TerrainPolygon,
+  TerrainShapeHoled
 };
 
 export class TerrainLayer extends InteractionLayer {
+
+  /** @type {Lock} */
+  static lock = new Lock();
 
   static TerrainKey;
 
@@ -66,6 +70,8 @@ export class TerrainLayer extends InteractionLayer {
   static #NUM_TEXTURES = Math.ceil(this.#MAX_LAYERS / 3);
 
   static get NUM_TEXTURES() { return this.#NUM_TEXTURES; }
+
+  static NUM_UNDO = 20;
 
   /** @type {TerrainMap} */
   sceneMap = new TerrainMap();
@@ -119,12 +125,6 @@ export class TerrainLayer extends InteractionLayer {
    * @type {PIXI.Graphics}
    */
   _terrainLabelsContainer = new PIXI.Graphics();
-
-  /**
-   * Queue of all terrain shapes drawn on canvas, stored in order.
-   * @type {FILOQueue}
-   */
-  _shapeQueue = new FILOQueue(1e04); // Maximum size of the stored values.
 
   /**
    * PIXI.Mesh used to display the elevation colors when the layer is active.
@@ -476,8 +476,7 @@ export class TerrainLayer extends InteractionLayer {
    * Destroy elevation data when changing scenes or clearing data.
    */
   #destroy() {
-    this._shapeQueue.elements.length = 0;
-
+    this._shapeQueueArray.forEach(shapeQueue => shapeQueue.clear());
     this._clearPixelCacheArray();
     this._backgroundTerrain.destroy();
     this._backgroundTerrain = PIXI.Sprite.from(PIXI.Texture.EMPTY);
@@ -500,7 +499,11 @@ export class TerrainLayer extends InteractionLayer {
    * Save data related to this scene.
    */
   async save() {
+    // Don't engage more than one save at a time.
+    await this.constructor.lock.acquire();
+    this.cleanAllShapeQueues();
     await this.saveSceneData();
+    await this.constructor.lock.release();
   }
 
   /**
@@ -508,10 +511,10 @@ export class TerrainLayer extends InteractionLayer {
    */
   async saveSceneData() {
     const sceneMap = [...this.sceneMap.entries()].map(([key, terrain]) => [key, terrain.id]);
-    const shapeQueue = this._shapeQueue.elements.map(elem => elem.shape.toJSON());
+    const shapeQueueArray = this._shapeQueueArray.map(shapeQueue => shapeQueue.toJSON());
     const saveData = {
       sceneMap,
-      shapeQueue
+      shapeQueueArray
     };
     return this._fileManager.saveData(saveData);
   }
@@ -520,10 +523,18 @@ export class TerrainLayer extends InteractionLayer {
    * Load the scene data from the worlds folder.
    */
   async loadSceneData() {
+    const sceneMap = this.sceneMap;
     const data = await this._fileManager.loadData();
+    if ( !data ) {
+      if ( !sceneMap.has(0) ) {
+        const nullTerrain = new Terrain();
+        sceneMap.set(0, nullTerrain, true); // Null terrain.
+        nullTerrain.addToScene();
+      }
+      return;
+    }
 
     // Clear the scene map.
-    const sceneMap = this.sceneMap;
     sceneMap.clear();
 
     // Set the 0 pixel value just in case the entire scene is set to another pixel value.
@@ -543,15 +554,21 @@ export class TerrainLayer extends InteractionLayer {
     this._graphicsLayers.forEach(c => c.removeChildren());
     this._terrainLabelsContainer.clear();
 
-    // Construct the shape queue.
-    this._shapeQueue.clear();
-    for ( const shapeData of data.shapeQueue ) {
-      const cl = TERRAIN_SHAPES[shapeData.type];
-      const shape = cl.fromJSON(shapeData);
-      const terrain = this.sceneMap.get(shapeData.pixelValue);
-      const graphics = this._drawTerrainShape(shape, terrain);
-      const text = this._drawTerrainName(shape);
-      this._shapeQueue.enqueue({ shape, graphics, text });
+    // Construct the shape queues.
+    const ln = this._shapeQueueArray.length;
+    for ( let i = 0; i < ln; i += 1 ) {
+      const shapeQueue = this._shapeQueueArray[i];
+      shapeQueue.clear();
+
+      const dataQueue = data.shapeQueueArray[i];
+      for ( const shapeData of dataQueue ) {
+        const cl = TERRAIN_SHAPES[shapeData.type];
+        const shape = cl.fromJSON(shapeData);
+        const terrain = this.sceneMap.get(shapeData.pixelValue);
+        const graphics = this._drawTerrainShape(shape, terrain);
+        const text = this._drawTerrainName(shape);
+        shapeQueue.enqueue({ shape, graphics, text });
+      }
     }
 
     // Finally, render the terrain.
@@ -750,9 +767,63 @@ export class TerrainLayer extends InteractionLayer {
    */
   isPixelValueInScene(pixelValue) {
     if ( !pixelValue || pixelValue < 0 || pixelValue > 31 ) return false;
-    return this._shapeQueue.elements.some(e => e.shape.pixelValue === pixelValue);
+
+    const ln = this._shapeQueueArray.length;
+    for ( let i = 0; i < ln; i += 1 ) {
+      if ( this._shapeQueueArray[i].elements.some(e => e.shape.pixelValue === pixelValue) ) return true;
+    }
+    return false;
   }
 
+  /* ----- NOTE: Shape Queue ----- */
+
+  /**
+   * Queue of all terrain shapes drawn on canvas, stored in order. One per layer.
+   * @type {ShapeQueue[]}
+   */
+  _shapeQueueArray = (new Array(this.constructor.MAX_LAYERS)).fill(0).map(_elem => new ShapeQueue());
+
+  cleanAllShapeQueues() {
+    const ln = this.constructor.MAX_LAYERS;
+    for ( let i = 0; i < ln; i += 1 ) this.#cleanShapeQueue(i);
+  }
+
+  #cleanShapeQueue(layerNum) {
+    const skip = this.constructor.NUM_UNDO;
+    const queue = this._shapeQueueArray[layerNum];
+    if ( queue.length < skip ) return;
+
+    // Remove duplicative shapes from the queue.
+    const removedElements = queue.clean(skip);
+    if ( !removedElements.length ) return;
+    removedElements.forEach(elem => this.#removeShape(elem));
+    this.renderTerrain(layerNum); // TODO: Is rendering necessary here?
+  }
+
+  #removeShape(queueObj) {
+    // Remove the graphics representing this shape.
+    const layerIdx = queueObj.shape.layer;
+    const layer = this._graphicsLayers[layerIdx];
+    layer.removeChild(queueObj.graphics);
+    queueObj.graphics.destroy();
+
+    // Remove the associated text label.
+    this._terrainLabelsContainer.polygonText.removeChild(queueObj.text);
+  }
+
+  /**
+   * Undo the prior graphics addition.
+   */
+  undo() {
+    const currLayer = this.toolbar.currentLayer;
+    const queue = this._shapeQueueArray[currLayer];
+    const queueObj = queue.dequeue();
+    if ( !queueObj ) return;
+
+    this.#removeShape(queueObj);
+    this._requiresSave = true;
+    this.renderTerrain(queueObj.shape.layer);
+  }
 
   /* ----- NOTE: Rendering ----- */
 
@@ -780,20 +851,22 @@ export class TerrainLayer extends InteractionLayer {
   /**
    * Draw all the graphics in the queue for purposes of debugging.
    */
-  _debugDrawColors() {
+  _debugDrawColors(layer) {
+    layer ??= canvas.terrain.toolbar.currentLayer;
     const draw = new Draw();
     draw.clearDrawings();
-    for ( const e of this._shapeQueue.elements ) {
+    for ( const e of this._shapeQueueArray[layer].elements ) {
       const shape = e.shape;
       const terrain = this.sceneMap.get(shape.pixelValue);
       draw.shape(shape, { fill: terrain.color, width: 0 });
     }
   }
 
-  _debugDrawText() {
+  _debugDrawText(layer) {
+    layer ??= canvas.terrain.toolbar.currentLayer;
     const draw = new Draw();
     draw.clearLabels();
-    for ( const e of this._shapeQueue.elements ) {
+    for ( const e of this._shapeQueueArray[layer].elements ) {
       const shape = e.shape;
       const terrain = this.sceneMap.get(shape.pixelValue);
       const txt = draw.labelPoint(shape.origin, terrain.name, { fontSize: 24 });
@@ -968,7 +1041,7 @@ export class TerrainLayer extends InteractionLayer {
     if ( temporary ) this.#temporaryGraphics.set(shape.origin.key, { shape, graphics });
     else {
       const text = this._drawTerrainName(shape);
-      this._shapeQueue.enqueue({ shape, graphics, text }); // Link to PIXI.Graphics, PIXI.Text objects for undo.
+      this._shapeQueueArray[shape.layer].enqueue({ shape, graphics, text }); // Link to PIXI.Graphics, PIXI.Text objects for undo.
     }
 
     // Trigger save if necessary.
@@ -1114,24 +1187,12 @@ export class TerrainLayer extends InteractionLayer {
   }
 
   /**
-   * Undo the prior graphics addition.
-   */
-  undo() {
-    const res = this._shapeQueue.dequeue();
-    if ( !res || !res.graphics ) return;
-    this._graphicsContainer.removeChild(res.graphics);
-    res.graphics.destroy();
-    this._requiresSave = true;
-    this.renderTerrain(res.shape.layer);
-  }
-
-  /**
    * Remove all terrain data from the scene.
    */
   async clearData() {
-    this._shapeQueue.elements.length = 0;
+    this._shapeQueueArray.forEach(shapeQueue => shapeQueue.clear());
 
-    this.__clearPixelCacheArray();
+    this._clearPixelCacheArray();
     this._backgroundTerrain.destroy();
     this._backgroundTerrain = PIXI.Sprite.from(PIXI.Texture.EMPTY);
 
@@ -1296,8 +1357,9 @@ export class TerrainLayer extends InteractionLayer {
    */
   _makeTemporaryGraphicsPermanent() {
     this.#temporaryGraphics.forEach(obj => {
-      this._shapeQueue.enqueue(obj);
-      this._drawTerrainName(obj.shape);
+      const shape = obj.shape;
+      this._shapeQueueArray[shape.layer].enqueue(obj);
+      this._drawTerrainName(shape);
     });
     this.#temporaryGraphics.clear(); // Don't destroy children b/c added already to main graphics
   }
