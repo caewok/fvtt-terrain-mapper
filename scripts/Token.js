@@ -207,8 +207,11 @@ function _getTooltipText(wrapper) {
   const terrains = canvas.terrain.activeTerrainsAt(this.center, this.elevationE);
   if ( !terrains.size ) return text;
 
+  // Limit to visible terrains for the user.
+  const userTerrains = game.user.isGM ? terrains : terrains.filter(t => t.userVisible);
+
   // Combine all the terrains.
-  const names = [...terrains].map(t => t.name);
+  const names = [...userTerrains].map(t => t.name);
 
   return `${names.join("\n")}\n${text}`;
 }
