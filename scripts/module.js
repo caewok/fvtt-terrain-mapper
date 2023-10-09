@@ -14,7 +14,7 @@ import { TerrainMap } from "./TerrainMap.js";
 import { EffectHelper } from "./EffectHelper.js";
 import { PATCHER, initializePatching } from "./patching.js";
 import { registerGeometry } from "./geometry/registration.js";
-import { terrainEncounteredDialog } from "./Token.js";
+import { terrainEncounteredDialog, updateTokenDocument } from "./Token.js";
 
 import { TerrainLayerShader } from "./glsl/TerrainLayerShader.js";
 import { WallTracerEdge, WallTracerVertex, WallTracer, SCENE_GRAPH } from "./WallTracer.js";
@@ -83,6 +83,7 @@ Hooks.once("socketlib.ready", () => {
   SOCKETS.socket.register("dialog", dialog);
   SOCKETS.socket.register("buildDirPath", buildDirPath);
   SOCKETS.socket.register("terrainEncounteredDialog", terrainEncounteredDialog);
+  SOCKETS.socket.register("updateTokenDocument", updateTokenDocument);
 });
 
 function dialog(data, options) {
