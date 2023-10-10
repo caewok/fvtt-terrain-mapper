@@ -26,6 +26,7 @@ import { buildDirPath } from "./TerrainFileManager.js";
 
 // Self-executing hooks.
 import "./controls.js";
+import "./changelog.js";
 
 /**
  * A hook event that fires as Foundry is initializing, right before any
