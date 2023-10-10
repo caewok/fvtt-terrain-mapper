@@ -105,13 +105,21 @@ export class TerrainLayer extends InteractionLayer {
   /** @type {TravelTerrainRay} */
   TravelTerrainRay = TravelTerrainRay;
 
-
-
   /** @type {FillByGridHelper} */
   #controlsHelper;
 
   /** @type {TerrainFileManager} */
   _fileManager = new TerrainFileManager();
+
+
+  /** @type {TerrainLayerPixelCache[]} */
+  #pixelCacheArray = new Array(this.constructor.NUM_TEXTURES);
+
+  /** @type {TerrainPixelCache|undefined} */
+  #pixelCache;
+
+  /** @type {boolean[]} */
+  #pixelCacheDirty = (new Uint8Array(this.constructor.NUM_TEXTURES)).fill(1);
 
   // ----- NOTE: PIXI objects ----- //
 
@@ -229,7 +237,6 @@ export class TerrainLayer extends InteractionLayer {
   _activateHoverListener() {
     console.debug(`${MODULE_ID}|activatingHoverListener`);
     this.terrainLabel.anchor = {x: 0, y: 1};
-    canvas.stage.addChild(this.terrainLabel);
   }
 
   /**
@@ -240,8 +247,8 @@ export class TerrainLayer extends InteractionLayer {
    */
   updateTerrainLabel({x, y}) {
     const terrain = this.#terrainAt({x, y});
-    this.terrainLabel.text = terrain?.name || "";
     this.terrainLabel.position = {x, y};
+    this.terrainLabel.text = terrain?.name || "";
 
     // Hide terrains from the user.
     if ( !game.user.isGM
@@ -391,6 +398,9 @@ export class TerrainLayer extends InteractionLayer {
     // TODO: load the shape queue from stored data.
     await this.loadSceneData();
 
+    this.#initializePixelCache();
+    this._clearPixelCacheArray();
+
     const currId = Settings.getByName("CURRENT_TERRAIN");
     if ( currId ) this.currentTerrain = this.sceneMap.terrainIds.get(currId);
     if ( !this.currentTerrain ) this.currentTerrain = this.sceneMap.values().next().value;
@@ -448,14 +458,7 @@ export class TerrainLayer extends InteractionLayer {
     for ( let i = 0; i < nTextures; i += 1 ) {
       const tex = this._terrainTextures[i] = PIXI.RenderTexture.create(this._fileManager.textureConfiguration);
       tex.baseTexture.clearColor = [0, 0, 0, 0];
-
-      this.#pixelCacheArray[i] = TerrainLayerPixelCache.fromTexture(tex);
     }
-
-    // Combine the two pixel caches.
-    const cache0 = this.#pixelCacheArray[0];
-    const cache1 = this.#pixelCacheArray[1];
-    this.#pixelCache = TerrainPixelCache.fromTerrainLayerCaches(cache0, cache1);
 
     // Display terrain names when hovering over a terrain area.
     this._activateHoverListener();
@@ -776,14 +779,22 @@ export class TerrainLayer extends InteractionLayer {
 
   /* ----- NOTE: Pixel Cache ----- */
 
-  /** @type {TerrainLayerPixelCache[]} */
-  #pixelCacheArray = new Array(this.constructor.NUM_TEXTURES);
+  /**
+   * Initialize the pixel cache, so that future updates can rely on the fact that the
+   * cache objects exist.
+   * See #refreshPixelCache and #refreshPixelCacheArray
+   */
+  #initializePixelCache() {
+    const nTex = this.constructor.NUM_TEXTURES;
+    for ( let i = 0; i < nTex; i += 1 ) {
+      const tex = this._terrainTextures[i];
+      this.#pixelCacheArray[i] = TerrainLayerPixelCache.fromTexture(tex);
+    }
 
-  /** @type {TerrainPixelCache|undefined} */
-  #pixelCache;
-
-  /** @type {boolean[]} */
-  #pixelCacheDirty = (new Uint8Array(this.constructor.NUM_TEXTURES)).fill(1);
+    const cache0 = this.#pixelCacheArray[0];
+    const cache1 = this.#pixelCacheArray[1];
+    this.#pixelCache = TerrainPixelCache.fromTerrainLayerCaches(cache0, cache1);
+  }
 
   get pixelCacheDirty() { return this.#pixelCacheDirty[0] || this.#pixelCacheDirty[1]; }
 
