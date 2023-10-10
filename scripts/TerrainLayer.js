@@ -106,7 +106,7 @@ export class TerrainLayer extends InteractionLayer {
    * adjustments by the GM to the scene elevation.
    * @type {PIXI.Sprite}
    */
-  _backgroundTerrain = PIXI.Sprite.from(PIXI.Texture.EMPTY);
+//   _backgroundTerrain = PIXI.Sprite.from(PIXI.Texture.EMPTY);
 
   /**
    * Holds current PIXI.Graphics objects, one per layer.
@@ -355,6 +355,8 @@ export class TerrainLayer extends InteractionLayer {
    * Set up the terrain layer for the first time once the scene is loaded.
    */
   async initialize() {
+    console.debug("Initializing Terrain Mapper");
+
     // Set up the shared graphics object used to color grid spaces.
     this.#initializeGridShape();
 
@@ -373,7 +375,7 @@ export class TerrainLayer extends InteractionLayer {
     // Should start at the upper left scene corner
     // Holds the default background elevation settings
     const { sceneX, sceneY } = canvas.dimensions;
-    this._backgroundTerrain.position = { x: sceneX, y: sceneY };
+//     this._backgroundTerrain.position = { x: sceneX, y: sceneY };
 
     // TODO: Use a background terrain by combining the background with the foreground using an overlay
     //       for the foreground.
@@ -490,18 +492,23 @@ export class TerrainLayer extends InteractionLayer {
    * Destroy elevation data when changing scenes or clearing data.
    */
   #destroy() {
+    console.debug("Destroying Terrain Mapper");
     this._shapeQueueArray.forEach(shapeQueue => shapeQueue.clear());
     this._clearPixelCacheArray();
-    this._backgroundTerrain.destroy();
-    this._backgroundTerrain = PIXI.Sprite.from(PIXI.Texture.EMPTY);
+//     this._backgroundTerrain.destroy();
+//     this._backgroundTerrain = PIXI.Sprite.from(PIXI.Texture.EMPTY);
     this._terrainColorsMesh?.destroy();
 
-    for ( const layer of this._graphicsLayers ) {
-      if ( !layer ) continue; // Layer array could be empty if not yet initialized.
-      layer.destroy({ children: true });
-    }
+    this._graphicsLayers.forEach(g => {
+      if ( g.destroyed ) return;
+      g.destroy({ children: true });
+    });
 
-    this._terrainLabelsArray.forEach(g => g.destroy({children: true}));
+    this._terrainLabelsArray.forEach(g => {
+      if ( g.destroyed ) return;
+      g.destroy({children: true});
+    });
+
     this._terrainTextures.forEach(rt => rt.destroy());
   }
 
@@ -866,7 +873,7 @@ export class TerrainLayer extends InteractionLayer {
     queueObj.graphics.destroy();
 
     // Remove the associated text label.
-    if ( queueObj.text ) this._terrainLabelsArray[layerIdx].polygonText.removeChild(queueObj.text)
+    if ( queueObj.text ) this._terrainLabelsArray[layerIdx].polygonText.removeChild(queueObj.text);
   }
 
   /**
@@ -968,8 +975,7 @@ export class TerrainLayer extends InteractionLayer {
 
     const newPolygonText = this._terrainLabelsArray[newLayerIdx].polygonText;
     if ( typeof newPolygonText !== "undefined"
-      && this.controls.tools.find(t => t.name === "terrain-view-toggle")?.active )
-      canvas.controls.addChild(newPolygonText);
+      && this.controls.tools.find(t => t.name === "terrain-view-toggle")?.active ) canvas.controls.addChild(newPolygonText);
   }
 
   /**
@@ -1271,8 +1277,8 @@ export class TerrainLayer extends InteractionLayer {
     this._shapeQueueArray.forEach(shapeQueue => shapeQueue.clear());
 
     this._clearPixelCacheArray();
-    this._backgroundTerrain.destroy();
-    this._backgroundTerrain = PIXI.Sprite.from(PIXI.Texture.EMPTY);
+//     this._backgroundTerrain.destroy();
+//     this._backgroundTerrain = PIXI.Sprite.from(PIXI.Texture.EMPTY);
 
     this._graphicsLayers.forEach(g => {
       const children = g.removeChildren();
