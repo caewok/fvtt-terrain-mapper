@@ -1,17 +1,50 @@
-#elevationlayer-tools.control-tools {
+/*
+#terrainmapper-tool {
+  list-style: none;
+  width: 100px;
+  height: 36px;
+}
+*/
+
+
+/*
+.terrainmapper-tools .control-tool {
+  list-style: none;
+  width: 100px;
+  height: 36px;
+  color: #BBB;
+  box-sizing: content-box;
+}
+*/
+
+/*
+.terrainmapper-tools .control-tools {
+  list-style: none;
+  width: 36px;
+  height: 36px;
+  color: #BBB;
+}
+*/
+
+/*
+#terrainmapper-tools.control-tools {
     list-style: none;
     padding: 0;
     margin: 0;
 }
+*/
 
-#elevationlayer-tools.control-tools > li.control-tool.disabled:hover {
+/*
+#terrainmapper-tools.control-tools > li.control-tool.disabled:hover {
     box-shadow: none;
     border: 1px solid var(--color-border-dark);
     cursor: default;
 }
+*/
 
-#elevationlayer-tools .control-btn {
-    width: 36px;
+/*
+.terrainmapper-tools .control-btn {
+    width: 100px;
     height: 36px;
     box-sizing: content-box;
     font-size: 24px;
@@ -25,56 +58,75 @@
     cursor: pointer;
     padding: 0;
 }
+*/
 
-#elevationlayer-tools.control-tools > li.control-tool.disabled:hover {
+/*
+#terrainmapper-tools.control-tools > li.control-tool.disabled:hover {
     box-shadow: 0 0 10px var(--color-shadow-dark);
 }
+*/
+
 /*
-#elevationlayer-tools .control-btn:hover {
+.terrainmapper-tools .control-btn:hover {
     color: #FFF;
     box-shadow: 0 0 10px #ff6400;
-}*/
-#elevationlayer-tools .control-btn:disabled {
+}
+*/
+
+/*
+#terrainmapper-tools .control-btn:disabled {
     color: var(--color-text-dark-secondary);
     box-shadow: none;
     cursor: default;
 }
+*/
 
-#elevationlayer-tools table {
+/*
+#terrainmapper-tools table {
     margin: 0;
     border: none;
     background: none;
 }
+*/
 
-#elevationlayer-tools td {
+/*
+#terrainmapper-tools td {
     padding: 0;
     vertical-align: top;
 }
+*/
 
-#elevationlayer-tools td:nth-child(n+1) {
+/*
+#terrainmapper-tools td:nth-child(n+1) {
     padding-left: 8px;
 }
+*/
 
-#elevationlayer-tools #el-curr-elevation {
+/*
+#terrainmapper-tools #el-curr-elevation {
   color: #DCDCDC;
 }
+*/
 
-#elevationlayer-tools #el-elevation-number {
+/*
+#terrainmapper-tools #el-elevation-number {
     cursor: default;
     position: center;
     width: 90%;
 }
-#elevationlayer-tools #el-elevation-number:hover {
+*/
+
+/*
+#terrainmapper-tools #el-elevation-number:hover {
     box-shadow: none;
     border: 1px solid var(--color-border-dark);
     box-shadow: 0 0 10px var(--color-shadow-dark);
 }
+*/
 
 /*
-#elevationlayer-tools #el-elevation-number i {
-    position: absolute;
-    top: -5px;
-    left: -5px;
-    font-size: 14px;
+.terrainmapper .scrollable {
+  overflow: hidden auto;
+  scrollbar-width: thin;
 }
- */
+*/

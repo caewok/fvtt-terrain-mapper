@@ -1,0 +1,52 @@
+<ol class="sub-controls app control-tools flexcol" role="tabpanel">
+  <li class="control-tool"
+      role="button"
+      data-tooltip="Select terrain layer for applying the terrain"
+      title="{{ localize 'terrainmapper.controls.currentLayer' }}"
+      style="width: 100px;"
+      >
+    <select name="terrain-selected"
+            id="terrainmapper-tool-select-layer"
+            class="form-fields"
+            style="text-align: left; width: 100px; font-size: 14px; border: 0px; color: #f0f0e0">
+
+      {{#each sceneLayers as |layer|}}
+        <option value="{{ layer.key }}" {{ifThen layer.isSelected "selected" : ""}}>{{ layer.label }} </option>
+      {{/each}}
+
+    </select>
+  </li>
+
+  {{#if isGM}}
+  <li class="control-tool"
+      role="button"
+      data-tooltip="Select terrain to use with the tool"
+      title="{{ localize 'terrainmapper.controls.currentTerrain' }}"
+      style="width: 100px;"
+      >
+    <select name="terrain-selected"
+            id="terrainmapper-tool-select-terrain"
+            class="form-fields"
+            style="text-align: left; width: 100px; font-size: 14px; border: 0px; color: #f0f0e0">
+
+    <!---
+    <option value="1">Ice</option>
+    <option value="2" "selected">Move x2</option>
+    <option disabled>──────────</option>
+    <option value="x3">Ice 2</option>
+    -->
+
+      {{#each sceneTerrains as |terrain|}}
+        <option value="{{ terrain.key }}" {{ifThen terrain.isSelected "selected" : ""}}>{{ terrain.label }} </option>
+      {{/each}}
+      <option disabled>──────────</option>
+
+      {{#each nonSceneTerrains as |terrain|}}
+        <option value="{{ terrain.key }}" {{ifThen terrain.isSelected "selected" : ""}}>{{ terrain.label }} </option>
+      {{/each}}
+
+    </select>
+  </li>
+  {{/if}}
+</ol>
+

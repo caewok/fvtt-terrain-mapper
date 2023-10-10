@@ -1,0 +1,110 @@
+<section
+  id='terrainmapper'
+  class='terrainmapper sidebar-tab directory flexcol'
+>
+  <!-- Directory Header -->
+  <header class='directory-header'>
+    {{#if isGM}}
+      <div class='header-actions action-buttons flexrow'>
+        <button class='create-effect'>
+          <i class='fas fa-person-hiking'></i>
+          Create Terrain
+        </button>
+      </div>
+
+      <div class='header-actions action-buttons flexrow'>
+        <button class='edit-scene-terrains'>
+          <i class='fas fa-pen-to-square'></i>
+          Advanced Scene Configuration
+        </button>
+      </div>
+
+      <div class='header-actions action-buttons flexrow'>
+        <button class='list-terrains'>
+          <i class='fas fa-rectangle-list'></i>
+          List Terrains (Advanced Edit)
+        </button>
+      </div>
+    {{/if}}
+    <div class='header-search flexrow'>
+      <i class='fas fa-search'></i>
+      <input
+        type='search'
+        name='search'
+        value=''
+        placeholder='Search Terrains'
+        autocomplete='off'
+        autofocus
+      />
+      <a class='header-control collapse-all' title='Collapse All Folders'>
+        <i class='fas fa-duotone fa-folder-tree'></i>
+      </a>
+      {{#if isGM}}
+        <a
+          class='header-control reset-status-effects'
+          title='Reset Terrains to Defaults'
+        >
+          <i class='fas fa-undo fa-fw'></i>
+        </a>
+      {{/if}}
+    </div>
+  </header>
+  <!-- Directories List -->
+  <ol class='directory-list'>
+    {{#each folders as |folder|}}
+      <li
+        class='directory-item folder flexcol collapsed terrainmapper-folder'
+        data-folder-id='{{folder.id}}'
+        draggable='false'
+      >
+        <header class='folder-header flexrow' data-folder-id='{{folder.id}}'>
+          <h3 class='noborder'>
+            <i class='fas fa-folder-open fa-fw'></i>
+            {{folder.name}}
+          </h3>
+
+          {{#if (eq folder.id "all")}}
+            <a
+              title='Import terrains'
+              class='import-all-terrains create-button create-folder'
+            >
+              <i class='fas fa-file-arrow-up fa-fw'></i>
+            </a>
+            <a
+              title='Replace terrains'
+              class='replace-all-terrains create-button create-folder'
+            >
+              <i class='fas fa-file-import fa-fw'></i>
+            </a>
+
+            <a
+              title='Export terrains'
+              class='export-all-terrains create-button create-folder'
+            >
+              <i class='fas fa-file-arrow-down fa-fw'></i>
+            </a>
+
+          {{/if}}
+        </header>
+        <ol class='subdirectory'>
+          {{#each folder.effects as |effect|}}
+            <li
+              class='directory-item document entity flexrow terrainmapper-effect'
+              data-effect-id='{{effect.id}}'
+              data-effect-name='{{effect.name}}'
+              draggable='true'
+              style='display: flex'
+            >
+              <img title='{{effect.name}}' src='{{effect.icon}}' />
+              <h4 class='document-name entity-name'>
+                <a title='{{effect.description}}'>
+                  {{effect.name}}
+                </a>
+              </h4>
+            </li>
+          {{/each}}
+        </ol>
+      </li>
+    {{/each}}
+  </ol>
+</section>
