@@ -395,7 +395,13 @@ export class TerrainLayer extends InteractionLayer {
     if ( currId ) this.currentTerrain = this.sceneMap.terrainIds.get(currId);
     if ( !this.currentTerrain ) this.currentTerrain = this.sceneMap.values().next().value;
 
-
+    // Draw walls
+    if ( game.user.isGM ) {
+      for ( const wall of canvas.walls.placeables ) {
+        this._drawWallSegment(wall);
+        this._drawWallRange(wall);
+      }
+    }
 
     // Background terrain sprite
     // Should start at the upper left scene corner
@@ -464,13 +470,7 @@ export class TerrainLayer extends InteractionLayer {
     console.debug(`${MODULE_ID}|Activating Terrain Layer.`);
 
     // Draw walls
-    if ( game.user.isGM ) {
-      for ( const wall of canvas.walls.placeables ) {
-        this._drawWallSegment(wall);
-        this._drawWallRange(wall);
-      }
-      canvas.stage.addChild(this._wallDataContainer);
-    }
+    if ( game.user.isGM ) canvas.stage.addChild(this._wallDataContainer);
 
     this.drawTerrain();
     this.container.visible = true;
@@ -502,11 +502,6 @@ export class TerrainLayer extends InteractionLayer {
 
     this.eraseTerrain();
 
-    // TO-DO: keep the wall graphics and labels and just update as necessary.
-    // Destroy only in tearDown
-    const wallData = this._wallDataContainer.removeChildren();
-    wallData.forEach(d => d.destroy(true));
-
     canvas.stage.removeChild(this.terrainLabel);
     Draw.clearDrawings();
     this.container.visible = false;
@@ -532,6 +527,7 @@ export class TerrainLayer extends InteractionLayer {
     // Wipe all children of PIXI objects.
     this._clearData();
 
+
     // Destroy remaining PIXI objects.
     this.#destroy();
     this.#initialized = false;
@@ -543,6 +539,7 @@ export class TerrainLayer extends InteractionLayer {
   #destroy() {
     console.debug(`${MODULE_ID}|Destroying Terrain Mapper`);
     this._terrainColorsMesh.destroy({children: true})
+    this._wallDataContainer.removeChildren().forEach(c => c.destroy(true));
   }
 
   // ----- NOTE: Save and load data ----- //
