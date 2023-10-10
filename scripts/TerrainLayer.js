@@ -54,51 +54,100 @@ const TERRAIN_SHAPES = {
 
 export class TerrainLayer extends InteractionLayer {
 
-  /** @type {Lock} */
-  static lock = new Lock();
+  // ----- NOTE: Constants ----- //
 
-  static TerrainKey;
-
-  // TODO: If we can use the alpha channel, can this increase to 8?
   /** @type {number} */
   static #MAX_LAYERS = 6;
 
   static get MAX_LAYERS() { return this.#MAX_LAYERS; }
 
-  // TODO: Can we use the alpha channel, perhaps with a custom blend or filter?
   /** @type {number}*/
   static #MAX_CHANNELS = 3;  // R,G,B. No storage in the alpha channel.
 
   static get MAX_CHANNELS() { return this.#MAX_CHANNELS; }
 
+  /** @type {number}*/
   static #NUM_TEXTURES = Math.ceil(this.#MAX_LAYERS / 3);
 
   static get NUM_TEXTURES() { return this.#NUM_TEXTURES; }
 
+  /** @type {number}*/
   static NUM_UNDO = 20;
-
-  /** @type {TerrainMap} */
-  sceneMap = new TerrainMap();
-
-  /** @type {boolean} */
-  #initialized = false;
-
-  /** @type {TravelTerrainRay} */
-  TravelTerrainRay = TravelTerrainRay;
-
-  /** @type {PIXI.Container} */
-  preview = new PIXI.Container();
-
-  /** @type {FillByGridHelper} */
-  #controlsHelper;
 
   /** @type {number} */
   static MAX_TERRAIN_ID = Math.pow(2, 5) - 1; // 31
 
+  // ----- NOTE: Boolean flags ----- //
+
+  /** @type {boolean} */
+  #initialized = false;
+
+  /** @type {boolean} */
+  #firstInitialization = false;
+
+  /**
+   * Flag for when the elevation data has changed for the scene, requiring a save.
+   * Currently happens when the user changes the data or uploads a new data file.
+   * @type {boolean}
+   */
+  _requiresSave = false; // Avoid private field here b/c it causes problems for arrow functions
+
+  // ----- NOTE: Other objects ----- //
+
+  /** @type {Lock} */
+  static lock = new Lock();
+
+  static TerrainKey;
+
+  /** @type {TerrainMap} */
+  sceneMap = new TerrainMap();
+
+  /** @type {TravelTerrainRay} */
+  TravelTerrainRay = TravelTerrainRay;
+
+
+
+  /** @type {FillByGridHelper} */
+  #controlsHelper;
+
+  /** @type {TerrainFileManager} */
+  _fileManager = new TerrainFileManager();
+
+  // ----- NOTE: PIXI objects ----- //
+
+  /** @type {PIXI.Container} */
+  preview = new PIXI.Container();
+
+  /**
+   * Store the string indicating the terrain at a given mouse point.
+   * @type {PreciseText}
+   */
+  terrainLabel = new PreciseText(undefined,
+    PreciseText.getTextStyle({
+      fontSize: 24,
+      fill: "#333333",
+      strokeThickness: 2,
+      align: "right",
+      dropShadow: false
+    }));
+
+  /**
+   * PIXI.Mesh used to display the elevation colors when the layer is active.
+   * @type {TerrainLayerShader}
+   */
+  _terrainColorsMesh;
+
   /**
    * Container to hold objects to display wall information on the canvas
+   * @type {PIXI.Container}
    */
   _wallDataContainer = new PIXI.Container();
+
+  /**
+   * Rectangular or hexagonal grid shape for the scene.
+   * @type {PIXI.Graphics}
+   */
+  #gridShape = new PIXI.Graphics();
 
   /**
    * Sprite that contains the terrain values from the saved terrain image file.
@@ -107,6 +156,14 @@ export class TerrainLayer extends InteractionLayer {
    * @type {PIXI.Sprite}
    */
 //   _backgroundTerrain = PIXI.Sprite.from(PIXI.Texture.EMPTY);
+
+  // ----- NOTE: PIXI arrays/maps ----- //
+
+  /**
+   * Stores graphics created when dragging using the fill-by-grid control.
+   * @type {Map<PIXI.Graphics>}
+   */
+  #temporaryGraphics = new Map();
 
   /**
    * Holds current PIXI.Graphics objects, one per layer.
@@ -129,46 +186,6 @@ export class TerrainLayer extends InteractionLayer {
    */
   _terrainLabelsArray = new Array(this.constructor.MAX_LAYERS);
 
-  /**
-   * PIXI.Mesh used to display the elevation colors when the layer is active.
-   * @type {TerrainLayerShader}
-   */
-  _terrainColorsMesh;
-
-  /**
-   * Stores graphics created when dragging using the fill-by-grid control.
-   * @type {Map<PIXI.Graphics>}
-   */
-  #temporaryGraphics = new Map();
-
-  /**
-   * Store the string indicating the terrain at a given mouse point.
-   * @type {PreciseText}
-   */
-  terrainLabel = new PreciseText(undefined,
-    PreciseText.getTextStyle({
-      fontSize: 24,
-      fill: "#333333",
-      strokeThickness: 2,
-      align: "right",
-      dropShadow: false
-    }));
-
-  /**
-   * Flag for when the elevation data has changed for the scene, requiring a save.
-   * Currently happens when the user changes the data or uploads a new data file.
-   * @type {boolean}
-   */
-  _requiresSave = false; // Avoid private field here b/c it causes problems for arrow functions
-
-  /** @type {TerrainFileManager} */
-  _fileManager = new TerrainFileManager();
-
-  constructor() {
-    super();
-    this._activateHoverListener();
-  }
-
   /** @overide */
   static get layerOptions() {
     return mergeObject(super.layerOptions, {
@@ -188,7 +205,7 @@ export class TerrainLayer extends InteractionLayer {
   // ----- NOTE: Mouse hover management ----- //
 
   /**
-   * Activate a listener to display elevation values when the mouse hovers over an area
+   * Activate a listener to display terrain names when the mouse hovers over an area
    * of the canvas in the elevation layer.
    * See Ruler.prototype._onMouseMove
    */
@@ -210,7 +227,7 @@ export class TerrainLayer extends InteractionLayer {
   }
 
   _activateHoverListener() {
-    console.debug("activatingHoverListener");
+    console.debug(`${MODULE_ID}|activatingHoverListener`);
     this.terrainLabel.anchor = {x: 0, y: 1};
     canvas.stage.addChild(this.terrainLabel);
   }
@@ -355,7 +372,15 @@ export class TerrainLayer extends InteractionLayer {
    * Set up the terrain layer for the first time once the scene is loaded.
    */
   async initialize() {
-    console.debug("Initializing Terrain Mapper");
+    console.debug(`${MODULE_ID}|Initialization called.`);
+
+    // Required on first initialization only (first game load)
+    if ( !this.#firstInitialization ) this.#firstInitialize();
+
+    // Required on every initialization (loading each scene)
+    if ( this.#initialized ) return;
+
+    console.debug(`${MODULE_ID}|Initializing Terrain Mapper`);
 
     // Set up the shared graphics object used to color grid spaces.
     this.#initializeGridShape();
@@ -363,25 +388,42 @@ export class TerrainLayer extends InteractionLayer {
     // Initialize the file manager for loading and storing terrain data.
     await this._fileManager.initialize();
 
+    // TODO: load the shape queue from stored data.
+    await this.loadSceneData();
+
     const currId = Settings.getByName("CURRENT_TERRAIN");
     if ( currId ) this.currentTerrain = this.sceneMap.terrainIds.get(currId);
     if ( !this.currentTerrain ) this.currentTerrain = this.sceneMap.values().next().value;
 
-    // Initialize container to hold the elevation data and GM modifications.
-    const w = new FullCanvasContainer();
-    this.container = this.addChild(w);
+
 
     // Background terrain sprite
     // Should start at the upper left scene corner
     // Holds the default background elevation settings
-    const { sceneX, sceneY } = canvas.dimensions;
+    // const { sceneX, sceneY } = canvas.dimensions;
 //     this._backgroundTerrain.position = { x: sceneX, y: sceneY };
 
     // TODO: Use a background terrain by combining the background with the foreground using an overlay
     //       for the foreground.
     // this._graphicsContainer.addChild(this._backgroundTerrain);
 
-    // Create the graphics layers.
+    // Add the elevation color mesh
+    const shader = TerrainLayerShader.create();
+    this._terrainColorsMesh = new TerrainQuadMesh(canvas.dimensions.sceneRect, shader);
+    this.renderTerrain();
+    this.#initialized = true;
+  }
+
+  /**
+   * Build objects that will persist across scenes.
+   */
+  #firstInitialize() {
+    console.debug(`${MODULE_ID}|First initialization for Terrain Mapper`);
+
+    // Initialize container to hold the elevation data and GM modifications.
+    this.container = this.addChild(new FullCanvasContainer());
+
+    // Create the graphics and text label objects, one per layer.
     const nLayers = this.constructor.MAX_LAYERS;
     for ( let i = 0; i < nLayers; i += 1 ) {
       const colorName = LAYER_COLORS[i % 3];
@@ -394,29 +436,32 @@ export class TerrainLayer extends InteractionLayer {
       this._terrainLabelsArray[i] = new PIXI.Graphics();
     }
 
-    // Construct the render textures that are used for the layers.
+    // Construct the render textures that are used for the layers. 1 per 3 layers.
+    // Also construct the pixel cache objects for each render texture.
     const nTextures = Math.ceil(nLayers / 3);
     for ( let i = 0; i < nTextures; i += 1 ) {
       const tex = this._terrainTextures[i] = PIXI.RenderTexture.create(this._fileManager.textureConfiguration);
       tex.baseTexture.clearColor = [0, 0, 0, 0];
+
+      this.#pixelCacheArray[i] = TerrainLayerPixelCache.fromTexture(tex);
     }
 
-    // Initialize the pixel cache objects for the render textures.
-    this.#initializePixelCache();
+    // Combine the two pixel caches.
+    const cache0 = this.#pixelCacheArray[0];
+    const cache1 = this.#pixelCacheArray[1];
+    this.#pixelCache = TerrainPixelCache.fromTerrainLayerCaches(cache0, cache1);
 
-    // TODO: load the shape queue from stored data.
-    await this.loadSceneData();
+    // Display terrain names when hovering over a terrain area.
+    this._activateHoverListener();
 
-    // Add the elevation color mesh
-    const shader = TerrainLayerShader.create();
-    this._terrainColorsMesh = new TerrainQuadMesh(canvas.dimensions.sceneRect, shader);
-    this.renderTerrain();
-    this.#initialized = true;
+    this.#firstInitialization = true;
   }
+
+
 
   /** @override */
   _activate() {
-    console.debug("Activating Terrain Layer.");
+    console.debug(`${MODULE_ID}|Activating Terrain Layer.`);
 
     // Draw walls
     if ( game.user.isGM ) {
@@ -450,9 +495,9 @@ export class TerrainLayer extends InteractionLayer {
   }
 
   /** @override */
-  async _deactivate() {
-    console.debug("De-activating Terrain Layer.");
-    if ( !this.container ) return;
+  _deactivate() {
+    console.debug(`${MODULE_ID}|De-activating Terrain Layer.`);
+    if ( !this.#initialized ) return;
     canvas.stage.removeChild(this._wallDataContainer);
 
     this.eraseTerrain();
@@ -466,7 +511,7 @@ export class TerrainLayer extends InteractionLayer {
     Draw.clearDrawings();
     this.container.visible = false;
 
-    if ( this._requiresSave ) await this.save();
+    if ( this._requiresSave ) this.save(); // Async
   }
 
   /** @override */
@@ -477,39 +522,27 @@ export class TerrainLayer extends InteractionLayer {
 
   /** @inheritdoc */
   async _tearDown(options) {
-    console.debug("_tearDown Terrain Layer");
+    console.debug(`${MODULE_ID}|_tearDown Terrain Layer`);
+    if ( !this.#initialized ) return; // Don't call super._tearDown, which would destroy children.
+
+    console.debug(`${MODULE_ID}|Tearing down Terrain Mapper`);
+
     if ( this._requiresSave ) await this.save();
 
-    // Probably need to figure out how to destroy and/or remove these objects
-    //     this._graphicsContainer.destroy({children: true});
-    //     this._graphicsContainer = null;
+    // Wipe all children of PIXI objects.
+    this._clearData();
+
+    // Destroy remaining PIXI objects.
     this.#destroy();
-    this.container = null;
-    return super._tearDown(options);
+    this.#initialized = false;
   }
 
   /**
    * Destroy elevation data when changing scenes or clearing data.
    */
   #destroy() {
-    console.debug("Destroying Terrain Mapper");
-    this._shapeQueueArray.forEach(shapeQueue => shapeQueue.clear());
-    this._clearPixelCacheArray();
-//     this._backgroundTerrain.destroy();
-//     this._backgroundTerrain = PIXI.Sprite.from(PIXI.Texture.EMPTY);
-    this._terrainColorsMesh?.destroy();
-
-    this._graphicsLayers.forEach(g => {
-      if ( g.destroyed ) return;
-      g.destroy({ children: true });
-    });
-
-    this._terrainLabelsArray.forEach(g => {
-      if ( g.destroyed ) return;
-      g.destroy({children: true});
-    });
-
-    this._terrainTextures.forEach(rt => rt.destroy());
+    console.debug(`${MODULE_ID}|Destroying Terrain Mapper`);
+    this._terrainColorsMesh.destroy({children: true})
   }
 
   // ----- NOTE: Save and load data ----- //
@@ -741,7 +774,7 @@ export class TerrainLayer extends InteractionLayer {
    * Import terrain data from an image file into the scene.
    */
   importFromImageFile() {
-    console.debug("I should be importing terrain data for the scene...");
+    console.debug(`${MODULE_ID}|I should be importing terrain data for the scene...`);
   }
 
   /* ----- NOTE: Pixel Cache ----- */
@@ -769,22 +802,6 @@ export class TerrainLayer extends InteractionLayer {
     return this.#pixelCacheArray;
   }
 
-  /**
-   * Initialize the pixel cache, so that future updates can rely on the fact that the
-   * cache objects exist.
-   * See #refreshPixelCache and #refreshPixelCacheArray
-   */
-  #initializePixelCache() {
-    const nTex = this.constructor.NUM_TEXTURES;
-    for ( let i = 0; i < nTex; i += 1 ) {
-      const tex = this._terrainTextures[i];
-      this.#pixelCacheArray[i] = TerrainLayerPixelCache.fromTexture(tex);
-    }
-
-    const cache0 = this.#pixelCacheArray[0];
-    const cache1 = this.#pixelCacheArray[1];
-    this.#pixelCache = TerrainPixelCache.fromTerrainLayerCaches(cache0, cache1);
-  }
 
   /**
    * Clear the pixel cache
@@ -892,8 +909,6 @@ export class TerrainLayer extends InteractionLayer {
 
   /* ----- NOTE: Rendering ----- */
 
-  #gridShape = new PIXI.Graphics();
-
   /**
    * Create a grid shape that can be shared among drawn instances
    */
@@ -950,6 +965,7 @@ export class TerrainLayer extends InteractionLayer {
    * @param {boolean} force
    */
   toggleTerrainNames(force) {
+    if ( !this.toolbar ) return;
     const layerIdx = this.toolbar.currentLayer;
     const polygonText = this._terrainLabelsArray[layerIdx].polygonText;
     if ( !polygonText ) return;
@@ -1235,7 +1251,7 @@ export class TerrainLayer extends InteractionLayer {
 
     */
 
-    console.debug(`Attempting fill at { x: ${origin.x}, y: ${origin.y} } with terrain ${terrain.name}`);
+    console.debug(`${MODULE_ID}|Attempting fill at { x: ${origin.x}, y: ${origin.y} } with terrain ${terrain.name}`);
     const polys = SCENE_GRAPH.encompassingPolygonWithHoles(origin);
     if ( !polys.length ) {
       // Shouldn't happen, but...
@@ -1274,6 +1290,12 @@ export class TerrainLayer extends InteractionLayer {
    * Remove all terrain data from the scene.
    */
   clearData() {
+    this._clearData();
+    this._requiresSave = false;
+    this.renderTerrain();
+  }
+
+  _clearData() {
     this._shapeQueueArray.forEach(shapeQueue => shapeQueue.clear());
 
     this._clearPixelCacheArray();
@@ -1290,8 +1312,7 @@ export class TerrainLayer extends InteractionLayer {
       children.forEach(c => c.destroy());
     });
 
-    this._requiresSave = false;
-    this.renderTerrain();
+    this.clearPreviewContainer();
   }
 
   // ----- Grid Shapes ----- //
@@ -1323,7 +1344,7 @@ export class TerrainLayer extends InteractionLayer {
     const activeTool = game.activeTool;
     const o = event.interactionData.origin;
     const currT = this.toolbar.currentTerrain;
-    console.debug(`TerrainLayer|${fnName} at ${o.x}, ${o.y} with tool ${activeTool} and terrain ${currT?.name}`, event);
+    console.debug(`${MODULE_ID}|${fnName} at ${o.x}, ${o.y} with tool ${activeTool} and terrain ${currT?.name}`, event);
   }
 
 
@@ -1344,7 +1365,7 @@ export class TerrainLayer extends InteractionLayer {
         this.fillLOS(o, currT);
         break;
       case "fill-by-pixel":
-        console.debug("fill-by-pixel not yet implemented.");
+        console.debug(`${MODULE_ID}|fill-by-pixel not yet implemented.`);
         break;
       case "fill-space":
         this.fill(o, currT);
@@ -1469,7 +1490,7 @@ export class TerrainLayer extends InteractionLayer {
     const o = event.interactionData.origin;
     const activeTool = game.activeTool;
     const currT = this.toolbar.currentTerrain;
-    console.debug(`mouseWheel at ${o.x}, ${o.y} with tool ${activeTool} and terrain ${currT?.name}`, event);
+    console.debug(`${MODULE_ID}|mouseWheel at ${o.x}, ${o.y} with tool ${activeTool} and terrain ${currT?.name}`, event);
 
     // Cycle to the next scene terrain
 
@@ -1482,6 +1503,6 @@ export class TerrainLayer extends InteractionLayer {
     const o = event.interactionData.origin;
     const activeTool = game.activeTool;
     const currT = this.toolbar.currentTerrain;
-    console.debug(`deleteKey at ${o.x}, ${o.y} with tool ${activeTool} and terrain ${currT?.name}`, event);
+    console.debug(`${MODULE_ID}|deleteKey at ${o.x}, ${o.y} with tool ${activeTool} and terrain ${currT?.name}`, event);
   }
 }
