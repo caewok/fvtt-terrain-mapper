@@ -11,7 +11,7 @@ SearchFilter
 // Much of this is from
 // https://github.com/DFreds/dfreds-convenient-effects/blob/main/scripts/app/convenient-effects-controller.js
 
-import { Settings } from "./Settings.js";
+import { Settings } from "./settings.js";
 import { Terrain } from "./Terrain.js";
 import { EffectHelper } from "./EffectHelper.js";
 import { TerrainSceneConfig } from "./TerrainSceneConfig.js";

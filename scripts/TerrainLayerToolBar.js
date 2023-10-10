@@ -10,7 +10,7 @@ mergeObject,
 
 import { MODULE_ID } from "./const.js";
 import { Terrain } from "./Terrain.js";
-import { Settings } from "./Settings.js";
+import { Settings } from "./settings.js";
 import { isString } from "./util.js";
 
 export class TerrainLayerToolBar extends Application {

@@ -6,7 +6,7 @@ game
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { Settings } from "./Settings.js";
+import { Settings } from "./settings.js";
 import { FLAGS, COLORS, MODULE_ID } from "./const.js";
 
 /**

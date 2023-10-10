@@ -8,7 +8,7 @@ socketlib
 
 import { MODULE_ID, SOCKETS } from "./const.js";
 import { TerrainLayer } from "./TerrainLayer.js";
-import { Settings } from "./Settings.js";
+import { Settings } from "./settings.js";
 import { Terrain, addTerrainEffect, removeTerrainEffect } from "./Terrain.js";
 import { TerrainMap } from "./TerrainMap.js";
 import { EffectHelper } from "./EffectHelper.js";

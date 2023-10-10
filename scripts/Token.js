@@ -13,7 +13,7 @@ Hook token movement to add/remove terrain effects and pause tokens dependent on 
 */
 
 import { MODULE_ID, SOCKETS } from "./const.js";
-import { Settings } from "./Settings.js";
+import { Settings } from "./settings.js";
 import { TravelTerrainRay } from "./TravelTerrainRay.js";
 import { Terrain } from "./Terrain.js";
 
