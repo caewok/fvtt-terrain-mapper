@@ -64,7 +64,10 @@ export class Settings {
     // Configuration of the application that controls the terrain listings.
     CONTROL_APP: {
       EXPANDED_FOLDERS: "app_expanded_folders"
-    }
+    },
+
+    // Dialog with announcements re major updates.
+    CHANGELOG: "changelog"
   };
 
   /**
