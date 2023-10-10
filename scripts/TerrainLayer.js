@@ -111,7 +111,6 @@ export class TerrainLayer extends InteractionLayer {
   /** @type {TerrainFileManager} */
   _fileManager = new TerrainFileManager();
 
-
   /** @type {TerrainLayerPixelCache[]} */
   #pixelCacheArray = new Array(this.constructor.NUM_TEXTURES);
 
@@ -120,6 +119,13 @@ export class TerrainLayer extends InteractionLayer {
 
   /** @type {boolean[]} */
   #pixelCacheDirty = (new Uint8Array(this.constructor.NUM_TEXTURES)).fill(1);
+
+  /**
+   * Track walls in the scene for purposes of drawing wall graphics.
+   * Uses wall id so that deleted walls can be handled.
+   * @type {Map<string, object>}
+   */
+  #wallTracker = new Map();
 
   // ----- NOTE: PIXI objects ----- //
 
@@ -395,6 +401,14 @@ export class TerrainLayer extends InteractionLayer {
     // Initialize the file manager for loading and storing terrain data.
     await this._fileManager.initialize();
 
+    // Construct the render textures that are used for the layers. 1 per 3 layers.
+    // The render texture changes (and is destroyed) each scene.
+    const nTextures = this.constructor.NUM_TEXTURES
+    for ( let i = 0; i < nTextures; i += 1 ) {
+      const tex = this._terrainTextures[i] = PIXI.RenderTexture.create(this._fileManager.textureConfiguration);
+      tex.baseTexture.clearColor = [0, 0, 0, 0];
+    }
+
     // TODO: load the shape queue from stored data.
     await this.loadSceneData();
 
@@ -406,12 +420,7 @@ export class TerrainLayer extends InteractionLayer {
     if ( !this.currentTerrain ) this.currentTerrain = this.sceneMap.values().next().value;
 
     // Draw walls
-    if ( game.user.isGM ) {
-      for ( const wall of canvas.walls.placeables ) {
-        this._drawWallSegment(wall);
-        this._drawWallRange(wall);
-      }
-    }
+    if ( game.user.isGM ) canvas.walls.placeables.forEach(wall => this._addWall(wall));
 
     // Background terrain sprite
     // Should start at the upper left scene corner
@@ -450,14 +459,6 @@ export class TerrainLayer extends InteractionLayer {
       // g._tempGraphics = g.addChild(new PIXI.Container()); // For temporary rendering during drag operations.
 
       this._terrainLabelsArray[i] = new PIXI.Graphics();
-    }
-
-    // Construct the render textures that are used for the layers. 1 per 3 layers.
-    // Also construct the pixel cache objects for each render texture.
-    const nTextures = Math.ceil(nLayers / 3);
-    for ( let i = 0; i < nTextures; i += 1 ) {
-      const tex = this._terrainTextures[i] = PIXI.RenderTexture.create(this._fileManager.textureConfiguration);
-      tex.baseTexture.clearColor = [0, 0, 0, 0];
     }
 
     // Display terrain names when hovering over a terrain area.
@@ -530,7 +531,6 @@ export class TerrainLayer extends InteractionLayer {
     // Wipe all children of PIXI objects.
     this._clearData();
 
-
     // Destroy remaining PIXI objects.
     this.#destroy();
     this.#initialized = false;
@@ -542,7 +542,8 @@ export class TerrainLayer extends InteractionLayer {
   #destroy() {
     console.debug(`${MODULE_ID}|Destroying Terrain Mapper`);
     this._terrainColorsMesh.destroy({children: true})
-    this._wallDataContainer.removeChildren().forEach(c => c.destroy(true));
+    this._clearWallTracker();
+    this._terrainTextures.forEach(tex => tex.destroy());
   }
 
   // ----- NOTE: Save and load data ----- //
@@ -1069,25 +1070,92 @@ export class TerrainLayer extends InteractionLayer {
   }
 
   /**
-   * Draw wall segments
+   * Add a wall to the wall tracker and track its graphics.
+   * @param {Wall} wall
    */
-  _drawWallSegment(wall) {
-    const g = new PIXI.Graphics();
-    const draw = new Draw(g);
+  _addWall(wall) {
+    if ( this.#wallTracker.has(wall.id) ) return this._updateWall(wall);
+
+    // Create graphics for the wall segment and text for the wall elevation label.
+    const graphics = this.#drawWallSegment(wall);
+    const text = this.#drawWallRange(wall);
+    this._wallDataContainer.addChild(graphics);
+    if ( text ) this._wallDataContainer.addChild(text);
+    this.#wallTracker.set(wall.id, { graphics, text });
+  }
+
+  /**
+   * Update a wall in the wall tracker.
+   * Handled by simply wiping and redrawing its graphics and text.
+   * @param {Wall} wall
+   */
+  _updateWall(wall) {
+    const obj = this.#wallTracker.get(wall.id);
+    if ( !obj ) return this._addWall(wall);
+    this.#drawWallSegment(wall, obj.graphics);
+
+    const text = this.#drawWallRange(wall, obj.text);
+    if ( !obj.text && text ) this._wallDataContainer.addChild(text);
+    else if ( obj.text && !text ) {
+      this._wallDataContainer.removeChild(obj.text);
+      obj.text.destroy();
+    }
+    obj.text = text;
+  }
+
+  /**
+   * Remove a wall in the wall tracker.
+   * Destroy the associated graphics and text.
+   * @param {string|Wall} wallId   Wall id of deleted wall
+   */
+  _removeWall(wallId) {
+    if ( wallId instanceof Wall ) wallId = wallId.id;
+    const obj = this.#wallTracker.get(wallId);
+    if ( !obj ) return;
+    this._wallDataContainer.removeChild(obj.graphics);
+    obj.graphics.destroy();
+    if ( obj.text ) {
+      this._wallDataContainer.removeChild(obj.text);
+      obj.text.destroy();
+    }
+    this.#wallTracker.delete(wallId);
+  }
+
+  /**
+   * Clear the wall tracker and remove wall PIXI objects.
+   */
+  _clearWallTracker() {
+    for ( const wallId of this.#wallTracker.keys() ) this._removeWall(wallId);
+  }
+
+  /**
+   * Draw wall segments
+   * @param {Wall} wall
+   * @param {PIXI.Graphics} [graphics]   Optional graphics container to use
+   * @returns {PIXI.Graphics} The added wall graphic
+   */
+  #drawWallSegment(wall, graphics) {
+    graphics ??= new PIXI.Graphics();
+    const draw = new Draw(graphics);
+    draw.clearDrawings();
+
+    // Draw the wall, coloring blue if it is open, red if closed.
     const color = wall.isOpen ? Draw.COLORS.blue : Draw.COLORS.red;
     const alpha = wall.isOpen ? 0.5 : 1;
-
     draw.segment(wall, { color, alpha });
     draw.point(wall.A, { color: Draw.COLORS.red });
     draw.point(wall.B, { color: Draw.COLORS.red });
-    this._wallDataContainer.addChild(g);
+    return graphics;
   }
 
   /**
    * From https://github.com/theripper93/wall-height/blob/12c204b44e6acfa1e835464174ac1d80e77cec4a/scripts/patches.js#L318
    * Draw the wall lower and upper heights on the canvas.
+   * @param {Wall} wall
+   * @param {PreciseText} [g]   Optional PreciseText container to use
+   * @returns {PreciseText} The text label for the wall
    */
-  _drawWallRange(wall) {
+  #drawWallRange(wall, text) {
     // Fill in for WallHeight.getWallBounds
     const bounds = {
       top: wall.document.flags?.["wall-height"]?.top ?? Number.POSITIVE_INFINITY,
@@ -1095,26 +1163,25 @@ export class TerrainLayer extends InteractionLayer {
     };
     if ( bounds.top === Infinity && bounds.bottom === -Infinity ) return;
 
-    const style = CONFIG.canvasTextStyle.clone();
-    style.fontSize /= 1.5;
-    style.fill = wall._getWallColor();
+    // Update or set new text.
+    text ??= new PreciseText("", this.#wallRangeTextStyle);
     if ( bounds.top === Infinity ) bounds.top = "Inf";
     if ( bounds.bottom === -Infinity ) bounds.bottom = "-Inf";
-    const range = `${bounds.top} / ${bounds.bottom}`;
-
-    // This would mess with the existing text used in walls layer, which may not be what we want.
-    // const oldText = wall.children.find(c => c.name === "wall-height-text");
-    // const text = oldText ?? new PreciseText(range, style);
-    const text = new PreciseText(range, style);
-    text.text = range;
+    text.text = `${bounds.top} / ${bounds.bottom}`;
+    text.style.fill = wall._getWallColor();
     text.name = "wall-height-text";
     let angle = (Math.atan2( wall.coords[3] - wall.coords[1], wall.coords[2] - wall.coords[0] ) * ( 180 / Math.PI ));
     angle = ((angle + 90 ) % 180) - 90;
     text.position.set(wall.center.x, wall.center.y);
     text.anchor.set(0.5, 0.5);
     text.angle = angle;
+    return text;
+  }
 
-    this._wallDataContainer.addChild(text);
+  #wallRangeTextStyle() {
+    const style = CONFIG.canvasTextStyle.clone();
+    style.fontSize /= 1.5;
+    return style;
   }
 
   /* ----- Update grid terrain ----- */
