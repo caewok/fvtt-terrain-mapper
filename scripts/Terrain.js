@@ -16,7 +16,7 @@ ui
 "use strict";
 
 import { FLAGS, MODULE_ID, SOCKETS } from "./const.js";
-import { Settings } from "./Settings.js";
+import { Settings } from "./settings.js";
 import { EffectHelper } from "./EffectHelper.js";
 import { TerrainEffectsApp } from "./TerrainEffectsApp.js";
 import { Lock } from "./Lock.js";

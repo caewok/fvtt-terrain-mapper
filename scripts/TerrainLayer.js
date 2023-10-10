@@ -18,7 +18,7 @@ ui
 
 import { MODULE_ID } from "./const.js";
 import { Terrain } from "./Terrain.js";
-import { Settings } from "./Settings.js";
+import { Settings } from "./settings.js";
 import { ShapeQueue } from "./ShapeQueue.js";
 import { Draw } from "./geometry/Draw.js";
 import { TerrainGridSquare } from "./TerrainGridSquare.js";
