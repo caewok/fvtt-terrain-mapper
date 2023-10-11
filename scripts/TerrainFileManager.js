@@ -88,7 +88,7 @@ export class TerrainFileManager {
     if ( filePath.startsWith("https://")
       || filePath.startsWith("http://") ) filePath = `${filePath}?v=${Math.random()}`;
 
-    console.debug(`Loading ${filePath}`);
+  // Debug: console.debug(`Loading ${filePath}`);
     try {
       const baseTexture = await TextureLoader.loader.loadTexture(filePath);
       const texture = new PIXI.Texture(baseTexture);
@@ -105,7 +105,7 @@ export class TerrainFileManager {
    * @returns {PIXI.Texture}
    */
   async loadTextureFromFile(file) {
-    console.debug("Loading from file");
+  // Debug: console.debug("Loading from file");
     try {
       const texture = await PIXI.Texture.fromURL(file);
       return this._formatTexture(texture);
@@ -149,21 +149,24 @@ export class TerrainFileManager {
    * @returns {Promise<object>}  The response object from FilePicker.upload.
    */
   async saveTexture(texture) {
-    console.debug(`Saving texture to ${this.#filePath}/${this.#textureFileName}.webp`);
+  // Debug: console.debug(`Saving texture to ${this.#filePath}/${this.#textureFileName}.webp`);
     const base64image = await this.convertTextureToImage(texture);
     return this.constructor.uploadBase64(base64image, `${this.#textureFileName}.webp`, this.#filePath, { type: "image", notify: false });
   }
 
   /**
    * Load a json file with terrain data.
-   * @returns {object|undefined} The data object unless an error occurs, then undefined.
+   * @returns {object|undefined} The data object unless an error occurs or file does not exist, then undefined.
    */
   async loadData() {
+    if ( !(await doesFileExist(this.#filePath, `${this.#dataFileName}.json`)) ) return undefined;
+
     const filePath = `${this.#filePath}/${this.#dataFileName}.json`;
     let data;
     try {
       data = await foundry.utils.fetchJsonWithTimeout(foundry.utils.getRoute(filePath, {prefix: ROUTE_PREFIX}));
     } catch (err) {
+      return undefined;
     }
     return data;
   }
@@ -257,6 +260,24 @@ export class TerrainFileManager {
       type: PIXI.TYPES.UNSIGNED_BYTE
     };
   }
+}
+
+
+/**
+ * Determine if a file exists in a folder structure using FilePicker
+ * @param {string[]} dirs     Array of folder names, representing a folder hierarchy
+ * @param {string} fileName   Name of file to locate
+ * @returns {boolean} True if file exists
+ */
+export async function doesFileExist(dirPath, fileName) {
+  let res;
+  try {
+    res = await FilePicker.browse("data", dirPath);
+  } catch(error) {
+    return false;
+  }
+  const path = `${dirPath}/${fileName}`;
+  return res?.files.some(str => str === path)
 }
 
 /**

@@ -34,7 +34,7 @@ function removeTerrainItemHook(directory) {
   removeTerrainsItemFromSidebar(directory);
 }
 
-PATCHES_SidebarTab.BASIC.HOOKS = { changeSideBarTab: removeTerrainItemHook };
+PATCHES_SidebarTab.BASIC.HOOKS = { changeSidebarTab: removeTerrainItemHook };
 PATCHES_ItemDirectory.BASIC.HOOKS = { renderItemDirectory: removeTerrainItemHook };
 
 

@@ -75,7 +75,7 @@ export class TerrainListConfig extends FormApplication {
   }
 
   async _onSelectFile(selection, filePicker) {
-    console.debug("_onSelectFile", selection);
+  // Debug: console.debug("_onSelectFile", selection);
     const idx = Number(filePicker.button.getAttribute("data-idx"));
     this.object[idx].icon = selection;
     this.render(); // Redraw the icon image.
@@ -92,7 +92,7 @@ export class TerrainListConfig extends FormApplication {
 
   async _onAddTerrain(event) {
     event.preventDefault();
-    console.debug("addTerrain clicked!");
+  // Debug: console.debug("addTerrain clicked!");
 
     if ( this.object.length > Terrain.MAX_TERRAINS ) {
       console.warn(`Sorry, cannot add more than ${Terrain.MAX_TERRAINS} terrains!`);
@@ -108,7 +108,7 @@ export class TerrainListConfig extends FormApplication {
 
   async _onRemoveTerrain(event) {
     event.preventDefault();
-    console.debug("removeTerrain clicked!");
+  // Debug: console.debug("removeTerrain clicked!");
     const idx = this._indexForEvent(event);
     const id = this.object[idx].id;
     this.terrainMap.delete(id);
@@ -120,7 +120,7 @@ export class TerrainListConfig extends FormApplication {
 
   async _onEditActiveEffect(event) {
     event.preventDefault();
-    console.debug("edit active effect clicked!");
+  // Debug: console.debug("edit active effect clicked!");
     await this._onSubmit(event, { preventClose: true });
 
     const idx = this._indexForEvent(event);
@@ -132,7 +132,7 @@ export class TerrainListConfig extends FormApplication {
 
   async _onToggleVisibility(event) {
     event.preventDefault();
-    console.debug("visibility toggle clicked!");
+  // Debug: console.debug("visibility toggle clicked!");
 
     const idx = this._indexForEvent(event);
     this.object[idx].userVisible ^= true;

@@ -806,7 +806,7 @@ export const SCENE_GRAPH = new WallTracer();
 
 // Track wall creation, update, and deletion, constructing WallTracerEdges as we go.
 Hooks.on("createWall", function(document, _options, _userId) {
-  console.debug(`createWall ${document.id}`);
+// Debug: console.debug(`createWall ${document.id}`);
 
   if ( document.object.isOpen ) return;
 
@@ -816,7 +816,7 @@ Hooks.on("createWall", function(document, _options, _userId) {
 });
 
 Hooks.on("updateWall", function(document, changes, _options, _userId) {
-  console.debug("updateWall");
+// Debug: console.debug("updateWall");
 
   // Only update the edges if the coordinates have changed or the door setting has changed.
   if ( Object.hasOwn(changes, "c") || Object.hasOwn(changes, "ds") ) {
@@ -832,7 +832,7 @@ Hooks.on("updateWall", function(document, changes, _options, _userId) {
 });
 
 Hooks.on("deleteWall", function(document, _options, _userId) {
-  console.debug(`deleteWall ${document.id}`);
+// Debug: console.debug(`deleteWall ${document.id}`);
 
   // The document.object is now null; use the id to remove the wall.
   SCENE_GRAPH.removeWall(document.id);
@@ -841,7 +841,7 @@ Hooks.on("deleteWall", function(document, _options, _userId) {
 });
 
 Hooks.on("canvasReady", async function() {
-  console.debug("WallTracer|canvasReady");
+// Debug: console.debug("WallTracer|canvasReady");
 
   const t0 = performance.now();
 
@@ -856,5 +856,5 @@ Hooks.on("canvasReady", async function() {
   const t1 = performance.now();
   SCENE_GRAPH.updateCyclePolygons();
   const t2 = performance.now();
-  console.debug(`WallTracer|Tracked ${walls.length} walls in ${t1 - t0} ms. Updated polygons in ${t2 - t1} ms. Total ${t2 - t0} ms`);
+// Debug: console.debug(`WallTracer|Tracked ${walls.length} walls in ${t1 - t0} ms. Updated polygons in ${t2 - t1} ms. Total ${t2 - t0} ms`);
 });

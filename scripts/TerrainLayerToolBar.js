@@ -149,7 +149,7 @@ export class TerrainLayerToolBar extends Application {
    * @param {MouseEvent} event
    */
   _onHandleTerrainChange(event) {
-    console.debug("TerrainLayerToolBar|_onHandleTerrainChange");
+  // Debug: console.debug("TerrainLayerToolBar|_onHandleTerrainChange");
     const terrainId = event.target.value;
     const sceneMap = canvas.terrain.sceneMap;
 
@@ -164,7 +164,7 @@ export class TerrainLayerToolBar extends Application {
    * @param {MouseEvent} event
    */
   _onHandleLayerChange(event) {
-    console.debug("TerrainLayerToolBar|_onHandleLayerChange");
+  // Debug: console.debug("TerrainLayerToolBar|_onHandleLayerChange");
     const newLayer = Number(event.target.value);
     canvas.terrain.updateTerrainNames(this.currentLayer, newLayer);
     this.currentLayer = newLayer;

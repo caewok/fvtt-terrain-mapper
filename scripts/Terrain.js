@@ -265,7 +265,7 @@ export class Terrain {
     await this.constructor.lock.acquire();
     let currTerrains = new Set(this.constructor.allOnToken(token));
     if ( duplicate || !currTerrains.has(this) ) {
-      console.debug(`Adding ${this.name} terrain to ${token.name}.`);
+    // Debug: console.debug(`Adding ${this.name} terrain to ${token.name}.`);
       await SOCKETS.socket.executeAsGM("addTerrainEffect", token.document.uuid, this.id);
     }
 
@@ -274,7 +274,7 @@ export class Terrain {
     if ( removeOtherSceneTerrains || removeAllOtherTerrains ) {
       currTerrains.delete(this);
       for ( const terrain of currTerrains ) {
-        console.debug(`Removing ${terrain.name} terrain from ${token.name}.`);
+      // Debug: console.debug(`Removing ${terrain.name} terrain from ${token.name}.`);
         await SOCKETS.socket.executeAsGM("removeTerrainEffect", token.document.uuid, terrain.id);
       }
     }
@@ -290,7 +290,7 @@ export class Terrain {
     await this.constructor.lock.acquire();
     const currTerrains = new Set(this.constructor.allOnToken(token));
     if ( currTerrains.has(this) ) {
-      console.debug(`Removing ${this.name} terrain from ${token.name}.`);
+    // Debug: console.debug(`Removing ${this.name} terrain from ${token.name}.`);
       await SOCKETS.socket.executeAsGM("removeTerrainEffect", token.document.uuid, this.id);
     }
     await this.constructor.lock.release();
@@ -306,7 +306,7 @@ export class Terrain {
     const promises = [];
     const uuid = token.document.uuid;
     for ( const terrain of terrains ) {
-      console.debug(`removeAllFromToken|Removing ${terrain.name} from ${token.name}.`);
+    // Debug: console.debug(`removeAllFromToken|Removing ${terrain.name} from ${token.name}.`);
       promises.push(SOCKETS.socket.executeAsGM("removeTerrainEffect", uuid, terrain.id));
     }
     await Promise.allSettled(promises);
@@ -323,7 +323,7 @@ export class Terrain {
     const promises = [];
     const uuid = token.document.uuid;
     for ( const terrain of terrains ) {
-      console.debug(`removeAllFromToken|Removing ${terrain.name} from ${token.name}.`);
+    // Debug: console.debug(`removeAllFromToken|Removing ${terrain.name} from ${token.name}.`);
       promises.push(SOCKETS.socket.executeAsGM("removeTerrainEffect", uuid, terrain.id));
     }
     await Promise.allSettled(promises);
@@ -336,7 +336,7 @@ export class Terrain {
    * @returns {Terrain[]}
    */
   static allOnToken(token) {
-    console.debug(`Getting all terrains on ${token.name}.`);
+  // Debug: console.debug(`Getting all terrains on ${token.name}.`);
     const allEffects = token.actor?.appliedEffects;
     if ( !allEffects ) return [];
     const terrainEffects = allEffects.filter(e => {
