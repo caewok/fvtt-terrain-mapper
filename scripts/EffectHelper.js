@@ -115,6 +115,7 @@ export class EffectHelper {
    */
   async duplicate() {
     const item = Settings.terrainEffectsItem;
+    if ( !item ) return;
     const effectData = foundry.utils.deepClone(this.effect.toObject());
     delete effectData._id;
     const effect = new CONFIG.ActiveEffect.documentClass(effectData);
@@ -144,6 +145,8 @@ export class EffectHelper {
 
   static async deleteEffectById(id) {
     const item = Settings.terrainEffectsItem;
+    if ( !item ) return;
+
     const activeEffect = this.getTerrainEffectById(id);
     if ( !activeEffect ) return;
     await item.deleteEmbeddedDocuments("ActiveEffect", [activeEffect.id]);
@@ -155,7 +158,7 @@ export class EffectHelper {
    */
   static getAll() {
     const item = Settings.terrainEffectsItem;
-    return item.effects;
+    return item?.effects ?? [];
   }
 
   /**
@@ -165,6 +168,7 @@ export class EffectHelper {
    */
   static terrainEffectExists(effect) {
     const item = Settings.terrainEffectsItem;
+    if ( !item ) return false;
     return item.effects.has(effect.id);
   }
 
@@ -175,6 +179,7 @@ export class EffectHelper {
    */
   static getTerrainEffectByName(name) {
     const item = Settings.terrainEffectsItem;
+    if ( !item ) return undefined;
     return item.effects.find(e => e.name === name);
   }
 
@@ -185,6 +190,7 @@ export class EffectHelper {
    */
   static getTerrainEffectById(id) {
     const item = Settings.terrainEffectsItem;
+    if ( !item ) return undefined;
     return item.effects.find(e => e.id === id);
   }
 }
