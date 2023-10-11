@@ -61,7 +61,7 @@ Hooks.once("ready", function() {
  */
 Hooks.once("canvasInit", async function(canvas) {
   console.debug("TerrainMapper|canvasInit");
-  await Settings.initializeTerrainsItem();
+
 });
 
 /**
@@ -70,10 +70,8 @@ Hooks.once("canvasInit", async function(canvas) {
  */
 Hooks.on("canvasReady", async function(canvas) {
   console.debug("TerrainMapper|canvasReady");
-  canvas.terrain.initialize();
-
-//   await Settings.initializeTerrainsItem();
-//   TerrainLayer.initialize();
+  await Settings.initializeTerrainsItem();
+  await canvas.terrain.initialize();
 });
 
 // ----- Set up sockets for changing effects on tokens and creating a dialog ----- //

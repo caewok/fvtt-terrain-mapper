@@ -412,6 +412,12 @@ export class TerrainLayer extends InteractionLayer {
     // TODO: load the shape queue from stored data.
     await this.loadSceneData();
 
+    if ( !this.sceneMap.has(0) ) {
+      const nullTerrain = new Terrain();
+      this.sceneMap.set(0, nullTerrain, true); // Null terrain.
+      nullTerrain.addToScene();
+    }
+
     this.#initializePixelCache();
     this._clearPixelCacheArray();
 
@@ -437,6 +443,7 @@ export class TerrainLayer extends InteractionLayer {
     this._terrainColorsMesh = new TerrainQuadMesh(canvas.dimensions.sceneRect, shader);
     this.renderTerrain();
     this.#initialized = true;
+    console.debug(`${MODULE_ID}|Finished initializing Terrain Mapper`);
   }
 
   /**
@@ -465,6 +472,7 @@ export class TerrainLayer extends InteractionLayer {
     this._activateHoverListener();
 
     this.#firstInitialization = true;
+    console.debug(`${MODULE_ID}|Finished first initialization Terrain Mapper`);
   }
 
 
@@ -485,6 +493,7 @@ export class TerrainLayer extends InteractionLayer {
 
     this._updateControlsHelper();
     this.clearPreviewContainer();
+    console.debug(`${MODULE_ID}|Finished activating Terrain Layer.`);
   }
 
   /**
@@ -625,13 +634,6 @@ export class TerrainLayer extends InteractionLayer {
   async loadSceneData() {
     const data = await this._fileManager.loadData();
     if ( data ) return this.importFromJSON(data);
-
-    // TODO: This should really happen elsewhere.
-    if ( !this.sceneMap.has(0) ) {
-      const nullTerrain = new Terrain();
-      this.sceneMap.set(0, nullTerrain, true); // Null terrain.
-      nullTerrain.addToScene();
-    }
   }
 
   // ----- NOTE: Scene map ----- //
