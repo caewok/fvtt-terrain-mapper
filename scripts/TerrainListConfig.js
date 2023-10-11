@@ -12,6 +12,7 @@ import { MODULE_ID, LABELS } from "./const.js";
 import { Terrain } from "./Terrain.js";
 import { EnhancedEffectConfig } from "./EnhancedEffectConfig.js";
 import { capitalizeFirstLetter } from "./util.js";
+import { TerrainEffectsApp } from "./TerrainEffectsApp.js";
 
 /**
  * Submenu for viewing terrains defined in the scene.
@@ -55,29 +56,37 @@ export class TerrainListConfig extends FormApplication {
     return terrains;
   }
 
-  async _updateObject(_, formData) {
+  async _updateObject(_event, formData) {
     const expandedFormData = expandObject(formData);
-    if ( expandedFormData.terrains ) {
-      const promises = [];
-      for ( const [idx, terrainData] of Object.entries(expandedFormData.allTerrains) ) {
-        const terrain = this.allTerrains[Number(idx)];
-        for ( const [key, value] of Object.entries(terrainData) ) {
-          promises.push(terrain[`set${capitalizeFirstLetter(key)}`](value));
-        }
+    const promises = [];
+    for ( const [idx, terrainData] of Object.entries(expandedFormData.allTerrains) ) {
+      const terrain = this.allTerrains[Number(idx)];
+      if ( !terrain ) continue;
+      for ( const [key, value] of Object.entries(terrainData) ) {
+        promises.push(terrain[`set${capitalizeFirstLetter(key)}`](value));
       }
-      await Promise.allSettled(promises);
     }
+    await Promise.allSettled(promises);
+
   }
 
   async _onSubmit(event, { updateData=null, preventClose=false, preventRender=false } = {}) {
     const formData = await super._onSubmit(event, { updateData, preventClose, preventRender });
+    TerrainEffectsApp.rerender();
     if ( preventClose ) return formData;
   }
 
+  /**
+   * User triggered an icon update by selecting an icon file.
+   */
   async _onSelectFile(selection, filePicker) {
   // Debug: console.debug("_onSelectFile", selection);
     const idx = Number(filePicker.button.getAttribute("data-idx"));
-    this.object[idx].icon = selection;
+    const terrain = this.allTerrains[idx];
+    if ( !terrain ) return;
+
+    await terrain.setIcon(selection);
+    await this._onSubmit(event, { preventClose: true });
     this.render(); // Redraw the icon image.
   }
 
@@ -94,14 +103,8 @@ export class TerrainListConfig extends FormApplication {
     event.preventDefault();
   // Debug: console.debug("addTerrain clicked!");
 
-    if ( this.object.length > Terrain.MAX_TERRAINS ) {
-      console.warn(`Sorry, cannot add more than ${Terrain.MAX_TERRAINS} terrains!`);
-      return;
-    }
-
-    const terrain = new Terrain({}, { terrainMap: this.terrainMap });
-    this.object.push(terrain.toJSON());
-
+    const terrain = new Terrain();
+    await terrain.initialize();
     await this._onSubmit(event, { preventClose: true });
     this.render();
   }
@@ -110,9 +113,11 @@ export class TerrainListConfig extends FormApplication {
     event.preventDefault();
   // Debug: console.debug("removeTerrain clicked!");
     const idx = this._indexForEvent(event);
-    const id = this.object[idx].id;
+    const id = this.allTerrains[idx]?.id;
+    if ( !id ) return;
+
     this.terrainMap.delete(id);
-    this.object.splice(idx, 1);
+    this.allTerrains.splice(idx, 1);
 
     await this._onSubmit(event, { preventClose: true });
     this.render();
@@ -124,8 +129,10 @@ export class TerrainListConfig extends FormApplication {
     await this._onSubmit(event, { preventClose: true });
 
     const idx = this._indexForEvent(event);
-    const id = this.object[idx].id;
-    const effect = this.object[idx].activeEffect ??= new ActiveEffect({ name: `TerrainEffect.${id}`});
+    const terrain = this.allTerrains[idx];
+    if ( !terrain ) return;
+
+    const effect = terrain.activeEffect ??= new ActiveEffect({ name: `TerrainEffect.${terrain.id}`});
     const app = new EnhancedEffectConfig(effect);
     app.render(true);
   }
@@ -135,7 +142,10 @@ export class TerrainListConfig extends FormApplication {
   // Debug: console.debug("visibility toggle clicked!");
 
     const idx = this._indexForEvent(event);
-    this.object[idx].userVisible ^= true;
+    const terrain = this.allTerrains[idx];
+    if ( !terrain ) return;
+
+    await terrain.setUserVisible(terrain.userVisible ^ true);
     await this._onSubmit(event, { preventClose: true });
     this.render();
   }
