@@ -55,8 +55,8 @@ export class TerrainEffectsApp extends Application {
    */
   static rerender() {
     const openApps = Object.values(ui.windows);
-    const terrainEffectsApp = openApps.find(app => app instanceof TerrainEffectsApp);
-    if ( terrainEffectsApp ) terrainEffectsApp.render(true);
+    const app = openApps.find(app => app instanceof TerrainEffectsApp);
+    if ( app ) app.render(true);
   }
 
   /**
