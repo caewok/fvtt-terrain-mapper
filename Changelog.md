@@ -1,5 +1,11 @@
+### 0.0.3
+Add checks for when the terrain item is not yet defined. Closes issue #3.
+Fix for the terrain item getting initialized too late.
+Fix hook that ensure terrain item is invisible.
+Add check to determine if terrain data file exists, to avoid 404 error message.
+
 ## 0.0.2
-Correct import issue where "Settings" filename was incorrectly capitalized. Closes issue #1.
+Correct import issue where "Settings" filename was incorrectly capitalized. Closes issue #2.
 
 ## 0.0.1
 Initial release
