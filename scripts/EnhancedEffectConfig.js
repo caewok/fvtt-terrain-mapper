@@ -9,6 +9,9 @@ game
 // effectConfig = new EnhancedEffectConfig(effect)
 // effectConfig.render(true)
 
+import { TerrainListConfig } from "./TerrainListConfig.js";
+import { TerrainEffectsApp } from "./TerrainEffectsApp.js";
+
 export class EnhancedEffectConfig extends ActiveEffectConfig {
   /**
    * Get data for template rendering
@@ -39,5 +42,15 @@ export class EnhancedEffectConfig extends ActiveEffectConfig {
   async _updateObject(event, formData) {
     this.object.updateSource(formData);
     if (this._state === 2) await this.render();
+  }
+
+  /**
+   * On submission, re-render other application windows
+   * that may list this terrain information.
+   */
+  async _onSubmit(event, opts) {
+    await super._onSubmit(event, opts);
+    TerrainEffectsApp.rerender();
+    TerrainListConfig.rerender();
   }
 }
