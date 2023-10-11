@@ -33,7 +33,6 @@ export class TerrainListConfig extends FormApplication {
     if ( app ) app.render(true);
   }
 
-
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, {
       template: `modules/${MODULE_ID}/templates/terrain-list-config.html`,
