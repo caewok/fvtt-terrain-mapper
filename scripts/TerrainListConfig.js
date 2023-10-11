@@ -22,6 +22,18 @@ export class TerrainListConfig extends FormApplication {
   /** @type {Terrain[]} */
   allTerrains;
 
+  /**
+   * Re-render if the app is open.
+   * Needed when terrain effects are updated in the effects app.
+   * See https://github.com/DFreds/dfreds-convenient-effects/blob/c2d5e81eb1d28d4db3cb0889c22a775c765c24e3/scripts/foundry-helpers.js#L51
+   */
+  static rerender() {
+    const openApps = Object.values(ui.windows);
+    const app = openApps.find(app => app instanceof TerrainListConfig);
+    if ( app ) app.render(true);
+  }
+
+
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, {
       template: `modules/${MODULE_ID}/templates/terrain-list-config.html`,
