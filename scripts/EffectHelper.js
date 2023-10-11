@@ -1,7 +1,7 @@
 /* globals
 CONFIG,
 foundry,
-game
+fromUuidSync
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";

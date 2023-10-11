@@ -51,7 +51,7 @@
           <!-- Input for anchor choice -->
           <div class="flexcol" style="flex-grow: 1">
               <div class="form-fields slim" >
-                <select name="allTerrains.{{idx}}.anchorChoice">
+                <select name="allTerrains.{{idx}}.anchor">
                   {{ selectOptions @root.anchorAbbrOptions selected=terrain.anchor localize=true }}
                 </select>
               </div>
@@ -71,14 +71,4 @@
       {{/each}}
     </div>
   </section>
-
-  <footer class="sheet-footer" style="margin: auto; padding-top: 30px">
-    <div class="flex-table">
-      <div class="flexrow">
-        <div class="flexcol" style="flex-grow: 1">
-          <button type="submit" name="submit" value="1"><i class="far fa-floppy-disk"></i>{{localize "Save Changes"}}</button>
-        </div>
-      </div>
-    </div>
-  </footer>
 </form
