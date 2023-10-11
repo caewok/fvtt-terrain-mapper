@@ -3,7 +3,8 @@ ActiveEffect,
 expandObject,
 FormApplication,
 foundry,
-game
+game,
+ui
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
@@ -112,7 +113,7 @@ export class TerrainListConfig extends FormApplication {
 
   async _onAddTerrain(event) {
     event.preventDefault();
-  // Debug: console.debug("addTerrain clicked!");
+    // Debug: console.debug("addTerrain clicked!");
 
     const terrain = new Terrain();
     await terrain.initialize();
@@ -122,7 +123,7 @@ export class TerrainListConfig extends FormApplication {
 
   async _onRemoveTerrain(event) {
     event.preventDefault();
-  // Debug: console.debug("removeTerrain clicked!");
+    // Debug: console.debug("removeTerrain clicked!");
     const idx = this._indexForEvent(event);
     const id = this.allTerrains[idx]?.id;
     if ( !id ) return;
@@ -136,7 +137,7 @@ export class TerrainListConfig extends FormApplication {
 
   async _onEditActiveEffect(event) {
     event.preventDefault();
-  // Debug: console.debug("edit active effect clicked!");
+    // Debug: console.debug("edit active effect clicked!");
     await this._onSubmit(event, { preventClose: true });
 
     const idx = this._indexForEvent(event);
@@ -150,7 +151,7 @@ export class TerrainListConfig extends FormApplication {
 
   async _onToggleVisibility(event) {
     event.preventDefault();
-  // Debug: console.debug("visibility toggle clicked!");
+    // Debug: console.debug("visibility toggle clicked!");
 
     const idx = this._indexForEvent(event);
     const terrain = this.allTerrains[idx];
