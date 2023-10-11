@@ -29,7 +29,7 @@ export class TerrainListConfig extends FormApplication {
       title: game.i18n.localize(`${MODULE_ID}.list-config.title`),
       width: 700,
       classes: [MODULE_ID, "settings"],
-      submitOnClose: false,
+      submitOnClose: true,
       closeOnSubmit: true
     });
   }
