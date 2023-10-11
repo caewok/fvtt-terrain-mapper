@@ -1121,7 +1121,7 @@ export class PixelCache extends PIXI.Rectangle {
       tmpPt.translate(center.x, center.y, tmpPt);
       Draw.point(tmpPt, { radius: 1 })
       if ( !rect.contains(tmpPt.x, tmpPt.y) )
-        console.debug(`Rectangle does not contain {tmpPt.x},${tmpPt.y} (${offsets[i]},${offsets[i+1]})`)
+      // Debug: console.debug(`Rectangle does not contain {tmpPt.x},${tmpPt.y} (${offsets[i]},${offsets[i+1]})`)
     }
     Draw.shape(rect)
 
@@ -1225,7 +1225,7 @@ export class PixelCache extends PIXI.Rectangle {
       tmpPt.translate(center.x, center.y, tmpPt);
       Draw.point(tmpPt, { radius: 1 })
       if ( !poly.contains(tmpPt.x, tmpPt.y) )
-        console.debug(`Poly does not contain {tmpPt.x},${tmpPt.y} (${offsets[i]},${offsets[i+1]})`)
+      // Debug: console.debug(`Poly does not contain {tmpPt.x},${tmpPt.y} (${offsets[i]},${offsets[i+1]})`)
     }
     Draw.shape(poly)
     */

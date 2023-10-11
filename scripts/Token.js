@@ -132,7 +132,7 @@ export function terrainEncounteredDialog(tokenUUID, content, destination, userId
         icon: "<i class='fas fa-person-hiking'></i>",
         label: localize("continue"),
         callback: async () => {
-          console.debug("Continued animation.");
+        // Debug: console.debug("Continued animation.");
           const tl = token.getTopLeft(destination.x, destination.y);
           await token.document.update({x: tl.x, y: tl.y});
           // SOCKETS.socket.executeAsUser("updateTokenDocument", userId, tokenUUID, {x: tl.x, y: tl.y});
@@ -143,7 +143,7 @@ export function terrainEncounteredDialog(tokenUUID, content, destination, userId
         icon: "<i class='fas fa-person-falling-burst'></i>",
         label: localize("cancel"),
         callback: async () => {
-          console.debug("Canceled.");
+        // Debug: console.debug("Canceled.");
         }
       }
     },

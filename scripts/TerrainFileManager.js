@@ -88,7 +88,7 @@ export class TerrainFileManager {
     if ( filePath.startsWith("https://")
       || filePath.startsWith("http://") ) filePath = `${filePath}?v=${Math.random()}`;
 
-    console.debug(`Loading ${filePath}`);
+  // Debug: console.debug(`Loading ${filePath}`);
     try {
       const baseTexture = await TextureLoader.loader.loadTexture(filePath);
       const texture = new PIXI.Texture(baseTexture);
@@ -105,7 +105,7 @@ export class TerrainFileManager {
    * @returns {PIXI.Texture}
    */
   async loadTextureFromFile(file) {
-    console.debug("Loading from file");
+  // Debug: console.debug("Loading from file");
     try {
       const texture = await PIXI.Texture.fromURL(file);
       return this._formatTexture(texture);
@@ -149,7 +149,7 @@ export class TerrainFileManager {
    * @returns {Promise<object>}  The response object from FilePicker.upload.
    */
   async saveTexture(texture) {
-    console.debug(`Saving texture to ${this.#filePath}/${this.#textureFileName}.webp`);
+  // Debug: console.debug(`Saving texture to ${this.#filePath}/${this.#textureFileName}.webp`);
     const base64image = await this.convertTextureToImage(texture);
     return this.constructor.uploadBase64(base64image, `${this.#textureFileName}.webp`, this.#filePath, { type: "image", notify: false });
   }

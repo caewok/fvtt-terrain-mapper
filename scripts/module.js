@@ -52,7 +52,7 @@ Hooks.once("setup", function() {
  * A hook event that fires when the game is fully ready.
  */
 Hooks.once("ready", function() {
-  console.debug("ready");
+// Debug: console.debug("ready");
 });
 
 /**
@@ -60,7 +60,7 @@ Hooks.once("ready", function() {
  * @param {Canvas} canvas   The Canvas instance being initialized
  */
 Hooks.once("canvasInit", async function(canvas) {
-  console.debug("TerrainMapper|canvasInit");
+// Debug: console.debug("TerrainMapper|canvasInit");
 
 });
 
@@ -69,7 +69,7 @@ Hooks.once("canvasInit", async function(canvas) {
  * @param {Canvas} canvas The Canvas which is now ready for use
  */
 Hooks.on("canvasReady", async function(canvas) {
-  console.debug("TerrainMapper|canvasReady");
+// Debug: console.debug("TerrainMapper|canvasReady");
   await Settings.initializeTerrainsItem();
   await canvas.terrain.initialize();
 });

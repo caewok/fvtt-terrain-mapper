@@ -91,13 +91,13 @@ export class TerrainEffectsController {
   }
 
   _fetchFavorites(terrains) {
-    console.debug("TerrainEffectsController|_fetchFavorites");
+  // Debug: console.debug("TerrainEffectsController|_fetchFavorites");
     const favorites = new Set(Settings.getByName("FAVORITES"));
     return terrains.filter(t => favorites.has(t.id));
   }
 
   _fetchSceneTerrains(terrains) {
-    console.debug("TerrainEffectsController|_fetchSceneTerrains");
+  // Debug: console.debug("TerrainEffectsController|_fetchSceneTerrains");
     const map = canvas.terrain.sceneMap;
     const ids = new Set([...map.values()].map(terrain => terrain.id));
     return terrains.filter(t => ids.has(t.id));
@@ -130,7 +130,7 @@ export class TerrainEffectsController {
    * pixel values. Allows re-assignment of pixel values to different terrains.
    */
   async onEditSceneTerrains() {
-    console.debug("TerrainEffectsController|onEditSceneTerrains");
+  // Debug: console.debug("TerrainEffectsController|onEditSceneTerrains");
     new TerrainSceneConfig().render(true);
   }
 
@@ -139,7 +139,7 @@ export class TerrainEffectsController {
    * Displays a mini-configuration that lists all terrains, allows for quick editing.
    */
   async onListTerrains() {
-    console.debug("TerrainEffectsController|onListTerrains");
+  // Debug: console.debug("TerrainEffectsController|onListTerrains");
     new TerrainListConfig().render(true);
   }
 
@@ -148,7 +148,7 @@ export class TerrainEffectsController {
    * @param {MouseEvent} event
    */
   async onCreateEffectClick(_event) {
-    console.debug("TerrainEffectsController|onCreateEffectClick");
+  // Debug: console.debug("TerrainEffectsController|onCreateEffectClick");
     const terrain = new Terrain();
     await terrain.initialize();
     this._viewMvc.render();
@@ -159,7 +159,7 @@ export class TerrainEffectsController {
    * @param {jQuery} effectItem - jQuery element representing the effect list item
    */
   async onEditEffectClick(_effectItem) {
-    console.debug("TerrainEffectsController|onEditEffectClick");
+  // Debug: console.debug("TerrainEffectsController|onEditEffectClick");
     const effectId = this._findNearestEffectId(event);
     const activeEffect = EffectHelper.getTerrainEffectById(effectId);
     activeEffect.sheet.render(true);
@@ -170,7 +170,7 @@ export class TerrainEffectsController {
    * @param {jQuery} effectItem - jQuery element representing the effect list item
    */
   async onDeleteEffectClick(_effectItem) {
-    console.debug("TerrainEffectsController|onDeleteEffectClick");
+  // Debug: console.debug("TerrainEffectsController|onDeleteEffectClick");
     const effectId = this._findNearestEffectId(event);
     const view = this._viewMvc;
 
@@ -179,7 +179,7 @@ export class TerrainEffectsController {
       content:
         "<h4>Are You Sure?</h4><p>This will remove the terrain from all scenes.",
       yes: async () => {
-        console.debug("TerrainEffectsController|onDeleteEffectClick yes");
+      // Debug: console.debug("TerrainEffectsController|onDeleteEffectClick yes");
         await EffectHelper.deleteEffectById(effectId);
         view.render();
       }
@@ -204,7 +204,7 @@ export class TerrainEffectsController {
       content:
         "<h4>Are You Sure?</h4><p>This will reset all configured terrain effects to the module defaults and reload Foundry.",
       yes: async () => {
-        console.debug("TerrainEffectsController|onResetStatusEffectsClick");
+      // Debug: console.debug("TerrainEffectsController|onResetStatusEffectsClick");
         // await this._settings.resetStatusEffects();
         window.location.reload();
       }
@@ -245,7 +245,7 @@ export class TerrainEffectsController {
    * @param {MouseEvent} event - event that corresponds to clicking an effect item
    */
   async onEffectClick(event) {
-    console.debug("TerrainEffectsController|onEffectClick");
+  // Debug: console.debug("TerrainEffectsController|onEffectClick");
     await this.onEditEffectClick(event);
   }
 
@@ -260,7 +260,7 @@ export class TerrainEffectsController {
    * @param {jQuery} effectItem - jQuery element representing the effect list item
    */
   async onAddFavorite(effectItem) {
-    console.debug("TerrainEffectsController|onAddFavorite");
+  // Debug: console.debug("TerrainEffectsController|onAddFavorite");
     const effectId = effectItem.data().effectId;
     await Settings.addToFavorites(effectId);
     this._viewMvc.render();
@@ -271,7 +271,7 @@ export class TerrainEffectsController {
    * @param {jQuery} effectItem - jQuery element representing the effect list item
    */
   async onRemoveFavorite(effectItem) {
-    console.debug("TerrainEffectsController|onRemoveFavorite");
+  // Debug: console.debug("TerrainEffectsController|onRemoveFavorite");
     const effectId = effectItem.data().effectId;
     await Settings.removeFromFavorites(effectId);
     this._viewMvc.render();
@@ -283,7 +283,7 @@ export class TerrainEffectsController {
    * @returns true if the effect is favorited
    */
   isFavoritedEffect(effectItem) {
-    console.debug("TerrainEffectsController|isFavoritedEffect");
+  // Debug: console.debug("TerrainEffectsController|isFavoritedEffect");
     const effectId = effectItem.data().effectId;
     return Settings.isFavorite(effectId);
 
@@ -297,7 +297,7 @@ export class TerrainEffectsController {
    * @returns true if the effect is in the scene map.
    */
   isInScene(effectItem) {
-    console.debug("TerrainEffectsController|isInScene");
+  // Debug: console.debug("TerrainEffectsController|isInScene");
     const effectId = effectItem.data().effectId;
     return canvas.terrain.sceneMap.hasTerrainId(effectId);
   }
@@ -307,7 +307,7 @@ export class TerrainEffectsController {
    * @param {jQuery} effectItem - jQuery element representing the effect list item
    */
   async onImportTerrain(effectItem) {
-    console.debug("TerrainEffectsController|onImportTerrain");
+  // Debug: console.debug("TerrainEffectsController|onImportTerrain");
     const effectId = effectItem.data().effectId;
     const terrain = Terrain.fromEffectId(effectId);
     await terrain.importFromJSONDialog();
@@ -319,7 +319,7 @@ export class TerrainEffectsController {
    * @param {jQuery} effectItem - jQuery element representing the effect list item
    */
   onExportTerrain(effectItem) {
-    console.debug("TerrainEffectsController|onExportTerrain");
+  // Debug: console.debug("TerrainEffectsController|onExportTerrain");
     const effectId = effectItem.data().effectId;
     const terrain = Terrain.fromEffectId(effectId);
     terrain.exportToJSON();
@@ -330,7 +330,7 @@ export class TerrainEffectsController {
    * @param {jQuery} effectFolder
    */
   async onImportAllTerrains(event) {
-    console.debug("TerrainEffectsController|onImportAllTerrains", event);
+  // Debug: console.debug("TerrainEffectsController|onImportAllTerrains", event);
     event.stopPropagation();
     await Terrain.importFromJSONDialog();
     this._viewMvc.render();
@@ -341,7 +341,7 @@ export class TerrainEffectsController {
    * @param {jQuery} effectFolder
    */
   async onReplaceAllTerrains(event) {
-    console.debug("TerrainEffectsController|onReplaceAllTerrains", event);
+  // Debug: console.debug("TerrainEffectsController|onReplaceAllTerrains", event);
     event.stopPropagation();
     await Terrain.replaceFromJSONDialog();
     this._viewMvc.render();
@@ -352,7 +352,7 @@ export class TerrainEffectsController {
    * @param {jQuery} effectFolder
    */
   onExportAllTerrains(event) {
-    console.debug("TerrainEffectsController|onExportAllTerrains", event);
+  // Debug: console.debug("TerrainEffectsController|onExportAllTerrains", event);
     event.stopPropagation();
     Terrain.saveToJSON();
   }
@@ -362,7 +362,7 @@ export class TerrainEffectsController {
    * @param {jQuery} effectItem - jQuery element representing the effect list item
    */
   async onToggleStatusEffect(_effectItem) {
-    console.debug("TerrainEffectsController|onToggleStatusEffect");
+  // Debug: console.debug("TerrainEffectsController|onToggleStatusEffect");
     // const effectId = effectItem.data().effectId;
 
 //     const effectName = effectItem.data().effectName;
@@ -382,7 +382,7 @@ export class TerrainEffectsController {
    * @param {jQuery} effectItem - jQuery element representing the effect list item
    */
   async onDuplicate(effectItem) {
-    console.debug("TerrainEffectsController|onDuplicate");
+  // Debug: console.debug("TerrainEffectsController|onDuplicate");
     const effectId = effectItem.data().effectId;
     const eHelper = EffectHelper.fromId(effectId);
     const dupe = await eHelper.duplicate();
@@ -397,7 +397,7 @@ export class TerrainEffectsController {
    * @param {DragEvent} event - event that corresponds to the drag start
    */
   onEffectDragStart(_event) {
-    console.debug(`TerrainEffectsController|onEffectDragStart for ${event.target.dataset.effectName}`);
+  // Debug: console.debug(`TerrainEffectsController|onEffectDragStart for ${event.target.dataset.effectName}`);
 
     const terrain = Terrain.fromEffectId(event.target.dataset.effectId);
     event.dataTransfer.setData(
