@@ -156,14 +156,17 @@ export class TerrainFileManager {
 
   /**
    * Load a json file with terrain data.
-   * @returns {object|undefined} The data object unless an error occurs, then undefined.
+   * @returns {object|undefined} The data object unless an error occurs or file does not exist, then undefined.
    */
   async loadData() {
+    if ( !(await doesFileExist(this.#filePath, `${this.#dataFileName}.json`)) ) return undefined;
+
     const filePath = `${this.#filePath}/${this.#dataFileName}.json`;
     let data;
     try {
       data = await foundry.utils.fetchJsonWithTimeout(foundry.utils.getRoute(filePath, {prefix: ROUTE_PREFIX}));
     } catch (err) {
+      return undefined;
     }
     return data;
   }
@@ -257,6 +260,24 @@ export class TerrainFileManager {
       type: PIXI.TYPES.UNSIGNED_BYTE
     };
   }
+}
+
+
+/**
+ * Determine if a file exists in a folder structure using FilePicker
+ * @param {string[]} dirs     Array of folder names, representing a folder hierarchy
+ * @param {string} fileName   Name of file to locate
+ * @returns {boolean} True if file exists
+ */
+export async function doesFileExist(dirPath, fileName) {
+  let res;
+  try {
+    res = await FilePicker.browse("data", dirPath);
+  } catch(error) {
+    return false;
+  }
+  const path = `${dirPath}/${fileName}`;
+  return res?.files.some(str => str === path)
 }
 
 /**
