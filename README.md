@@ -57,17 +57,19 @@ Open a token document. Go to the Terrain Mapper controls and open the Terrains b
 
 Terrain effects are active effects, meaning you can disable or remove them directly from the Token document.
 
-# Terrain controls
+https://github.com/caewok/fvtt-terrain-mapper/assets/1267134/99ef6e46-992b-4677-83a0-ecf03b552983
 
+# Terrain controls
+<img width="199" alt="All controls" src="https://github.com/caewok/fvtt-terrain-mapper/assets/1267134/e7378f46-3918-4a4d-a4c1-9a5cd547130c" style="float: left;">
 GMs and users can use the Terrain Mapper controls. Users can only see terrains that are marked as visible to users, and only if they have line-of-sight to the terrain.
 
 ## Layer selector
-
+<img width="481" alt="Layer selector" src="https://github.com/caewok/fvtt-terrain-mapper/assets/1267134/3a8cdc4e-1844-4fd9-853c-eb9024c013fb" style="float: left;">
 Select one of the six layers here. Terrain labeling on the scene will change based on which layer you are on.
-
 Non-GMs can also switch between terrain layers using this tool.
 
 ## Terrain selector
+<img width="481" alt="Terrain selector" src="https://github.com/caewok/fvtt-terrain-mapper/assets/1267134/cef92547-c323-44c5-8cc4-9b3c11e8a8f5">
 
 GMs can select a terrain to use with the fill tools here. The divider line separates terrains currently in the scene from terrains not in the scene.
 
@@ -75,41 +77,36 @@ GMs can select a terrain to use with the fill tools here. The divider line separ
 
 GMs can use the fill tools to "color" parts of the canvas with terrains, based on the currently selected layer and terrain. Note that "No Terrain" can be used as an eraser.
 
-### Fill by grid
+### Fill by grid 
 
-Fills one or more grid squares with the terrain. Hold and drag to fill a bunch of grid squares in a row.
+<img width="44" alt="Brush" src="https://github.com/caewok/fvtt-terrain-mapper/assets/1267134/18fe4c3e-b8e0-4f79-aa5d-705acc668fcc" style="float: left;"> Fills one or more grid squares with the terrain. Hold and drag to fill a bunch of grid squares in a row.
 
 ### Fill by line-of-sight
-
-Fills an area representing the line-of-sight from the point selected on the canvas. This is equivalent to the line-of-sight used in token vision.
+<img width="44" alt="Eye" src="https://github.com/caewok/fvtt-terrain-mapper/assets/1267134/ac1439b8-9297-4118-a0f9-ff36c9aa23f4" style="float: left;"> Fills an area representing the line-of-sight from the point selected on the canvas. This is equivalent to the line-of-sight used in token vision.
 
 ### Fill space enclosed by walls
-
-Based on the current wall configuration for the scene, this tool will fill an enclosed space with the selected terrain from the point selected. If there are "islands" within the enclosed space, those islands will not be filled.
+<img width="44" alt="Paint" src="https://github.com/caewok/fvtt-terrain-mapper/assets/1267134/45a06ad8-c0ce-4370-a2d2-ab6ac09f7225" style="float: left;"> Based on the current wall configuration for the scene, this tool will fill an enclosed space with the selected terrain from the point selected. If there are "islands" within the enclosed space, those islands will not be filled.
 
 Note that gaps between walls can cause this tool to fill much more area than intended. The undo button is your friend here!
 
 ### Polygon tool
-
-This tool allows the GM to create a polygon, which is then filled with the selected terrain. The tool operates similarly to the polygon tool in the Drawings layer. Click a spot to start; click again to create a polygon edge; double-click to end. The start and end points of the polygon will be automatically connected to create a closed shape.
+<img width="44" alt="Polygon" src="https://github.com/caewok/fvtt-terrain-mapper/assets/1267134/dc17ee4d-46ba-4a3d-9047-8ca83dcfda4b" style="float: left;"> This tool allows the GM to create a polygon, which is then filled with the selected terrain. The tool operates similarly to the polygon tool in the Drawings layer. Click a spot to start; click again to create a polygon edge; double-click to end. The start and end points of the polygon will be automatically connected to create a closed shape.
 
 ## Undo
-
-A limited number of undos are available. (Hint: these are per-layer.)
+<img width="44" alt="Undo" src="https://github.com/caewok/fvtt-terrain-mapper/assets/1267134/538a508c-a7ee-402a-8c30-e02da2913458" style="float: left;"> A limited number of undos are available. (Hint: these are per-layer.)
 
 ## Trash
-
-If you want to clear the scene of all terrain values, this is the tool to use.
+<img width="44" alt="Trash" src="https://github.com/caewok/fvtt-terrain-mapper/assets/1267134/32a0e53c-ace4-4dbc-8e9a-15e06109cecd" style="float: left;"> If you want to clear the scene of all terrain values, this is the tool to use.
 
 ## Download / Upload
-
-You can download a JSON file of the scene terrain, and then upload it using these tools. Note that the file contains information about the scene, but not information about the terrains themselves. (See the terrain book for saving and loading terrains.) Thus, if you load this file in a new world, or an existing world after changing or deleting terrains, some or all of the pixels in the scene will be coded to new terrains.
+<img width="44" alt="Download" src="https://github.com/caewok/fvtt-terrain-mapper/assets/1267134/849545f7-96d5-442e-8d52-09525845b215" style="float: left;">
+<img width="44" alt="Upload" src="https://github.com/caewok/fvtt-terrain-mapper/assets/1267134/7326a726-6c2d-474d-9110-711e931bcf3e" style="float: left;"> You can download a JSON file of the scene terrain, and then upload it using these tools. Note that the file contains information about the scene, but not information about the terrains themselves. (See the terrain book for saving and loading terrains.) Thus, if you load this file in a new world, or an existing world after changing or deleting terrains, some or all of the pixels in the scene will be coded to new terrains.
 
 ## Toggle terrain names
-
-Enable to show terrain names on the canvas map.
+<img width="44" alt="Enable labels" src="https://github.com/caewok/fvtt-terrain-mapper/assets/1267134/aaac932b-73c5-4200-91d2-5066ed4ec17d" style="float: left;"> Enable to show terrain names on the canvas map.
 
 ## Terrain Book
+<img width="44" alt="Terrain book" src="https://github.com/caewok/fvtt-terrain-mapper/assets/1267134/b5a82920-a1dd-4743-8504-1b8e7259fd33" style="float: left;"> 
 
 The terrain book stores all the terrains the GM has defined, and provides for advanced settings.
 
@@ -119,27 +116,34 @@ Click a terrain to edit it. Right click a terrain in the list to get more option
 
 If you want to add multiple terrains, or replace the terrains in your world entirely, expand the "All" folder. Three buttons appear: Import terrains, replace terrains, and export terrains. Export will save a JSON of all the terrains in the Terrain Book. Import will add terrains from an exported JSON to the Terrain Book without removing the existing terrains. Replace, as the name suggests, removes all terrains in the Terrain Book and replaces them with the terrains found in the JSON.
 
-### Create Terrain button
+# Terrain Book configuration
+<img width="298" alt="Terrain book config" src="https://github.com/caewok/fvtt-terrain-mapper/assets/1267134/5ae4e851-712c-4a30-9a95-aa9832b587e8" style="float: left;">
+
+## Create Terrain button
 
 Pretty self-explanatory. Adds a new terrain to the book.
 
-### List Terrains (Advanced Edit) button
+## List Terrains (Advanced Edit) button
 
 This button pops out a helper that lists terrain information in a compact form for editing.
 
-### Advanced Scene Configuration button
+## Advanced Scene Configuration button
 
 This button pops out a dialog with two parts: elevation settings and pixel representation.
 
-#### Terrain Layer Elevation
+# Advanced Scene Configuration 
+<img width="694" alt="Advanced Scene config" src="https://github.com/caewok/fvtt-terrain-mapper/assets/1267134/05b68086-efe9-4d80-b313-e860e1199dc6" style="float: left;">
+
+## Terrain Layer Elevation
 
 The GM can designate an elevation for each terrain layer. If the given terrain is set to elevation relative to the layer, then the layer is used to calculate the terrain elevation. See the discussion of Terrain configuration for more details.
 
-#### Terrain Pixel Representation
+## Terrain Pixel Representation
 
 This allows the GM to define which terrains are coded in the scene. Usually, you would not touch this except if you have imported one or more terrains and wish to use them instead of what was already coded in the scene.
 
 # Terrain configuration
+<img width="694" alt="Terrain list" src="https://github.com/caewok/fvtt-terrain-mapper/assets/1267134/1ce9dd02-cd84-4b71-bee5-4b4329893386" style="float: left;">
 
 You can edit a terrain by clicking it in the Terrain book or right-clicking and selecting "Edit Terrain" in the dropdown. This is how you define the active effect for the terrain.
 
