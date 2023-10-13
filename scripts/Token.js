@@ -177,7 +177,7 @@ PATCHES.BASIC.HOOKS = {
  * Retrieve all terrains on the token.
  * @returns {Terrain[]}
  */
-function getAllTerrains() { return Terrain.getAllOnToken(this); }
+function getAllTerrains() { return Terrain.allOnToken(this); }
 
 /**
  * Remove all terrains from the token.
