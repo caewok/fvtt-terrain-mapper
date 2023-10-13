@@ -651,7 +651,6 @@ export class Terrain {
  * @param {ActiveEffect} ae               The active effect to apply
  * @param {Actor} actor                   The Actor to whom this effect should be applied
  * @param {EffectChangeData} change       The change data being applied
- * @param {object[]} changes              Preexisting set of changes (for multiple aes)
  */
 function applyEffectTemporarily(ae, actor, change) {
   // Determine the data type of the target field
