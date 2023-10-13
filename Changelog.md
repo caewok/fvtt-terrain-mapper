@@ -1,3 +1,6 @@
+## 0.0.5
+Add a `Terrain.percentMovementForTokenAlongPath` that can be used by modules like Drag Ruler to estimate token movement across terrains. Fixes to token movement estimation.
+
 ## 0.0.4
 Fixes for editing terrains in the advanced terrain listing. Closes issue #4.
 
