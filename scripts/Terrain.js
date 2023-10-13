@@ -7,6 +7,7 @@ Dialog,
 foundry,
 game,
 getProperty,
+PIXI,
 readTextFromFile,
 renderTemplate,
 saveDataToFile,
@@ -21,6 +22,7 @@ import { EffectHelper } from "./EffectHelper.js";
 import { TerrainEffectsApp } from "./TerrainEffectsApp.js";
 import { Lock } from "./Lock.js";
 import { getDefaultSpeedAttribute } from "./systems.js";
+import { TravelTerrainRay } from "./TravelTerrainRay.js";
 
 // ----- Set up sockets for changing effects on tokens and creating a dialog ----- //
 // Don't pass complex classes through the socket. Use token ids instead.
@@ -225,7 +227,6 @@ export class Terrain {
    */
   _unassignPixel() {
     if ( this.isInSceneMap() ) console.warn(`Terrain ${this.name} (${this.pixelValue}) is still present in the scene map.`);
-    // if ( this.isUsedInScene() ) console.warn(`Terrain ${this.name} (${this.pixelValue}) is still present in the scene.`);
     this.#pixelValue = undefined;
   }
 
@@ -261,7 +262,9 @@ export class Terrain {
    * @param {Token} token
    * @param {boolean} [duplicate=false]     If false, don't add if already present.
    */
-  async addToToken(token, { duplicate = false, removeOtherSceneTerrains = false, removeAllOtherTerrains = false } = {}) {
+  async addToToken(token, {
+    duplicate = false, removeOtherSceneTerrains = false, removeAllOtherTerrains = false } = {}) {
+
     await this.constructor.lock.acquire();
     let currTerrains = new Set(this.constructor.allOnToken(token));
     if ( duplicate || !currTerrains.has(this) ) {
@@ -371,16 +374,17 @@ export class Terrain {
   /**
    * Walk value for the given token as if this terrain were applied.
    * @param {Token} token
+   * @param {string} [speedAttribute]
    * @returns {number} The token's default speed attribute (typically, walk) if the terrain were applied.
    */
-  movementSpeedForToken(token) {
-    const attr = getDefaultSpeedAttribute();
-    const speed = getProperty(token, attr) ?? 0;
+  movementSpeedForToken(token, speedAttribute) {
+    speedAttribute ??= getDefaultSpeedAttribute();
+    const speed = getProperty(token, speedAttribute) ?? 0;
     const ae = this._effectHelper.effect;
     if ( !ae ) return speed;
 
     // Locate the change to the movement in the active effect.
-    const keyArr = attr.split(".");
+    const keyArr = speedAttribute.split(".");
     keyArr.shift();
     const key = keyArr.join(".");
     const change = ae.changes.find(e => e.key === key);
@@ -394,17 +398,73 @@ export class Terrain {
   /**
    * Calculate the movement penalty (or bonus) for a token.
    * @param {Token}
+   * @param {string} [speedAttribute]
    * @returns {number} The percent increase or decrease from default speed attribute.
    *   Greater than 100: increase. E.g. 120% is 20% increase over baseline.
    *   Equal to 100: no increase.
    *   Less than 100: decrease.
    */
-  movementPercentChangeForToken(token) {
-    const attr = getDefaultSpeedAttribute();
-    const speed = getProperty(token, attr) ?? 0;
-    const effectSpeed = this.movementSpeedForToken(token);
+  movementPercentChangeForToken(token, speedAttribute) {
+    speedAttribute ??= getDefaultSpeedAttribute();
+    const speed = getProperty(token, speedAttribute) ?? 1;
+    const effectSpeed = this.movementSpeedForToken(token, speedAttribute) ?? 1;
     return effectSpeed / speed;
   }
+
+  /**
+   * Calculate distance for token movement across two points.
+   * This is 2d distance that accounts for the speed attribute.
+   * @param {Token} token
+   * @param {PIXI.Point} origin
+   * @param {PIXI.Point} destination
+   * @param {string} [speedAttribute]
+   */
+  static percentMovementForTokenAlongPath(token, origin, destination, speedAttribute) {
+    speedAttribute ??= getDefaultSpeedAttribute();
+    if ( !(origin instanceof PIXI.Point) ) origin = new PIXI.Point(origin.x, origin.y);
+    if ( !(destination instanceof PIXI.Point) ) destination = new PIXI.Point(destination.x, destination.y);
+
+    const currTerrains = new Set(token.getAllTerrains());
+
+    const ttr = new TravelTerrainRay(token, { origin, destination});
+    const path = ttr.path;
+    let tPrev = 0;
+    let prevTerrains = ttr.activeTerrainsAtT(0);
+    let percent = 0;
+    const nMarkers = path.length;
+    const tChangeFn = markerT => {
+      const tDiff = markerT - tPrev;
+      const droppedTerrains = currTerrains.difference(prevTerrains);
+      const addedTerrains = prevTerrains.difference(currTerrains);
+      const percentDropped = droppedTerrains.map(t => t.movementPercentChangeForToken(token, speedAttribute))
+        .reduce((acc, curr) => acc * curr, 1);
+      const percentAdded = addedTerrains.map(t => t.movementPercentChangeForToken(token, speedAttribute))
+        .reduce((acc, curr) => acc * curr, 1);
+      return (percentAdded * (1 / percentDropped)) * tDiff;
+    };
+
+    for ( let i = 1; i < nMarkers; i += 1 ) {
+      const marker = path[i];
+      const activeTerrains = ttr.activeTerrainsAtT(marker.t);
+
+      // If nothing has changed, combine segments.
+      if ( prevTerrains.equals(activeTerrains) ) continue;
+
+      // Measure effect of movement for the terrains across this segment.
+      percent += tChangeFn(marker.t);
+
+      // Update for the next segment.
+      tPrev = marker.t;
+      prevTerrains = activeTerrains;
+    }
+
+    // Handle the last segment.
+    percent += tChangeFn(1);
+    return percent;
+  }
+
+  /**
+   * Helper to measure
 
   // NOTE: ---- File in/out -----
 
@@ -591,6 +651,7 @@ export class Terrain {
  * @param {ActiveEffect} ae               The active effect to apply
  * @param {Actor} actor                   The Actor to whom this effect should be applied
  * @param {EffectChangeData} change       The change data being applied
+ * @param {object[]} changes              Preexisting set of changes (for multiple aes)
  */
 function applyEffectTemporarily(ae, actor, change) {
   // Determine the data type of the target field
