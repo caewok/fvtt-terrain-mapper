@@ -109,6 +109,9 @@ export class TerrainListConfig extends FormApplication {
     html.find("button.tm-edit-ae").click(this._onEditActiveEffect.bind(this));
     html.find("button.tm-remove-terrain").click(this._onRemoveTerrain.bind(this));
     html.find("button.tm-add-terrain").click(this._onAddTerrain.bind(this));
+    html.find("button.import").click(this._onImportTerrains.bind(this));
+    html.find("button.replace").click(this._onReplaceAllTerrains.bind(this));
+    html.find("button.export").click(this._onExportAllTerrains.bind(this));
   }
 
   async _onAddTerrain(event) {
@@ -160,6 +163,26 @@ export class TerrainListConfig extends FormApplication {
     await terrain.setUserVisible(terrain.userVisible ^ true);
     await this._onSubmit(event, { preventClose: true });
     this.render();
+  }
+
+  async _onImportTerrains(event) {
+    event.stopPropagation();
+    await this._onSubmit(event, { preventClose: true });
+    await Terrain.importFromJSONDialog();
+    this.render();
+  }
+
+  async _onReplaceAllTerrains(event) {
+    event.stopPropagation();
+    await this._onSubmit(event, { preventClose: true });
+    await Terrain.replaceFromJSONDialog();
+    this.render();
+  }
+
+  async _onExportAllTerrains(event) {
+    event.stopPropagation();
+    await this._onSubmit(event, { preventClose: true });
+    Terrain.saveToJSON();
   }
 
   _indexForEvent(event) {

@@ -167,20 +167,6 @@ export class TerrainEffectsApp extends Application {
       this._controller.onListTerrains.bind(this._controller)
     );
 
-    // Import/Export all terrains from the All folder buttons.
-    this._importAllTerrainsButton.on(
-      "click",
-      this._controller.onImportAllTerrains.bind(this._controller)
-    );
-    this._replaceAllTerrainsButton.on(
-      "click",
-      this._controller.onReplaceAllTerrains.bind(this._controller)
-    );
-    this._exportAllTerrainsButton.on(
-      "click",
-      this._controller.onExportAllTerrains.bind(this._controller)
-    );
-
     this._folderHeaders.on(
       "click",
       this._controller.onFolderClick.bind(this._controller)
@@ -261,18 +247,6 @@ export class TerrainEffectsApp extends Application {
 
   get _effectListItems() {
     return this._rootView.find(".terrainmapper-effect");
-  }
-
-  get _importAllTerrainsButton() {
-    return this._rootView.find(".import-all-terrains");
-  }
-
-  get _replaceAllTerrainsButton() {
-    return this._rootView.find(".replace-all-terrains");
-  }
-
-  get _exportAllTerrainsButton() {
-    return this._rootView.find(".export-all-terrains");
   }
 
   get _editSceneTerrainsButton() {

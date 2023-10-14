@@ -63,28 +63,6 @@
             {{folder.name}}
           </h3>
 
-          {{#if (eq folder.id "all")}}
-            <a
-              title='Import terrains'
-              class='import-all-terrains create-button create-folder'
-            >
-              <i class='fas fa-file-arrow-up fa-fw'></i>
-            </a>
-            <a
-              title='Replace terrains'
-              class='replace-all-terrains create-button create-folder'
-            >
-              <i class='fas fa-file-import fa-fw'></i>
-            </a>
-
-            <a
-              title='Export terrains'
-              class='export-all-terrains create-button create-folder'
-            >
-              <i class='fas fa-file-arrow-down fa-fw'></i>
-            </a>
-
-          {{/if}}
         </header>
         <ol class='subdirectory'>
           {{#each folder.effects as |effect|}}
