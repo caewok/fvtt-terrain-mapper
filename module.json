@@ -52,7 +52,7 @@
     "styles/terrainlayer.css"
   ],
 
-  "url": "#{URL}#",
+  "url": "https://github.com/caewok/fvtt-terrain-mapper",
   "manifest": "#{MANIFEST}#",
   "download": "#{DOWNLOAD}#",
   "license": "LICENSE",
