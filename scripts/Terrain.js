@@ -578,7 +578,7 @@ export class Terrain {
           import: {
             icon: '<i class="fas fa-file-import"></i>',
             label: "Import",
-            callback: html => {
+            callback: async html => {
               const form = html.find("form")[0];
               if ( !form.data.files.length ) return ui.notifications.error("You did not upload a data file!");
               const json = await readTextFromFile(form.data.files[0]);

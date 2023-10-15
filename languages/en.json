@@ -34,6 +34,7 @@
 
   "terrainmapper.list-config.title": "Terrain List",
   "terrainmapper.list-config.header": "All Terrains",
+  "terrainmapper.list-config.add": "Add new terrain",
   "terrainmapper.list-config.import": "Import additional terrains",
   "terrainmapper.list-config.replace": "Replace all terrains",
   "terrainmapper.list-config.export": "Export all terrains",
