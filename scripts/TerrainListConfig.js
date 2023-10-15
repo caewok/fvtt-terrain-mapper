@@ -109,6 +109,9 @@ export class TerrainListConfig extends FormApplication {
     html.find("button.tm-edit-ae").click(this._onEditActiveEffect.bind(this));
     html.find("button.tm-remove-terrain").click(this._onRemoveTerrain.bind(this));
     html.find("button.tm-add-terrain").click(this._onAddTerrain.bind(this));
+    html.find("button.import").click(this._onImportTerrains.bind(this));
+    html.find("button.replace").click(this._onReplaceAllTerrains.bind(this));
+    html.find("button.export").click(this._onExportAllTerrains.bind(this));
   }
 
   async _onAddTerrain(event) {
@@ -119,6 +122,7 @@ export class TerrainListConfig extends FormApplication {
     await terrain.initialize();
     await this._onSubmit(event, { preventClose: true });
     this.render();
+    TerrainEffectsApp.rerender();
   }
 
   async _onRemoveTerrain(event) {
@@ -133,6 +137,7 @@ export class TerrainListConfig extends FormApplication {
 
     await this._onSubmit(event, { preventClose: true });
     this.render();
+    TerrainEffectsApp.rerender();
   }
 
   async _onEditActiveEffect(event) {
@@ -162,10 +167,27 @@ export class TerrainListConfig extends FormApplication {
     this.render();
   }
 
+  async _onImportTerrains(event) {
+    event.stopPropagation();
+    await this._onSubmit(event, { preventClose: true });
+    await Terrain.importFromJSONDialog();
+  }
+
+  async _onReplaceAllTerrains(event) {
+    event.stopPropagation();
+    await this._onSubmit(event, { preventClose: true });
+    await Terrain.replaceFromJSONDialog();
+  }
+
+  async _onExportAllTerrains(event) {
+    event.stopPropagation();
+    await this._onSubmit(event, { preventClose: true });
+    Terrain.saveToJSON();
+  }
+
   _indexForEvent(event) {
     // For reasons, the target is sometimes the button value and sometimes the button.
     const target = event.target;
     return Number(target.getAttribute("data-idx") || target.parentElement.getAttribute("data-idx"));
   }
-
 }
