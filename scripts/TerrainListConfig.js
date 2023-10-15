@@ -171,16 +171,12 @@ export class TerrainListConfig extends FormApplication {
     event.stopPropagation();
     await this._onSubmit(event, { preventClose: true });
     await Terrain.importFromJSONDialog();
-    this.render();
-    TerrainEffectsApp.rerender();
   }
 
   async _onReplaceAllTerrains(event) {
     event.stopPropagation();
     await this._onSubmit(event, { preventClose: true });
     await Terrain.replaceFromJSONDialog();
-    this.render();
-    TerrainEffectsApp.rerender();
   }
 
   async _onExportAllTerrains(event) {
@@ -194,5 +190,4 @@ export class TerrainListConfig extends FormApplication {
     const target = event.target;
     return Number(target.getAttribute("data-idx") || target.parentElement.getAttribute("data-idx"));
   }
-
 }

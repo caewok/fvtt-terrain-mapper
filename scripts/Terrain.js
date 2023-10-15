@@ -23,6 +23,7 @@ import { TerrainEffectsApp } from "./TerrainEffectsApp.js";
 import { Lock } from "./Lock.js";
 import { getDefaultSpeedAttribute } from "./systems.js";
 import { TravelTerrainRay } from "./TravelTerrainRay.js";
+import { TerrainListConfig } from "./TerrainListConfig.js";
 
 // ----- Set up sockets for changing effects on tokens and creating a dialog ----- //
 // Don't pass complex classes through the socket. Use token ids instead.
@@ -511,6 +512,7 @@ export class Terrain {
 
     // Transfer the active effects to the existing item.
     await item.createEmbeddedDocuments("ActiveEffect", tmp.effects.toObject());
+    console.debug("importFromJSON|Created effects");
   }
 
   /**
@@ -531,10 +533,15 @@ export class Terrain {
           import: {
             icon: '<i class="fas fa-file-import"></i>',
             label: "Import",
-            callback: html => {
+            callback: async html => {
               const form = html.find("form")[0];
               if ( !form.data.files.length ) return ui.notifications.error("You did not upload a data file!");
-              readTextFromFile(form.data.files[0]).then(json => this.importFromJSON(json));
+              const json = await readTextFromFile(form.data.files[0]);
+              // Debug: console.debug("importFromJSONDialog|Read text");
+              await this.importFromJSON(json);
+              TerrainEffectsApp.rerender();
+              TerrainListConfig.rerender();
+              // Debug: console.debug("importFromJSONDialog|Finished rerender");
               resolve(true);
             }
           },
@@ -550,7 +557,7 @@ export class Terrain {
     });
 
     await importPromise;
-    TerrainEffectsApp.rerender();
+    // Debug: console.debug("importFromJSONDialog|returned from dialog");
   }
 
   /**
@@ -574,7 +581,10 @@ export class Terrain {
             callback: html => {
               const form = html.find("form")[0];
               if ( !form.data.files.length ) return ui.notifications.error("You did not upload a data file!");
-              readTextFromFile(form.data.files[0]).then(json => this.replaceFromJSON(json));
+              const json = await readTextFromFile(form.data.files[0]);
+              await this.replaceFromJSON(json);
+              TerrainEffectsApp.rerender();
+              TerrainListConfig.rerender();
               resolve(true);
             }
           },
@@ -590,7 +600,6 @@ export class Terrain {
     });
 
     await importPromise;
-    TerrainEffectsApp.rerender();
   }
 
   exportToJSON() {
