@@ -58,10 +58,14 @@
           </div>
 
           <!-- Button for editing the terrain / effect -->
+          <!-- Button for deleting terrain -->
           <div class="flexcol" style="flex-grow: 2">
-            <div class='form-fields'>
+            <div class='form-fields slin'>
               <button class="button tm-edit-ae" data-idx="{{idx}}" style="width: 27px; text-align: center">
                 <i class="fas fa-bolt-lightning"></i>
+              </button>
+              <button class="button tm-remove-terrain" data-idx="{{idx}}" style="width: 27px; text-align: center">
+                <i class="fas fa-minus"></i>
               </button>
             </div>
           </div>
@@ -74,21 +78,26 @@
 
   <footer class="sheet-footer" style="margin: auto; padding-top: 30px">
     <div class="flex-table">
+      <div class="flexrow">
+        <div class="flexcol" style="flex-grow: 1">
+          <button class="button tm-add-terrain" type="submit" name="import" value="1"><i class="fas fa-square-plus"></i>{{localize "terrainmapper.list-config.add"}}</button>
+        </div>
+      </div>
 
       <!-- Button: Import all terrains -->
       <div class="flexrow">
         <div class="flexcol" style="flex-grow: 1">
-          <button class="button import" type="submit" name="import" value="1"><i class="fas fa-file-arrow-up"></i>{{localize "terrainmapper.list-config.import"}}</button>
+          <button class="button tm-import-terrain" type="submit" name="import" value="1"><i class="fas fa-file-arrow-up"></i>{{localize "terrainmapper.list-config.import"}}</button>
         </div>
 
       <!-- Button: Replace all terrains -->
         <div class="flexcol" style="flex-grow: 1">
-          <button class="button replace" type="submit" name="replace" value="1"><i class="fas fa-file-import"></i>{{localize "terrainmapper.list-config.replace"}}</button>
+          <button class="button tm-replace-terrain" type="submit" name="replace" value="1"><i class="fas fa-file-import"></i>{{localize "terrainmapper.list-config.replace"}}</button>
         </div>
 
       <!-- Button: Export all terrains -->
         <div class="flexcol" style="flex-grow: 1">
-          <button class="button export" type="submit" name="export" value="1"><i class="fas fa-file-arrow-down"></i>{{localize "terrainmapper.list-config.export"}}</button>
+          <button class="button tm-export-terrain" type="submit" name="export" value="1"><i class="fas fa-file-arrow-down"></i>{{localize "terrainmapper.list-config.export"}}</button>
         </div>
       </div>
 
