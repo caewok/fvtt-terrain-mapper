@@ -1,5 +1,6 @@
 /* globals
 ActiveEffect,
+Dialog
 expandObject,
 FormApplication,
 foundry,
@@ -14,6 +15,7 @@ import { Terrain } from "./Terrain.js";
 import { EnhancedEffectConfig } from "./EnhancedEffectConfig.js";
 import { capitalizeFirstLetter } from "./util.js";
 import { TerrainEffectsApp } from "./TerrainEffectsApp.js";
+import { EffectHelper } from "./EffectHelper.js";
 
 /**
  * Submenu for viewing terrains defined in the scene.
@@ -109,6 +111,9 @@ export class TerrainListConfig extends FormApplication {
     html.find("button.tm-edit-ae").click(this._onEditActiveEffect.bind(this));
     html.find("button.tm-remove-terrain").click(this._onRemoveTerrain.bind(this));
     html.find("button.tm-add-terrain").click(this._onAddTerrain.bind(this));
+    html.find("button.tm-import-terrain").click(this._onImportTerrains.bind(this));
+    html.find("button.tm-replace-terrain").click(this._onReplaceAllTerrains.bind(this));
+    html.find("button.tm-export-terrain").click(this._onExportAllTerrains.bind(this));
   }
 
   async _onAddTerrain(event) {
@@ -119,20 +124,28 @@ export class TerrainListConfig extends FormApplication {
     await terrain.initialize();
     await this._onSubmit(event, { preventClose: true });
     this.render();
+    TerrainEffectsApp.rerender();
   }
 
   async _onRemoveTerrain(event) {
     event.preventDefault();
     // Debug: console.debug("removeTerrain clicked!");
     const idx = this._indexForEvent(event);
-    const id = this.allTerrains[idx]?.id;
-    if ( !id ) return;
+    const effectId = this.allTerrains[idx]?.id;
+    if ( !effectId ) return;
 
-    this.terrainMap.delete(id);
-    this.allTerrains.splice(idx, 1);
-
-    await this._onSubmit(event, { preventClose: true });
-    this.render();
+    return Dialog.confirm({
+      title: "Remove Terrain",
+      content:
+        "<h4>Are You Sure?</h4><p>This will remove the terrain from all scenes.",
+      yes: async () => {
+      // Debug: console.debug("TerrainEffectsController|onDeleteEffectClick yes");
+        await EffectHelper.deleteEffectById(effectId);
+        await this._onSubmit(event, { preventClose: true });
+        TerrainEffectsApp.rerender();
+        this.render();
+      }
+    });
   }
 
   async _onEditActiveEffect(event) {
@@ -162,10 +175,27 @@ export class TerrainListConfig extends FormApplication {
     this.render();
   }
 
+  async _onImportTerrains(event) {
+    event.stopPropagation();
+    await this._onSubmit(event, { preventClose: true });
+    await Terrain.importFromJSONDialog();
+  }
+
+  async _onReplaceAllTerrains(event) {
+    event.stopPropagation();
+    await this._onSubmit(event, { preventClose: true });
+    await Terrain.replaceFromJSONDialog();
+  }
+
+  async _onExportAllTerrains(event) {
+    event.stopPropagation();
+    await this._onSubmit(event, { preventClose: true });
+    Terrain.saveToJSON();
+  }
+
   _indexForEvent(event) {
     // For reasons, the target is sometimes the button value and sometimes the button.
     const target = event.target;
     return Number(target.getAttribute("data-idx") || target.parentElement.getAttribute("data-idx"));
   }
-
 }

@@ -326,38 +326,6 @@ export class TerrainEffectsController {
   }
 
   /**
-   * Handle clicks on the import all terrains folder menu item.
-   * @param {jQuery} effectFolder
-   */
-  async onImportAllTerrains(event) {
-  // Debug: console.debug("TerrainEffectsController|onImportAllTerrains", event);
-    event.stopPropagation();
-    await Terrain.importFromJSONDialog();
-    this._viewMvc.render();
-  }
-
-  /**
-   * Handle clicks on the replace all terrains folder menu item.
-   * @param {jQuery} effectFolder
-   */
-  async onReplaceAllTerrains(event) {
-  // Debug: console.debug("TerrainEffectsController|onReplaceAllTerrains", event);
-    event.stopPropagation();
-    await Terrain.replaceFromJSONDialog();
-    this._viewMvc.render();
-  }
-
-  /**
-   * Handle clicks on the export all terrains folder menu item.
-   * @param {jQuery} effectFolder
-   */
-  onExportAllTerrains(event) {
-  // Debug: console.debug("TerrainEffectsController|onExportAllTerrains", event);
-    event.stopPropagation();
-    Terrain.saveToJSON();
-  }
-
-  /**
    * Handle adding/removing the effect from the to/from the status effect settings
    * @param {jQuery} effectItem - jQuery element representing the effect list item
    */

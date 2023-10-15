@@ -1,3 +1,7 @@
+## 0.0.6
+Move the terrain import/replace/export buttons to the Terrain List.
+Add add/remove terrain buttons to the Terrain List.
+
 ## 0.0.5
 Add a `Terrain.percentMovementForTokenAlongPath` that can be used by modules like Drag Ruler to estimate token movement across terrains. Fixes to token movement estimation.
 
