@@ -122,6 +122,7 @@ export class TerrainListConfig extends FormApplication {
     await terrain.initialize();
     await this._onSubmit(event, { preventClose: true });
     this.render();
+    TerrainEffectsApp.rerender();
   }
 
   async _onRemoveTerrain(event) {
@@ -136,6 +137,7 @@ export class TerrainListConfig extends FormApplication {
 
     await this._onSubmit(event, { preventClose: true });
     this.render();
+    TerrainEffectsApp.rerender();
   }
 
   async _onEditActiveEffect(event) {
@@ -170,6 +172,7 @@ export class TerrainListConfig extends FormApplication {
     await this._onSubmit(event, { preventClose: true });
     await Terrain.importFromJSONDialog();
     this.render();
+    TerrainEffectsApp.rerender();
   }
 
   async _onReplaceAllTerrains(event) {
@@ -177,6 +180,7 @@ export class TerrainListConfig extends FormApplication {
     await this._onSubmit(event, { preventClose: true });
     await Terrain.replaceFromJSONDialog();
     this.render();
+    TerrainEffectsApp.rerender();
   }
 
   async _onExportAllTerrains(event) {
