@@ -29,7 +29,7 @@ export class TerrainLayerToolBar extends Application {
       return;
     }
     this.#currentTerrain = terrain;
-    Settings.setByName("CURRENT_TERRAIN", terrain.id); // Async
+    Settings.set(Settings.KEYS.CURRENT_TERRAIN, terrain.id); // Async
   }
 
   /** @type {number} */
@@ -39,7 +39,7 @@ export class TerrainLayerToolBar extends Application {
 
   set currentLayer(value) {
     this.#currentLayer = Math.clamped(Math.round(value), 0, canvas.terrain.constructor.MAX_LAYERS);
-    Settings.setByName("CURRENT_LAYER", this.#currentLayer); // Async
+    Settings.set(Settings.KEYS.CURRENT_LAYER, this.#currentLayer); // Async
 
     // Update the layer variable in the shader that displays terrain.
     canvas.terrain._terrainColorsMesh.shader.updateTerrainLayer();
@@ -51,7 +51,7 @@ export class TerrainLayerToolBar extends Application {
    * @returns {number}
    */
   _loadStoredLayer() {
-    const storedId = Settings.getByName("CURRENT_LAYER");
+    const storedId = Settings.get(Settings.KEYS.CURRENT_LAYER);
     return storedId ?? 0;
   }
 
@@ -61,7 +61,7 @@ export class TerrainLayerToolBar extends Application {
    * @returns {Terrain|undefined}
    */
   _loadStoredTerrain() {
-    const storedId = Settings.getByName("CURRENT_TERRAIN");
+    const storedId = Settings.get(Settings.KEYS.CURRENT_TERRAIN);
     const sceneMap = canvas.terrain.sceneMap;
     if ( sceneMap.hasTerrainId(storedId) ) return sceneMap.terrainIds.get(storedId);
 

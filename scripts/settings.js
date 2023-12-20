@@ -1,13 +1,13 @@
 /* globals
 CONFIG,
 game,
-getProperty,
 ItemDirectory
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
 import { MODULE_ID } from "./const.js";
+import { ModuleSettingsAbstract } from "./ModuleSettingsAbstract.js";
 
 export const PATCHES_SidebarTab = {};
 export const PATCHES_ItemDirectory = {};
@@ -21,7 +21,7 @@ PATCHES_ItemDirectory.BASIC = {};
  */
 function removeTerrainsItemFromSidebar(dir) {
   if ( !(dir instanceof ItemDirectory) ) return;
-  const id = Settings.getByName("TERRAINS_ITEM");
+  const id = Settings.get(this.KEYS.TERRAINS_ITEM);
   if ( !id ) return;
   const li = dir.element.find(`li[data-document-id="${id}"]`);
   li.remove();
@@ -38,7 +38,7 @@ PATCHES_SidebarTab.BASIC.HOOKS = { changeSidebarTab: removeTerrainItemHook };
 PATCHES_ItemDirectory.BASIC.HOOKS = { renderItemDirectory: removeTerrainItemHook };
 
 
-export class Settings {
+export class Settings extends ModuleSettingsAbstract {
 
   /**
    * Keys for all the settings used in this module.
@@ -69,58 +69,6 @@ export class Settings {
     // Dialog with announcements re major updates.
     CHANGELOG: "changelog"
   };
-
-  /**
-   * Retrive a specific setting.
-   * @param {string} key
-   * @returns {*}
-   */
-  static get(key) { return game.settings.get(MODULE_ID, key); }
-
-  /**
-   * Retrieve a specific setting by using the key name.
-   * @param {string} key
-   * @returns {*}
-   */
-  static getByName(keyName) {
-    const key = getProperty(this.KEYS, keyName);
-    if ( !key ) console.warn(`Key ${keyName} does not exist.`);
-    return this.get(key);
-  }
-
-  /**
-   * Set a specific setting.
-   * @param {string} key
-   * @param {*} value
-   * @returns {Promise<boolean>}
-   */
-  static async set(key, value) { return game.settings.set(MODULE_ID, key, value); }
-
-  /**
-   * Set a specific setting by using the key name.
-   * @param {string} key
-   * @param {*} value
-   * @returns {Promise<boolean>}
-   */
-  static async setByName(keyName, value) {
-    const key = getProperty(this.KEYS, keyName);
-    if ( !key ) console.warn(`Key ${keyName} does not exist.`);
-    return this.set(key, value);
-  }
-
-  /**
-   * Register a specific setting.
-   * @param {string} key        Passed to registerMenu
-   * @param {object} options    Passed to registerMenu
-   */
-  static register(key, options) { game.settings.register(MODULE_ID, key, options); }
-
-  /**
-   * Register a submenu.
-   * @param {string} key        Passed to registerMenu
-   * @param {object} options    Passed to registerMenu
-   */
-  static registerMenu(key, options) { game.settings.registerMenu(MODULE_ID, key, options); }
 
   /**
    * Register all settings
@@ -204,15 +152,15 @@ export class Settings {
       img: "icons/svg/mountain.svg",
       type: "base"
     });
-    await this.setByName("TERRAINS_ITEM", item.id);
+    await this.set(this.KEYS.TERRAINS_ITEM, item.id);
   }
 
   static get terrainEffectsItem() {
-    return game.items.get(this.getByName("TERRAINS_ITEM"));
+    return game.items.get(this.get(this.KEYS.TERRAINS_ITEM));
   }
 
   /** @type {string[]} */
-  static get expandedFolders() { return this.getByName("CONTROL_APP.EXPANDED_FOLDERS"); }
+  static get expandedFolders() { return this.get(this.KEYS.CONTROL_APP.EXPANDED_FOLDERS); }
 
   /**
    * Add a given folder id to the saved expanded folders.
@@ -223,7 +171,7 @@ export class Settings {
     let folderArr = this.expandedFolders;
     folderArr.push(folderId);
     folderArr = [...new Set(folderArr)]; // Remove duplicates.
-    this.setByName("CONTROL_APP.EXPANDED_FOLDERS", folderArr);
+    this.set(this.KEYS.CONTROL_APP.EXPANDED_FOLDERS, folderArr);
   }
 
   /**
@@ -233,14 +181,14 @@ export class Settings {
    */
   static async removeExpandedFolder(id) {
     const expandedFolderArray = this.expandedFolders.filter(expandedFolder => expandedFolder !== id);
-    return this.setByName("CONTROL_APP.EXPANDED_FOLDERS", expandedFolderArray);
+    return this.set(this.KEYS.CONTROL_APP.EXPANDED_FOLDERS, expandedFolderArray);
   }
 
   /**
    * Remove all saved expanded folders.
    * @returns {Promise} Promise that resolves when the settings update complete.
    */
-  static async clearExpandedFolders() { this.setByName("CONTROL_APP.EXPANDED_FOLDERS", []); }
+  static async clearExpandedFolders() { this.set(this.KEYS.CONTROL_APP.EXPANDED_FOLDERS, []); }
 
   /**
    * Check if given folder nae is expanded.
@@ -255,7 +203,7 @@ export class Settings {
    * @returns {boolean}
    */
   static isFavorite(id) {
-    const favorites = new Set(this.getByName("FAVORITES"));
+    const favorites = new Set(this.get(this.KEYS.FAVORITES));
     return favorites.has(id);
   }
 
@@ -264,9 +212,10 @@ export class Settings {
    * @param {string} id     Active effect id
    */
   static async addToFavorites(id) {
-    const favorites = new Set(this.getByName("FAVORITES"));
+    const key = this.KEYS.FAVORITES;
+    const favorites = new Set(this.get(key));
     favorites.add(id); // Avoids duplicates.
-    return this.setByName("FAVORITES", [...favorites]);
+    return this.set(key, [...favorites]);
   }
 
   /**
@@ -274,9 +223,10 @@ export class Settings {
    * @param {string} id
    */
   static async removeFromFavorites(id) {
-    const favorites = new Set(this.getByName("FAVORITES"));
+    const key = this.KEYS.FAVORITES;
+    const favorites = new Set(this.get(key));
     favorites.delete(id); // Avoids duplicates.
-    return this.setByName("FAVORITES", [...favorites]);
+    return this.set(key, [...favorites]);
   }
 
 }
