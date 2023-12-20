@@ -153,6 +153,7 @@ export class TerrainEffectsController {
     const terrain = new Terrain();
     await terrain.initialize();
     this._viewMvc.render();
+    terrain.activeEffect.sheet.render(true);
   }
 
   /**
