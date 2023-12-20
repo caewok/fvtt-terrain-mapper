@@ -1,3 +1,7 @@
+## 0.0.7
+Popout the terrain effect configuration when a new terrain is created. See issue #15.
+Refactor settings and patching classes.
+
 ## 0.0.6
 Move the terrain import/replace/export buttons to the Terrain List.
 Add add/remove terrain buttons to the Terrain List.
