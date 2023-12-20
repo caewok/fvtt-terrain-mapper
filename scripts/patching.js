@@ -23,7 +23,8 @@ export const PATCHES = {
   Wall: PATCHES_Wall
 };
 
-export const PATCHER = new Patcher(PATCHES);
+export const PATCHER = new Patcher();
+PATCHER.addPatchesFromRegistrationObject(PATCHES);
 
 export function initializePatching() {
   PATCHER.registerGroup("BASIC");
