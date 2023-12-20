@@ -11,7 +11,8 @@ PreciseText,
 readTextFromFile,
 renderTemplate,
 saveDataToFile,
-ui
+ui,
+Wall
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
@@ -169,7 +170,7 @@ export class TerrainLayer extends InteractionLayer {
    * adjustments by the GM to the scene elevation.
    * @type {PIXI.Sprite}
    */
-//   _backgroundTerrain = PIXI.Sprite.from(PIXI.Texture.EMPTY);
+  //   _backgroundTerrain = PIXI.Sprite.from(PIXI.Texture.EMPTY);
 
   // ----- NOTE: PIXI arrays/maps ----- //
 
@@ -393,7 +394,7 @@ export class TerrainLayer extends InteractionLayer {
     // Required on every initialization (loading each scene)
     if ( this.#initialized ) return;
 
-  // Debug: console.debug(`${MODULE_ID}|Initializing Terrain Mapper`);
+    // Debug: console.debug(`${MODULE_ID}|Initializing Terrain Mapper`);
 
     // Set up the shared graphics object used to color grid spaces.
     this.#initializeGridShape();
@@ -403,7 +404,7 @@ export class TerrainLayer extends InteractionLayer {
 
     // Construct the render textures that are used for the layers. 1 per 3 layers.
     // The render texture changes (and is destroyed) each scene.
-    const nTextures = this.constructor.NUM_TEXTURES
+    const nTextures = this.constructor.NUM_TEXTURES;
     for ( let i = 0; i < nTextures; i += 1 ) {
       const tex = this._terrainTextures[i] = PIXI.RenderTexture.create(this._fileManager.textureConfiguration);
       tex.baseTexture.clearColor = [0, 0, 0, 0];
@@ -421,7 +422,7 @@ export class TerrainLayer extends InteractionLayer {
     this.#initializePixelCache();
     this._clearPixelCacheArray();
 
-    const currId = Settings.getByName("CURRENT_TERRAIN");
+    const currId = Settings.get(Settings.KEYS.CURRENT_TERRAIN);
     if ( currId ) this.currentTerrain = this.sceneMap.terrainIds.get(currId);
     if ( !this.currentTerrain ) this.currentTerrain = this.sceneMap.values().next().value;
 
@@ -432,7 +433,7 @@ export class TerrainLayer extends InteractionLayer {
     // Should start at the upper left scene corner
     // Holds the default background elevation settings
     // const { sceneX, sceneY } = canvas.dimensions;
-//     this._backgroundTerrain.position = { x: sceneX, y: sceneY };
+    //     this._backgroundTerrain.position = { x: sceneX, y: sceneY };
 
     // TODO: Use a background terrain by combining the background with the foreground using an overlay
     //       for the foreground.
@@ -472,14 +473,12 @@ export class TerrainLayer extends InteractionLayer {
     this._activateHoverListener();
 
     this.#firstInitialization = true;
-  // Debug: console.debug(`${MODULE_ID}|Finished first initialization Terrain Mapper`);
+    // Debug: console.debug(`${MODULE_ID}|Finished first initialization Terrain Mapper`);
   }
-
-
 
   /** @override */
   _activate() {
-  // Debug: console.debug(`${MODULE_ID}|Activating Terrain Layer.`);
+    // Debug: console.debug(`${MODULE_ID}|Activating Terrain Layer.`);
 
     // Draw walls
     if ( game.user.isGM ) canvas.stage.addChild(this._wallDataContainer);
@@ -529,11 +528,11 @@ export class TerrainLayer extends InteractionLayer {
   }
 
   /** @inheritdoc */
-  async _tearDown(options) {
-  // Debug: console.debug(`${MODULE_ID}|_tearDown Terrain Layer`);
+  async _tearDown(_options) {
+    // Debug: console.debug(`${MODULE_ID}|_tearDown Terrain Layer`);
     if ( !this.#initialized ) return; // Don't call super._tearDown, which would destroy children.
 
-  // Debug: console.debug(`${MODULE_ID}|Tearing down Terrain Mapper`);
+    // Debug: console.debug(`${MODULE_ID}|Tearing down Terrain Mapper`);
 
     if ( this._requiresSave ) await this.save();
 
@@ -550,7 +549,7 @@ export class TerrainLayer extends InteractionLayer {
    */
   #destroy() {
   // Debug: console.debug(`${MODULE_ID}|Destroying Terrain Mapper`);
-    this._terrainColorsMesh.destroy({children: true})
+    this._terrainColorsMesh.destroy({children: true});
     this._clearWallTracker();
     this._terrainTextures.forEach(tex => tex.destroy());
   }
@@ -1328,7 +1327,8 @@ export class TerrainLayer extends InteractionLayer {
 
     */
 
-  // Debug: console.debug(`${MODULE_ID}|Attempting fill at { x: ${origin.x}, y: ${origin.y} } with terrain ${terrain.name}`);
+    // Debug:
+    // console.debug(`${MODULE_ID}|Attempting fill at { x: ${origin.x}, y: ${origin.y} } with terrain ${terrain.name}`);
     const polys = SCENE_GRAPH.encompassingPolygonWithHoles(origin);
     if ( !polys.length ) {
       // Shouldn't happen, but...
@@ -1376,8 +1376,9 @@ export class TerrainLayer extends InteractionLayer {
     this._shapeQueueArray.forEach(shapeQueue => shapeQueue.clear());
 
     this._clearPixelCacheArray();
-//     this._backgroundTerrain.destroy();
-//     this._backgroundTerrain = PIXI.Sprite.from(PIXI.Texture.EMPTY);
+    // Unused:
+    //     this._backgroundTerrain.destroy();
+    //     this._backgroundTerrain = PIXI.Sprite.from(PIXI.Texture.EMPTY);
 
     this._graphicsLayers.forEach(g => {
       const children = g.removeChildren();
@@ -1417,11 +1418,14 @@ export class TerrainLayer extends InteractionLayer {
     }
   }
 
-  #debugClickEvent(event, fnName) {
-    const activeTool = game.activeTool;
-    const o = event.interactionData.origin;
-    const currT = this.toolbar.currentTerrain;
-  // Debug: console.debug(`${MODULE_ID}|${fnName} at ${o.x}, ${o.y} with tool ${activeTool} and terrain ${currT?.name}`, event);
+  #debugClickEvent(_event, _fnName) {
+    // Unused
+    // const activeTool = game.activeTool;
+    // const o = event.interactionData.origin;
+    // const currT = this.toolbar.currentTerrain;
+    // Debug:
+    // console.debug(`${MODULE_ID}|${fnName} at ${o.x}, ${o.y} \
+    //   with tool ${activeTool} and terrain ${currT?.name}`, event);
   }
 
 
@@ -1563,23 +1567,27 @@ export class TerrainLayer extends InteractionLayer {
   /**
    * User scrolls the mouse wheel. Currently does nothing in response.
    */
-  _onMouseWheel(event) {
-    const o = event.interactionData.origin;
-    const activeTool = game.activeTool;
-    const currT = this.toolbar.currentTerrain;
-  // Debug: console.debug(`${MODULE_ID}|mouseWheel at ${o.x}, ${o.y} with tool ${activeTool} and terrain ${currT?.name}`, event);
+  _onMouseWheel(_event) {
+    // Unused:
+    // const o = event.interactionData.origin;
+    // const activeTool = game.activeTool;
+    // const currT = this.toolbar.currentTerrain;
+    // Debug:
+    // console.debug(`${MODULE_ID}|mouseWheel at ${o.x}, ${o.y} \
+    //   with tool ${activeTool} and terrain ${currT?.name}`, event);
 
     // Cycle to the next scene terrain
-
   }
 
   /**
    * User hits delete key. Currently not triggered (at least on this M1 Mac).
    */
-  async _onDeleteKey(event) {
-    const o = event.interactionData.origin;
-    const activeTool = game.activeTool;
-    const currT = this.toolbar.currentTerrain;
-  // Debug: console.debug(`${MODULE_ID}|deleteKey at ${o.x}, ${o.y} with tool ${activeTool} and terrain ${currT?.name}`, event);
+  async _onDeleteKey(_event) {
+    // Unused:
+    // const o = event.interactionData.origin;
+    // const activeTool = game.activeTool;
+    // const currT = this.toolbar.currentTerrain;
+    // Debug: console.debug(`${MODULE_ID}|deleteKey at ${o.x}, ${o.y} \
+    // with tool ${activeTool} and terrain ${currT?.name}`, event);
   }
 }
