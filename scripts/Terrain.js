@@ -177,7 +177,7 @@ export class Terrain {
 
   /** @type {Color} */
   get color() {
-    return new Color.from(this.#getAEFlag(FLAGS.COLOR) ?? 0x000000);
+    return Color.from(this.#getAEFlag(FLAGS.COLOR) ?? 0x000000);
   }
 
   async setColor(value) {
