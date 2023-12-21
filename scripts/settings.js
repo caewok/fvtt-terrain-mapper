@@ -21,7 +21,7 @@ PATCHES_ItemDirectory.BASIC = {};
  */
 function removeTerrainsItemFromSidebar(dir) {
   if ( !(dir instanceof ItemDirectory) ) return;
-  const id = Settings.get(this.KEYS.TERRAINS_ITEM);
+  const id = Settings.get(Settings.KEYS.TERRAINS_ITEM);
   if ( !id ) return;
   const li = dir.element.find(`li[data-document-id="${id}"]`);
   li.remove();
