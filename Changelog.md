@@ -1,5 +1,6 @@
 ## 0.0.7
 Popout the terrain effect configuration when a new terrain is created. See issue #15.
+Update terrain color when the configuration setting is updated. Closes issue #10.
 Refactor settings and patching classes.
 
 ## 0.0.6
