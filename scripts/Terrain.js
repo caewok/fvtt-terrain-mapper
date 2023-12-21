@@ -176,7 +176,9 @@ export class Terrain {
   async setUserVisible(value) { return this.#setAEFlag(FLAGS.USER_VISIBLE, value); }
 
   /** @type {Color} */
-  get color() { return new Color(this.#getAEFlag(FLAGS.COLOR) ?? 0x000000); }
+  get color() {
+    return Color.from(this.#getAEFlag(FLAGS.COLOR) ?? 0x000000);
+  }
 
   async setColor(value) {
     value = Color.from(value);
