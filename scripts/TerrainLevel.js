@@ -40,7 +40,7 @@ export class TerrainLevel {
 
   /**
    * Retrieve the anchor elevation of this level in this scene.
-   * @returns {number}
+   * @returns {number} The elevation, in grid units.
    */
   _layerElevation() {
     const layerElevations = canvas.scene.getFlag(MODULE_ID, FLAGS.LAYER_ELEVATIONS) ?? (new Array(8)).fill(0);
@@ -86,5 +86,40 @@ export class TerrainLevel {
   activeAt(elevation, location) {
     const minMaxE = this.elevationRange(location);
     return elevation.between(minMaxE.min, minMaxE.max);
+  }
+}
+
+/**
+ * Represent a terrain linked to a tile.
+ */
+export class TerrainTile extends TerrainLevel {
+  /** @type {Tile} */
+  tile;
+
+  constructor(terrain, tile) {
+    if ( tile && !(tile instanceof Tile) ) console.error("TerrainTile requires a Tile object.", tile);
+    super(terrain, tile);
+    this.tile = tile;
+  }
+
+  get level() { console.error("TerrainTile does not have a level."); }
+
+  /**
+   * Returns the tile elevation.
+   * @returns {number} Elevation, in grid units.
+   */
+  _layerElevation() { return this.tile.elevationE || 0; }
+
+  /**
+   * Determine if the terrain is active at the provided elevation.
+   * @param {number} elevation    Elevation to test
+   * @param {Point}  location    Location on the map. Required.
+   * @returns {boolean}
+   */
+  activeAt(elevation, location) {
+    if ( !super.activeAt(elevation, location) ) return false;
+    if ( !this.tile.bounds.contains(location.x, location.y) ) return false;
+    if ( this.tile.mesh.getPixelAlpha(location.x, location.y) < CONFIG[MODULE_ID].alphaThreshold ) return false;
+    return true;
   }
 }

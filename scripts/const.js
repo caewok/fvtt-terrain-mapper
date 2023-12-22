@@ -6,6 +6,10 @@ export const MODULE_ID = "terrainmapper";
 
 export const SOCKETS = { socket: null };
 
+export const TEMPLATES = {
+  TILE: `modules/${MODULE_ID}/templates/tile-config.html`
+}
+
 export const LABELS = {
   ANCHOR_OPTIONS: {
     absolute: "terrainmapper.settings.terrain.anchorOptions.absolute",

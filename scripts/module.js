@@ -35,6 +35,7 @@ import "./changelog.js";
  */
 Hooks.once("init", function() {
   initializePatching();
+  initializeConfig();
   initializeAPI();
   registerGeometry();
   TerrainLayer.register();
@@ -108,6 +109,17 @@ function initializeAPI() {
     TerrainPixelCache,
     TerrainKey
   };
+}
+
+function initializeConfig() {
+  CONFIG[MODULE_ID] = {
+    /**
+     * Alpha threshold below which a tile is considered transparent for purposes of terrain.
+     * @type {number} Between 0 and 1
+     */
+    alphaThreshold: 0.75
+  };
+
 }
 
 /* Data Storage

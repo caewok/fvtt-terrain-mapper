@@ -1,0 +1,12 @@
+<fieldset>
+  <legend>{{ localize "terrainmapper.name" }}</legend>
+
+    <div class="form-group" id="terrainmapper-tileconfig-terrain">
+      <label>{{ localize "Terrain" }} </label>
+      <select name="attachedTerrain">
+        {{selectOptions terrainmapper.terrains selected=terrainmapper.selected }}
+      </select>
+    </div>
+
+  </legend>
+</fieldset>
