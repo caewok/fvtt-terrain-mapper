@@ -60,7 +60,9 @@ export class TerrainGridHexagon extends Hexagon {
   static _fromTopLeft(tlx, tly) {
     const sz = canvas.dimensions.size;
     const sz1_2 = sz * 0.5;
-    return new this({ x: tlx + sz1_2, y: tly + sz1_2 }, sz, { rotation: 45, width: sz });
+    const width = canvas.grid.grid.w;
+    const height = canvas.grid.grid.h;
+    return new this({ x: tlx + (width * 0.5), y: tly + (height * 0.5) }, undefined, { width, height });
   }
 
   /**

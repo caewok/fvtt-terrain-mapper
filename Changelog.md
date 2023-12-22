@@ -1,7 +1,9 @@
 ## 0.0.7
 Popout the terrain effect configuration when a new terrain is created. See issue #15.
 Update terrain color when the configuration setting is updated. Closes issue #10.
+Fix hexagon fill. Closes issue #14. Note that the hexagon fills are slightly blocky, reflecting the lower resolution of the terrain fill (for speed).
 Refactor settings and patching classes.
+
 
 ## 0.0.6
 Move the terrain import/replace/export buttons to the Terrain List.
