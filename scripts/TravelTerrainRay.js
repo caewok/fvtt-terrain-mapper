@@ -296,21 +296,3 @@ export class TravelTerrainRay {
   }
 
 }
-
-/**
- * Convert a terrain key to individual keys, one per terrain/level combination.
- * @param {TerrainKey} key
- * @returns {TerrainKey[]}
- */
-function splitTerrainKey(key) {
-  const keys = [];
-  const layers = key.toTerrainLayers();
-  const ln = layers.length;
-  for (let i = 0; i < ln; i += 1 ) {
-    const terrainValue = layers[i];
-    if ( !terrainValue ) continue;
-    keys.push(TerrainKey.fromTerrainValue(terrainValue, i));
-  }
-  return keys;
-}
-
