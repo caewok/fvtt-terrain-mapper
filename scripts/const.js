@@ -42,7 +42,8 @@ export const FLAGS = {
 
   LAYER_ELEVATIONS: "layerElevations", // Stored per scene.
 
-  ATTACHED_TERRAIN: "attachedTerrain" // Stored in Tile and MeasuredTemplate documents
+  ATTACHED_TERRAIN: "attachedTerrain", // Stored in Tile and MeasuredTemplate documents
+  ALPHA_THRESHOLD: "alphaThreshold" // Stored in Tile documents
 };
 
 

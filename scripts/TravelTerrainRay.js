@@ -1,5 +1,6 @@
 /* globals
 canvas,
+CONFIG,
 foundry,
 game,
 PIXI
@@ -7,6 +8,7 @@ PIXI
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
+import { MODULE_ID } from "./const.js";
 import { Point3d } from "./geometry/3d/Point3d.js";
 import { TerrainKey } from "./TerrainPixelCache.js";
 
@@ -57,6 +59,9 @@ export class TravelTerrainRay {
 
   /** @type {function} */
   #markTerrainFn = (curr, prev) => curr !== prev;
+
+  /** @type {function} */
+  #markTileFn = (curr, prev) => (prev < CONFIG[MODULE_ID].alphaThreshold) ^ (curr < CONFIG[MODULE_ID].alphaThreshold);
 
   /** @type {Map<number, Marker>} */
   _markerMap = new Map();
@@ -226,6 +231,20 @@ export class TravelTerrainRay {
   }
 
   /**
+   * Tiles with terrains that overlap this travel ray.
+   * @returns {Set<Tile>}
+   */
+  terrainTilesInPath() {
+    const { origin, destination } = this;
+    const xMinMax = Math.minMax(origin.x, destination.x);
+    const yMinMax = Math.minMax(origin.y, destination.y);
+    const bounds = new PIXI.Rectangle(xMinMax.min, yMinMax.min, xMinMax.max - xMinMax.min, yMinMax.max - yMinMax.min);
+    const collisionTest = (o, _rect) => o.t.hasAttachedTerrain
+      && o.t.bounds.lineSegmentIntersects(origin, destination, { inside: true });
+    return canvas.tiles.quadtree.getObjects(bounds, { collisionTest });
+  }
+
+  /**
    * Get each point at which there is a terrain change.
    */
   _walkPath() {
@@ -258,6 +277,22 @@ export class TravelTerrainRay {
         const marker = markerMap.get(m.t);
         marker.terrains = m;
       } else markerMap.set(m.t, { terrains: m });
+    });
+
+    // Add in tile terrains, if any.
+    this.terrainTilesInPath().forEach(tile => {
+      const pixelCache = tile._evPixelCache;
+      const tileMarkers = pixelCache._extractAllMarkedPixelValuesAlongCanvasRay(
+        this.origin, this.destination, this.#markTileFn);
+      tileMarkers.forEach(obj => {
+        obj.t = this.tForPoint(obj);
+      });
+      tileMarkers.forEach(m => {
+        if ( markerMap.has(m.t) ) {
+          const marker = markerMap.get(m.t);
+          marker.tiles = m;
+        } else markerMap.set(m.t, { tiles: m });
+      });
     });
 
     const originLayers = canvas.terrain._terrainLayersAt(this.origin);

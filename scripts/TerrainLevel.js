@@ -1,5 +1,7 @@
 /* globals
-canvas
+canvas,
+CONFIG,
+Tile
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
@@ -116,8 +118,18 @@ export class TerrainTile extends TerrainLevel {
    */
   activeAt(elevation, location) {
     if ( !super.activeAt(elevation, location) ) return false;
-    if ( !this.tile.bounds.contains(location.x, location.y) ) return false;
-    if ( this.tile.mesh.getPixelAlpha(location.x, location.y) < CONFIG[MODULE_ID].alphaThreshold ) return false;
-    return true;
+
+    const tile = this.tile;
+    const pixelCache = tile._evPixelCache;
+
+    // First, check if the point is within the non-transparent boundary of the tile.
+    const thresholdBounds = pixelCache.getThresholdCanvasBoundingBox(CONFIG[MODULE_ID].alphaThreshold);
+    if ( !thresholdBounds.contains(location.x, location.y) ) return false;
+
+    // Second, check if the point is not transparent (based on inner transparency threshold).
+    const alphaThreshold = tile.document.getFlag(MODULE_ID, FLAGS.ALPHA_THRESHOLD);
+    if ( !alphaThreshold ) return true;
+    if ( alphaThreshold === 1 ) return false;
+    return this.tile.mesh.getPixelAlpha(location.x, location.y) < alphaThreshold;
   }
 }

@@ -1,5 +1,4 @@
 /* globals
-Terrain
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
@@ -32,8 +31,8 @@ PATCHES.BASIC = {};
  * @param {string} userId                           The ID of the User who triggered the update workflow
  */
 function updateTile(tileD, changed, _options, _userId) {
-  if ( changed.overhead ) document.object._evPixelCache = undefined;
-  const cache = document.object._evPixelCache;
+  // Should not be needed: if ( changed.overhead ) document.object._evPixelCache = undefined;
+  const cache = document.object?._evPixelCache;
   if ( cache ) {
     if ( Object.hasOwn(changed, "x")
       || Object.hasOwn(changed, "y")
@@ -44,7 +43,7 @@ function updateTile(tileD, changed, _options, _userId) {
 
     if ( Object.hasOwn(changed, "rotation")
       || Object.hasOwn(changed, "texture")
-      || (change.texture
+      || (changed.texture
         && (Object.hasOwn(changed.texture, "scaleX")
         || Object.hasOwn(changed.texture, "scaleY"))) ) {
 
@@ -61,17 +60,40 @@ PATCHES.BASIC.HOOKS = { updateTile };
 
 // ----- NOTE: Methods ----- //
 
+/**
+ * Attach a terrain to this tile.
+ * At the moment, only one terrain can be associated with a tile at a time. Existing terrain
+ * will be removed.
+ * @param {Terrain} terrain
+ */
 async function attachTerrain(terrain) {
   this._terrain = undefined;
   await this.document.setFlag(MODULE_ID, FLAGS.ATTACHED_TERRAIN, terrain.id);
 }
 
+/**
+ * Remove a terrain from this tile.
+ * At the moment, only one terrain can be associated with a tile at a time.
+ */
 async function removeTerrain() {
   this._terrain = undefined;
   await this.document.setFlag(MODULE_ID, FLAGS.ATTACHED_TERRAIN, "");
 }
 
-PATCHES.BASIC.METHODS = { attachTerrain, removeTerrain };
+/**
+ * Determine if a terrain is active at a given point and elevation for this tile.
+ * @param {number} elevation
+ * @param {x, y} location
+ * @returns {boolean} If no terrain attached, returns false.
+ *   Ignores the outer transparent edges of the tile.
+ *   If option is set, ignores inner transparent portions.
+ */
+function terrainActiveAt(elevation, location) {
+  const terrain = this.attachedTerrain;
+  return !terrain || terrain.activeAt(elevation, location);
+}
+
+PATCHES.BASIC.METHODS = { attachTerrain, removeTerrain, terrainActiveAt };
 
 // ----- NOTE: Getters ----- //
 function attachedTerrain() {
