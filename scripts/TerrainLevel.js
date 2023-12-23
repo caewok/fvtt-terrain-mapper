@@ -102,8 +102,6 @@ export class TerrainTile extends TerrainLevel {
     this.tile = tile;
   }
 
-  get level() { console.error("TerrainTile does not have a level."); }
-
   /**
    * Returns the tile elevation.
    * @returns {number} Elevation, in grid units.

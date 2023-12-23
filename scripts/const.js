@@ -41,6 +41,8 @@ export const FLAGS = {
   COLOR: "color",
 
   LAYER_ELEVATIONS: "layerElevations", // Stored per scene.
+
+  ATTACHED_TERRAIN: "attachedTerrain" // Stored in Tile and MeasuredTemplate documents
 };
 
 

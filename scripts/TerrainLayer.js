@@ -267,6 +267,63 @@ export class TerrainLayer extends InteractionLayer {
 
   // ----- NOTE: Access terrain data ----- //
 
+  /*
+    Definitions
+    - Terrain: Terrain from the Terrain book. Not anchored to a specific elevation.
+    - TerrainLevel: Class that associates a Terrain with an elevation level. Linked to a canvas
+      layer, tile, or measured template.
+    - Active: If the terrain affects the 3d position in space.
+
+    Primary Methods
+    - terrainsAt: Set of Terrains at a 2d position. May or may not be active. From `terrainLevelsAt`
+    - activeTerrainsAt: `terrainsAt` filtered by active. Requires elevation to determine. From `activeTerrainLevelsAt`
+    - terrainLevelsAt: Set of TerrainLevel|TerrainTile|TerrainMeasuredTemplate at a 2d position.
+    - activeTerrainLevelsAt: `terrainLevelsAt` filtered by active
+
+    Submethods
+    - _canvasTerrainLevelsAt
+    - _tileTerrainLevelsAt
+    - _templateTerrainLevelsAt
+    - Same for active, levels, activelevels
+  */
+
+  /**
+   * Canvas TerrainLevels at a given position.
+   * @param {Point} {x, y}
+   * @returns {TerrainLevel[]}
+   */
+  _canvasTerrainLevelsAt(pt) {
+    if ( !this.#initialized ) return [];
+
+    // Return only terrains that are non-zero.
+    const terrainLayers = this._terrainLayersAt(pt);
+    return [...this._layersToTerrainLevels(terrainLayers)];
+  }
+
+  /**
+   * TerrainTiles at a given position.
+   * @param {Point} {x, y}
+   * @returns {TerrainTiles[]}
+   */
+  _tileTerrainLevelsAt(pt) {
+    const bounds = new PIXI.Rectangle(pt.x - 1, pt.y -1, 3, 3);
+    const collisionTest = (o, rect) => o.t.hasAttachedTerrain && rect.contains(pt.x, pt.y);
+    const tiles = canvas.tiles.quadtree.getObjects(bounds, { collisionTest });
+    return [...tiles.map(tile => tile.attachedTerrain)];
+  }
+
+   /**
+   * TerrainMeasuredTemplates at a given position.
+   * @param {Point} {x, y}
+   * @returns {TerrainTiles[]}
+   */
+  _templateTerrainLevelsAt(pt) {
+    const bounds = new PIXI.Rectangle(pt.x - 1, pt.y -1, 3, 3);
+    const collisionTest = (o, rect) => o.t.hasAttachedTerrain && rect.contains(pt.x, pt.y);
+    const templates = canvas.templates.quadtree.getObjects(bounds, { collisionTest });
+    return templates.map(template => template.attachedTerrain);
+  }
+
   /**
    * Unique terrain(s) at a given position.
    * @param {Point} {x, y}
@@ -295,11 +352,11 @@ export class TerrainLayer extends InteractionLayer {
    * @returns {TerrainLevel[]}
    */
   terrainLevelsAt(pt) {
-    if ( !this.#initialized ) return [];
-
-    // Return only terrains that are non-zero.
-    const terrainLayers = this._terrainLayersAt(pt);
-    return this._layersToTerrainLevels(terrainLayers);
+    return [
+      ...this._canvasTerrainLevelsAt(pt),
+      ...this._tileTerrainLevelsAt(pt),
+      ...this._templateTerrainLevelsAt(pt)
+    ];
   }
 
   /**
