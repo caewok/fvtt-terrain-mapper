@@ -7,6 +7,7 @@ Terrain
 import { MODULE_ID, FLAGS } from "./const.js";
 import { Terrain } from "./Terrain.js";
 import { TerrainTile } from "./TerrainLevel.js";
+import { TilePixelCache } from "./PixelCache.js";
 
 export const PATCHES = {};
 PATCHES.BASIC = {};
@@ -31,6 +32,26 @@ PATCHES.BASIC = {};
  * @param {string} userId                           The ID of the User who triggered the update workflow
  */
 function updateTile(tileD, changed, _options, _userId) {
+  if ( changed.overhead ) document.object._evPixelCache = undefined;
+  const cache = document.object._evPixelCache;
+  if ( cache ) {
+    if ( Object.hasOwn(changed, "x")
+      || Object.hasOwn(changed, "y")
+      || Object.hasOwn(changed, "width")
+      || Object.hasOwn(changed, "height") ) {
+      cache._resize();
+    }
+
+    if ( Object.hasOwn(changed, "rotation")
+      || Object.hasOwn(changed, "texture")
+      || (change.texture
+        && (Object.hasOwn(changed.texture, "scaleX")
+        || Object.hasOwn(changed.texture, "scaleY"))) ) {
+
+      cache.clearTransforms();
+    }
+  }
+
   const modFlag = changed.flags?.[MODULE_ID];
   if ( !modFlag || !Object.hasOwn(modFlag, [FLAGS.ATTACHED_TERRAIN]) ) return;
   tileD.object._terrain = undefined;
@@ -67,4 +88,12 @@ function hasAttachedTerrain() {
   return Boolean(this.document.getFlag(MODULE_ID, FLAGS.ATTACHED_TERRAIN));
 }
 
-PATCHES.BASIC.GETTERS = { attachedTerrain, hasAttachedTerrain };
+/**
+ * Getter for Tile.mesh._evPixelCache
+ */
+function evPixelCache() {
+  return this._evPixelCache || (this._evPixelCache = TilePixelCache.fromOverheadTileAlpha(this));
+}
+
+
+PATCHES.BASIC.GETTERS = { attachedTerrain, hasAttachedTerrain, evPixelCache };
