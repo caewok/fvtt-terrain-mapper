@@ -435,13 +435,14 @@ export class TravelTerrainRay {
     }
 
     // Track the ray across the tile, locating points where transparency starts or stops.
-    const markTileFn = (curr, prev) => (prev < tileAlpha) ^ (curr < tileAlpha);
+    const pixelAlpha = tileAlpha * 255; // Convert alpha percentage to pixel values.
+    const markTileFn = (curr, prev) => (prev < pixelAlpha) ^ (curr < pixelAlpha); // Find change above/below threshold.
     const tileMarkers = pixelCache._extractAllMarkedPixelValuesAlongCanvasRay(
       origin, destination, markTileFn, { alphaThreshold: CONFIG[MODULE_ID].alphaThreshold });
     return tileMarkers.map(obj => {
       return {
         t: this.tForPoint(obj),
-        terrains: obj.currPixel < tileAlpha ? nullSet : terrains
+        terrains: obj.currPixel < pixelAlpha ? nullSet : terrains
       };
     });
   }
@@ -453,8 +454,22 @@ export class TravelTerrainRay {
    * For each terrain encountered, find the actual active start point along the 3d ray.
    * Add that active marker and remove the level marker.
    * Keep the active marker only if its terrain is active when we get to that t point.
+   * Terrains cannot duplicate, so if the same terrain is active from, say, tile and canvas,
+   * only one applies.
    */
 
-
-
 }
+
+/* Testing
+let [target] = game.user.targets
+token = canvas.tokens.controlled[0]
+destination = target.center
+origin = token.center
+ttr = new canvas.terrain.TravelTerrainRay(_token, { origin, destination })
+
+ttr._canvasTerrainMarkers()
+ttr._tilesTerrainMarkers()
+ttr._walkPath()
+
+
+*/
