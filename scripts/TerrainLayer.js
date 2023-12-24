@@ -714,7 +714,7 @@ export class TerrainLayer extends InteractionLayer {
     this._requiresSave = true;
 
     // Refresh the UI related to the terrain.
-    this._terrainColorsMesh.shader.updateTerrainColors();
+    this._terrainColorsMesh.shader.updateAllTerrainColors();
     if ( ui.controls.activeControl === "terrain" ) ui.controls.render();
     TerrainEffectsApp.rerender();
 
@@ -739,7 +739,7 @@ export class TerrainLayer extends InteractionLayer {
     this._requiresSave = true;
 
     // Refresh the UI for the terrain.
-    this._terrainColorsMesh.shader.updateTerrainColors();
+    this._terrainColorsMesh.shader.updateAllTerrainColors();
     if ( this.toolbar.currentTerrain === this ) this.toolbar._currentTerrain = undefined;
     if ( ui.controls.activeControl === "terrain" ) ui.controls.render();
     TerrainEffectsApp.rerender();
@@ -760,7 +760,7 @@ export class TerrainLayer extends InteractionLayer {
     terrain._unassignPixel();
 
     // Refresh the UI for the terrain.
-    this._terrainColorsMesh.shader.updateTerrainColors();
+    this._terrainColorsMesh.shader.updateAllTerrainColors();
     if ( this.toolbar.currentTerrain === this ) this.toolbar._currentTerrain = undefined;
     if ( ui.controls.activeControl === "terrain" ) ui.controls.render();
     TerrainEffectsApp.rerender();
