@@ -3,12 +3,13 @@ canvas,
 CONFIG,
 foundry,
 game,
+mergeObject,
 PIXI
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { MODULE_ID } from "./const.js";
+import { MODULE_ID, FLAGS } from "./const.js";
 import { Point3d } from "./geometry/3d/Point3d.js";
 import { TerrainKey } from "./TerrainPixelCache.js";
 
@@ -59,9 +60,6 @@ export class TravelTerrainRay {
 
   /** @type {function} */
   #markTerrainFn = (curr, prev) => curr !== prev;
-
-  /** @type {function} */
-  #markTileFn = (curr, prev) => (prev < CONFIG[MODULE_ID].alphaThreshold) ^ (curr < CONFIG[MODULE_ID].alphaThreshold);
 
   /** @type {Map<number, Marker>} */
   _markerMap = new Map();
@@ -245,89 +243,218 @@ export class TravelTerrainRay {
   }
 
   /**
+   * @typedef {object} Marker
+   *
+   * Object that represents a point along the path where the terrain set changes.
+   * Only in the flat 2d dimensions. Elevation handled elsewhere (active terrains).
+   * From that t position onward towards t = 1, terrains are as provided in the set.
+   * @property {number} t                     Percentage along the travel ray
+   * @property {Set<TerrainLevel>} terrains   What terrains are found at that t location
+   * @property {number} elevation             Elevation at this t
+   * @property {string} type                  Originating type for this marker. elevation|tile|canvas|template
+   */
+
+  /**
    * Get each point at which there is a terrain change.
    */
   _walkPath() {
     const path = this.#path;
     path.length = 0;
-    let evMarkers = [];
-    const { pixelCache } = canvas.terrain;
 
-    // Account for any elevation changes due to EV.
-    if ( game.modules.get("elevatedvision")?.active ) {
-      const ter = new canvas.elevation.TravelElevationRay(this.#token,
-        { origin: this.origin, destination: this.destination });
-      evMarkers = ter._walkPath();
+    // Retrieve points of change along the ray:
+    // 1. elevation
+    // 2. canvas terrain layers
+    // 3. tile terrain layers
+    // 4. TODO: template terrain layers
+
+    const elevationMarkers = this._elevationMarkers();
+    const canvasTerrainMarkers = this._canvasTerrainMarkers();
+    const tileTerrainMarkers = this._tilesTerrainMarkers();
+
+    // Combine and sort from t = 0 to t = 1.
+    const combinedMarkers = [
+      ...elevationMarkers,
+      ...canvasTerrainMarkers,
+      ...tileTerrainMarkers
+    ].sort((a, b) => a.t - b.t);
+    if ( !combinedMarkers.length ) return [];
+
+    // Walk along the markers, indicating at each step:
+    // - What terrains are present from this point forward.
+    // - What the current elevation step is from this point forward.
+    // Must track each terrain marker set to know when terrains have been removed.
+    let currCanvasTerrains = new Set();
+    let currTileTerrains = new Set();
+    const finalMarkers = [];
+
+    // Initialize.
+    let prevMarker = { t: 0, terrains: new Set() };
+    finalMarkers.push(prevMarker);
+
+    // Combine markers with the same t (2d location).
+    // Track terrain levels that are present at each location.
+    for ( const marker of combinedMarkers ) {
+      const sameT = marker.t.almostEqual(prevMarker.t);
+      const currMarker = sameT ? prevMarker : mergeObject(prevMarker, { t: marker.t }, { inplace: false });
+      if ( !sameT ) finalMarkers.push(currMarker);
+      switch ( marker.type ) {
+        case "elevation": {
+          currMarker.elevation = marker.elevation;
+          break;
+        }
+        case "canvas": {
+          currCanvasTerrains = marker.terrains;
+          currMarker.terrains = currTileTerrains.union(currCanvasTerrains); // Copy
+          break;
+        }
+        case "tile": {
+          currTileTerrains = marker.terrains;
+          currMarker.terrains = currTileTerrains.union(currCanvasTerrains); // Copy
+          break;
+        }
+      }
     }
 
-    // Find all the points of terrain change.
-    // TODO: Handle layers.
-    const terrainMarkers = pixelCache._extractAllMarkedPixelValuesAlongCanvasRay(
-      this.origin, this.destination, this.#markTerrainFn);
-    terrainMarkers.forEach(obj => {
-      obj.t = this.tForPoint(obj);
-    });
-
-    // Add each terrain and elevation to a map and then combine into a single entry for each t.
-    const markerMap = this._markerMap;
-    markerMap.clear();
-    evMarkers.forEach(m => markerMap.set(m.t, { elevation: m }));
-    terrainMarkers.forEach(m => {
-      if ( markerMap.has(m.t) ) {
-        const marker = markerMap.get(m.t);
-        marker.terrains = m;
-      } else markerMap.set(m.t, { terrains: m });
-    });
-
-    // Add in tile terrains, if any.
-    this.terrainTilesInPath().forEach(tile => {
-      const pixelCache = tile._evPixelCache;
-      const tileMarkers = pixelCache._extractAllMarkedPixelValuesAlongCanvasRay(
-        this.origin, this.destination, this.#markTileFn);
-      tileMarkers.forEach(obj => {
-        obj.t = this.tForPoint(obj);
-      });
-      tileMarkers.forEach(m => {
-        if ( markerMap.has(m.t) ) {
-          const marker = markerMap.get(m.t);
-          marker.tiles = m;
-        } else markerMap.set(m.t, { tiles: m });
-      });
-    });
-
-    const originLayers = canvas.terrain._terrainLayersAt(this.origin);
-    let currTerrainKey = TerrainKey.fromTerrainLayers(originLayers);
-    let currE = this.origin.z;
-    const tValues = [...markerMap.keys()].sort((a, b) => a - b);
-    for ( const t of tValues ) {
-      const markerObj = markerMap.get(t);
-      const pathObj = {};
-      const eObj = markerObj.elevation;
-      const tObj = markerObj.terrains;
-
-      if ( eObj ) {
-        eObj.currElevationPixel = eObj.currPixel;
-        eObj.prevElevationPixel = eObj.prevPixel;
-        foundry.utils.mergeObject(pathObj, eObj);
-        pathObj.terrainKey = currTerrainKey;
-        currE = pathObj.elevation;
+    // Trim where the terrains and elevation have not changed from the previous step.
+    prevMarker = finalMarkers[0];
+    this.#path.push(prevMarker);
+    const numMarkers = finalMarkers.length;
+    for ( let i = 1; i < numMarkers; i += 1 ) {
+      const currMarker = finalMarkers[i];
+      if ( prevMarker.elevation === currMarker.elevation
+        && prevMarker.terrains.equals(currMarker.terrains) ) {
+        console.debug("TravelTerrainRay skipping duplicate marker.");
+        continue;
       }
-
-      if ( tObj ) {
-        tObj.currTerrainPixel = tObj.currPixel;
-        tObj.prevTerrainPixel = tObj.prevPixel;
-        foundry.utils.mergeObject(pathObj, tObj);
-        pathObj.elevation ??= currE;
-        currTerrainKey = pathObj.terrainKey = new TerrainKey(tObj.currPixel);
-      }
-
-      // Remove unneeded/confusing properties.
-      delete pathObj.currPixel;
-      delete pathObj.prevPixel;
-      path.push(pathObj);
+      this.#path.push(currMarker);
+      prevMarker = currMarker;
     }
-
     return this.#path;
   }
+
+  /**
+   * Retrieve elevation change markers along the path.
+   * @returns {Marker[]}
+   */
+  _elevationMarkers() {
+    if ( !game.modules.get("elevatedvision")?.active ) return [];
+    const ter = new canvas.elevation.TravelElevationRay(this.#token,
+      { origin: this.origin, destination: this.destination });
+    const evMarkers = ter._walkPath();
+    return evMarkers.map(obj => {
+      return {
+        t: obj.t,
+        elevation: obj,
+        type: "elevation"
+      };
+    });
+  }
+
+  /**
+   * Retrieve canvas terrain change markers along the path.
+   * @returns {Marker[]}
+   */
+  _canvasTerrainMarkers() {
+    const pixelCache = canvas.terrain.pixelCache;
+    const terrainMarkers = pixelCache._extractAllMarkedPixelValuesAlongCanvasRay(
+      this.origin, this.destination, this.#markTerrainFn);
+    return terrainMarkers.map(obj => {
+      const key = new TerrainKey(obj.currPixel);
+      return {
+        t: this.tForPoint(obj),
+        terrains: new Set(canvas.terrain._layersToTerrainLevels(key.toTerrainLayers())),
+        type: "canvas"
+      };
+    });
+  }
+
+  /**
+   * Retrieve tile terrain change markers along the path
+   * @returns {Marker[]}
+   */
+  _tilesTerrainMarkers() {
+    const { origin, destination } = this;
+    const xMinMax = Math.minMax(origin.x, destination.x);
+    const yMinMax = Math.minMax(origin.y, destination.y);
+    const bounds = new PIXI.Rectangle(xMinMax.min, yMinMax, xMinMax.max - xMinMax.min, yMinMax.max - yMinMax.min);
+    const collisionTest = (o, _rect) => {
+      const tile = o.t;
+      if ( !tile.hasAttachedTerrain ) return false;
+      const pixelCache = tile.evPixelCache;
+      const thresholdBounds = pixelCache.getThresholdCanvasBoundingBox(CONFIG[MODULE_ID].alphaThreshold);
+      return thresholdBounds.lineSegmentIntersects(origin, destination, { inside: true });
+    };
+    const tiles = canvas.tiles.quadtree.getObjects(bounds, { collisionTest });
+    const markers = [];
+    tiles.forEach(tile => {
+      const tileMarkers = this._tileTerrainMarker(tile);
+      markers.push(...tileMarkers);
+    });
+    return markers;
+  }
+
+  /**
+   * Retrieve tile terrain change markers along the path for a single tile.
+   * @param {Tile} tile
+   * @returns {Marker[]]}
+   */
+  _tileTerrainMarker(tile) {
+    if ( !tile.hasAttachedTerrain ) return [];
+
+    // If tile alpha is set to 1, tile is treated as fully transparent.
+    const tileAlpha = tile.document.getFlag(MODULE_ID, FLAGS.ALPHA_THRESHOLD);
+    if ( tileAlpha === 1 ) return [];
+
+    // If the tile should be treated as opaque, just identify the entry and exit points along the ray.
+    // May have only one if start or end point is within the bounds.
+    const terrains = new Set([tile.attachedTerrain]);
+    const nullSet = new Set();
+    const pixelCache = tile.evPixelCache;
+    const { origin, destination } = this;
+    if ( !tileAlpha ) {
+      const thresholdBounds = pixelCache.getThresholdCanvasBoundingBox(CONFIG[MODULE_ID].alphaThreshold);
+      const ixs = thresholdBounds.segmentIntersections(origin, destination);
+      const markers = [];
+
+      // We can reasonably assume in/out pattern. So if we start inside the tile, the first
+      // intersection is outside, and vice-versa.
+      let inside = thresholdBounds.contains(origin.x, origin.y);
+      if ( inside ) markers.push({
+        t: 0,
+        terrains
+      });
+      for ( const ix of ixs ) {
+        inside ^= true; // Alternate true/false.
+        markers.push({
+          t: this.tForPoint(ix),
+          terrains: inside ? terrains : nullSet,
+          type: "tile"
+        });
+      }
+      return markers;
+    }
+
+    // Track the ray across the tile, locating points where transparency starts or stops.
+    const markTileFn = (curr, prev) => (prev < tileAlpha) ^ (curr < tileAlpha);
+    const tileMarkers = pixelCache._extractAllMarkedPixelValuesAlongCanvasRay(
+      origin, destination, markTileFn, { alphaThreshold: CONFIG[MODULE_ID].alphaThreshold });
+    return tileMarkers.map(obj => {
+      return {
+        t: this.tForPoint(obj),
+        terrains: obj.currPixel < tileAlpha ? nullSet : terrains
+      };
+    });
+  }
+
+  /**
+   * Determine the active terrains along the 3d path.
+   * If elevation is set for the path markers, elevation moves in steps.
+   * Otherwise, elevation is pro-rated between origin and destination elevations.
+   * For each terrain encountered, find the actual active start point along the 3d ray.
+   * Add that active marker and remove the level marker.
+   * Keep the active marker only if its terrain is active when we get to that t point.
+   */
+
+
 
 }

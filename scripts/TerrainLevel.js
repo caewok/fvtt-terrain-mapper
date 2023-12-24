@@ -9,12 +9,15 @@ Tile
 import { MODULE_ID, FLAGS } from "./const.js";
 import { TerrainKey } from "./TerrainPixelCache.js";
 
+
 /**
  * Represent the terrain at a specific level.
- * Meant to be duplicated so that the underlying Terrain is not copied.
  * Stores the level information for this terrain.
+ * Singleton instance per id.
  */
 export class TerrainLevel {
+
+  static _instances = new Map();
 
   /** @type {TerrainKey} */
   key = new TerrainKey(0);
@@ -22,6 +25,11 @@ export class TerrainLevel {
   constructor(terrain, level) {
     this.terrain = terrain ?? canvas.terrain.controls.currentTerrain;
     this.level = level ?? canvas.terrain.controls.currentLevel;
+
+    const instances = this.constructor._instances;
+    if (instances.has(this.id) ) return instances.get(this.id);
+    instances.set(this.id, this);
+
     this.scene = canvas.scene;
     this.key = TerrainKey.fromTerrainValue(this.terrain.pixelValue, this.level);
   }
@@ -39,6 +47,12 @@ export class TerrainLevel {
 
   /** @type {boolean} */
   get userVisible() { return this.terrain.userVisible; }
+
+  /**
+   * Unique id for this type of level and terrain. Used to distinguish between copies.
+   * @type {string}
+   */
+  get id() { return `${this.terrain.id}_canvasLevel_${this.level}`; }
 
   /**
    * Retrieve the anchor elevation of this level in this scene.
@@ -105,6 +119,12 @@ export class TerrainTile extends TerrainLevel {
   }
 
   /**
+   * Unique id for this type of level and terrain. Used to distinguish between copies.
+   * @type {string}
+   */
+  get id() { return `${this.terrain.id}_tile_${this.level.id}`; } // Level equals tile here.
+
+  /**
    * Returns the tile elevation.
    * @returns {number} Elevation, in grid units.
    */
@@ -120,7 +140,7 @@ export class TerrainTile extends TerrainLevel {
     if ( !super.activeAt(elevation, location) ) return false;
 
     const tile = this.tile;
-    const pixelCache = tile._evPixelCache;
+    const pixelCache = tile.evPixelCache;
 
     // First, check if the point is within the non-transparent boundary of the tile.
     const thresholdBounds = pixelCache.getThresholdCanvasBoundingBox(CONFIG[MODULE_ID].alphaThreshold);
