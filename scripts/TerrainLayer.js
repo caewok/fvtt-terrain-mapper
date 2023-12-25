@@ -270,105 +270,83 @@ export class TerrainLayer extends InteractionLayer {
   /*
     Definitions
     - Terrain: Terrain from the Terrain book. Not anchored to a specific elevation.
-    - TerrainLevel: Class that associates a Terrain with an elevation level. Linked to a canvas
-      layer, tile, or measured template.
+    - TerrainLevel: Class that associates a Terrain with an elevation level.
+                    Linked to a canvas layer, tile, or measured template.
     - Active: If the terrain affects the 3d position in space.
 
     Primary Methods
-    - terrainsAt: Set of Terrains at a 2d position. May or may not be active. From `terrainLevelsAt`
-    - activeTerrainsAt: `terrainsAt` filtered by active. Requires elevation to determine. From `activeTerrainLevelsAt`
     - terrainLevelsAt: Set of TerrainLevel|TerrainTile|TerrainMeasuredTemplate at a 2d position.
-    - activeTerrainLevelsAt: `terrainLevelsAt` filtered by active
+    - activeTerrainsAt: `terrainLevelsAt` filtered by active. Requires elevation to determine.
 
     Submethods
     - _canvasTerrainLevelsAt
     - _tileTerrainLevelsAt
     - _templateTerrainLevelsAt
-    - Same for active, levels, activelevels
   */
 
   /**
    * Canvas TerrainLevels at a given position.
-   * @param {Point} {x, y}
+   * @param {Point} {x, y} location
    * @returns {TerrainLevel[]}
    */
-  _canvasTerrainLevelsAt(pt) {
-    if ( !this.#initialized ) return [];
+  _canvasTerrainLevelsAt(location) {
+    if ( !this.#initialized ) return new Set();
 
     // Return only terrains that are non-zero.
-    const terrainLayers = this._terrainLayersAt(pt);
-    return [...this._layersToTerrainLevels(terrainLayers)];
+    const terrainLayers = this._terrainLayersAt(location);
+    return this._layersToTerrainLevels(terrainLayers);
   }
 
   /**
    * TerrainTiles at a given position.
-   * @param {Point} {x, y}
-   * @returns {TerrainTiles[]}
+   * @param {Point} {x, y} location            Position to test
+   * @param {PIXI.Rectangle} [bounds]     Boundary rectangle around the pixel to use to search quadtree.
+   * @returns {Set<TerrainTile>}
    */
-  _tileTerrainLevelsAt(pt) {
-    const bounds = new PIXI.Rectangle(pt.x - 1, pt.y -1, 3, 3);
-    const collisionTest = (o, rect) => o.t.hasAttachedTerrain && rect.contains(pt.x, pt.y);
+  _tileTerrainLevelsAt(location, bounds) {
+    bounds ??= new PIXI.Rectangle(location.x - 1, location.y -1, 3, 3);
+    const collisionTest = (o, rect) => o.t.hasAttachedTerrain && rect.contains(location.x, location.y);
     const tiles = canvas.tiles.quadtree.getObjects(bounds, { collisionTest });
-    return [...tiles.map(tile => tile.attachedTerrain)];
+    return tiles.map(tile => tile.attachedTerrain);
   }
 
-   /**
+  /**
    * TerrainMeasuredTemplates at a given position.
-   * @param {Point} {x, y}
-   * @returns {TerrainTiles[]}
+   * @param {Point} {x, y} location       Position to test
+   * @param {PIXI.Rectangle} [bounds]     Boundary rectangle around the pixel to use to search quadtree.
+   * @returns {Set<TerrainTemplate>}
    */
-  _templateTerrainLevelsAt(pt) {
-    const bounds = new PIXI.Rectangle(pt.x - 1, pt.y -1, 3, 3);
-    const collisionTest = (o, rect) => o.t.hasAttachedTerrain && rect.contains(pt.x, pt.y);
+  _templateTerrainLevelsAt(location, bounds) {
+    bounds ??= new PIXI.Rectangle(location.x - 1, location.y -1, 3, 3);
+    const collisionTest = (o, rect) => o.t.hasAttachedTerrain && rect.contains(location.x, location.y);
     const templates = canvas.templates.quadtree.getObjects(bounds, { collisionTest });
     return templates.map(template => template.attachedTerrain);
   }
 
   /**
-   * Unique terrain(s) at a given position.
-   * @param {Point} {x, y}
-   * @returns {Set<Terrain>}
+   * Terrain levels found at the provided 2d position.
+   * @param {Point} {x, y} location
+   * @returns {Set<TerrainLevel>}
    */
-  terrainsAt(pt) {
-    if ( !this.#initialized ) return [];
-
-    // Return only terrains that are non-zero.
-    return new Set(this.terrainLevelsAt(pt).map(t => t.terrain));
+  terrainLevelsAt(location) {
+    const bounds = new PIXI.Rectangle(location.x - 1, location.y -1, 3, 3);
+    const canvasTerrains = this._canvasTerrainLevelsAt(location);
+    const tileTerrains = this._tileTerrainLevelsAt(location, bounds);
+    const templateTerrains = this._templateTerrainLevelsAt(location, bounds);
+    return canvasTerrains.union(tileTerrains).union(templateTerrains);
   }
 
   /**
-   * Active unique terrain(s) at a given position and elevation.
+   * Unique active terrain(s) at a given position.
    * @param {Point|Point3d} {x, y, z}   2d or 3d point
    * @param {number} [elevation]        Optional elevation (if not pt.z or 0)
    * @returns {Set<Terrain>}
    */
-  activeTerrainsAt(pt, elevation) {
-    return new Set(this.activeTerrainLevelsAt(pt, elevation).map(t => t.terrain));
-  }
-
-  /**
-   * Terrain levels at a given position.
-   * @param {Point} {x, y}
-   * @returns {TerrainLevel[]}
-   */
-  terrainLevelsAt(pt) {
-    return [
-      ...this._canvasTerrainLevelsAt(pt),
-      ...this._tileTerrainLevelsAt(pt),
-      ...this._templateTerrainLevelsAt(pt)
-    ];
-  }
-
-  /**
-   * Active terrain levels at a given position and elevation.
-   * @param {Point|Point3d} {x, y, z}   2d or 3d point
-   * @param {number} [elevation]        Optional elevation (if not pt.z or 0)
-   * @returns {TerrainLevel[]}
-   */
-  activeTerrainLevelsAt(pt, elevation) {
-    elevation ??= CONFIG.GeometryLib.utils.pixelsToGridUnits(pt.z) || 0;
-    const terrainLevels = this.terrainLevelsAt(pt);
-    return terrainLevels.filter(t => t.activeAt(elevation, pt));
+  activeTerrainsAt(location, elevation) {
+    elevation ??= CONFIG.GeometryLib.utils.pixelsToGridUnits(location.z) || 0;
+    return this.terrainLevelsAt(location)
+      .filter(t => t.activeAt(elevation, location))
+      .map(t => t.terrain);
   }
 
   /**
@@ -423,18 +401,18 @@ export class TerrainLayer extends InteractionLayer {
   /**
    * Terrains for a given array of layers
    * @param {Uint8Array[MAX_LAYERS]} terrainLayers
-   * @returns {TerrainLevels[]}
+   * @returns {Set<TerrainLevel>}
    */
   _layersToTerrainLevels(terrainLayers) {
-    const terrainArr = [];
+    const terrains = new Set();
     const nLayers = terrainLayers.length;
     for ( let i = 0; i < nLayers; i += 1 ) {
       const px = terrainLayers[i];
       if ( !px ) continue;
       const terrain = this.terrainForPixel(px);
-      terrainArr.push(new TerrainLevel(terrain, i));
+      terrains.add(new TerrainLevel(terrain, i))
     }
-    return terrainArr;
+    return terrains;
   }
 
   // ----- NOTE: Initialize, activate, deactivate, destroy ----- //

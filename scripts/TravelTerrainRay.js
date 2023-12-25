@@ -103,7 +103,7 @@ export class TravelTerrainRay {
   }
 
   get activePath() {
-    if ( !this.activePath.length ) this._constructActivePath();
+    if ( !this.#activePath.length ) this._constructActivePath();
     return this.#activePath;
   }
 
@@ -136,7 +136,7 @@ export class TravelTerrainRay {
   terrainLevelsAtT(t) {
     const mark = this.constructor.markerAtT(t, this.path);
     if ( !mark ) return new Set();
-    return mark;
+    return mark.terrains;
   }
 
   /**
@@ -147,7 +147,7 @@ export class TravelTerrainRay {
   activeTerrainsAtT(t) {
     const mark = this.constructor.markerAtT(t, this.activePath);
     if ( !mark ) return new Set();
-    return mark;
+    return mark.terrains;
   }
 
   /**
@@ -408,6 +408,7 @@ export class TravelTerrainRay {
       if ( inside ) markers.push({
         t: 0,
         addTerrains: terrains,
+        removeTerrains: nullSet,
         type: "tile"
       });
       for ( const ix of ixs ) {
