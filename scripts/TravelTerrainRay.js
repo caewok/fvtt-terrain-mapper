@@ -74,13 +74,6 @@ export class TravelTerrainRay {
     if ( destination ) this.destination.copyFrom(destination);
   }
 
-  /**
-   * Retrieve all terrain levels for a given pixel key.
-   * @param {TerrainKey} key
-   * @returns {TerrainLevels[]}
-   */
-  static terrainLevelsForKey(key) { return canvas.terrain._layersToTerrainLevels(key.toTerrainLayers()); }
-
   /** @type {PIXI.Point} */
   #origin = new Point3d();
 
@@ -117,7 +110,7 @@ export class TravelTerrainRay {
   /**
    * Clear path and active path.
    */
-  clear() {
+  clearPath() {
     this.#path.length = 0;
     this.#activePath.length = 0;
   }
@@ -126,7 +119,7 @@ export class TravelTerrainRay {
    * Clear the active path only.
    */
   clearActivePath() {
-    this.#activePath.lenght = 0;
+    this.#activePath.length = 0;
   }
 
   /**
@@ -233,8 +226,8 @@ export class TravelTerrainRay {
    * Get each point at which there is a terrain change.
    */
   _walkPath() {
+    this.clearPath()
     const path = this.#path;
-    path.length = 0;
 
     // Retrieve points of change along the ray:
     // 1. elevation
@@ -457,10 +450,10 @@ export class TravelTerrainRay {
    * only one applies.
    */
   _constructActivePath() {
+    this.clearActivePath();
     const path = this.path;
-    const activePath = this.#activePath;
-    activePath.length = 0;
     if ( !path.length ) return [];
+    const activePath = this.#activePath;
 
     // For each terrain, determine its starting and ending t value based on elevation and position.
     // Insert into array the start and end.
