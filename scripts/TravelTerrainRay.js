@@ -9,7 +9,7 @@ PIXI
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { MODULE_ID, FLAGS } from "./const.js";
+import { MODULE_ID, FLAGS, MODULES_ACTIVE } from "./const.js";
 import { Point3d } from "./geometry/3d/Point3d.js";
 import { TerrainKey } from "./TerrainPixelCache.js";
 
@@ -49,14 +49,8 @@ export class TravelTerrainRay {
   /** @type {Token} */
   #token;
 
-  /** @type {PIXI.Point} */
-  #destination = new Point3d();
-
-  /** @type {PIXI.Point} */
-  #origin = new Point3d();
-
   /** @type {object[]} */
-  #path = [];
+  #activePath = [];
 
   /** @type {function} */
   #markTerrainFn = (curr, prev) => curr !== prev;
@@ -87,7 +81,9 @@ export class TravelTerrainRay {
    */
   static terrainLevelsForKey(key) { return canvas.terrain._layersToTerrainLevels(key.toTerrainLayers()); }
 
-  /** @type {Point3d} */
+  /** @type {PIXI.Point} */
+  #origin = new Point3d();
+
   get origin() { return this.#origin; }
 
   set origin(value) {
@@ -95,7 +91,9 @@ export class TravelTerrainRay {
     this.#path.length = 0;
   }
 
-  /** @type {Point3d} */
+  /** @type {PIXI.Point} */
+  #destination = new Point3d();
+
   get destination() { return this.#destination; }
 
   set destination(value) {
@@ -103,9 +101,32 @@ export class TravelTerrainRay {
     this.#path.length = 0;
   }
 
+  /** @type {object[]} */
+  #path = [];
+
   get path() {
     if ( !this.#path.length ) this._walkPath();
     return this.#path;
+  }
+
+  get activePath() {
+    if ( !this.activePath.length ) this._constructActivePath();
+    return this.#activePath;
+  }
+
+  /**
+   * Clear path and active path.
+   */
+  clear() {
+    this.#path.length = 0;
+    this.#activePath.length = 0;
+  }
+
+  /**
+   * Clear the active path only.
+   */
+  clearActivePath() {
+    this.#activePath.lenght = 0;
   }
 
   /**
@@ -209,7 +230,7 @@ export class TravelTerrainRay {
   activeTerrainLevelsAtClosestPoint(pt) { return this.activeTerrainLevelsAtT(this.tForPoint(pt)); }
 
   /**
-   * Closest point on the ray and return the t value for that location.
+   * Find closest point on the ray and return the t value for that location.
    * @param {Point} pt    Point to use to determine the closest point to the ray
    * @returns {number} The t value, where origin = 0, destination = 1
    */
@@ -285,11 +306,10 @@ export class TravelTerrainRay {
     // Must track each terrain marker set to know when terrains have been removed.
     let currCanvasTerrains = new Set();
     let currTileTerrains = new Set();
-    const finalMarkers = [];
 
     // Initialize.
     let prevMarker = { t: 0, terrains: new Set() };
-    finalMarkers.push(prevMarker);
+    const finalMarkers = [prevMarker];
 
     // Combine markers with the same t (2d location).
     // Track terrain levels that are present at each location.
@@ -315,21 +335,30 @@ export class TravelTerrainRay {
       }
     }
 
-    // Trim where the terrains and elevation have not changed from the previous step.
-    prevMarker = finalMarkers[0];
-    this.#path.push(prevMarker);
-    const numMarkers = finalMarkers.length;
+    return this.#trimPath(finalMarkers, path);
+  }
+
+  /**
+   * Trim path markers where terrains and elevation have not changed from the previous marker.
+   * @param {Marker[]} oldPath            Array of markers to trim
+   * @param {Marker[]} [trimmedPath=[]]   Optional (usually empty) array to place the trimmed markers
+   * @returns {Marker[]} The trimmedPath array, for convenience.
+   */
+  #trimPath(oldPath, trimmedPath = [], skipElevation = false) {
+    let prevMarker = oldPath[0];
+    trimmedPath.push(prevMarker);
+    const numMarkers = oldPath.length;
     for ( let i = 1; i < numMarkers; i += 1 ) {
-      const currMarker = finalMarkers[i];
-      if ( prevMarker.elevation === currMarker.elevation
+      const currMarker = oldPath[i];
+      if ( (skipElevation || prevMarker.elevation === currMarker.elevation)
         && prevMarker.terrains.equals(currMarker.terrains) ) {
         console.debug("TravelTerrainRay skipping duplicate marker.");
         continue;
       }
-      this.#path.push(currMarker);
+      trimmedPath.push(currMarker);
       prevMarker = currMarker;
     }
-    return this.#path;
+    return trimmedPath;
   }
 
   /**
@@ -388,8 +417,18 @@ export class TravelTerrainRay {
     const markers = [];
     tiles.forEach(tile => {
       const tileMarkers = this._tileTerrainMarker(tile);
+      tileMarkers.tile = tile;
       markers.push(...tileMarkers);
     });
+    markers.sort((a, b) => a.t - b.t);
+
+    // Combine the different tiles.
+    const currTerrains = new Set();
+    for ( const marker of markers ) {
+      marker.addTerrains.forEach(t => currTerrains.add(t));
+      marker.removeTerrains.forEach(t => currTerrains.delete(t));
+      marker.terrains = new Set(currTerrains);
+    }
     return markers;
   }
 
@@ -421,13 +460,16 @@ export class TravelTerrainRay {
       let inside = thresholdBounds.contains(origin.x, origin.y);
       if ( inside ) markers.push({
         t: 0,
-        terrains
+        addTerrains: terrains,
+        type: "tile"
       });
       for ( const ix of ixs ) {
         inside ^= true; // Alternate true/false.
+        const [addTerrains, removeTerrains] = inside ? [terrains, nullSet] : [nullSet, terrains];
         markers.push({
           t: this.tForPoint(ix),
-          terrains: inside ? terrains : nullSet,
+          addTerrains,
+          removeTerrains,
           type: "tile"
         });
       }
@@ -440,9 +482,12 @@ export class TravelTerrainRay {
     const tileMarkers = pixelCache._extractAllMarkedPixelValuesAlongCanvasRay(
       origin, destination, markTileFn, { alphaThreshold: CONFIG[MODULE_ID].alphaThreshold });
     return tileMarkers.map(obj => {
+      const [addTerrains, removeTerrains] = obj.currPixel < pixelAlpha ? [nullSet, terrains] : [terrains, nullSet];
       return {
         t: this.tForPoint(obj),
-        terrains: obj.currPixel < pixelAlpha ? nullSet : terrains
+        addTerrains,
+        removeTerrains,
+        type: "tile"
       };
     });
   }
@@ -457,19 +502,133 @@ export class TravelTerrainRay {
    * Terrains cannot duplicate, so if the same terrain is active from, say, tile and canvas,
    * only one applies.
    */
+  _constructActivePath() {
+    const path = this.path;
+    const activePath = this.#activePath;
+    activePath.length = 0;
+    if ( !path.length ) return [];
+
+    // For each terrain, determine its starting and ending t value based on elevation and position.
+    // Insert into array the start and end.
+    // Then walk the array, tracking what is active.
+    const tValues = [];
+    const elevationChange = !this.origin.z.almostEqual(this.destination.z);
+    const steppedElevation = MODULES_ACTIVE.ELEVATED_VISION || !elevationChange;
+    let currLevels = new Set();
+
+    for ( const marker of path ) {
+      const t = marker.t;
+      const removedLevels = currLevels.difference(marker.terrains);
+      const location = this.point3dAtT(t);
+      const elevation = marker.elevation ?? location.z;
+      currLevels = marker.terrains;
+      removedLevels.forEach(level => tValues.push({ t, removeTerrain: level.terrain, elevation }));
+
+      for ( const terrainLevel of marker.terrains ) {
+        const terrain = terrainLevel.terrain;
+        const { min: minZ, max: maxZ} = terrainLevel.elevationRangeZ(location); // TODO: Need pixel units, not grid units
+        const currentlyActive = elevation.between(minZ, maxZ);
+        if ( currentlyActive ) tValues.push({ t, addTerrain: terrain, elevation });
+
+        // If elevation is stepped using EV, then every elevation change along the path is marked.
+        // We can assume fixed elevation until the next elevation change.
+        // So if the terrain is active, we can simply add it.
+        if ( steppedElevation ) continue;
+
+        // Determine the start and end points.
+        const minT = this.tForElevation(minZ);
+        const maxT = this.tForElevation(maxZ);
+        const [startT, endT] = minT > maxT ? [maxT, minT] : [minT, maxT];
+        if ( startT > t && startT <= 1) tValues.push({
+          t: startT,
+          addTerrain: terrain,
+          elevation: this.point3dAtT(startT).z });
+        if ( endT > t && endT <= 1 ) tValues.push({
+          t: endT,
+          removeTerrain: terrain,
+          elevation: this.point3dAtT(endT).z });
+      }
+    }
+
+    // Sort lower t values first.
+    tValues.sort((a, b) => a.t - b.t);
+
+    // Now consolidate the t value array, tracking active terrains as we go.
+    // Similar to walkPath.
+    // Initialize.
+    let prevMarker = { t: 0, elevation: this.origin.z, terrains: new Set() };
+    const finalMarkers = [prevMarker];
+    for ( const marker of tValues ) {
+      const sameT = marker.t.almostEqual(prevMarker.t);
+      const currMarker = sameT ? prevMarker : {
+        t: marker.t,
+        elevation: marker.elevation,
+        terrains: new Set(prevMarker.terrains) };
+      if ( !sameT ) finalMarkers.push(currMarker);
+      if ( marker.addTerrain ) currMarker.terrains.add(marker.addTerrain);
+      if ( marker.removeTerrain ) currMarker.terrains.delete(marker.removeTerrain);
+      prevMarker = currMarker;
+    }
+
+    // Trim where terrains and elevation have not changed from the previous step.
+    // If EV is not active, we can trim the duplicate terrains regardless of elevation,
+    // because elevation is calculated.
+    const skipElevation = !MODULES_ACTIVE.ELEVATED_VISION;
+    return this.#trimPath(finalMarkers, activePath, skipElevation);
+  }
+
+  /**
+   * @param {number} t      Percent distance along origin --> destination ray
+   * @returns {Point3d}
+   */
+  point3dAtT(t) { return this.origin.projectToward(this.destination, t); }
+
+  /**
+   * For given elevation, find where on the ray that elevation occurs.
+   * @param {number} z    Elevation to find, in pixel coordinates.
+   * @returns {number|undefined} The t value, where origin = 1, destination = 1.
+   *   Undefined if elevation does not change.
+   */
+  tForElevation(z) {
+    const { origin, destination } = this;
+    if ( origin.z.almostEqual(destination.z) ) return undefined;
+    const dz = destination.z - origin.z;
+    return (z - origin.z) / dz;
+  }
 
 }
 
 /* Testing
+Point3d = CONFIG.GeometryLib.threeD.Point3d
 let [target] = game.user.targets
 token = canvas.tokens.controlled[0]
-destination = target.center
-origin = token.center
+destination = Point3d.fromTokenCenter(target);
+origin = Point3d.fromTokenCenter(token)
 ttr = new canvas.terrain.TravelTerrainRay(_token, { origin, destination })
 
 ttr._canvasTerrainMarkers()
 ttr._tilesTerrainMarkers()
 ttr._walkPath()
+ttr._constructActivePath()
 
+
+// Spit out t and terrain names in the set
+function pathSummary(path) {
+  pathObj = path.map(obj => {
+    return { t: obj.t, elevation: obj.elevation, terrains: [...obj.terrains].map(t => t.name).join(", ") }
+  });
+  console.table(pathObj);
+  return pathObj;
+}
+
+path = ttr._walkPath();
+activePath = ttr._constructActivePath();
+pathSummary(path)
+pathSummary(activePath)
+
+pathObj = path.map(obj => {
+  return { t: obj.t, terrains: [...obj.terrains].map(t => t.id).join(", ") }
+})
+console.table(pathObj)
 
 */

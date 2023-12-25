@@ -86,12 +86,26 @@ export class TerrainLevel {
   /**
    * Elevation range for this terrain at a given canvas location.
    * @param {Point} [location]    Location on the map. Required if the anchor is RELATIVE_TO_TERRAIN and EV is present.
-   * @returns {min: {number}, max: {number}}
+   * @returns {min: {number}, max: {number}} In grid units
    */
   elevationRange(location) {
     const anchorE = this.getAnchorElevation(location);
     return this.terrain._elevationMinMaxForAnchorElevation(anchorE);
   }
+
+  /**
+   * Convenience method to get the pixel units for the elevation range. Used by TravelTerrainRay.
+   * @param {Point} [location]    Location on the map. Required if the anchor is RELATIVE_TO_TERRAIN and EV is present.
+   * @returns {min: {number}, max: {number}} In pixel units
+   */
+  elevationRangeZ(location) {
+    const minMax = this.elevationRange(location);
+    minMax.min = CONFIG.GeometryLib.utils.gridUnitsToPixels(minMax.min);
+    minMax.max = CONFIG.GeometryLib.utils.gridUnitsToPixels(minMax.max);
+    return minMax;
+  }
+
+
 
   /**
    * Determine if the terrain is active at the provided elevation.

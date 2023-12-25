@@ -24,6 +24,15 @@ export const LABELS = {
   }
 };
 
+export const MODULES_ACTIVE = {
+  ELEVATED_VISION: false,
+};
+
+// Hook init b/c game.modules is not initialized at start.
+Hooks.once("init", function() {
+  MODULES_ACTIVE.ELEVATED_VISION = game.modules.get("elevatedvision")?.active;
+});
+
 export const FLAGS = {
   ANCHOR: {
     VALUE: "anchor",
