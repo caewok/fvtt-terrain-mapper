@@ -6,6 +6,7 @@ canvas
 
 import { MODULE_ID, TEMPLATES, FLAGS } from "./const.js";
 import { Terrain } from "./Terrain.js";
+import { injectConfiguration } from "./util.js";
 
 export const PATCHES = {};
 PATCHES.BASIC = {};
@@ -25,18 +26,7 @@ async function renderTileConfig(app, html, data) {
   Terrain.getAll().forEach(t => terrains[t.id] = t.name);
   const selected = app.object.getFlag(MODULE_ID, FLAGS.ATTACHED_TERRAIN) || "";
   data[MODULE_ID] = { terrains, selected };
-  await injectConfiguration(app, html, data, TEMPLATES.TILE, findString);
+  await injectConfiguration(app, html, data, TEMPLATES.TILE, findString, "append");
 }
 
 PATCHES.BASIC.HOOKS = { renderTileConfig };
-
-
-/**
- * Helper to inject configuration html into the application config.
- */
-async function injectConfiguration(app, html, data, template, findString) {
-  const myHTML = await renderTemplate(template, data);
-  const form = html.find(findString);
-  form.append(myHTML);
-  app.setPosition(app.position);
-}

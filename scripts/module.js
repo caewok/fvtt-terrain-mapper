@@ -49,6 +49,7 @@ Hooks.once("init", function() {
 Hooks.once("setup", function() {
   Settings.registerAll();
   registerElevationConfig("TileConfig", "Terrain Mapper");
+  registerElevationConfig("MeasuredTemplateConfig", "Terrain Mapper");
 });
 
 /**
