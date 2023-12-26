@@ -394,6 +394,7 @@ export class Terrain {
    * @param {PIXI.Point} origin
    * @param {PIXI.Point} destination
    * @param {string} [speedAttribute]
+   * @returns {number} Percent of the distance between origin and destination
    */
   static percentMovementForTokenAlongPath(token, origin, destination, speedAttribute) {
     speedAttribute ??= getDefaultSpeedAttribute();
