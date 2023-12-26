@@ -226,24 +226,16 @@ export class TravelTerrainRay {
    * Get each point at which there is a terrain change.
    */
   _walkPath() {
-    this.clearPath()
+    this.clearPath();
     const path = this.#path;
 
     // Retrieve points of change along the ray:
-    // 1. elevation
-    // 2. canvas terrain layers
-    // 3. tile terrain layers
-    // 4. TODO: template terrain layers
-
-    const elevationMarkers = this._elevationMarkers();
-    const canvasTerrainMarkers = this._canvasTerrainMarkers();
-    const tileTerrainMarkers = this._tilesTerrainMarkers();
-
     // Combine and sort from t = 0 to t = 1.
     const combinedMarkers = [
-      ...elevationMarkers,
-      ...canvasTerrainMarkers,
-      ...tileTerrainMarkers
+      ...this._elevationMarkers(),
+      ...this._canvasTerrainMarkers(),
+      ...this._tilesTerrainMarkers(),
+      ...this._templatesTerrainMarkers()
     ].sort((a, b) => a.t - b.t);
     if ( !combinedMarkers.length ) return [];
 
@@ -251,8 +243,11 @@ export class TravelTerrainRay {
     // - What terrains are present from this point forward.
     // - What the current elevation step is from this point forward.
     // Must track each terrain marker set to know when terrains have been removed.
-    let currCanvasTerrains = new Set();
-    let currTileTerrains = new Set();
+    const currTerrains = {
+      canvas: new Set(),
+      tile: new Set(),
+      template: new Set()
+    };
 
     // Initialize.
     let prevMarker = { t: 0, terrains: new Set() };
@@ -264,24 +259,13 @@ export class TravelTerrainRay {
       const sameT = marker.t.almostEqual(prevMarker.t);
       const currMarker = sameT ? prevMarker : mergeObject(prevMarker, { t: marker.t }, { inplace: false });
       if ( !sameT ) finalMarkers.push(currMarker);
-      switch ( marker.type ) {
-        case "elevation": {
-          currMarker.elevation = marker.elevation;
-          break;
-        }
-        case "canvas": {
-          currCanvasTerrains = marker.terrains;
-          currMarker.terrains = currTileTerrains.union(currCanvasTerrains); // Copy
-          break;
-        }
-        case "tile": {
-          currTileTerrains = marker.terrains;
-          currMarker.terrains = currTileTerrains.union(currCanvasTerrains); // Copy
-          break;
-        }
+      if ( marker.type === "elevation" ) {
+        currMarker.elevation = marker.elevation;
+        continue;
       }
+      currTerrains[marker.type] = marker.terrains;
+      currMarker.terrains = currTerrains.canvas.union(currTerrains.tile).union(currTerrains.template); // Copy
     }
-
     return this.#trimPath(finalMarkers, path);
   }
 
@@ -350,9 +334,6 @@ export class TravelTerrainRay {
    */
   _tilesTerrainMarkers() {
     const { origin, destination } = this;
-    const xMinMax = Math.minMax(origin.x, destination.x);
-    const yMinMax = Math.minMax(origin.y, destination.y);
-    const bounds = new PIXI.Rectangle(xMinMax.min, yMinMax, xMinMax.max - xMinMax.min, yMinMax.max - yMinMax.min);
     const collisionTest = (o, _rect) => {
       const tile = o.t;
       if ( !tile.hasAttachedTerrain ) return false;
@@ -360,23 +341,11 @@ export class TravelTerrainRay {
       const thresholdBounds = pixelCache.getThresholdCanvasBoundingBox(CONFIG[MODULE_ID].alphaThreshold);
       return thresholdBounds.lineSegmentIntersects(origin, destination, { inside: true });
     };
-    const tiles = canvas.tiles.quadtree.getObjects(bounds, { collisionTest });
-    const markers = [];
-    tiles.forEach(tile => {
-      const tileMarkers = this._tileTerrainMarker(tile);
-      tileMarkers.tile = tile;
-      markers.push(...tileMarkers);
-    });
-    markers.sort((a, b) => a.t - b.t);
 
-    // Combine the different tiles.
-    const currTerrains = new Set();
-    for ( const marker of markers ) {
-      marker.addTerrains.forEach(t => currTerrains.add(t));
-      marker.removeTerrains.forEach(t => currTerrains.delete(t));
-      marker.terrains = new Set(currTerrains);
-    }
-    return markers;
+    return this.#placeablesTerrainMarkers(
+      canvas.tiles.quadtree,
+      collisionTest,
+      this._tileTerrainMarkers.bind(this));
   }
 
   /**
@@ -384,7 +353,7 @@ export class TravelTerrainRay {
    * @param {Tile} tile
    * @returns {Marker[]]}
    */
-  _tileTerrainMarker(tile) {
+  _tileTerrainMarkers(tile) {
     if ( !tile.hasAttachedTerrain ) return [];
 
     // If tile alpha is set to 1, tile is treated as fully transparent.
@@ -393,36 +362,17 @@ export class TravelTerrainRay {
 
     // If the tile should be treated as opaque, just identify the entry and exit points along the ray.
     // May have only one if start or end point is within the bounds.
+    if ( !tileAlpha ) {
+      const thresholdBounds = pixelCache.getThresholdCanvasBoundingBox(CONFIG[MODULE_ID].alphaThreshold);
+      return this.#placeableTerrainMarkers(tile, "tile", thresholdBounds);
+    }
+
+    // If the tile should be treated as opaque, just identify the entry and exit points along the ray.
+    // May have only one if start or end point is within the bounds.
     const terrains = new Set([tile.attachedTerrain]);
     const nullSet = new Set();
     const pixelCache = tile.evPixelCache;
     const { origin, destination } = this;
-    if ( !tileAlpha ) {
-      const thresholdBounds = pixelCache.getThresholdCanvasBoundingBox(CONFIG[MODULE_ID].alphaThreshold);
-      const ixs = thresholdBounds.segmentIntersections(origin, destination);
-      const markers = [];
-
-      // We can reasonably assume in/out pattern. So if we start inside the tile, the first
-      // intersection is outside, and vice-versa.
-      let inside = thresholdBounds.contains(origin.x, origin.y);
-      if ( inside ) markers.push({
-        t: 0,
-        addTerrains: terrains,
-        removeTerrains: nullSet,
-        type: "tile"
-      });
-      for ( const ix of ixs ) {
-        inside ^= true; // Alternate true/false.
-        const [addTerrains, removeTerrains] = inside ? [terrains, nullSet] : [nullSet, terrains];
-        markers.push({
-          t: this.tForPoint(ix),
-          addTerrains,
-          removeTerrains,
-          type: "tile"
-        });
-      }
-      return markers;
-    }
 
     // Track the ray across the tile, locating points where transparency starts or stops.
     const pixelAlpha = tileAlpha * 255; // Convert alpha percentage to pixel values.
@@ -439,6 +389,95 @@ export class TravelTerrainRay {
       };
     });
   }
+
+  /**
+   * Retrieve tile terrain change markers along the path
+   * @returns {Marker[]}
+   */
+  _templatesTerrainMarkers() {
+    const { origin, destination } = this;
+    const collisionTest = (o, _rect) => {
+      const template = o.t;
+      if ( !template.hasAttachedTerrain ) return false;
+      const shape = template.shape.translate(template.x, template.y);
+      return shape.lineSegmentIntersects(origin, destination, { inside: true });
+    };
+
+    return this.#placeablesTerrainMarkers(
+      canvas.templates.quadtree,
+      collisionTest,
+      this._templateTerrainMarkers.bind(this));
+  }
+
+  /**
+   * Helper method to retrieve placeable object change markers along the path.
+   */
+  #placeablesTerrainMarkers(quadtree, collisionTest, markerFn) {
+    const { origin, destination } = this;
+    const xMinMax = Math.minMax(origin.x, destination.x);
+    const yMinMax = Math.minMax(origin.y, destination.y);
+    const bounds = new PIXI.Rectangle(xMinMax.min, yMinMax, xMinMax.max - xMinMax.min, yMinMax.max - yMinMax.min);
+    const placeables = quadtree.getObjects(bounds, { collisionTest });
+    const markers = [];
+    placeables.forEach(placeable => markers.push(...markerFn(placeable)));
+    markers.sort((a, b) => a.t - b.t);
+
+    // Combine the different tiles.
+    const currTerrains = new Set();
+    for ( const marker of markers ) {
+      marker.addTerrains.forEach(t => currTerrains.add(t));
+      marker.removeTerrains.forEach(t => currTerrains.delete(t));
+      marker.terrains = new Set(currTerrains);
+    }
+    return markers;
+  }
+
+  /**
+   * Retrieve template terrain change markers along the path for a single template.
+   * @param {MeasuredTemplate} template
+   * @returns {Marker[]]}
+   */
+  _templateTerrainMarkers(template) {
+    const shape = template.shape.translate(template.x, template.y);
+    return this.#placeableTerrainMarkers(template, "template", shape);
+  }
+
+  /**
+   * Helper method to return a set of markers for a single placeable encountered along the path.
+   */
+  #placeableTerrainMarkers(placeable, type, bounds) {
+    if ( !placeable.hasAttachedTerrain ) return [];
+
+    // If the tile should be treated as opaque, just identify the entry and exit points along the ray.
+    // May have only one if start or end point is within the bounds.
+    const placeables = new Set([placeable.attachedTerrain]);
+    const nullSet = new Set();
+    const { origin, destination } = this;
+    const ixs = bounds.segmentIntersections(origin, destination);
+    const markers = [];
+
+    // We can reasonably assume in/out pattern. So if we start inside the template, the first
+    // intersection is outside, and vice-versa.
+    let inside = bounds.contains(origin.x, origin.y);
+    if ( inside ) markers.push({
+      t: 0,
+      addTerrains: placeables,
+      removeTerrains: nullSet,
+      type
+    });
+    for ( const ix of ixs ) {
+      inside ^= true; // Alternate true/false.
+      const [addTerrains, removeTerrains] = inside ? [placeables, nullSet] : [nullSet, placeables];
+      markers.push({
+        t: this.tForPoint(ix),
+        addTerrains,
+        removeTerrains,
+        type
+      });
+    }
+    return markers;
+  }
+
 
   /**
    * Determine the active terrains along the 3d path.

@@ -185,7 +185,7 @@ export class TerrainMeasuredTemplate extends TerrainLevel {
    * Unique id for this type of level and terrain. Used to distinguish between copies.
    * @type {string}
    */
-  get id() { return `${this.terrain.id}_tile_${this.level.id}`; } // Level equals template here.
+  get id() { return `${this.terrain.id}_template_${this.level.id}`; } // Level equals template here.
 
   /**
    * Returns the tile elevation.
@@ -207,6 +207,8 @@ export class TerrainMeasuredTemplate extends TerrainLevel {
     if ( !template.bounds.contains(location.x, location.y) ) return false;
 
     // Second, check if contained within the template shape.
-    return template.shape.contains(location.x, location.y);
+    // Shape centered at origin 0, 0.
+    const shape = template.shape.translate(template.x, template.y)
+    return shape.contains(location.x, location.y);
   }
 }
