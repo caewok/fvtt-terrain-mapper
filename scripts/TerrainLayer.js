@@ -366,10 +366,10 @@ export class TerrainLayer extends InteractionLayer {
    */
   #terrainAt(pt) {
     const layers = this._terrainLayersAt(pt);
+    if ( !layers ) return undefined;
     const currLayer = this.toolbar.currentLayer;
     const pixelValue = layers[currLayer];
     if ( !pixelValue ) return undefined; // Don't return the null terrain.
-
     const terrain = this.terrainForPixel(pixelValue);
     return new TerrainLevel(terrain, currLayer);
   }
