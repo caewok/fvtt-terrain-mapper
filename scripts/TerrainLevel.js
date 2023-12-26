@@ -167,3 +167,46 @@ export class TerrainTile extends TerrainLevel {
     return this.tile.mesh.getPixelAlpha(location.x, location.y) < alphaThreshold;
   }
 }
+
+/**
+ * Represent a measured template linked to a tile.
+ */
+export class TerrainMeasuredTemplate extends TerrainLevel {
+  /** @type {MeasuredTemplate} */
+  template;
+
+  constructor(terrain, template) {
+    if ( template && !(template instanceof MeasuredTemplate) ) console.error("TerrainMeasuredTemplate requires a MeasuredTemplate object.", tile);
+    super(terrain, template);
+    this.template = template;
+  }
+
+  /**
+   * Unique id for this type of level and terrain. Used to distinguish between copies.
+   * @type {string}
+   */
+  get id() { return `${this.terrain.id}_tile_${this.level.id}`; } // Level equals template here.
+
+  /**
+   * Returns the tile elevation.
+   * @returns {number} Elevation, in grid units.
+   */
+  _layerElevation() { return this.template.elevationE || 0; }
+
+  /**
+   * Determine if the terrain is active at the provided elevation.
+   * @param {number} elevation    Elevation to test
+   * @param {Point}  location    Location on the map. Required.
+   * @returns {boolean}
+   */
+  activeAt(elevation, location) {
+    if ( !super.activeAt(elevation, location) ) return false;
+
+    // First, check if within the bounds of the template.
+    const template = this.template;
+    if ( !template.bounds.contains(location.x, location.y) ) return false;
+
+    // Second, check if contained within the template shape.
+    return template.shape.contains(location.x, location.y);
+  }
+}

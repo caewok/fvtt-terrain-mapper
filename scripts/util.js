@@ -5,6 +5,16 @@ PIXI
 "use strict";
 
 /**
+ * Helper to inject configuration html into the application config.
+ */
+export async function injectConfiguration(app, html, data, template, findString, attachMethod = "append") {
+  const myHTML = await renderTemplate(template, data);
+  const form = html.find(findString);
+  form[attachMethod](myHTML);
+  app.setPosition(app.position);
+}
+
+/**
  * Capitalize the first letter of a string.
  * @param {string} str
  * @returns {string}
