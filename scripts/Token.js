@@ -74,12 +74,12 @@ function refreshTokenHook(token, flags) {
     const center = token.getCenter(token.position.x, token.position.y);
     const pathTerrains = ttr.activeTerrainsAtClosestPoint(center);
     if ( !pathTerrains.size ) {
-      Terrain.removeAllSceneTerrainsFromToken(token); // Async
+      Terrain.removeAllFromToken(token); // Async
       return;
     }
 
     // Determine if terrains must be added or removed from the token at this point.
-    const tokenTerrains = new Set(Terrain.allSceneTerrainsOnToken(token));
+    const tokenTerrains = new Set(Terrain.allOnToken(token));
     const terrainsToRemove = tokenTerrains.difference(pathTerrains);
     const terrainsToAdd = pathTerrains.difference(tokenTerrains);
 

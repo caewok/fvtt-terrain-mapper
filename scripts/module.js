@@ -14,6 +14,7 @@ import { TerrainMap } from "./TerrainMap.js";
 import { EffectHelper } from "./EffectHelper.js";
 import { PATCHER, initializePatching } from "./patching.js";
 import { registerGeometry } from "./geometry/registration.js";
+import { registerElevationConfig } from "./geometry/elevation_configs.js";
 import { terrainEncounteredDialog, updateTokenDocument } from "./Token.js";
 
 import { TerrainLayerShader } from "./glsl/TerrainLayerShader.js";
@@ -34,6 +35,7 @@ import "./changelog.js";
  */
 Hooks.once("init", function() {
   initializePatching();
+  initializeConfig();
   initializeAPI();
   registerGeometry();
   TerrainLayer.register();
@@ -46,6 +48,7 @@ Hooks.once("init", function() {
  */
 Hooks.once("setup", function() {
   Settings.registerAll();
+  registerElevationConfig("TileConfig", "Terrain Mapper");
 });
 
 /**
@@ -106,6 +109,17 @@ function initializeAPI() {
     TerrainPixelCache,
     TerrainKey
   };
+}
+
+function initializeConfig() {
+  CONFIG[MODULE_ID] = {
+    /**
+     * Alpha threshold below which a tile is considered transparent for purposes of terrain.
+     * @type {number} Between 0 and 1
+     */
+    alphaThreshold: 0.75
+  };
+
 }
 
 /* Data Storage
