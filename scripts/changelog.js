@@ -42,6 +42,20 @@ Hooks.once("ready", () => {
                 Feel free to also suggest improvements or new features by filing a new issue there.`
         })
 
+        .addEntry({
+            version: "0.1.0",
+            title: "Tiles and Templates",
+            body: `\
+                You can now add terrains to tiles or templates. The elevation of the tile or template is
+                taken into account if the terrain effect area is set to be relative to the level (as opposed to absolute).
+
+                In all cases, the outer transparent border of the tile will be ignored. Note that in the tile configuration,
+                you can choose whether to ignore inner transparent portions of the tile. For example, you might have a tile of a
+                rectangular balcony that is open (transparent) in the center, and only have the terrain apply to the non-transparent
+                balcony portion.`
+        })
+
+
         .build()
         ?.render(true);
 });
