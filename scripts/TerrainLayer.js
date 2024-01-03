@@ -11,7 +11,8 @@ PreciseText,
 readTextFromFile,
 renderTemplate,
 saveDataToFile,
-ui
+ui,
+Wall
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
@@ -169,7 +170,7 @@ export class TerrainLayer extends InteractionLayer {
    * adjustments by the GM to the scene elevation.
    * @type {PIXI.Sprite}
    */
-//   _backgroundTerrain = PIXI.Sprite.from(PIXI.Texture.EMPTY);
+  //   _backgroundTerrain = PIXI.Sprite.from(PIXI.Texture.EMPTY);
 
   // ----- NOTE: PIXI arrays/maps ----- //
 
@@ -266,51 +267,86 @@ export class TerrainLayer extends InteractionLayer {
 
   // ----- NOTE: Access terrain data ----- //
 
-  /**
-   * Unique terrain(s) at a given position.
-   * @param {Point} {x, y}
-   * @returns {Set<Terrain>}
-   */
-  terrainsAt(pt) {
-    if ( !this.#initialized ) return [];
+  /*
+    Definitions
+    - Terrain: Terrain from the Terrain book. Not anchored to a specific elevation.
+    - TerrainLevel: Class that associates a Terrain with an elevation level.
+                    Linked to a canvas layer, tile, or measured template.
+    - Active: If the terrain affects the 3d position in space.
 
-    // Return only terrains that are non-zero.
-    return new Set(this.terrainLevelsAt(pt).map(t => t.terrain));
-  }
+    Primary Methods
+    - terrainLevelsAt: Set of TerrainLevel|TerrainTile|TerrainMeasuredTemplate at a 2d position.
+    - activeTerrainsAt: `terrainLevelsAt` filtered by active. Requires elevation to determine.
 
-  /**
-   * Active unique terrain(s) at a given position and elevation.
-   * @param {Point|Point3d} {x, y, z}   2d or 3d point
-   * @param {number} [elevation]        Optional elevation (if not pt.z or 0)
-   * @returns {Set<Terrain>}
-   */
-  activeTerrainsAt(pt, elevation) {
-    return new Set(this.activeTerrainLevelsAt(pt, elevation).map(t => t.terrain));
-  }
+    Submethods
+    - _canvasTerrainLevelsAt
+    - _tileTerrainLevelsAt
+    - _templateTerrainLevelsAt
+  */
 
   /**
-   * Terrain levels at a given position.
-   * @param {Point} {x, y}
+   * Canvas TerrainLevels at a given position.
+   * @param {Point} {x, y} location
    * @returns {TerrainLevel[]}
    */
-  terrainLevelsAt(pt) {
-    if ( !this.#initialized ) return [];
+  _canvasTerrainLevelsAt(location) {
+    if ( !this.#initialized ) return new Set();
 
     // Return only terrains that are non-zero.
-    const terrainLayers = this._terrainLayersAt(pt);
+    const terrainLayers = this._terrainLayersAt(location);
     return this._layersToTerrainLevels(terrainLayers);
   }
 
   /**
-   * Active terrain levels at a given position and elevation.
+   * TerrainTiles at a given position.
+   * @param {Point} {x, y} location            Position to test
+   * @param {PIXI.Rectangle} [bounds]     Boundary rectangle around the pixel to use to search quadtree.
+   * @returns {Set<TerrainTile>}
+   */
+  _tileTerrainLevelsAt(location, bounds) {
+    bounds ??= new PIXI.Rectangle(location.x - 1, location.y -1, 3, 3);
+    const collisionTest = (o, rect) => o.t.hasAttachedTerrain && rect.contains(location.x, location.y);
+    const tiles = canvas.tiles.quadtree.getObjects(bounds, { collisionTest });
+    return tiles.map(tile => tile.attachedTerrain);
+  }
+
+  /**
+   * TerrainMeasuredTemplates at a given position.
+   * @param {Point} {x, y} location       Position to test
+   * @param {PIXI.Rectangle} [bounds]     Boundary rectangle around the pixel to use to search quadtree.
+   * @returns {Set<TerrainTemplate>}
+   */
+  _templateTerrainLevelsAt(location, bounds) {
+    bounds ??= new PIXI.Rectangle(location.x - 1, location.y -1, 3, 3);
+    const collisionTest = (o, rect) => o.t.hasAttachedTerrain && rect.contains(location.x, location.y);
+    const templates = canvas.templates.quadtree.getObjects(bounds, { collisionTest });
+    return templates.map(template => template.attachedTerrain);
+  }
+
+  /**
+   * Terrain levels found at the provided 2d position.
+   * @param {Point} {x, y} location
+   * @returns {Set<TerrainLevel>}
+   */
+  terrainLevelsAt(location) {
+    const bounds = new PIXI.Rectangle(location.x - 1, location.y -1, 3, 3);
+    const canvasTerrains = this._canvasTerrainLevelsAt(location);
+    const tileTerrains = this._tileTerrainLevelsAt(location, bounds);
+    const templateTerrains = this._templateTerrainLevelsAt(location, bounds);
+    return canvasTerrains.union(tileTerrains).union(templateTerrains);
+  }
+
+  /**
+   * Unique active terrain(s) at a given position.
    * @param {Point|Point3d} {x, y, z}   2d or 3d point
    * @param {number} [elevation]        Optional elevation (if not pt.z or 0)
-   * @returns {TerrainLevel[]}
+   * @returns {Set<Terrain>}
    */
-  activeTerrainLevelsAt(pt, elevation) {
-    elevation ??= CONFIG.GeometryLib.utils.pixelsToGridUnits(pt.z) || 0;
-    const terrainLevels = this.terrainLevelsAt(pt);
-    return terrainLevels.filter(t => t.activeAt(elevation, pt));
+  activeTerrainsAt(location, elevation) {
+    elevation ??= CONFIG.GeometryLib.utils.pixelsToGridUnits(location.z) || 0;
+    return this.terrainLevelsAt(location)
+      .filter(t => t.activeAt(elevation, location))
+      .map(t => t.terrain);
   }
 
   /**
@@ -330,10 +366,10 @@ export class TerrainLayer extends InteractionLayer {
    */
   #terrainAt(pt) {
     const layers = this._terrainLayersAt(pt);
+    if ( !layers ) return undefined;
     const currLayer = this.toolbar.currentLayer;
     const pixelValue = layers[currLayer];
     if ( !pixelValue ) return undefined; // Don't return the null terrain.
-
     const terrain = this.terrainForPixel(pixelValue);
     return new TerrainLevel(terrain, currLayer);
   }
@@ -365,18 +401,18 @@ export class TerrainLayer extends InteractionLayer {
   /**
    * Terrains for a given array of layers
    * @param {Uint8Array[MAX_LAYERS]} terrainLayers
-   * @returns {TerrainLevels[]}
+   * @returns {Set<TerrainLevel>}
    */
   _layersToTerrainLevels(terrainLayers) {
-    const terrainArr = [];
+    const terrains = new Set();
     const nLayers = terrainLayers.length;
     for ( let i = 0; i < nLayers; i += 1 ) {
       const px = terrainLayers[i];
       if ( !px ) continue;
       const terrain = this.terrainForPixel(px);
-      terrainArr.push(new TerrainLevel(terrain, i));
+      terrains.add(new TerrainLevel(terrain, i))
     }
-    return terrainArr;
+    return terrains;
   }
 
   // ----- NOTE: Initialize, activate, deactivate, destroy ----- //
@@ -393,7 +429,7 @@ export class TerrainLayer extends InteractionLayer {
     // Required on every initialization (loading each scene)
     if ( this.#initialized ) return;
 
-  // Debug: console.debug(`${MODULE_ID}|Initializing Terrain Mapper`);
+    // Debug: console.debug(`${MODULE_ID}|Initializing Terrain Mapper`);
 
     // Set up the shared graphics object used to color grid spaces.
     this.#initializeGridShape();
@@ -403,7 +439,7 @@ export class TerrainLayer extends InteractionLayer {
 
     // Construct the render textures that are used for the layers. 1 per 3 layers.
     // The render texture changes (and is destroyed) each scene.
-    const nTextures = this.constructor.NUM_TEXTURES
+    const nTextures = this.constructor.NUM_TEXTURES;
     for ( let i = 0; i < nTextures; i += 1 ) {
       const tex = this._terrainTextures[i] = PIXI.RenderTexture.create(this._fileManager.textureConfiguration);
       tex.baseTexture.clearColor = [0, 0, 0, 0];
@@ -421,7 +457,7 @@ export class TerrainLayer extends InteractionLayer {
     this.#initializePixelCache();
     this._clearPixelCacheArray();
 
-    const currId = Settings.getByName("CURRENT_TERRAIN");
+    const currId = Settings.get(Settings.KEYS.CURRENT_TERRAIN);
     if ( currId ) this.currentTerrain = this.sceneMap.terrainIds.get(currId);
     if ( !this.currentTerrain ) this.currentTerrain = this.sceneMap.values().next().value;
 
@@ -432,7 +468,7 @@ export class TerrainLayer extends InteractionLayer {
     // Should start at the upper left scene corner
     // Holds the default background elevation settings
     // const { sceneX, sceneY } = canvas.dimensions;
-//     this._backgroundTerrain.position = { x: sceneX, y: sceneY };
+    //     this._backgroundTerrain.position = { x: sceneX, y: sceneY };
 
     // TODO: Use a background terrain by combining the background with the foreground using an overlay
     //       for the foreground.
@@ -472,14 +508,12 @@ export class TerrainLayer extends InteractionLayer {
     this._activateHoverListener();
 
     this.#firstInitialization = true;
-  // Debug: console.debug(`${MODULE_ID}|Finished first initialization Terrain Mapper`);
+    // Debug: console.debug(`${MODULE_ID}|Finished first initialization Terrain Mapper`);
   }
-
-
 
   /** @override */
   _activate() {
-  // Debug: console.debug(`${MODULE_ID}|Activating Terrain Layer.`);
+    // Debug: console.debug(`${MODULE_ID}|Activating Terrain Layer.`);
 
     // Draw walls
     if ( game.user.isGM ) canvas.stage.addChild(this._wallDataContainer);
@@ -529,11 +563,11 @@ export class TerrainLayer extends InteractionLayer {
   }
 
   /** @inheritdoc */
-  async _tearDown(options) {
-  // Debug: console.debug(`${MODULE_ID}|_tearDown Terrain Layer`);
+  async _tearDown(_options) {
+    // Debug: console.debug(`${MODULE_ID}|_tearDown Terrain Layer`);
     if ( !this.#initialized ) return; // Don't call super._tearDown, which would destroy children.
 
-  // Debug: console.debug(`${MODULE_ID}|Tearing down Terrain Mapper`);
+    // Debug: console.debug(`${MODULE_ID}|Tearing down Terrain Mapper`);
 
     if ( this._requiresSave ) await this.save();
 
@@ -550,7 +584,7 @@ export class TerrainLayer extends InteractionLayer {
    */
   #destroy() {
   // Debug: console.debug(`${MODULE_ID}|Destroying Terrain Mapper`);
-    this._terrainColorsMesh.destroy({children: true})
+    this._terrainColorsMesh.destroy({children: true});
     this._clearWallTracker();
     this._terrainTextures.forEach(tex => tex.destroy());
   }
@@ -658,7 +692,7 @@ export class TerrainLayer extends InteractionLayer {
     this._requiresSave = true;
 
     // Refresh the UI related to the terrain.
-    this._terrainColorsMesh.shader.updateTerrainColors();
+    this._terrainColorsMesh.shader.updateAllTerrainColors();
     if ( ui.controls.activeControl === "terrain" ) ui.controls.render();
     TerrainEffectsApp.rerender();
 
@@ -683,7 +717,7 @@ export class TerrainLayer extends InteractionLayer {
     this._requiresSave = true;
 
     // Refresh the UI for the terrain.
-    this._terrainColorsMesh.shader.updateTerrainColors();
+    this._terrainColorsMesh.shader.updateAllTerrainColors();
     if ( this.toolbar.currentTerrain === this ) this.toolbar._currentTerrain = undefined;
     if ( ui.controls.activeControl === "terrain" ) ui.controls.render();
     TerrainEffectsApp.rerender();
@@ -704,7 +738,7 @@ export class TerrainLayer extends InteractionLayer {
     terrain._unassignPixel();
 
     // Refresh the UI for the terrain.
-    this._terrainColorsMesh.shader.updateTerrainColors();
+    this._terrainColorsMesh.shader.updateAllTerrainColors();
     if ( this.toolbar.currentTerrain === this ) this.toolbar._currentTerrain = undefined;
     if ( ui.controls.activeControl === "terrain" ) ui.controls.render();
     TerrainEffectsApp.rerender();
@@ -1328,7 +1362,8 @@ export class TerrainLayer extends InteractionLayer {
 
     */
 
-  // Debug: console.debug(`${MODULE_ID}|Attempting fill at { x: ${origin.x}, y: ${origin.y} } with terrain ${terrain.name}`);
+    // Debug:
+    // console.debug(`${MODULE_ID}|Attempting fill at { x: ${origin.x}, y: ${origin.y} } with terrain ${terrain.name}`);
     const polys = SCENE_GRAPH.encompassingPolygonWithHoles(origin);
     if ( !polys.length ) {
       // Shouldn't happen, but...
@@ -1376,8 +1411,9 @@ export class TerrainLayer extends InteractionLayer {
     this._shapeQueueArray.forEach(shapeQueue => shapeQueue.clear());
 
     this._clearPixelCacheArray();
-//     this._backgroundTerrain.destroy();
-//     this._backgroundTerrain = PIXI.Sprite.from(PIXI.Texture.EMPTY);
+    // Unused:
+    //     this._backgroundTerrain.destroy();
+    //     this._backgroundTerrain = PIXI.Sprite.from(PIXI.Texture.EMPTY);
 
     this._graphicsLayers.forEach(g => {
       const children = g.removeChildren();
@@ -1417,11 +1453,14 @@ export class TerrainLayer extends InteractionLayer {
     }
   }
 
-  #debugClickEvent(event, fnName) {
-    const activeTool = game.activeTool;
-    const o = event.interactionData.origin;
-    const currT = this.toolbar.currentTerrain;
-  // Debug: console.debug(`${MODULE_ID}|${fnName} at ${o.x}, ${o.y} with tool ${activeTool} and terrain ${currT?.name}`, event);
+  #debugClickEvent(_event, _fnName) {
+    // Unused
+    // const activeTool = game.activeTool;
+    // const o = event.interactionData.origin;
+    // const currT = this.toolbar.currentTerrain;
+    // Debug:
+    // console.debug(`${MODULE_ID}|${fnName} at ${o.x}, ${o.y} \
+    //   with tool ${activeTool} and terrain ${currT?.name}`, event);
   }
 
 
@@ -1563,23 +1602,27 @@ export class TerrainLayer extends InteractionLayer {
   /**
    * User scrolls the mouse wheel. Currently does nothing in response.
    */
-  _onMouseWheel(event) {
-    const o = event.interactionData.origin;
-    const activeTool = game.activeTool;
-    const currT = this.toolbar.currentTerrain;
-  // Debug: console.debug(`${MODULE_ID}|mouseWheel at ${o.x}, ${o.y} with tool ${activeTool} and terrain ${currT?.name}`, event);
+  _onMouseWheel(_event) {
+    // Unused:
+    // const o = event.interactionData.origin;
+    // const activeTool = game.activeTool;
+    // const currT = this.toolbar.currentTerrain;
+    // Debug:
+    // console.debug(`${MODULE_ID}|mouseWheel at ${o.x}, ${o.y} \
+    //   with tool ${activeTool} and terrain ${currT?.name}`, event);
 
     // Cycle to the next scene terrain
-
   }
 
   /**
    * User hits delete key. Currently not triggered (at least on this M1 Mac).
    */
-  async _onDeleteKey(event) {
-    const o = event.interactionData.origin;
-    const activeTool = game.activeTool;
-    const currT = this.toolbar.currentTerrain;
-  // Debug: console.debug(`${MODULE_ID}|deleteKey at ${o.x}, ${o.y} with tool ${activeTool} and terrain ${currT?.name}`, event);
+  async _onDeleteKey(_event) {
+    // Unused:
+    // const o = event.interactionData.origin;
+    // const activeTool = game.activeTool;
+    // const currT = this.toolbar.currentTerrain;
+    // Debug: console.debug(`${MODULE_ID}|deleteKey at ${o.x}, ${o.y} \
+    // with tool ${activeTool} and terrain ${currT?.name}`, event);
   }
 }

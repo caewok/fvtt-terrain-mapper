@@ -28,9 +28,10 @@ export class TerrainEffectsController {
   constructor(viewMvc) {
     this._viewMvc = viewMvc;
 
-//     this._customEffectsHandler = new CustomEffectsHandler();
-//     this._dynamicEffectsAdder = new DynamicEffectsAdder();
-//     this._foundryHelpers = new FoundryHelpers();
+    //  Unused:
+    //     this._customEffectsHandler = new CustomEffectsHandler();
+    //     this._dynamicEffectsAdder = new DynamicEffectsAdder();
+    //     this._foundryHelpers = new FoundryHelpers();
   }
 
   /**
@@ -92,7 +93,7 @@ export class TerrainEffectsController {
 
   _fetchFavorites(terrains) {
   // Debug: console.debug("TerrainEffectsController|_fetchFavorites");
-    const favorites = new Set(Settings.getByName("FAVORITES"));
+    const favorites = new Set(Settings.get(Settings.KEYS.FAVORITES));
     return terrains.filter(t => favorites.has(t.id));
   }
 
@@ -152,6 +153,7 @@ export class TerrainEffectsController {
     const terrain = new Terrain();
     await terrain.initialize();
     this._viewMvc.render();
+    terrain.activeEffect.sheet.render(true);
   }
 
   /**
@@ -185,13 +187,14 @@ export class TerrainEffectsController {
       }
     });
 
-//     const effectName = effectItem.data().effectName;
-//     const customEffect = this._customEffectsHandler
-//       .getCustomEffects()
-//       .find((effect) => effect.name == effectName);
-//
-//     await this._customEffectsHandler.deleteCustomEffect(customEffect);
-//     this._viewMvc.render();
+    // Unused:
+    //     const effectName = effectItem.data().effectName;
+    //     const customEffect = this._customEffectsHandler
+    //       .getCustomEffects()
+    //       .find((effect) => effect.name == effectName);
+    //
+    //     await this._customEffectsHandler.deleteCustomEffect(customEffect);
+    //     this._viewMvc.render();
   }
 
   /**
@@ -287,8 +290,9 @@ export class TerrainEffectsController {
     const effectId = effectItem.data().effectId;
     return Settings.isFavorite(effectId);
 
-//     const effectName = effectItem.data().effectName;
-//     return this._settings.isFavoritedEffect(effectName);
+  // Unused:
+  //     const effectName = effectItem.data().effectName;
+  //     return this._settings.isFavoritedEffect(effectName);
   }
 
   /**
@@ -330,19 +334,19 @@ export class TerrainEffectsController {
    * @param {jQuery} effectItem - jQuery element representing the effect list item
    */
   async onToggleStatusEffect(_effectItem) {
-  // Debug: console.debug("TerrainEffectsController|onToggleStatusEffect");
+    // Debug: console.debug("TerrainEffectsController|onToggleStatusEffect");
     // const effectId = effectItem.data().effectId;
 
-//     const effectName = effectItem.data().effectName;
-//
-//     if (this._settings.isStatusEffect(effectName)) {
-//       await this._settings.removeStatusEffect(effectName);
-//     } else {
-//       await this._settings.addStatusEffect(effectName);
-//     }
-//
-//     this._viewMvc.showReloadRequired();
-//     this._viewMvc.render();
+    //     const effectName = effectItem.data().effectName;
+    //
+    //     if (this._settings.isStatusEffect(effectName)) {
+    //       await this._settings.removeStatusEffect(effectName);
+    //     } else {
+    //       await this._settings.addStatusEffect(effectName);
+    //     }
+    //
+    //     this._viewMvc.showReloadRequired();
+    //     this._viewMvc.render();
   }
 
   /**

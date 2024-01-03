@@ -1,3 +1,17 @@
+## 0.1.0
+
+### New Features
+Users can add a terrain to a tile. Optionally set a transparency threshold for the tile, to have transparent pixels be considered to not have the terrain.
+Users can add a terrain to a measured template.
+Users can set an elevation to the tile or template, which can affect when the terrain is active.
+
+### Bug fixes
+Popout the terrain effect configuration when a new terrain is created. See issue #15.
+Update terrain color when the configuration setting is updated. Closes issue #10.
+Fix hexagon fill. Closes issue #14. Note that the hexagon fills are slightly blocky, reflecting the lower resolution of the terrain fill (for speed).
+Refactor settings and patching classes.
+Update lib geometry to 0.2.12.
+
 ## 0.0.6
 Move the terrain import/replace/export buttons to the Terrain List.
 Add add/remove terrain buttons to the Terrain List.

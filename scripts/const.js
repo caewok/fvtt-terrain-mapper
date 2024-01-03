@@ -6,6 +6,11 @@ export const MODULE_ID = "terrainmapper";
 
 export const SOCKETS = { socket: null };
 
+export const TEMPLATES = {
+  TILE: `modules/${MODULE_ID}/templates/tile-config.html`,
+  MEASURED_TEMPLATE: `modules/${MODULE_ID}/templates/template-config.html`,
+}
+
 export const LABELS = {
   ANCHOR_OPTIONS: {
     absolute: "terrainmapper.settings.terrain.anchorOptions.absolute",
@@ -19,6 +24,15 @@ export const LABELS = {
     relativeToLayer: "terrainmapper.settings.terrain.anchorAbbrOptions.relativeToLayer"
   }
 };
+
+export const MODULES_ACTIVE = {
+  ELEVATED_VISION: false,
+};
+
+// Hook init b/c game.modules is not initialized at start.
+Hooks.once("init", function() {
+  MODULES_ACTIVE.ELEVATED_VISION = game.modules.get("elevatedvision")?.active;
+});
 
 export const FLAGS = {
   ANCHOR: {
@@ -37,6 +51,9 @@ export const FLAGS = {
   COLOR: "color",
 
   LAYER_ELEVATIONS: "layerElevations", // Stored per scene.
+
+  ATTACHED_TERRAIN: "attachedTerrain", // Stored in Tile and MeasuredTemplate documents
+  ALPHA_THRESHOLD: "alphaThreshold" // Stored in Tile documents
 };
 
 

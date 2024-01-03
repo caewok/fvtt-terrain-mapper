@@ -46,6 +46,8 @@ export async function removeTerrainEffect(tokenUUID, effectId) {
  */
 export class Terrain {
 
+  static _instances = new Map();
+
   /** @type {number} */
   static #MAX_TERRAINS = Math.pow(2, 4) - 1;
 
@@ -78,16 +80,15 @@ export class Terrain {
 
 
   /**
-   * @param {TerrainConfig} config
-   * @param {object} [opts]
-   * @param {boolean} [opts.override=false]     Should this terrain replace an existing id?
+   * @param {ActiveEffect} activeEffect
    */
-  constructor(activeEffect, checkExisting = true) {
-    if ( checkExisting && activeEffect ) {
-      const terrain = this.sceneMap.terrainIds.get(activeEffect.id);
-      if ( terrain ) return terrain; // eslint-disable-line no-constructor-return
+  constructor(activeEffect) {
+    if ( activeEffect ) {
+      const instances = this.constructor._instances;
+      const id = activeEffect.id;
+      if (instances.has(id) ) return instances.get(id);
+      instances.set(id, this);
     }
-
     this._effectHelper = new EffectHelper(activeEffect);
   }
 
@@ -96,10 +97,8 @@ export class Terrain {
    * @param {string} id   Active effect id
    * @returns {Terrain}  Either an existing scene terrain or a new terrain.
    */
-  static fromEffectId(id, checkExisting = true) {
-    const terrainIds = canvas.terrain.sceneMap.terrainIds;
-    if ( checkExisting && terrainIds.has(id) ) return terrainIds.get(id);
-    return new this(EffectHelper.getTerrainEffectById(id), checkExisting);
+  static fromEffectId(id) {
+    return new this(EffectHelper.getTerrainEffectById(id));
   }
 
   /** @type {TerrainMap} */
@@ -176,7 +175,9 @@ export class Terrain {
   async setUserVisible(value) { return this.#setAEFlag(FLAGS.USER_VISIBLE, value); }
 
   /** @type {Color} */
-  get color() { return new Color(this.#getAEFlag(FLAGS.COLOR) ?? 0x000000); }
+  get color() {
+    return Color.from(this.#getAEFlag(FLAGS.COLOR) ?? 0x000000);
+  }
 
   async setColor(value) {
     value = Color.from(value);
@@ -301,23 +302,6 @@ export class Terrain {
   }
 
   /**
-   * Remove all scene effects from the token.
-   * @param {Token} token
-   */
-  static async removeAllSceneTerrainsFromToken(token) {
-    await this.lock.acquire();
-    const terrains = new Set(this.allSceneTerrainsOnToken(token));
-    const promises = [];
-    const uuid = token.document.uuid;
-    for ( const terrain of terrains ) {
-    // Debug: console.debug(`removeAllFromToken|Removing ${terrain.name} from ${token.name}.`);
-      promises.push(SOCKETS.socket.executeAsGM("removeTerrainEffect", uuid, terrain.id));
-    }
-    await Promise.allSettled(promises);
-    await this.lock.release();
-  }
-
-  /**
    * Remove all terrain effects from the token.
    * @param {Token} token
    */
@@ -351,15 +335,6 @@ export class Terrain {
       const id = e.origin.split(".")[1];
       return this.fromEffectId(id);
     });
-  }
-
-  /**
-   * Get all scene terrains currently on the token.
-   * @param {Token} token
-   * @returns {Terrain[]}
-   */
-  static allSceneTerrainsOnToken(token) {
-    return this.allOnToken(token).filter(t => canvas.terrain.sceneMap.hasTerrainId(t.id));
   }
 
   /**
@@ -419,6 +394,7 @@ export class Terrain {
    * @param {PIXI.Point} origin
    * @param {PIXI.Point} destination
    * @param {string} [speedAttribute]
+   * @returns {number} Percent of the distance between origin and destination
    */
   static percentMovementForTokenAlongPath(token, origin, destination, speedAttribute) {
     speedAttribute ??= getDefaultSpeedAttribute();

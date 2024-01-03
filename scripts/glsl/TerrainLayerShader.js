@@ -7,7 +7,6 @@ PIXI
 
 import { defineFunction } from "./GLSLFunctions.js";
 import { AbstractTerrainShader } from "./AbstractTerrainShader.js";
-import { Terrain } from "../Terrain.js";
 import { Settings } from "../settings.js";
 
 const MAX_TERRAINS = 16; // Including 0 as no terrain.
@@ -54,8 +53,6 @@ for ( const e of canvas.terrain._shapeQueue.elements ) {
   canvas.stage.removeChild(e.graphics)
 }
 
-
-
 draw = new Draw();
 for ( const e of canvas.terrain._shapeQueue.elements ) {
   const t = canvas.terrain.sceneMap.get(e.shape.pixelValue);
@@ -68,8 +65,6 @@ s.position = e.shape.origin
 canvas.stage.addChild(s)
 s.anchor.set(0.5)
 s.scale.set(.1, .1)
-
-
 
 */
 
@@ -166,7 +161,7 @@ void main() {
   static defaultUniforms = {
     uTerrainSampler0: 0,
     uTerrainSampler1: 0,
-    // uTerrainColors: new Uint8Array(MAX_TERRAINS * 4).fill(0)
+    // Unused: uTerrainColors: new Uint8Array(MAX_TERRAINS * 4).fill(0)
     uTerrainColors: new Array(MAX_TERRAINS * 4).fill(0),
     uTerrainIcon: 0,
     uTerrainLayer: 0
@@ -177,7 +172,7 @@ void main() {
     defaultUniforms.uTerrainSampler0 = tm._terrainTextures[0];
     defaultUniforms.uTerrainSampler1 = tm._terrainTextures[1];
     const shader = super.create(defaultUniforms);
-    shader.updateTerrainColors();
+    shader.updateAllTerrainColors();
     shader.updateTerrainIcons();
     shader.updateTerrainLayer();
     return shader;
@@ -198,35 +193,29 @@ void main() {
   /**
    * Update the terrain colors represented in the scene.
    */
-  updateTerrainColors() {
+  updateAllTerrainColors() {
     const colors = this.uniforms.uTerrainColors;
     colors.fill(0);
-    canvas.terrain.sceneMap.forEach(t => {
-      const i = t.pixelValue;
-      const idx = i * 4;
-      // const rgba = this.constructor.getColorArray(t.color).map(x => x * 255);
-      // colors.set(rgba, idx);
+    canvas.terrain.sceneMap.forEach(t => this.updateTerrainColor(t));
+  }
 
-      const rgba = this.constructor.getColorArray(t.color);
-      colors.splice(idx, 4, ...rgba);
-    });
+  /**
+   * Update a single terrain's color.
+   * @param {Terrain} t
+   */
+  updateTerrainColor(t) {
+    const colors = this.uniforms.uTerrainColors;
+    const i = t.pixelValue;
+    const idx = i * 4;
+    const rgba = [...t.color.rgb, 1]
+    colors.splice(idx, 4, ...rgba);
   }
 
   /**
    * Update the terrain layer currently represented in the scene.
    */
   updateTerrainLayer() {
-    this.uniforms.uTerrainLayer = canvas.terrain?.toolbar?.currentLayer ?? Settings.getByName("CURRENT_LAYER") ?? 0;
-  }
-
-  /**
-   * Return the color array for a given hex.
-   * @param {number} hex    Hex value for color with alpha
-   * @returns {number[4]}
-   */
-  static getColorArray(hex) {
-    const c = new Color(hex);
-    const alpha = 1;
-    return [...c.rgb, alpha];
+    this.uniforms.uTerrainLayer = canvas.terrain?.toolbar?.currentLayer
+      ?? Settings.get(Settings.KEYS.CURRENT_LAYER) ?? 0;
   }
 }

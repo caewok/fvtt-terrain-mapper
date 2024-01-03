@@ -39,6 +39,9 @@
   "terrainmapper.list-config.replace": "Replace all terrains",
   "terrainmapper.list-config.export": "Export all terrains",
 
+  "terrainmapper.tile-config.transparency-threshold.name": "Inner Transparency Threshold",
+  "terrainmapper.tile-config.transparency-threshold.hint": "Inner tile pixels with transparency less than this percent will be considered 'holes' when testing terrain.",
+
   "terrainmapper.settings.terrain.anchorOptions.absolute": "Absolute",
   "terrainmapper.settings.terrain.anchorOptions.relativeToTerrain": "Relative to Ground Elevation",
   "terrainmapper.settings.terrain.anchorOptions.relativeToLayer": "Relative to Layer Elevation",

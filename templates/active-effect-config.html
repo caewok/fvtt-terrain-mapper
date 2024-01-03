@@ -10,14 +10,14 @@
   <div class="form-group">
     <label>Color</label>
     <div class="form-fields">
-      {{colorPicker name=flags.terrainmapper.color value=data.flags.terrainmapper.color}}
+      {{colorPicker name="flags.terrainmapper.color" value=data.flags.terrainmapper.color}}
     </div>
   </div>
 
   <div class="form-group">
     <label> Anchor </label>
     <div class="form-fields">
-      <select name="anchorChoice">
+      <select name="flags.terrainmapper.anchorChoice">
         {{ selectOptions terrainmapper.anchorOptions selected=data.flags.terrainmapper.anchor localize=true }}
       </select>
     </div>
