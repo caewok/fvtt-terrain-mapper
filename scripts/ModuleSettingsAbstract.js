@@ -69,6 +69,11 @@ export class ModuleSettingsAbstract {
     return game.settings.set(MODULE_ID, key, value);
   }
 
+  static async toggle(key) {
+    const curr = this.get(key);
+    return this.set(key, !curr);
+  }
+
   /**
    * Register a specific setting.
    * @param {string} key        Passed to registerMenu
