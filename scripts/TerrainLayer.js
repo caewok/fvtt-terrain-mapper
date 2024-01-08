@@ -344,9 +344,11 @@ export class TerrainLayer extends InteractionLayer {
    */
   activeTerrainsAt(location, elevation) {
     elevation ??= CONFIG.GeometryLib.utils.pixelsToGridUnits(location.z) || 0;
-    return this.terrainLevelsAt(location)
+    const terrains = new Set();
+    this.terrainLevelsAt(location)
       .filter(t => t.activeAt(elevation, location))
-      .map(t => t.terrain);
+      .forEach(t => terrains.add(t.terrain));
+    return terrains;
   }
 
   /**

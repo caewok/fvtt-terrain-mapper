@@ -362,6 +362,7 @@ export class TravelTerrainRay {
 
     // If the tile should be treated as opaque, just identify the entry and exit points along the ray.
     // May have only one if start or end point is within the bounds.
+    const pixelCache = tile.evPixelCache;
     if ( !tileAlpha ) {
       const thresholdBounds = pixelCache.getThresholdCanvasBoundingBox(CONFIG[MODULE_ID].alphaThreshold);
       return this.#placeableTerrainMarkers(tile, "tile", thresholdBounds);
@@ -371,7 +372,6 @@ export class TravelTerrainRay {
     // May have only one if start or end point is within the bounds.
     const terrains = new Set([tile.attachedTerrain]);
     const nullSet = new Set();
-    const pixelCache = tile.evPixelCache;
     const { origin, destination } = this;
 
     // Track the ray across the tile, locating points where transparency starts or stops.
