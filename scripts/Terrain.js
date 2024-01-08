@@ -413,10 +413,10 @@ export class Terrain {
       const tDiff = markerT - tPrev;
       const droppedTerrains = currTerrains.difference(prevTerrains);
       const addedTerrains = prevTerrains.difference(currTerrains);
-      const percentDropped = droppedTerrains.map(t => t.movementPercentChangeForToken(token, speedAttribute))
-        .reduce((acc, curr) => acc * curr, 1);
-      const percentAdded = addedTerrains.map(t => t.movementPercentChangeForToken(token, speedAttribute))
-        .reduce((acc, curr) => acc * curr, 1);
+
+      // If movementPercentChangeForToken returns the same value, map will fail. See issue #21.
+      const percentDropped = droppedTerrains.reduce((acc, curr) => acc * curr.movementPercentChangeForToken(token, speedAttribute), 1);
+      const percentAdded = addedTerrains.reduce((acc, curr) => acc * curr.movementPercentChangeForToken(token, speedAttribute), 1);
       return (percentAdded * (1 / percentDropped)) * tDiff;
     };
 

@@ -1,3 +1,7 @@
+## 0.1.1
+Fix errors related to Set map modifications. Closes issue #21. Thanks @AterIgnis for the code suggestion!
+Fix `pixelCache` not initialized error.
+
 ## 0.1.0
 
 ### New Features
