@@ -238,6 +238,7 @@ export class TravelTerrainRay {
       ...this._tilesTerrainMarkers(),
       ...this._templatesTerrainMarkers()
     ].sort((a, b) => a.t - b.t);
+
     if ( !combinedMarkers.length ) return [];
 
     // Walk along the markers, indicating at each step:
@@ -302,13 +303,26 @@ export class TravelTerrainRay {
     const ter = new canvas.elevation.TravelElevationRay(this.#token,
       { origin: this.origin, destination: this.destination });
     const evMarkers = ter._walkPath();
-    return evMarkers.map(obj => {
+    const markers = evMarkers.map(obj => {
       return {
         t: obj.t,
         elevation: obj,
         type: "elevation"
       };
     });
+
+    if ( !markers[0] || markers[0].t !== 0 ) markers.push({
+      t: 0,
+      elevation: canvas.elevation.elevationAt(this.origin),
+      type: "elevation"
+    });
+
+    if ( markers.at(-1).t !== 1 ) markers.push({
+      t: 1,
+      elevation: canvas.elevation.elevationAt(this.destination),
+      type: "elevation"
+    });
+    return markers;
   }
 
   /**
@@ -319,7 +333,7 @@ export class TravelTerrainRay {
     const pixelCache = canvas.terrain.pixelCache;
     const terrainMarkers = pixelCache._extractAllMarkedPixelValuesAlongCanvasRay(
       this.origin, this.destination, this.#markTerrainFn);
-    return terrainMarkers.map(obj => {
+    const markers = terrainMarkers.map(obj => {
       const key = new TerrainKey(obj.currPixel);
       return {
         t: this.tForPoint(obj),
@@ -327,6 +341,19 @@ export class TravelTerrainRay {
         type: "canvas"
       };
     });
+
+    if ( !markers[0] || markers[0].t !== 0 ) markers.push({
+      t: 0,
+      terrains: canvas.terrain.terrainLevelsAt(this.origin),
+      type: "canvas"
+    });
+
+    if ( markers.at(-1).t !== 1 ) markers.push({
+      t: 1,
+      terrains: canvas.terrain.terrainLevelsAt(this.destination),
+      type: "canvas"
+    });
+    return markers;
   }
 
   /**
