@@ -7,6 +7,7 @@ socketlib
 "use strict";
 
 import { MODULE_ID, SOCKETS } from "./const.js";
+import { log } from "./util.js";
 import { TerrainLayer } from "./TerrainLayer.js";
 import { Settings } from "./settings.js";
 import { Terrain, addTerrainEffect, removeTerrainEffect } from "./Terrain.js";
@@ -52,28 +53,13 @@ Hooks.once("setup", function() {
   registerElevationConfig("MeasuredTemplateConfig", "Terrain Mapper");
 });
 
-/**
- * A hook event that fires when the game is fully ready.
- */
-Hooks.once("ready", function() {
-// Debug: console.debug("ready");
-});
-
-/**
- * A hook event that fires when the Canvas is initialized.
- * @param {Canvas} canvas   The Canvas instance being initialized
- */
-Hooks.once("canvasInit", async function(canvas) {
-// Debug: console.debug("TerrainMapper|canvasInit");
-
-});
 
 /**
  * A hook event that fires when the Canvas is ready.
  * @param {Canvas} canvas The Canvas which is now ready for use
  */
 Hooks.on("canvasReady", async function(canvas) {
-// Debug: console.debug("TerrainMapper|canvasReady");
+  log("TerrainMapper|canvasReady");
   await Settings.initializeTerrainsItem();
   await canvas.terrain.initialize();
 });
@@ -114,6 +100,11 @@ function initializeAPI() {
 
 function initializeConfig() {
   CONFIG[MODULE_ID] = {
+    /**
+     * Toggle to trigger debug console logging.
+     */
+    debug: false,
+
     /**
      * Alpha threshold below which a tile is considered transparent for purposes of terrain.
      * @type {number} Between 0 and 1

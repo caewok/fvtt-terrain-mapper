@@ -4,6 +4,16 @@ PIXI
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
+import { MODULE_ID } from "./const.js";
+
+export function log(...args) {
+  try {
+    if ( CONFIG[MODULE_ID].debug ) console.debug(MODULE_ID, "|", ...args);
+  } catch(e) {
+    // Empty
+  }
+}
+
 /**
  * Helper to inject configuration html into the application config.
  */

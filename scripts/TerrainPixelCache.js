@@ -5,6 +5,7 @@ canvas
 "use strict";
 
 import { PixelCache } from "./PixelCache.js";
+import { log } from "./util.js";
 
 /**
  * Cache a single texture, representing RGB layer.
@@ -243,7 +244,7 @@ for ( let terrainValue = 0; terrainValue < 16; terrainValue += 1 ) {
       break;
     }
   }
-// Debug: console.debug(`Finished terrain ${terrainValue}`);
+log(`Finished terrain ${terrainValue}`);
 }
 
 for ( let i = 0; i < 1000; i += 1 ) {
@@ -288,7 +289,7 @@ for ( let i = 0; i < 1000; i += 1 ) {
       console.error(`Fail removing layer ${addedLayer} with terrain ${addedTerrain} (other layers modified).`, layers);
   }
 
-  if ( i % 100 === 0 ) // Debug: console.debug(`Finished i === ${i}`);
+  if ( i % 100 === 0 ) // log(`Finished i === ${i}`);
 }
 
 // Combining two pixels
@@ -302,7 +303,7 @@ for ( let i = 0; i < 1000; i += 1 ) {
     console.error(`Fail combining`, layers);
     break;
   }
-  if ( i % 100 === 0 ) // Debug: console.debug(`Finished i === ${i}`);
+  if ( i % 100 === 0 ) log(`Finished i === ${i}`);
 }
 
 */

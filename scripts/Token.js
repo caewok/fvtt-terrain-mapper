@@ -13,6 +13,7 @@ Hook token movement to add/remove terrain effects and pause tokens dependent on 
 */
 
 import { MODULE_ID, SOCKETS } from "./const.js";
+import { log } from "./util.js";
 import { Settings } from "./settings.js";
 import { TravelTerrainRay } from "./TravelTerrainRay.js";
 import { Terrain } from "./Terrain.js";
@@ -132,7 +133,7 @@ export function terrainEncounteredDialog(tokenUUID, content, destination, userId
         icon: "<i class='fas fa-person-hiking'></i>",
         label: localize("continue"),
         callback: async () => {
-        // Debug: console.debug("Continued animation.");
+          log("Continued animation.");
           const tl = token.getTopLeft(destination.x, destination.y);
           await token.document.update({x: tl.x, y: tl.y});
           // SOCKETS.socket.executeAsUser("updateTokenDocument", userId, tokenUUID, {x: tl.x, y: tl.y});
@@ -143,7 +144,7 @@ export function terrainEncounteredDialog(tokenUUID, content, destination, userId
         icon: "<i class='fas fa-person-falling-burst'></i>",
         label: localize("cancel"),
         callback: async () => {
-        // Debug: console.debug("Canceled.");
+        log("Canceled.");
         }
       }
     },

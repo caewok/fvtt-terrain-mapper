@@ -12,6 +12,7 @@ PIXI
 import { MODULE_ID, FLAGS, MODULES_ACTIVE } from "./const.js";
 import { Point3d } from "./geometry/3d/Point3d.js";
 import { TerrainKey } from "./TerrainPixelCache.js";
+import { log } from "./util.js";
 
 /* Testing
   tm = canvas.terrain;
@@ -283,7 +284,7 @@ export class TravelTerrainRay {
       const currMarker = oldPath[i];
       if ( (skipElevation || prevMarker.elevation === currMarker.elevation)
         && prevMarker.terrains.equals(currMarker.terrains) ) {
-        console.debug("TravelTerrainRay skipping duplicate marker.");
+        log("TravelTerrainRay skipping duplicate marker.");
         continue;
       }
       trimmedPath.push(currMarker);
