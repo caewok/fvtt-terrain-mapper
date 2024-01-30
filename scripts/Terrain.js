@@ -418,7 +418,7 @@ export class Terrain {
       // If movementPercentChangeForToken returns the same value, map will fail. See issue #21.
       const percentDropped = droppedTerrains.reduce((acc, curr) => acc * curr.movementPercentChangeForToken(token, speedAttribute), 1);
       const percentAdded = addedTerrains.reduce((acc, curr) => acc * curr.movementPercentChangeForToken(token, speedAttribute), 1);
-      return (percentAdded * (1 / percentDropped)) * tDiff;
+      return (1 / (percentAdded * (1 / percentDropped))) * tDiff;
     };
 
     for ( let i = 1; i < nMarkers; i += 1 ) {
