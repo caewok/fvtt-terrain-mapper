@@ -17,6 +17,7 @@ ui
 "use strict";
 
 import { FLAGS, MODULE_ID, SOCKETS } from "./const.js";
+import { log } from "./util.js";
 import { Settings } from "./settings.js";
 import { EffectHelper } from "./EffectHelper.js";
 import { TerrainEffectsApp } from "./TerrainEffectsApp.js";
@@ -270,7 +271,7 @@ export class Terrain {
     await this.constructor.lock.acquire();
     let currTerrains = new Set(this.constructor.allOnToken(token));
     if ( duplicate || !currTerrains.has(this) ) {
-    // Debug: console.debug(`Adding ${this.name} terrain to ${token.name}.`);
+      log(`Adding ${this.name} terrain to ${token.name}.`);
       await SOCKETS.socket.executeAsGM("addTerrainEffect", token.document.uuid, this.id);
     }
 
@@ -279,7 +280,7 @@ export class Terrain {
     if ( removeOtherSceneTerrains || removeAllOtherTerrains ) {
       currTerrains.delete(this);
       for ( const terrain of currTerrains ) {
-      // Debug: console.debug(`Removing ${terrain.name} terrain from ${token.name}.`);
+        log(`Removing ${terrain.name} terrain from ${token.name}.`);
         await SOCKETS.socket.executeAsGM("removeTerrainEffect", token.document.uuid, terrain.id);
       }
     }
@@ -295,7 +296,7 @@ export class Terrain {
     await this.constructor.lock.acquire();
     const currTerrains = new Set(this.constructor.allOnToken(token));
     if ( currTerrains.has(this) ) {
-    // Debug: console.debug(`Removing ${this.name} terrain from ${token.name}.`);
+      log(`Removing ${this.name} terrain from ${token.name}.`);
       await SOCKETS.socket.executeAsGM("removeTerrainEffect", token.document.uuid, this.id);
     }
     await this.constructor.lock.release();
@@ -311,7 +312,7 @@ export class Terrain {
     const promises = [];
     const uuid = token.document.uuid;
     for ( const terrain of terrains ) {
-    // Debug: console.debug(`removeAllFromToken|Removing ${terrain.name} from ${token.name}.`);
+      log(`removeAllFromToken|Removing ${terrain.name} from ${token.name}.`);
       promises.push(SOCKETS.socket.executeAsGM("removeTerrainEffect", uuid, terrain.id));
     }
     await Promise.allSettled(promises);
@@ -324,7 +325,7 @@ export class Terrain {
    * @returns {Terrain[]}
    */
   static allOnToken(token) {
-  // Debug: console.debug(`Getting all terrains on ${token.name}.`);
+    log(`Getting all terrains on ${token.name}.`);
     const allEffects = token.actor?.appliedEffects;
     if ( !allEffects ) return [];
     const terrainEffects = allEffects.filter(e => {
@@ -417,7 +418,7 @@ export class Terrain {
       // If movementPercentChangeForToken returns the same value, map will fail. See issue #21.
       const percentDropped = droppedTerrains.reduce((acc, curr) => acc * curr.movementPercentChangeForToken(token, speedAttribute), 1);
       const percentAdded = addedTerrains.reduce((acc, curr) => acc * curr.movementPercentChangeForToken(token, speedAttribute), 1);
-      return (percentAdded * (1 / percentDropped)) * tDiff;
+      return (1 / (percentAdded * (1 / percentDropped))) * tDiff;
     };
 
     for ( let i = 1; i < nMarkers; i += 1 ) {
@@ -488,7 +489,7 @@ export class Terrain {
 
     // Transfer the active effects to the existing item.
     await item.createEmbeddedDocuments("ActiveEffect", tmp.effects.toObject());
-    console.debug("importFromJSON|Created effects");
+    log("importFromJSON|Created effects");
   }
 
   /**
@@ -513,11 +514,11 @@ export class Terrain {
               const form = html.find("form")[0];
               if ( !form.data.files.length ) return ui.notifications.error("You did not upload a data file!");
               const json = await readTextFromFile(form.data.files[0]);
-              // Debug: console.debug("importFromJSONDialog|Read text");
+              log("importFromJSONDialog|Read text");
               await this.importFromJSON(json);
               TerrainEffectsApp.rerender();
               TerrainListConfig.rerender();
-              // Debug: console.debug("importFromJSONDialog|Finished rerender");
+              log("importFromJSONDialog|Finished rerender");
               resolve(true);
             }
           },
@@ -533,7 +534,7 @@ export class Terrain {
     });
 
     await importPromise;
-    // Debug: console.debug("importFromJSONDialog|returned from dialog");
+    log("importFromJSONDialog|returned from dialog");
   }
 
   /**

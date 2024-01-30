@@ -11,7 +11,7 @@ mergeObject,
 import { MODULE_ID } from "./const.js";
 import { Terrain } from "./Terrain.js";
 import { Settings } from "./settings.js";
-import { isString } from "./util.js";
+import { isString, log } from "./util.js";
 
 export class TerrainLayerToolBar extends Application {
 
@@ -149,7 +149,7 @@ export class TerrainLayerToolBar extends Application {
    * @param {MouseEvent} event
    */
   _onHandleTerrainChange(event) {
-  // Debug: console.debug("TerrainLayerToolBar|_onHandleTerrainChange");
+    log("TerrainLayerToolBar|_onHandleTerrainChange");
     const terrainId = event.target.value;
     const sceneMap = canvas.terrain.sceneMap;
 
@@ -164,7 +164,7 @@ export class TerrainLayerToolBar extends Application {
    * @param {MouseEvent} event
    */
   _onHandleLayerChange(event) {
-  // Debug: console.debug("TerrainLayerToolBar|_onHandleLayerChange");
+    log("TerrainLayerToolBar|_onHandleLayerChange");
     const newLayer = Number(event.target.value);
     canvas.terrain.updateTerrainNames(this.currentLayer, newLayer);
     this.currentLayer = newLayer;

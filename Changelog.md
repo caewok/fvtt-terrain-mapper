@@ -1,3 +1,9 @@
+## 0.1.2
+Improvements to calculating movement penalty across a path for compatibility with Elevation Ruler:
+- Change `Terrain.percentMovementForTokenAlongPath` to return the movement penalty, not the movement percent applied to the token. So if the token is at 50% movement speed for a given terrain, this would return 1.5 for a path completely in the terrain. Necessary so the averaging across different terrains works properly.
+
+- Force a measurement for terrain and elevation at the beginning and end of a path in instances when it would otherwise be omitted. Necessary to capture when t=0 or t=1 rounds to somewhere other than the exact origin point or destination point, respectively.
+
 ## 0.1.1
 Fix errors related to Set map modifications. Closes issue #21. Thanks @AterIgnis for the code suggestion!
 Fix `pixelCache` not initialized error.

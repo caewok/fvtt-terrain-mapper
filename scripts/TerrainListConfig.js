@@ -13,7 +13,7 @@ ui
 import { MODULE_ID, LABELS } from "./const.js";
 import { Terrain } from "./Terrain.js";
 import { EnhancedEffectConfig } from "./EnhancedEffectConfig.js";
-import { capitalizeFirstLetter } from "./util.js";
+import { capitalizeFirstLetter, log } from "./util.js";
 import { TerrainEffectsApp } from "./TerrainEffectsApp.js";
 import { EffectHelper } from "./EffectHelper.js";
 
@@ -94,7 +94,7 @@ export class TerrainListConfig extends FormApplication {
    * User triggered an icon update by selecting an icon file.
    */
   async _onSelectFile(selection, filePicker) {
-  // Debug: console.debug("_onSelectFile", selection);
+    log("_onSelectFile", selection);
     const idx = Number(filePicker.button.getAttribute("data-idx"));
     const terrain = this.allTerrains[idx];
     if ( !terrain ) return;
@@ -118,7 +118,7 @@ export class TerrainListConfig extends FormApplication {
 
   async _onAddTerrain(event) {
     event.preventDefault();
-    // Debug: console.debug("addTerrain clicked!");
+    log("addTerrain clicked!");
 
     const terrain = new Terrain();
     await terrain.initialize();
@@ -129,7 +129,7 @@ export class TerrainListConfig extends FormApplication {
 
   async _onRemoveTerrain(event) {
     event.preventDefault();
-    // Debug: console.debug("removeTerrain clicked!");
+    log("removeTerrain clicked!");
     const idx = this._indexForEvent(event);
     const effectId = this.allTerrains[idx]?.id;
     if ( !effectId ) return;
@@ -139,7 +139,7 @@ export class TerrainListConfig extends FormApplication {
       content:
         "<h4>Are You Sure?</h4><p>This will remove the terrain from all scenes.",
       yes: async () => {
-      // Debug: console.debug("TerrainEffectsController|onDeleteEffectClick yes");
+        log("TerrainEffectsController|onDeleteEffectClick yes");
         await EffectHelper.deleteEffectById(effectId);
         await this._onSubmit(event, { preventClose: true });
         TerrainEffectsApp.rerender();
@@ -150,7 +150,7 @@ export class TerrainListConfig extends FormApplication {
 
   async _onEditActiveEffect(event) {
     event.preventDefault();
-    // Debug: console.debug("edit active effect clicked!");
+    log("edit active effect clicked!");
     await this._onSubmit(event, { preventClose: true });
 
     const idx = this._indexForEvent(event);
@@ -164,7 +164,7 @@ export class TerrainListConfig extends FormApplication {
 
   async _onToggleVisibility(event) {
     event.preventDefault();
-    // Debug: console.debug("visibility toggle clicked!");
+    log("visibility toggle clicked!");
 
     const idx = this._indexForEvent(event);
     const terrain = this.allTerrains[idx];

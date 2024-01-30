@@ -18,6 +18,7 @@ Wall
 "use strict";
 
 import { MODULE_ID } from "./const.js";
+import { log } from "./util.js";
 import { Terrain } from "./Terrain.js";
 import { Settings } from "./settings.js";
 import { ShapeQueue } from "./ShapeQueue.js";
@@ -242,7 +243,7 @@ export class TerrainLayer extends InteractionLayer {
   }
 
   _activateHoverListener() {
-  // Debug: console.debug(`${MODULE_ID}|activatingHoverListener`);
+    log(`${MODULE_ID}|activatingHoverListener`);
     this.terrainLabel.anchor = {x: 0, y: 1};
   }
 
@@ -262,7 +263,7 @@ export class TerrainLayer extends InteractionLayer {
       && !(terrain?.userVisible
         && canvas.effects.visibility.testVisibility({x, y}, { tolerance: 0})) ) this.terrainLabel.text = "";
 
-    // Debug: console.debug(`Terrain ${terrain?.name} at ${x},${y}`);
+    log(`Terrain ${terrain?.name} at ${x},${y}`);
   }
 
   // ----- NOTE: Access terrain data ----- //
@@ -423,7 +424,7 @@ export class TerrainLayer extends InteractionLayer {
    * Set up the terrain layer for the first time once the scene is loaded.
    */
   async initialize() {
-  // Debug: console.debug(`${MODULE_ID}|Initialization called.`);
+    log(`${MODULE_ID}|Initialization called.`);
 
     // Required on first initialization only (first game load)
     if ( !this.#firstInitialization ) this.#firstInitialize();
@@ -431,7 +432,7 @@ export class TerrainLayer extends InteractionLayer {
     // Required on every initialization (loading each scene)
     if ( this.#initialized ) return;
 
-    // Debug: console.debug(`${MODULE_ID}|Initializing Terrain Mapper`);
+    log(`${MODULE_ID}|Initializing Terrain Mapper`);
 
     // Set up the shared graphics object used to color grid spaces.
     this.#initializeGridShape();
@@ -481,14 +482,14 @@ export class TerrainLayer extends InteractionLayer {
     this._terrainColorsMesh = new TerrainQuadMesh(canvas.dimensions.sceneRect, shader);
     this.renderTerrain();
     this.#initialized = true;
-  // Debug: console.debug(`${MODULE_ID}|Finished initializing Terrain Mapper`);
+    log(`${MODULE_ID}|Finished initializing Terrain Mapper`);
   }
 
   /**
    * Build objects that will persist across scenes.
    */
   #firstInitialize() {
-  // Debug: console.debug(`${MODULE_ID}|First initialization for Terrain Mapper`);
+    log(`${MODULE_ID}|First initialization for Terrain Mapper`);
 
     // Initialize container to hold the elevation data and GM modifications.
     this.container = this.addChild(new FullCanvasContainer());
@@ -510,12 +511,12 @@ export class TerrainLayer extends InteractionLayer {
     this._activateHoverListener();
 
     this.#firstInitialization = true;
-    // Debug: console.debug(`${MODULE_ID}|Finished first initialization Terrain Mapper`);
+    log(`${MODULE_ID}|Finished first initialization Terrain Mapper`);
   }
 
   /** @override */
   _activate() {
-    // Debug: console.debug(`${MODULE_ID}|Activating Terrain Layer.`);
+    log(`${MODULE_ID}|Activating Terrain Layer.`);
 
     // Draw walls
     if ( game.user.isGM ) canvas.stage.addChild(this._wallDataContainer);
@@ -529,7 +530,7 @@ export class TerrainLayer extends InteractionLayer {
 
     this._updateControlsHelper();
     this.clearPreviewContainer();
-  // Debug: console.debug(`${MODULE_ID}|Finished activating Terrain Layer.`);
+    log(`${MODULE_ID}|Finished activating Terrain Layer.`);
   }
 
   /**
@@ -545,7 +546,7 @@ export class TerrainLayer extends InteractionLayer {
 
   /** @override */
   _deactivate() {
-  // Debug: console.debug(`${MODULE_ID}|De-activating Terrain Layer.`);
+    log(`${MODULE_ID}|De-activating Terrain Layer.`);
     if ( !this.#initialized ) return;
     canvas.stage.removeChild(this._wallDataContainer);
 
@@ -566,10 +567,10 @@ export class TerrainLayer extends InteractionLayer {
 
   /** @inheritdoc */
   async _tearDown(_options) {
-    // Debug: console.debug(`${MODULE_ID}|_tearDown Terrain Layer`);
+    log(`${MODULE_ID}|_tearDown Terrain Layer`);
     if ( !this.#initialized ) return; // Don't call super._tearDown, which would destroy children.
 
-    // Debug: console.debug(`${MODULE_ID}|Tearing down Terrain Mapper`);
+    log(`${MODULE_ID}|Tearing down Terrain Mapper`);
 
     if ( this._requiresSave ) await this.save();
 
@@ -585,7 +586,7 @@ export class TerrainLayer extends InteractionLayer {
    * Destroy elevation data when changing scenes or clearing data.
    */
   #destroy() {
-  // Debug: console.debug(`${MODULE_ID}|Destroying Terrain Mapper`);
+    log(`${MODULE_ID}|Destroying Terrain Mapper`);
     this._terrainColorsMesh.destroy({children: true});
     this._clearWallTracker();
     this._terrainTextures.forEach(tex => tex.destroy());
@@ -813,7 +814,7 @@ export class TerrainLayer extends InteractionLayer {
    * Import terrain data from an image file into the scene.
    */
   importFromImageFile() {
-  // Debug: console.debug(`${MODULE_ID}|I should be importing terrain data for the scene...`);
+    log(`${MODULE_ID}|I should be importing terrain data for the scene...`);
   }
 
   /* ----- NOTE: Pixel Cache ----- */
@@ -1365,7 +1366,7 @@ export class TerrainLayer extends InteractionLayer {
     */
 
     // Debug:
-    // console.debug(`${MODULE_ID}|Attempting fill at { x: ${origin.x}, y: ${origin.y} } with terrain ${terrain.name}`);
+    log(`${MODULE_ID}|Attempting fill at { x: ${origin.x}, y: ${origin.y} } with terrain ${terrain.name}`);
     const polys = SCENE_GRAPH.encompassingPolygonWithHoles(origin);
     if ( !polys.length ) {
       // Shouldn't happen, but...
@@ -1461,7 +1462,7 @@ export class TerrainLayer extends InteractionLayer {
     // const o = event.interactionData.origin;
     // const currT = this.toolbar.currentTerrain;
     // Debug:
-    // console.debug(`${MODULE_ID}|${fnName} at ${o.x}, ${o.y} \
+    // log(`${MODULE_ID}|${fnName} at ${o.x}, ${o.y} \
     //   with tool ${activeTool} and terrain ${currT?.name}`, event);
   }
 
@@ -1483,7 +1484,7 @@ export class TerrainLayer extends InteractionLayer {
         this.fillLOS(o, currT);
         break;
       case "fill-by-pixel":
-      // Debug: console.debug(`${MODULE_ID}|fill-by-pixel not yet implemented.`);
+        log(`${MODULE_ID}|fill-by-pixel not yet implemented.`);
         break;
       case "fill-space":
         this.fill(o, currT);
@@ -1610,7 +1611,7 @@ export class TerrainLayer extends InteractionLayer {
     // const activeTool = game.activeTool;
     // const currT = this.toolbar.currentTerrain;
     // Debug:
-    // console.debug(`${MODULE_ID}|mouseWheel at ${o.x}, ${o.y} \
+    // log(`${MODULE_ID}|mouseWheel at ${o.x}, ${o.y} \
     //   with tool ${activeTool} and terrain ${currT?.name}`, event);
 
     // Cycle to the next scene terrain
@@ -1624,7 +1625,7 @@ export class TerrainLayer extends InteractionLayer {
     // const o = event.interactionData.origin;
     // const activeTool = game.activeTool;
     // const currT = this.toolbar.currentTerrain;
-    // Debug: console.debug(`${MODULE_ID}|deleteKey at ${o.x}, ${o.y} \
+    // log(`${MODULE_ID}|deleteKey at ${o.x}, ${o.y} \
     // with tool ${activeTool} and terrain ${currT?.name}`, event);
   }
 }
