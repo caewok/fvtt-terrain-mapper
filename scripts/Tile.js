@@ -32,7 +32,7 @@ PATCHES.BASIC = {};
  */
 function updateTile(tileD, changed, _options, _userId) {
   // Should not be needed: if ( changed.overhead ) document.object._evPixelCache = undefined;
-  const cache = document.object?._evPixelCache;
+  const cache = tileD.object?._evPixelCache;
   if ( cache ) {
     if ( Object.hasOwn(changed, "x")
       || Object.hasOwn(changed, "y")
