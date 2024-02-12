@@ -87,7 +87,7 @@ export class Terrain {
     if ( activeEffect ) {
       const instances = this.constructor._instances;
       const id = activeEffect.id;
-      if (instances.has(id) ) return instances.get(id);
+      if (instances.has(id) ) return instances.get(id); // eslint-disable-line no-constructor-return
       instances.set(id, this);
     }
     this._effectHelper = new EffectHelper(activeEffect);
@@ -151,27 +151,27 @@ export class Terrain {
   async setIcon(value) { return this.activeEffect.update({ icon: value }); }
 
   /** @type {FLAGS.ANCHOR.CHOICES} */
-  get anchor() { return this.#getAEFlag(FLAGS.ANCHOR.VALUE); }
+  get anchor() { return this.#getAEFlag(FLAGS.ANCHOR.VALUE) || FLAGS.ANCHOR.CHOICES.ABSOLUTE; }
 
   async setAnchor(value) { return this.#setAEFlag(FLAGS.ANCHOR, value); }
 
   /** @type {number} */
-  get offset() { return this.#getAEFlag(FLAGS.OFFSET); }
+  get offset() { return this.#getAEFlag(FLAGS.OFFSET) || 0; }
 
   async setOffset(value) { return this.#setAEFlag(FLAGS.OFFSET, value); }
 
   /** @type {number} */
-  get rangeBelow() { return this.#getAEFlag(FLAGS.RANGE_BELOW); }
+  get rangeBelow() { return this.#getAEFlag(FLAGS.RANGE_BELOW) || 0; }
 
   async setRangeBelow(value) { return this.#setAEFlag(FLAGS.RANGE_BELOW, value); }
 
   /** @type {number} */
-  get rangeAbove() { return this.#getAEFlag(FLAGS.RANGE_ABOVE); }
+  get rangeAbove() { return this.#getAEFlag(FLAGS.RANGE_ABOVE) || 0; }
 
   async setRangeAbove(value) { return this.#setAEFlag(FLAGS.RANGE_ABOVE, value); }
 
   /** @type {boolean} */
-  get userVisible() { return this.#getAEFlag(FLAGS.USER_VISIBLE); }
+  get userVisible() { return this.#getAEFlag(FLAGS.USER_VISIBLE) || false; }
 
   async setUserVisible(value) { return this.#setAEFlag(FLAGS.USER_VISIBLE, value); }
 
@@ -416,8 +416,10 @@ export class Terrain {
       const addedTerrains = prevTerrains.difference(currTerrains);
 
       // If movementPercentChangeForToken returns the same value, map will fail. See issue #21.
-      const percentDropped = droppedTerrains.reduce((acc, curr) => acc * curr.movementPercentChangeForToken(token, speedAttribute), 1);
-      const percentAdded = addedTerrains.reduce((acc, curr) => acc * curr.movementPercentChangeForToken(token, speedAttribute), 1);
+      const percentDropped = droppedTerrains.reduce((acc, curr) =>
+        acc * curr.movementPercentChangeForToken(token, speedAttribute), 1);
+      const percentAdded = addedTerrains.reduce((acc, curr) =>
+        acc * curr.movementPercentChangeForToken(token, speedAttribute), 1);
       return (1 / (percentAdded * (1 / percentDropped))) * tDiff;
     };
 
