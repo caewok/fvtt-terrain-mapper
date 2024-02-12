@@ -178,3 +178,48 @@ export function groupBy(list, keyGetter) {
   });
   return map;
 }
+
+
+/**
+ * Get the grid shape for a given set of grid coordinates.
+ * @param {number[2]} gridCoords      Array of [row, col] grid coordinates. See canvas.grid.grid.getGridPositionFromPixels
+ * @returns {PIXI.Rectangle|PIXI.Polygon}
+ */
+export function gridShapeFromGridCoords(gridCoords) {
+  const [tlx, tly] = canvas.grid.grid.getPixelsFromGridPosition(gridCoords[0], gridCoords[1]);
+  if ( canvas.grid.isHex && width === height ) return hexGridShape(tlx, tly);
+  return squareGridShape(tlx, tly)
+
+}
+
+/**
+ * Get a square grid shape from the top left corner position.
+ * @param {number} tlx      Top left x coordinate
+ * @param {number} tly      Top left y coordinate
+ * @returns {PIXI.Rectangle}
+ */
+function squareGridShape(tlx, tly) {
+  // Get the top left corner
+  const { w, h } = canvas.grid;
+  return new PIXI.Rectangle(tlx, tly, w, h);
+}
+
+/**
+ * Get a hex grid shape from the top left corner position.
+ * @param {number} tlx      Top left x coordinate
+ * @param {number} tly      Top left y coordinate
+ * @returns {PIXI.Polygon}
+ */
+function hexGridShape(tlx, tly, { width = 1, height = 1 } = {}) {
+  // Canvas.grid.grid.getBorderPolygon will return null if width !== height.
+  if ( width !== height ) return null;
+
+  // Get the top left corner
+  const points = canvas.grid.grid.getBorderPolygon(width, height, 0);
+  const pointsTranslated = [];
+  const ln = points.length;
+  for ( let i = 0; i < ln; i += 2) {
+    pointsTranslated.push(points[i] + tlx, points[i+1] + tly);
+  }
+  return new PIXI.Polygon(pointsTranslated);
+}
