@@ -1072,7 +1072,12 @@ export class PixelCache extends PIXI.Rectangle {
       }
     }
 
-    if ( type.includes("average") ) reducerFn.finalize = acc => acc.total / acc.numPixels; // Treats undefined as 0.
+    switch ( type ) {
+      case "average": reducerFn.finalize = acc => acc.total / acc.numPixels; break; // Treats undefined as 0.
+      case "average_eq_threshold":
+      case "average_gt_threshold": reducerFn.finalize = acc => acc.count / acc.numPixels; break; // Treats undefined as 0.
+    }
+
     const reducePixels = this.reducePixels;
     const out = pixels => reducePixels(pixels, reducerFn, startValue);
     out.type = type; // For debugging.
