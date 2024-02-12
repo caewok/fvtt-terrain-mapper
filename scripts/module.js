@@ -9,6 +9,7 @@ socketlib
 import { MODULE_ID, SOCKETS } from "./const.js";
 import { log } from "./util.js";
 import { TerrainLayer } from "./TerrainLayer.js";
+import { TerrainLevel } from "./TerrainLevel.js";
 import { Settings } from "./settings.js";
 import { Terrain, addTerrainEffect, removeTerrainEffect } from "./Terrain.js";
 import { TerrainMap } from "./TerrainMap.js";
@@ -94,7 +95,8 @@ function initializeAPI() {
     SCENE_GRAPH,
     TerrainLayerPixelCache,
     TerrainPixelCache,
-    TerrainKey
+    TerrainKey,
+    TerrainLevel
   };
 }
 
