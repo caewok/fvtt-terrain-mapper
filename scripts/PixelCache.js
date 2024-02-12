@@ -1010,6 +1010,26 @@ export class PixelCache extends PIXI.Rectangle {
 
         break;
       }
+
+      case "average_eq_threshold":
+      case "count_eq_threshold": {
+        startValue = { numNull: 0, numPixels: 0, threshold, count: 0 };
+        reducerFn = (acc, curr) => {
+          acc.numPixels += 1;
+          if ( curr == null ) acc.numNull += 1; // Undefined or null.
+          else if ( curr === acc.threshold ) acc.count += 1;
+          return acc;
+        };
+
+        // Re-zero values in case of rerunning with the same reducer function.
+        reducerFn.initialize = () => {
+          startValue.numNull = 0;
+          startValue.numPixels = 0;
+          startValue.count = 0;
+        };
+        break;
+      }
+
       case "average_gt_threshold":
       case "count_gt_threshold": {
         startValue = { numNull: 0, numPixels: 0, threshold, count: 0 };
@@ -1052,12 +1072,7 @@ export class PixelCache extends PIXI.Rectangle {
       }
     }
 
-
-    switch ( type ) {
-      case "average": reducerFn.finalize = acc => acc.total / acc.numPixels; break; // Treats undefined as 0.
-      case "average_gt_threshold": reducerFn.finalize = acc => acc.count / acc.numPixels; break; // Treats undefined as 0.
-    }
-
+    if ( type.includes("average") ) reducerFn.finalize = acc => acc.total / acc.numPixels; // Treats undefined as 0.
     const reducePixels = this.reducePixels;
     const out = pixels => reducePixels(pixels, reducerFn, startValue);
     out.type = type; // For debugging.
