@@ -140,7 +140,7 @@ export class TerrainLevel {
    */
   percentCoverage(shape, elevation = 0, { skip, localOffsets, testElevation = true } = {}) {
     if ( testElevation && !this.activeAt(elevation, shape.center) ) return 0;
-    const reducerFn = TerrainPixelCache.pixelAggregator("average_eq_threshold", this.key);
+    const reducerFn = TerrainPixelCache.pixelAggregator("average_eq_threshold", Number(this.key));
     return canvas.terrain.pixelCache._aggregation(shape, reducerFn, skip, localOffsets);
   }
 }
