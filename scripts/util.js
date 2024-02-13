@@ -73,7 +73,7 @@ export function groupBy(list, keyGetter) {
  */
 export function gridShapeFromGridCoords(gridCoords) {
   const [tlx, tly] = canvas.grid.grid.getPixelsFromGridPosition(gridCoords[0], gridCoords[1]);
-  if ( canvas.grid.isHex && width === height ) return hexGridShape(tlx, tly);
+  if ( canvas.grid.isHex ) return hexGridShape(tlx, tly);
   return squareGridShape(tlx, tly)
 
 }
