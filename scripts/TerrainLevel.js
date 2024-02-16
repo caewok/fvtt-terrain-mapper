@@ -1,13 +1,15 @@
 /* globals
 canvas,
 CONFIG,
+MeasuredTemplate,
 Tile
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
 import { MODULE_ID, FLAGS } from "./const.js";
-import { TerrainKey } from "./TerrainPixelCache.js";
+import { TerrainKey, TerrainPixelCache } from "./TerrainPixelCache.js";
+import { gridShapeFromGridCoords } from "./util.js";
 
 
 /**
@@ -27,7 +29,7 @@ export class TerrainLevel {
     this.level = level ?? canvas.terrain.controls.currentLevel;
 
     const instances = this.constructor._instances;
-    if (instances.has(this.id) ) return instances.get(this.id);
+    if (instances.has(this.id) ) return instances.get(this.id); // eslint-disable-line no-constructor-return
     instances.set(this.id, this);
 
     this.scene = canvas.scene;
@@ -105,8 +107,6 @@ export class TerrainLevel {
     return minMax;
   }
 
-
-
   /**
    * Determine if the terrain is active at the provided elevation.
    * @param {number} elevation    Elevation to test
@@ -116,6 +116,32 @@ export class TerrainLevel {
   activeAt(elevation, location) {
     const minMaxE = this.elevationRange(location);
     return elevation.between(minMaxE.min, minMaxE.max);
+  }
+
+  /**
+   * Calculate what percentage of the grid square/hex is covered by this terrain.
+   * See percentCoverage.
+   */
+  percentGridShapeCoverage(gridCoords, elevation = 0, opts = {}) {
+    const shape = gridShapeFromGridCoords(gridCoords);
+    return this.percentCoverage(shape, elevation, opts);
+  }
+
+  /**
+   * Determine what percentage of a PIXI object is covered by this terrain for this level.
+   * The shape center at this elevation must be active unless elevationTest is false.
+   * @param {PIXI.Rectangle|PIXI.Polygon|PIXI.Circle} shape
+   * @param [number] [elevation=0]          Assumed elevation for this shape if not 0
+   * @param {object} [opts]                 Options passed to PixelCache._aggregation
+   * @param {number} [opts.skip]            Skip every X pixels when aggregating
+   * @param {number[]} [opts.localOffsets]  Numbers to add to the local x,y position when pulling the pixel(s)
+   * @param {boolean} [opts.testElevation]  If false, skip the activeAt test.
+   * @returns {number}
+   */
+  percentCoverage(shape, elevation = 0, { skip, localOffsets, testElevation = true } = {}) {
+    if ( testElevation && !this.activeAt(elevation, shape.center) ) return 0;
+    const reducerFn = TerrainPixelCache.pixelAggregator("average_eq_threshold", Number(this.key));
+    return canvas.terrain.pixelCache._aggregation(shape, reducerFn, skip, localOffsets);
   }
 }
 
@@ -166,17 +192,41 @@ export class TerrainTile extends TerrainLevel {
     if ( alphaThreshold === 1 ) return false;
     return this.tile.mesh.getPixelAlpha(location.x, location.y) < alphaThreshold;
   }
+
+  /**
+   * Determine what percentage of a PIXI object is covered by this terrain tile.
+   * @inherits
+   */
+  percentCoverage(shape, elevation = 0, { skip, localOffsets, testElevation = true } = {}) {
+    if ( testElevation && !super.activeAt(elevation, shape.center) ) return 0;
+
+    const shapeArea = shape.area;
+    if ( shapeArea <= 0 ) return 0;
+
+    const tile = this.tile;
+    const trimmedShape = tile.bounds.intersectPolygon(shape.toPolygon());
+    const trimmedArea = trimmedShape.area;
+    if ( trimmedArea <= 0 ) return 0;
+
+    const alphaThreshold = tile.document.getFlag(MODULE_ID, FLAGS.ALPHA_THRESHOLD);
+    if ( !alphaThreshold ) return trimmedArea / shapeArea || 0;
+    if ( alphaThreshold === 1 ) return 0;
+
+    const reducerFn = TerrainPixelCache.pixelAggregator("average_gt_threshold", alphaThreshold);
+    const percent = tile.evPixelCache._aggregation(trimmedShape, reducerFn, skip, localOffsets);
+    return (trimmedArea / shapeArea) * percent;
+  }
 }
 
 /**
- * Represent a measured template linked to a tile.
+ * Represent a measured template linked to a terrain.
  */
 export class TerrainMeasuredTemplate extends TerrainLevel {
   /** @type {MeasuredTemplate} */
   template;
 
   constructor(terrain, template) {
-    if ( template && !(template instanceof MeasuredTemplate) ) console.error("TerrainMeasuredTemplate requires a MeasuredTemplate object.", tile);
+    if ( template && !(template instanceof MeasuredTemplate) ) console.error("TerrainMeasuredTemplate requires a MeasuredTemplate object.", template);
     super(terrain, template);
     this.template = template;
   }
@@ -208,7 +258,25 @@ export class TerrainMeasuredTemplate extends TerrainLevel {
 
     // Second, check if contained within the template shape.
     // Shape centered at origin 0, 0.
-    const shape = template.shape.translate(template.x, template.y)
+    const shape = template.shape.translate(template.x, template.y);
     return shape.contains(location.x, location.y);
+  }
+
+  /**
+   * Determine what percentage of a PIXI object is covered by this terrain tile.
+   * @inherits
+   */
+  percentCoverage(shape, elevation = 0, { testElevation = true } = {}) {
+    if ( testElevation && !super.activeAt(elevation, shape.center) ) return 0;
+
+    const shapeArea = shape.area;
+    if ( shapeArea <= 0 ) return 0;
+
+    const template = this.template;
+    const trimmedShape = template.bounds.intersectPolygon(shape.toPolygon());
+    const trimmedArea = trimmedShape.area;
+    if ( trimmedArea <= 0 ) return 0;
+
+    return trimmedArea / shapeArea;
   }
 }

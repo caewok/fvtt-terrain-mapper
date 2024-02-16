@@ -1,3 +1,10 @@
+## 0.1.3
+Bug fixes related to calculating movement penalty; added ability to calculate movement penalty for a given shape.
+Fix for tile cache not updating.
+Move PixelCache to lib geometry.
+Fix for updating settings cache.
+Update lib geometry to v0.2.17.
+
 ## 0.1.2
 Improvements to calculating movement penalty across a path for compatibility with Elevation Ruler:
 - Change `Terrain.percentMovementForTokenAlongPath` to return the movement penalty, not the movement percent applied to the token. So if the token is at 50% movement speed for a given terrain, this would return 1.5 for a path completely in the terrain. Necessary so the averaging across different terrains works properly.

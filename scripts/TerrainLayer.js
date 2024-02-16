@@ -312,6 +312,18 @@ export class TerrainLayer extends InteractionLayer {
   }
 
   /**
+   * TerrainTiles that overlap a given shape.
+   * @param {PIXI.Rectangle|PIXI.Polygon|PIXI.Circle} shape   Shape to test
+   * @returns {Set<TerrainTile>}
+   */
+  _tileTerrainLevelsAtShape(shape) {
+    const bounds = shape.getBounds();
+    const collisionTest = (o, rect) => o.t.hasAttachedTerrain && rect.overlaps(shape);
+    const tiles = canvas.tiles.quadtree.getObjects(bounds, { collisionTest });
+    return tiles.map(tile => tile.attachedTerrain);
+  }
+
+  /**
    * TerrainMeasuredTemplates at a given position.
    * @param {Point} {x, y} location       Position to test
    * @param {PIXI.Rectangle} [bounds]     Boundary rectangle around the pixel to use to search quadtree.
@@ -320,6 +332,18 @@ export class TerrainLayer extends InteractionLayer {
   _templateTerrainLevelsAt(location, bounds) {
     bounds ??= new PIXI.Rectangle(location.x - 1, location.y -1, 3, 3);
     const collisionTest = (o, rect) => o.t.hasAttachedTerrain && rect.contains(location.x, location.y);
+    const templates = canvas.templates.quadtree.getObjects(bounds, { collisionTest });
+    return templates.map(template => template.attachedTerrain);
+  }
+
+  /**
+   * TerrainMeasuredTemplates that overlap a given shape.
+   * @param {PIXI.Rectangle|PIXI.Polygon|PIXI.Circle} shape   Shape to test
+   * @returns {Set<TerrainTemplate>}
+   */
+  _templateTerrainLevelsAtShape(shape) {
+    const bounds = shape.getBounds();
+    const collisionTest = (o, rect) => o.t.hasAttachedTerrain && o.t.shape.overlaps(shape);
     const templates = canvas.templates.quadtree.getObjects(bounds, { collisionTest });
     return templates.map(template => template.attachedTerrain);
   }

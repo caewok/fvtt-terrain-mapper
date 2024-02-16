@@ -25,6 +25,7 @@ import { Lock } from "./Lock.js";
 import { getDefaultSpeedAttribute } from "./systems.js";
 import { TravelTerrainRay } from "./TravelTerrainRay.js";
 import { TerrainListConfig } from "./TerrainListConfig.js";
+import { TerrainLevel } from "./TerrainLevel.js";
 
 // ----- Set up sockets for changing effects on tokens and creating a dialog ----- //
 // Don't pass complex classes through the socket. Use token ids instead.
@@ -87,7 +88,7 @@ export class Terrain {
     if ( activeEffect ) {
       const instances = this.constructor._instances;
       const id = activeEffect.id;
-      if (instances.has(id) ) return instances.get(id);
+      if (instances.has(id) ) return instances.get(id); // eslint-disable-line no-constructor-return
       instances.set(id, this);
     }
     this._effectHelper = new EffectHelper(activeEffect);
@@ -151,27 +152,27 @@ export class Terrain {
   async setIcon(value) { return this.activeEffect.update({ icon: value }); }
 
   /** @type {FLAGS.ANCHOR.CHOICES} */
-  get anchor() { return this.#getAEFlag(FLAGS.ANCHOR.VALUE); }
+  get anchor() { return this.#getAEFlag(FLAGS.ANCHOR.VALUE) || FLAGS.ANCHOR.CHOICES.ABSOLUTE; }
 
   async setAnchor(value) { return this.#setAEFlag(FLAGS.ANCHOR, value); }
 
   /** @type {number} */
-  get offset() { return this.#getAEFlag(FLAGS.OFFSET); }
+  get offset() { return this.#getAEFlag(FLAGS.OFFSET) || 0; }
 
   async setOffset(value) { return this.#setAEFlag(FLAGS.OFFSET, value); }
 
   /** @type {number} */
-  get rangeBelow() { return this.#getAEFlag(FLAGS.RANGE_BELOW); }
+  get rangeBelow() { return this.#getAEFlag(FLAGS.RANGE_BELOW) || 0; }
 
   async setRangeBelow(value) { return this.#setAEFlag(FLAGS.RANGE_BELOW, value); }
 
   /** @type {number} */
-  get rangeAbove() { return this.#getAEFlag(FLAGS.RANGE_ABOVE); }
+  get rangeAbove() { return this.#getAEFlag(FLAGS.RANGE_ABOVE) || 0; }
 
   async setRangeAbove(value) { return this.#setAEFlag(FLAGS.RANGE_ABOVE, value); }
 
   /** @type {boolean} */
-  get userVisible() { return this.#getAEFlag(FLAGS.USER_VISIBLE); }
+  get userVisible() { return this.#getAEFlag(FLAGS.USER_VISIBLE) || false; }
 
   async setUserVisible(value) { return this.#setAEFlag(FLAGS.USER_VISIBLE, value); }
 
@@ -402,8 +403,7 @@ export class Terrain {
     if ( !(origin instanceof PIXI.Point) ) origin = new PIXI.Point(origin.x, origin.y);
     if ( !(destination instanceof PIXI.Point) ) destination = new PIXI.Point(destination.x, destination.y);
 
-    const currTerrains = new Set(token.getAllTerrains());
-
+    const currTerrains = new Set(token.getAllTerrains()); // Store in advance for speed.
     const ttr = new TravelTerrainRay(token, { origin, destination});
     const path = ttr.path;
     let tPrev = 0;
@@ -412,13 +412,8 @@ export class Terrain {
     const nMarkers = path.length;
     const tChangeFn = markerT => {
       const tDiff = markerT - tPrev;
-      const droppedTerrains = currTerrains.difference(prevTerrains);
-      const addedTerrains = prevTerrains.difference(currTerrains);
-
-      // If movementPercentChangeForToken returns the same value, map will fail. See issue #21.
-      const percentDropped = droppedTerrains.reduce((acc, curr) => acc * curr.movementPercentChangeForToken(token, speedAttribute), 1);
-      const percentAdded = addedTerrains.reduce((acc, curr) => acc * curr.movementPercentChangeForToken(token, speedAttribute), 1);
-      return (1 / (percentAdded * (1 / percentDropped))) * tDiff;
+      const percentChange = this.percentMovementChangeForTerrainSet(token, prevTerrains, speedAttribute, currTerrains);
+      return percentChange * tDiff;
     };
 
     for ( let i = 1; i < nMarkers; i += 1 ) {
@@ -439,6 +434,92 @@ export class Terrain {
     // Handle the last segment.
     percent += tChangeFn(1);
     return percent;
+  }
+
+  /**
+   * Percent change in token's move speed when adding specified terrains to the token.
+   * Ignores terrains already on the token. Assumes if the terrain is on the token but
+   * not in the set, it should be removed.
+   * @param {Token} token
+   * @param {Set<Terrain>} terrainSet       Terrains to add to the token. Pass empty set to remove all terrains
+   * @param {string} [speedAttribute]       Optional attribute to use to determine token speed
+   * @param {Set<Terrain>} [currTerrains]   If not defined, set to all terrains on the token
+   *   Mostly used for speed in loops.
+   * @returns {number} Percent change from token's current speed.
+   */
+  static percentMovementChangeForTerrainSet(token, terrainSet, speedAttribute, currTerrains) {
+    speedAttribute ??= getDefaultSpeedAttribute();
+    currTerrains ??= new Set(token.getAllTerrains());
+    const droppedTerrains = currTerrains.difference(terrainSet);
+    const addedTerrains = terrainSet.difference(currTerrains);
+
+    // If movementPercentChangeForToken returns the same value, map would fail. See issue #21.
+    const percentDropped = droppedTerrains.reduce((acc, curr) =>
+      acc * curr.movementPercentChangeForToken(token, speedAttribute), 1);
+    const percentAdded = addedTerrains.reduce((acc, curr) =>
+      acc * curr.movementPercentChangeForToken(token, speedAttribute), 1);
+    return (1 / (percentAdded * (1 / percentDropped)));
+  }
+
+  /**
+   * Percent movement for the token at a given point on the canvas. Relies on the token's elevation.
+   * @param {Token} token               Token to test
+   * @param {Point} [location]          If not provided, taken from token center
+   * @param {string} [speedAttribute]   Optional attribute to use to determine token speed
+   * @returns {number} The percent increase or decrease from default speed attribute.
+   *   Greater than 100: increase. E.g. 120% is 20% increase over baseline.
+   *   Equal to 100: no increase.
+   *   Less than 100: decrease.
+   */
+  static percentMovementChangeForTokenAtPoint(token, location, speedAttribute) {
+    location ??= token.center;
+    let elevationE;
+    if ( Object.hasOwn(location, "z") ) elevationE = CONFIG.GeometryLib.utils.pixelsToGridUnits(location.z);
+    else elevationE = token.elevationE;
+    const terrains = canvas.terrain.activeTerrainsAt(location, elevationE);
+    return this.percentMovementChangeForTerrainSet(token, terrains, speedAttribute);
+  }
+
+  /**
+   * Percent movement for the token for a given shape on the canvas. Relies on the token's elevation.
+   * If the terrain covers more than minPercentArea, it counts as active assuming it is within elevation.
+   *
+   * @param {Token} token
+   * @param {Point} [shape]       Shape to test, if not the constrained token boundary
+   * @param {object} [opts]       Options that affect the measurement
+   * @param {number} [opts.minPercentArea]    Minimum percent area of the shape that the terrain must overlap to count
+   * @param {string} [opts.speedAttribute]    String pointing to where to find the token speed attribute
+   * @returns {number} The percent increase or decrease from default speed attribute.
+   *   Greater than 100: increase. E.g. 120% is 20% increase over baseline.
+   *   Equal to 100: no increase.
+   *   Less than 100: decrease.
+   */
+
+  static percentMovementChangeForTokenWithinShape(token, shape, minPercentArea = 0.5, speedAttribute, elevationE) {
+    elevationE = token.elevationE;
+    shape ??= token.constrainedTokenBorder;
+    const ter = canvas.terrain;
+    const terrainLevels = ter._templateTerrainLevelsAtShape(shape)
+      .union(ter._tileTerrainLevelsAtShape(shape));
+
+    // TODO: Simpler way to get terrain levels.
+    // For now, cycle through all terrains and all levels.
+    const nLayers = ter.constructor.MAX_LAYERS;
+    for ( const t of ter.sceneMap.values() ) {
+      for ( let l = 0; l < nLayers; l += 1 ) {
+        const tl = new TerrainLevel(t, l);
+        terrainLevels.add(tl);
+      }
+    }
+
+    // Keep terrains if they cover more than the percent area for the shape.
+    const terrains = new Set();
+    terrainLevels.forEach(tl => {
+      const t = tl.terrain;
+      if ( terrains.has(t) ) return;
+      if ( tl.percentCoverage(shape, elevationE) >= minPercentArea ) terrains.add(t);
+    });
+    return this.percentMovementChangeForTerrainSet(token, terrains, speedAttribute);
   }
 
   /**

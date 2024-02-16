@@ -4,7 +4,7 @@ canvas
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { PixelCache } from "./PixelCache.js";
+import { PixelCache } from "./geometry/PixelCache.js";
 import { log } from "./util.js";
 
 /**
