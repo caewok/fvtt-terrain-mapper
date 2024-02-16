@@ -473,7 +473,10 @@ export class Terrain {
    */
   static percentMovementChangeForTokenAtPoint(token, location, speedAttribute) {
     location ??= token.center;
-    const terrains = canvas.terrain.activeTerrainsAt(location, token.elevationE);
+    let elevationE;
+    if ( Object.hasOwn(location, "z") ) elevationE = CONFIG.GeometryLib.utils.pixelsToGridUnits(location.z);
+    else elevationE = token.elevationE;
+    const terrains = canvas.terrain.activeTerrainsAt(location, elevationE);
     return this.percentMovementChangeForTerrainSet(token, terrains, speedAttribute);
   }
 
@@ -492,7 +495,8 @@ export class Terrain {
    *   Less than 100: decrease.
    */
 
-  static percentMovementChangeForTokenWithinShape(token, shape, minPercentArea = 0.5, speedAttribute) {
+  static percentMovementChangeForTokenWithinShape(token, shape, minPercentArea = 0.5, speedAttribute, elevationE) {
+    elevationE = token.elevationE;
     shape ??= token.constrainedTokenBorder;
     const ter = canvas.terrain;
     const terrainLevels = ter._templateTerrainLevelsAtShape(shape)
@@ -513,7 +517,7 @@ export class Terrain {
     terrainLevels.forEach(tl => {
       const t = tl.terrain;
       if ( terrains.has(t) ) return;
-      if ( tl.percentCoverage(shape, token.elevationE) >= minPercentArea ) terrains.add(t);
+      if ( tl.percentCoverage(shape, elevationE) >= minPercentArea ) terrains.add(t);
     });
     return this.percentMovementChangeForTerrainSet(token, terrains, speedAttribute);
   }
