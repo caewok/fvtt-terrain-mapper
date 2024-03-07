@@ -262,7 +262,7 @@ export class TravelTerrainRay {
       const currMarker = sameT ? prevMarker : mergeObject(prevMarker, { t: marker.t }, { inplace: false });
       if ( !sameT ) finalMarkers.push(currMarker);
       if ( marker.type === "elevation" ) {
-        currMarker.elevation = marker.elevation;
+        currMarker.elevation = marker.elevation.elevation;
         continue;
       }
       currTerrains[marker.type] = marker.terrains;
