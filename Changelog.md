@@ -1,3 +1,8 @@
+## 0.1.4
+Fix error when using Elevated Vision and Elevation Ruler along with Terrain Mapper and the token moves over a terrain.
+
+Update lib geometry to v0.2.18.
+
 ## 0.1.3
 Bug fixes related to calculating movement penalty; added ability to calculate movement penalty for a given shape.
 Fix for tile cache not updating.
