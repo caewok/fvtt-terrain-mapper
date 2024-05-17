@@ -126,21 +126,26 @@ export class EffectHelper {
   async addToToken(tokenUUID) {
     const tokenD = fromUuidSync(tokenUUID);
     if ( !tokenD ) return;
+    const actor = tokenD.object?.actor;
+    if ( !actor ) return;
 
     // TODO: Do we need to use foundry.utils.deepClone here?
     if ( !this.effect ) return;
 
     const effectData = this.effect.toObject();
-    effectData._id = undefined;
     effectData.id = this.effect.id;
     effectData.origin = `TerrainMapper.${this.effect.id}`;
-    return tokenD.toggleActiveEffect(effectData, { active: true });
+    effectData.flags[MODULE_ID] ??= {};
+    effectData.flags[MODULE_ID][FLAGS.EFFECT_ID] = this.effect.id;
+    return await actor.createEmbeddedDocuments("ActiveEffect", [effectData]);
   }
 
   async removeFromToken(tokenUUID) {
     const tokenD = fromUuidSync(tokenUUID);
     if ( !tokenD ) return;
-    return tokenD.toggleActiveEffect({ id: this.effect.id }, { active: false });
+    const actor = tokenD.object?.actor;
+    if ( !actor ) return;
+    return await actor.deleteEmbeddedDocuments("ActiveEffect", [this.effect.id]);
   }
 
   static async deleteEffectById(id) {
