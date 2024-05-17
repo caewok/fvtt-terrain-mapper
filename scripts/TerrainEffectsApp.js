@@ -23,8 +23,8 @@ export class TerrainEffectsApp extends Application {
     return foundry.utils.mergeObject(super.defaultOptions, {
       width: 300,
       height: 600,
-      top: 75,
-      left: 125,
+      top: 60,
+      left: 100,
       popOut: true,
       minimizable: true,
       resizable: true,
