@@ -44,6 +44,8 @@ export const FLAGS = {
     }
   },
 
+  EFFECT_ID: "effectId",
+
   OFFSET: "offset",
   RANGE_BELOW: "rangeBelow",
   RANGE_ABOVE: "rangeAbove",

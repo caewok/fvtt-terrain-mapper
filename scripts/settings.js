@@ -50,6 +50,7 @@ export class Settings extends ModuleSettingsAbstract {
     CURRENT_TERRAIN: "current_terrain", // Current terrain id on the terrain layer.
     CURRENT_LAYER: "current_layer", // Current layer id on the terrain layer.
 
+
     // Automatically set terrain on tokens.
     AUTO_TERRAIN: {
       ALGORITHM: "auto_terrain",
@@ -58,7 +59,8 @@ export class Settings extends ModuleSettingsAbstract {
         COMBAT: "auto_terrain_combat",
         ALWAYS: "auto_terrain_always"
       },
-      DIALOG: "auto_terrain_dialog"  // Should the GM get a terrain dialog on terrain addition?
+      DIALOG: "auto_terrain_dialog",  // Should the GM get a terrain dialog on terrain addition?
+      DISPLAY_ICON: "auto_terrain_display_icon" // Display icon when adding active terrain effect.
     },
 
     // Configuration of the application that controls the terrain listings.
@@ -137,6 +139,16 @@ export class Settings extends ModuleSettingsAbstract {
       scope: "world",
       config: true,
       default: false,
+      requiresReload: false,
+      type: Boolean
+    });
+
+    this.register(KEYS.AUTO_TERRAIN.DISPLAY_ICON, {
+      name: localize(`${KEYS.AUTO_TERRAIN.DISPLAY_ICON}.name`),
+      hint: localize(`${KEYS.AUTO_TERRAIN.DISPLAY_ICON}.hint`),
+      scope: "world",
+      config: true,
+      default: true,
       requiresReload: false,
       type: Boolean
     });

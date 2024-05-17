@@ -59,6 +59,9 @@
   "terrainmapper.settings.auto_terrain_dialog.name": "Auto-Terrain Dialog",
   "terrainmapper.settings.auto_terrain_dialog.hint": "Present dialog to GM when token terrain is added by Auto-Terrain",
 
+  "terrainmapper.settings.auto_terrain_display_icon.name": "Display terrain icon",
+  "terrainmapper.settings.auto_terrain_display_icon.hint": "When adding terrain effect to a token, display a status icon.",
+
   "terrainmapper.phrases.terrainLayer": "Terrain Layer",
   "terrainmapper.phrases.terrain": "Terrain",
   "terrainmapper.phrases.no-terrain": "No Terrain",
