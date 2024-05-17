@@ -1,3 +1,8 @@
+## 0.1.5
+Fix error when applying terrain effects. (Should now work with dnd5e 3.x updates.)
+
+Add a setting to choose whether to display the terrain icon when applying terrain effects to tokens.
+
 ## 0.1.4
 Fix error when using Elevated Vision and Elevation Ruler along with Terrain Mapper and the token moves over a terrain.
 
