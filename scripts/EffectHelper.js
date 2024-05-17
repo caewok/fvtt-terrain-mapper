@@ -133,10 +133,10 @@ export class EffectHelper {
     if ( !this.effect ) return;
 
     const effectData = this.effect.toObject();
-    effectData.id = this.effect.id;
     effectData.origin = `TerrainMapper.${this.effect.id}`;
     effectData.flags[MODULE_ID] ??= {};
     effectData.flags[MODULE_ID][FLAGS.EFFECT_ID] = this.effect.id;
+    effectData.statuses = [effectData.icon];
     return await actor.createEmbeddedDocuments("ActiveEffect", [effectData]);
   }
 
@@ -145,7 +145,11 @@ export class EffectHelper {
     if ( !tokenD ) return;
     const actor = tokenD.object?.actor;
     if ( !actor ) return;
-    return await actor.deleteEmbeddedDocuments("ActiveEffect", [this.effect.id]);
+
+    // Need to find the effect that shares this id.
+    const ids = actor.effects.filter(e => e.flags?.[MODULE_ID]?.effectId === this.effect.id).map(e => e.id);
+    if ( !ids.length ) return;
+    return await actor.deleteEmbeddedDocuments("ActiveEffect", ids);
   }
 
   static async deleteEffectById(id) {
