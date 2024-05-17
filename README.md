@@ -6,6 +6,8 @@
 ![Latest Release Download Count](https://img.shields.io/github/downloads/caewok/fvtt-terrain-mapper/latest/module.zip)
 ![All Downloads](https://img.shields.io/github/downloads/caewok/fvtt-terrain-mapper/total)
 
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/H2H3Y7IJW)
+
 You can use this [Module JSON link](https://github.com/caewok/fvtt-terrain-mapper/releases/latest/download/module.json) to install.
 
 This [Foundry VTT](https://foundryvtt.com) module provides a terrain canvas layer that lets the GM designate areas of the canvas to have one or more terrain types. Each terrain is associated with an [active effect](https://foundryvtt.com/article/active-effects/), which can be applied to tokens manually or as the token moves across the canvas.
