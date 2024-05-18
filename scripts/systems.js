@@ -25,6 +25,7 @@ export function getDefaultSpeedAttribute() {
     case "wfrp4e": return "actor.system.details.move.walk";
     case "crucible": return "actor.system.movement.stride";
     case "dragonbane":    return "actor.system.movement";
+    case "twodsix":       return "actor.system.movement.walk";
   }
   return "";
 }
