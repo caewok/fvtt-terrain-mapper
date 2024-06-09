@@ -1205,8 +1205,8 @@ export class TerrainLayer extends InteractionLayer {
     const color = wall.isOpen ? Draw.COLORS.blue : Draw.COLORS.red;
     const alpha = wall.isOpen ? 0.5 : 1;
     draw.segment(wall, { color, alpha });
-    draw.point(wall.A, { color: Draw.COLORS.red });
-    draw.point(wall.B, { color: Draw.COLORS.red });
+    draw.point(wall.edge.a, { color: Draw.COLORS.red });
+    draw.point(wall.edge.b, { color: Draw.COLORS.red });
     return graphics;
   }
 
