@@ -1,3 +1,7 @@
+## 0.2.0
+Initial Foundry v12 compatibility.
+Additional releases (starting with v0.3.0) will focus on transitioning to using the Region system in v12. Version 0.2 series is completely separate from Regions and is intended as a stop-gap.
+
 ## 0.1.5
 Fix error when applying terrain effects. (Should now work with dnd5e 3.x updates.)
 

@@ -132,9 +132,9 @@ export class TerrainKey extends Number {
    * @returns {TerrainKey}
    */
   static fromRGBIntegers(r, g, b) {
-    r = Math.clamped(Math.floor(r), 0, NUM_VALUES);
-    g = Math.clamped(Math.floor(g), 0, NUM_VALUES);
-    b = Math.clamped(Math.floor(b), 0, NUM_VALUES);
+    r = Math.clamp(Math.floor(r), 0, NUM_VALUES);
+    g = Math.clamp(Math.floor(g), 0, NUM_VALUES);
+    b = Math.clamp(Math.floor(b), 0, NUM_VALUES);
     return this.fromTerrainLayers([r, g, b]);
   }
 
@@ -185,8 +185,8 @@ export class TerrainKey extends Number {
    * @returns {TerrainKey}
    */
   static fromTerrainValue(terrainValue, layer) {
-    terrainValue = Math.clamped(Math.floor(terrainValue), 0, NUM_VALUES);
-    layer = Math.clamped(Math.floor(layer), 0, BITS);
+    terrainValue = Math.clamp(Math.floor(terrainValue), 0, NUM_VALUES);
+    layer = Math.clamp(Math.floor(layer), 0, BITS);
 
     // Faster than calling fromTerrainLayers.
     if ( layer === 0 ) return new this(terrainValue);
@@ -202,8 +202,8 @@ export class TerrainKey extends Number {
    * @returns {TerrainValue} This updated terrain value.
    */
   overwriteTerrainValue(terrainValue, layer) {
-    terrainValue = Math.clamped(Math.floor(terrainValue), 0, NUM_VALUES);
-    layer = Math.clamped(Math.floor(layer), 0, BITS);
+    terrainValue = Math.clamp(Math.floor(terrainValue), 0, NUM_VALUES);
+    layer = Math.clamp(Math.floor(layer), 0, BITS);
     const currentLayers = this.toTerrainLayers();
     currentLayers[layer] = terrainValue;
     return this.constructor.fromTerrainLayers(currentLayers);
@@ -220,9 +220,9 @@ export class TerrainKey extends Number {
 
 /* Testing
 
-randomLayer = () => Math.clamped(Math.round(Math.random() * BITS), 0, BITS);
-randomTerrain = () => Math.clamped(Math.round(Math.random() * 15), 0, 31);
-random8Bit = () => Math.clamped(Math.round(Math.random() * 255), 0, 255);
+randomLayer = () => Math.clamp(Math.round(Math.random() * BITS), 0, BITS);
+randomTerrain = () => Math.clamp(Math.round(Math.random() * 15), 0, 31);
+random8Bit = () => Math.clamp(Math.round(Math.random() * 255), 0, 255);
 
 // Can convert to/from rgba integers
 minC = TerrainKey.fromRGBIntegers(0, 0, 0)

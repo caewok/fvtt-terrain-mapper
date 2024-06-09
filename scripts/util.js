@@ -1,5 +1,8 @@
 /* globals
-PIXI
+canvas,
+CONFIG,
+PIXI,
+renderTemplate
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
@@ -9,7 +12,7 @@ import { MODULE_ID } from "./const.js";
 export function log(...args) {
   try {
     if ( CONFIG[MODULE_ID].debug ) console.debug(MODULE_ID, "|", ...args);
-  } catch(e) {
+  } catch(_e) { // eslint-disable-line no-unused-vars
     // Empty
   }
 }
@@ -68,13 +71,13 @@ export function groupBy(list, keyGetter) {
 
 /**
  * Get the grid shape for a given set of grid coordinates.
- * @param {number[2]} gridCoords      Array of [row, col] grid coordinates. See canvas.grid.grid.getGridPositionFromPixels
+ * @type {GridCoordinates} gridCoords  { i: row, j: col } location
  * @returns {PIXI.Rectangle|PIXI.Polygon}
  */
 export function gridShapeFromGridCoords(gridCoords) {
-  const [tlx, tly] = canvas.grid.grid.getPixelsFromGridPosition(gridCoords[0], gridCoords[1]);
-  if ( canvas.grid.isHex ) return hexGridShape(tlx, tly);
-  return squareGridShape(tlx, tly)
+  const tl = canvas.grid.getTopLeftPoint(gridCoords);
+  if ( canvas.grid.isHexagonal ) return hexGridShape(tl.x, tl.y);
+  return squareGridShape(tl.x, tl.y)
 
 }
 
@@ -109,3 +112,17 @@ function hexGridShape(tlx, tly, { width = 1, height = 1 } = {}) {
   }
   return new PIXI.Polygon(pointsTranslated);
 }
+
+/**
+ * Helper to get a rectangular bounds between two points.
+ * @param {PIXI.Point} a
+ * @param {PIXI.Point} b
+ * @returns {PIXI.Rectangle}
+ */
+export function segmentBounds(a, b) {
+  if ( !b || (a.x === b.x && a.y === b.y) ) return new PIXI.Rectangle(a.x - 1, a.y - 1, 3, 3);
+  const xMinMax = Math.minMax(a.x, b.x);
+  const yMinMax = Math.minMax(a.y, b.y);
+  return new PIXI.Rectangle(xMinMax.min, yMinMax.min, xMinMax.max - xMinMax.min, yMinMax.max - yMinMax.min);
+}
+

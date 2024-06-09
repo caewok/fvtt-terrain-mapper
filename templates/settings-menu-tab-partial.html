@@ -1,0 +1,36 @@
+<!-- See Foundry template settings-config-category.html -->
+
+{{#if this.horizontalDivider }}<hr>{{/if}}
+<div class="form-group" data-setting-id="{{this.id}}">
+    <label>{{this.name}}</label>
+    <div class="form-fields">
+
+        {{#if this.dataField}}
+        {{formInput this.dataField value=this.value input=this.input localize=true}}
+
+        {{else if this.isCheckbox}}
+        <input type="checkbox" name="{{this.id}}" data-dtype="Boolean" {{checked this.value}}/>
+
+        {{else if this.isSelect}}
+        <select name="{{this.id}}" data-dtype="{{this.type}}">
+            {{selectOptions this.choices selected=this.value localize=true}}
+        </select>
+
+        {{else if this.isRange}}
+        <input type="range" name="{{this.id}}" data-dtype="Number" value="{{ this.value }}"
+               min="{{ this.range.min }}" max="{{ this.range.max }}" step="{{ this.range.step }}"/>
+        <span class="range-value">{{this.value}}</span>
+
+        {{else if this.filePicker}}
+        <file-picker name="{{this.id}}" type="{{this.filePickerType}}" value="{{this.value}}"></file-picker>
+
+        {{else if this.isNumber}}
+        {{numberInput this.value name=this.id}}
+
+        {{else}}
+        <input type="text" name="{{this.id}}" value="{{this.value}}" data-dtype="{{this.type}}"/>
+        {{/if}}
+    </div>
+
+    <p class="notes">{{this.hint}}</p>
+</div>
