@@ -184,8 +184,8 @@ void main() {
   updateTerrainIcons() {
     // TODO: Handle multiple icons.
     for ( const terrain of canvas.terrain.sceneMap.values()) {
-      if ( !terrain.icon ) continue;
-      this.uniforms.uTerrainIcon = PIXI.Texture.from(terrain.icon);
+      if ( !terrain.img ) continue;
+      this.uniforms.uTerrainIcon = PIXI.Texture.from(terrain.img);
       break;
     }
   }
