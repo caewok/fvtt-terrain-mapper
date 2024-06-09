@@ -1,6 +1,6 @@
 /* globals
 canvas,
-flattenObject,
+foundry,
 game
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
@@ -35,7 +35,7 @@ function preUpdateTokenHook(tokenD, changes, _options, _userId) {
   if ( autoT === AUTO.CHOICES.NO ) return;
   if ( autoT === AUTO.CHOICES.COMBAT && !game.combat?.isActive ) return;
 
-  const changeKeys = new Set(Object.keys(flattenObject(changes)));
+  const changeKeys = new Set(Object.keys(foundry.utils.flattenObject(changes)));
   const token = tokenD.object;
   const destination = token.getCenter(changes.x ?? token.x, changes.y ?? token.y);
   const tm = token[MODULE_ID] ??= {};
