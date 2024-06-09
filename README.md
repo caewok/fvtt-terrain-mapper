@@ -1,10 +1,12 @@
 [![Version (latest)](https://img.shields.io/github/v/release/caewok/fvtt-terrain-mapper)](https://github.com/caewok/fvtt-terrain-mapper/releases/latest)
-[![Foundry Version](https://img.shields.io/badge/dynamic/json.svg?url=https://github.com/caewok/fvtt-terrain-mapper/releases/latest/download/module.json&label=Foundry%20Version&query=$.minimumCoreVersion&colorB=blueviolet)](https://github.com/caewok/fvtt-terrain-mapper/releases/latest)
+[![Foundry Version](https://img.shields.io/badge/dynamic/json.svg?url=https://github.com/caewok/fvtt-terrain-mapper/releases/latest/download/module.json&label=Foundry%20Version&query=$.compatibility.verified&colorB=blueviolet)](https://github.com/caewok/fvtt-terrain-mapper/releases/latest)
 [![License](https://img.shields.io/github/license/caewok/fvtt-terrain-mapper)](LICENSE)
 
 ![Forge Installs](https://img.shields.io/badge/dynamic/json?label=Forge%20Installs&query=package.installs&suffix=%25&url=https://forge-vtt.com/api/bazaar/package/terrainmapper&colorB=4aa94a)
 ![Latest Release Download Count](https://img.shields.io/github/downloads/caewok/fvtt-terrain-mapper/latest/module.zip)
 ![All Downloads](https://img.shields.io/github/downloads/caewok/fvtt-terrain-mapper/total)
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/H2H3Y7IJW)
 
 You can use this [Module JSON link](https://github.com/caewok/fvtt-terrain-mapper/releases/latest/download/module.json) to install.
 
@@ -77,7 +79,7 @@ GMs can select a terrain to use with the fill tools here. The divider line separ
 
 GMs can use the fill tools to "color" parts of the canvas with terrains, based on the currently selected layer and terrain. Note that "No Terrain" can be used as an eraser.
 
-### Fill by grid 
+### Fill by grid
 
 <img width="44" alt="Brush" src="https://github.com/caewok/fvtt-terrain-mapper/assets/1267134/18fe4c3e-b8e0-4f79-aa5d-705acc668fcc" style="float: left;"> Fills one or more grid squares with the terrain. Hold and drag to fill a bunch of grid squares in a row.
 
@@ -106,7 +108,7 @@ Note that gaps between walls can cause this tool to fill much more area than int
 <img width="44" alt="Enable labels" src="https://github.com/caewok/fvtt-terrain-mapper/assets/1267134/aaac932b-73c5-4200-91d2-5066ed4ec17d" style="float: left;"> Enable to show terrain names on the canvas map.
 
 ## Terrain Book
-<img width="44" alt="Terrain book" src="https://github.com/caewok/fvtt-terrain-mapper/assets/1267134/b5a82920-a1dd-4743-8504-1b8e7259fd33" style="float: left;"> 
+<img width="44" alt="Terrain book" src="https://github.com/caewok/fvtt-terrain-mapper/assets/1267134/b5a82920-a1dd-4743-8504-1b8e7259fd33" style="float: left;">
 
 The terrain book stores all the terrains the GM has defined, and provides for advanced settings.
 
@@ -131,7 +133,7 @@ This button pops out a helper that lists terrain information in a compact form f
 
 This button pops out a dialog with two parts: elevation settings and pixel representation.
 
-# Advanced Scene Configuration 
+# Advanced Scene Configuration
 <img width="694" alt="Advanced Scene config" src="https://github.com/caewok/fvtt-terrain-mapper/assets/1267134/05b68086-efe9-4d80-b313-e860e1199dc6" style="float: left;">
 
 ## Terrain Layer Elevation
