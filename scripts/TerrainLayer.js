@@ -421,7 +421,7 @@ export class TerrainLayer extends InteractionLayer {
    */
   clampTerrainId(id) {
     id ??= 0;
-    return Math.clamped(Math.round(id), 0, this.constructor.MAX_TERRAIN_ID);
+    return Math.clamp(Math.round(id), 0, this.constructor.MAX_TERRAIN_ID);
   }
 
   /**

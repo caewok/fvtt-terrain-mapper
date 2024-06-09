@@ -37,7 +37,7 @@ export class TerrainLayerToolBar extends Application {
   get currentLayer() { return this.#currentLayer ?? (this.#currentLayer = this._loadStoredLayer()); }
 
   set currentLayer(value) {
-    this.#currentLayer = Math.clamped(Math.round(value), 0, canvas.terrain.constructor.MAX_LAYERS);
+    this.#currentLayer = Math.clamp(Math.round(value), 0, canvas.terrain.constructor.MAX_LAYERS);
     Settings.set(Settings.KEYS.CURRENT_LAYER, this.#currentLayer); // Async
 
     // Update the layer variable in the shader that displays terrain.
