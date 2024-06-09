@@ -25,9 +25,9 @@ export class TerrainGridHexagon extends Hexagon {
 
   /**
    * Determine the grid location for this shape.
-   * @type {[number, number]}  [row, col] location
+   * @type {GridCoordinates}  { i: row, j: col } location
    */
-  get gridPosition() { return canvas.grid.grid.getGridPositionFromPixels(this.origin.x, this.origin.y); }
+  get gridPosition() { return canvas.grid.getOffset(this.origin, this.origin); }
 
   /**
    * Construct a grid square from a given canvas location.
@@ -46,8 +46,8 @@ export class TerrainGridHexagon extends Hexagon {
    * @param {number} col
    * @returns {Square}
    */
-  static fromGridPosition(row, col) {
-    const tl = canvas.grid.getTopLeftPoint({ i: row, j: col });
+  static fromGridPosition(gridCoords) {
+    const tl = canvas.grid.getTopLeftPoint(gridCoords);
     return this._fromTopLeft(tl.x, tl.y);
   }
 
@@ -90,7 +90,12 @@ export class TerrainGridHexagon extends Hexagon {
       return undefined;
     }
 
-    const { gridPosition, pixelValue, layer } = json;
+    const { pixelValue, layer } = json;
+
+    // Convert older JSON format.
+    const gridPosition = json.gridPosition instanceof Array
+      ? { i: json.gridPosition[0], j: json.gridPosition[1] } : json.gridPosition;
+
     const sq = this.fromGridPosition(gridPosition);
     sq.pixelValue = pixelValue;
     sq.layer = layer;
@@ -104,9 +109,9 @@ export class TerrainGridHexagon extends Hexagon {
    */
   envelops(other) {
     if ( other instanceof TerrainGridHexagon ) {
-      const [row, col] = this.gridPosition;
-      const [r, c] = other.gridPosition;
-      return (row === r && col === c);
+      const gridCoords = this.gridPosition;
+      const otherGridCoords = other.gridPosition;
+      return gridCoords.i === otherGridCoords.i && gridCoords.j === otherGridCoords.j;
     }
     return super.envelops(other)
   }

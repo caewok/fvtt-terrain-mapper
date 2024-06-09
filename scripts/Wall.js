@@ -1,9 +1,11 @@
 /* globals
 canvas,
-flattenObject
+game
 */
 "use strict";
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
+
+import { SCENE_GRAPH } from "./WallTracer.js";
 
 // Methods related to Wall
 
@@ -24,6 +26,11 @@ PATCHES.BASIC = {};
  * @param {string} userId                           The ID of the User who triggered the creation workflow
  */
 function createWall(wallD, _options, _userId) {
+  if ( !wallD.object.isOpen ) {
+    // Build the edges for this wall.
+    SCENE_GRAPH.addWall(wallD.object);
+    SCENE_GRAPH.updateCyclePolygons();
+  }
   if ( !game.user.isGM ) return;
   canvas.terrain._addWall(wallD.object);
 }
@@ -40,7 +47,19 @@ function createWall(wallD, _options, _userId) {
  * @param {DocumentModificationContext} options     Additional options which modified the update request
  * @param {string} userId                           The ID of the User who triggered the update workflow
  */
-function updateWall(wallD, _data, _options, _userId) {
+function updateWall(wallD, changes, _options, _userId) {
+  // Only update the edges if the coordinates have changed or the door setting has changed.
+  if ( Object.hasOwn(changes, "c") || Object.hasOwn(changes, "ds") ) {
+    // Easiest approach is to trash the edges for the wall and re-create them.
+    SCENE_GRAPH.removeWall(wallD.id);
+
+    // Only add the wall back if it is not open
+    if ( !wallD.object.isOpen) SCENE_GRAPH.addWall(wallD.object);
+  }
+
+  // Update the polygons regardless, in case a wall limitation or wall height has changed.
+  SCENE_GRAPH.updateCyclePolygons();
+
   if ( !game.user.isGM ) return;
   canvas.terrain._updateWall(wallD.object);
 }
@@ -57,6 +76,10 @@ function updateWall(wallD, _data, _options, _userId) {
  * @param {string} userId                           The ID of the User who triggered the deletion workflow
  */
 function deleteWall(wallD, _options, _userId) {
+  // The document.object is now null; use the id to remove the wall.
+  SCENE_GRAPH.removeWall(document.id);
+  SCENE_GRAPH.updateCyclePolygons();
+
   if ( !game.user.isGM ) return;
   canvas.terrain._removeWall(wallD.id);
 }
@@ -66,3 +89,4 @@ PATCHES.BASIC.HOOKS = {
   updateWall,
   deleteWall
 };
+

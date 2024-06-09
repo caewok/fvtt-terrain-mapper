@@ -1,5 +1,8 @@
 /* globals
-PIXI
+canvas,
+CONFIG,
+PIXI,
+renderTemplate
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
@@ -9,7 +12,7 @@ import { MODULE_ID } from "./const.js";
 export function log(...args) {
   try {
     if ( CONFIG[MODULE_ID].debug ) console.debug(MODULE_ID, "|", ...args);
-  } catch(e) {
+  } catch(_e) { // eslint-disable-line no-unused-vars
     // Empty
   }
 }
@@ -68,13 +71,13 @@ export function groupBy(list, keyGetter) {
 
 /**
  * Get the grid shape for a given set of grid coordinates.
- * @param {number[2]} gridCoords      Array of [row, col] grid coordinates. See canvas.grid.grid.getGridPositionFromPixels
+ * @type {GridCoordinates} gridCoords  { i: row, j: col } location
  * @returns {PIXI.Rectangle|PIXI.Polygon}
  */
 export function gridShapeFromGridCoords(gridCoords) {
-  const tl = canvas.grid.getTopLeftPoint({ i: gridCoords[0], j: gridCoords[1] });
+  const tl = canvas.grid.getTopLeftPoint(gridCoords);
   if ( canvas.grid.isHexagonal ) return hexGridShape(tl.x, tl.y);
-  return squareGridShape(tlx, tly)
+  return squareGridShape(tl.x, tl.y)
 
 }
 

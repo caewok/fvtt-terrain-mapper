@@ -1,5 +1,6 @@
 /* globals
 CanvasQuadtree,
+ClipperPaths,
 CONFIG,
 CONST,
 foundry,
@@ -16,6 +17,7 @@ Wall
 import { groupBy, segmentBounds } from "./util.js";
 import { Draw } from "./geometry/Draw.js";
 import { Graph, GraphVertex, GraphEdge } from "./geometry/Graph.js";
+import { ClipperPaths } from "./geometry/ClipperPaths.js";
 import { Settings } from "./settings.js";
 import { doSegmentsOverlap, IX_TYPES, segmentCollision } from "./geometry/util.js";
 import { MODULE_ID } from "./const.js";
@@ -451,6 +453,14 @@ export class WallTracer extends Graph {
   canvasEdgeIds = new Set();
 
   /**
+   * @type {object}
+   * @property {PIXI.Polygons} least
+   * @property {PIXI.Polygons} most
+   * @property {PIXI.Polygons} combined
+   */
+  cyclePolygonsQuadtree = new CanvasQuadtree();
+
+  /**
    * Set of wall ids represented in this graph.
    * @type {Set<string>}
    */
@@ -470,6 +480,7 @@ export class WallTracer extends Graph {
    */
   clear() {
     this.edgesQuadtree.clear();
+    this.cyclePolygonsQuadtree.clear();
     this.objectEdges.clear();
     this.wallIds.clear();
     this.tokenIds.clear();
@@ -791,6 +802,195 @@ export class WallTracer extends Graph {
       edge.draw({ color });
     }
   }
+
+  // ----- Polygon handling ---- //
+
+  /**
+   * @type {PIXI.Polygon} GraphCyclePolygon
+   * @type {object} _wallTracerData   Object to store tracer data
+   * @property {Set<Wall>} _wallTracerData.wallSet    Walls that make up the polygon
+   * @property {object} _wallTracerData.restrictionTypes  CONST.WALL_RESTRICTION_TYPES
+   * @property {number} _wallTracerData.restrictionTypes.light
+   * @property {number} _wallTracerData.restrictionTypes.sight
+   * @property {number} _wallTracerData.restrictionTypes.sound
+   * @property {number} _wallTracerData.restrictionTypes.move
+   * @property {object} _wallTracerData.height
+   * @property {number} _wallTracerData.height.min
+   * @property {number} _wallTracerData.height.max
+   * @property {number} _wallTracerData.hasOneWay
+   */
+
+  /**
+   * Convert a single cycle (array of vertices) to a polygon.
+   * Capture the wall set for edges in the polygon.
+   * Determine the minimum limit for each restriction type of all the walls.
+   * @param {WallTracerVertex[]} cycle    Array of vertices that make up the cycle, in order.
+   * @returns {GraphCyclePolygon|null} Polygon, with additional tracer data added.
+   */
+  static cycleToPolygon(cycle) {
+    const nVertices = cycle.length;
+    if ( nVertices < 3 ) return null;
+    const points = Array(nVertices * 2);
+    const wallSet = new Set();
+    const restrictionTypes = {
+      light: CONST.WALL_SENSE_TYPES.NORMAL,
+      sight: CONST.WALL_SENSE_TYPES.NORMAL,
+      sound: CONST.WALL_SENSE_TYPES.NORMAL,
+      move: CONST.WALL_SENSE_TYPES.NORMAL
+    };
+    const height = {
+      min: Number.POSITIVE_INFINITY,
+      max: Number.NEGATIVE_INFINITY
+    };
+    let hasOneWay = false;
+
+    let vertex = cycle[nVertices - 1];
+    for ( let i = 0; i < nVertices; i += 1 ) {
+      const nextVertex = cycle[i];
+      const j = i * 2;
+      points[j] = vertex.x;
+      points[j + 1] = vertex.y;
+
+      const edge = vertex.edges.find(e => e.otherVertex(vertex).key === nextVertex.key);
+      for ( const wall of edge.walls ) {
+        wallSet.add(wall);
+        const doc = wall.document;
+        restrictionTypes.light = Math.min(restrictionTypes.light, doc.light);
+        restrictionTypes.sight = Math.min(restrictionTypes.sight, doc.sight);
+        restrictionTypes.sound = Math.min(restrictionTypes.sound, doc.sound);
+        restrictionTypes.move = Math.min(restrictionTypes.move, doc.move);
+
+        height.min = Math.min(height.min, wall.bottomZ)
+        height.max = Math.max(height.max, wall.topZ)
+
+        hasOneWay ||= doc.dir;
+      }
+      vertex = nextVertex;
+    }
+
+    const poly = new PIXI.Polygon(points);
+    poly.clean();
+    poly._wallTracerData = { wallSet, restrictionTypes, height, hasOneWay };
+    return poly;
+  }
+
+  /**
+   * Update the quadtree of cycle polygons
+   */
+  updateCyclePolygons() {
+    // Least, most, none are perform similarly. Most might be a bit faster
+    // (The sort can sometimes mean none is faster, but not always)
+    // Weighting by distance hurts performance.
+    this.cyclePolygonsQuadtree.clear();
+    const cycles = this.getAllCycles({ sortType: Graph.VERTEX_SORT.LEAST, weighted: true });
+    cycles.forEach(cycle => {
+      const poly = WallTracer.cycleToPolygon(cycle);
+      this.cyclePolygonsQuadtree.insert({ r: poly.getBounds(), t: poly });
+    });
+  }
+
+  /**
+   * For a given origin point, find all polygons that encompass it.
+   * Then narrow to the one that has the smallest area.
+   * @param {Point} origin
+   * @param {CONST.WALL_RESTRICTION_TYPES} [type]   Limit to polygons that are CONST.WALL_SENSE_TYPES.NORMAL
+   *                                                for the given type
+   * @returns {PIXI.Polygon|null}
+   */
+  encompassingPolygon(origin, type) {
+    const encompassingPolygons = this.encompassingPolygons(origin, type);
+    return this.smallestPolygon(encompassingPolygons);
+  }
+
+  encompassingPolygons(origin, type) {
+    origin.z ??= 0;
+
+    // Find those polygons that actually contain the origin.
+    // Start by using the bounds, then test containment.
+    const bounds = new PIXI.Rectangle(origin.x - 1, origin.y -1, 2, 2);
+    const collisionTest = (o, _rect) => o.t.contains(origin.x, origin.y);
+    let encompassingPolygons = this.cyclePolygonsQuadtree.getObjects(bounds, { collisionTest });
+
+    if ( type ) encompassingPolygons = encompassingPolygons.filter(poly => {
+      const wallData = poly._wallTracerData;
+
+      if ( wallData.restrictionTypes[type] !== CONST.WALL_SENSE_TYPES.NORMAL
+        || wallData.height.max < origin.z
+        || wallData.height.min > origin.z ) return false;
+
+      if ( !wallData.hasOneWay ) return true;
+
+      // Confirm that each wall is blocking from the origin
+      for ( const wall of wallData.wallSet ) {
+        if ( !wallData.dir ) continue;
+        const side = wall.orientPoint(this.origin);
+        if ( side === wall.document.dir ) return false;
+
+      }
+      return true;
+    });
+
+    return encompassingPolygons;
+  }
+
+  smallestPolygon(polygons) {
+    const res = polygons.reduce((acc, curr) => {
+      const area = curr.area;
+      if ( area < acc.area ) {
+        acc.area = area;
+        acc.poly = curr;
+      }
+      return acc;
+    }, { area: Number.POSITIVE_INFINITY, poly: null})
+
+    return res.poly;
+  }
+
+  /**
+   * For a given polygon, find all polygons that could be holes within it.
+   * @param {PIXI.Polygon} encompassingPolygon
+   * @param {CONST.WALL_RESTRICTION_TYPES} [type]   Limit to polygons that are CONST.WALL_SENSE_TYPES.NORMAL
+   *                                                for the given type
+   * @returns {encompassingPolygon: {PIXI.Polygon}, holes: {Set<PIXI.Polygon>}}
+   */
+  _encompassingPolygonsWithHoles(origin, type) {
+    const encompassingPolygons = this.encompassingPolygons(origin, type);
+    const encompassingPolygon = this.smallestPolygon(encompassingPolygons);
+    if ( !encompassingPolygon ) return { encompassingPolygon, holes: [] };
+
+    // Looking for all polygons that are not encompassing but do intersect with or are contained by
+    // the encompassing polygon.
+    const collisionTest = (o, _rect) => {
+      const poly = o.t;
+      if ( encompassingPolygons.some(ep => ep.equals(poly)) ) return false;
+      return poly.overlaps(encompassingPolygon);
+    };
+
+    const holes = this.cyclePolygonsQuadtree.getObjects(encompassingPolygon.getBounds(), { collisionTest });
+    return { encompassingPolygon, holes };
+  }
+
+  /**
+   * Build the representation of a polygon that encompasses the origin point,
+   * along with any holes for that encompassing polygon.
+   * @param {Point} origin
+   * @param {CONST.WALL_RESTRICTION_TYPES} [type]   Limit to polygons that are CONST.WALL_SENSE_TYPES.NORMAL
+   *                                                for the given type
+   * @returns {PIXI.Polygon[]}
+   */
+  encompassingPolygonWithHoles(origin, type) {
+    const { encompassingPolygon, holes } = this._encompassingPolygonsWithHoles(origin, type);
+    if ( !encompassingPolygon ) return [];
+    if ( !holes.size ) return [encompassingPolygon];
+
+    // Union the holes
+    const paths = ClipperPaths.fromPolygons(holes);
+    const combined = paths.combine();
+
+    // Diff the encompassing polygon against the holes
+    const diffPath = combined.diffPolygon(encompassingPolygon);
+    return diffPath.toPolygons();
+  }
 }
 
 
@@ -850,3 +1050,75 @@ function prorateTSplit(firstT, secondT) {
   if ( secondT < firstT ) return secondT / firstT;
   return (secondT - firstT) / (1 - firstT);
 }
+
+/**
+ * Test if at least one of a polygon is contained within another polygon
+ * @param {PIXI.Polygon} encompassingPolygon
+ * @param {PIXI.Polygon} other
+ * @return {boolean}
+ */
+// function polygonPartiallyContained(encompassingPolygon, other) {
+//   const pts = other.iteratePoints({close: false});
+//   for ( const pt of pts ) {
+//     if ( encompassingPolygon.contains(pt) ) return true;
+//   }
+//   return false;
+// }
+
+/**
+ * Do two segments overlap?
+ * Overlap means they intersect or they are collinear and overlap
+ * @param {PIXI.Point} a   Endpoint of segment A|B
+ * @param {PIXI.Point} b   Endpoint of segment A|B
+ * @param {PIXI.Point} c   Endpoint of segment C|D
+ * @param {PIXI.Point} d   Endpoint of segment C|D
+ * @returns {boolean}
+ */
+// function segmentsOverlap(a, b, c, d) {
+//   if ( foundry.utils.lineSegmentIntersects(a, b, c, d) ) return true;
+//
+//   // If collinear, B is within A|B or D is within A|B
+//   const pts = findOverlappingPoints(a, b, c, d);
+//   return pts.length;
+// }
+
+/**
+ * Find the points of overlap between two segments A|B and C|D.
+ * @param {PIXI.Point} a   Endpoint of segment A|B
+ * @param {PIXI.Point} b   Endpoint of segment A|B
+ * @param {PIXI.Point} c   Endpoint of segment C|D
+ * @param {PIXI.Point} d   Endpoint of segment C|D
+ * @returns {PIXI.Point[]} Array with 0, 1, or 2 points.
+ *   The points returned will be a, b, c, and/or d, whichever are contained by the others.
+ *   No points are returned if A|B and C|D are not collinear, or if they do not overlap.
+ *   A single point is returned if a single endpoint is shared.
+ */
+function findOverlappingPoints(a, b, c, d) {
+  if ( !foundry.utils.orient2dFast(a, b, c).almostEqual(0)
+    || !foundry.utils.orient2dFast(a, b, d).almostEqual(0) ) return [];
+
+  // B is within A|B or D is within A|B
+  const abx = Math.minMax(a.x, b.x);
+  const aby = Math.minMax(a.y, b.y);
+  const cdx = Math.minMax(c.x, d.x);
+  const cdy = Math.minMax(c.y, d.y);
+
+  const p0 = new PIXI.Point(
+    Math.max(abx.min, cdx.min),
+    Math.max(aby.min, cdy.min)
+  );
+
+  const p1 = new PIXI.Point(
+    Math.min(abx.max, cdx.max),
+    Math.min(aby.max, cdy.max)
+  );
+
+  const xEqual = p0.x.almostEqual(p1.x);
+  const yEqual = p1.y.almostEqual(p1.y);
+  if ( xEqual && yEqual ) return [p0];
+  if ( xEqual ^ yEqual
+  || (p0.x < p1.x && p0.y < p1.y)) return [p0, p1];
+
+  return [];
+}
+

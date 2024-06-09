@@ -16,10 +16,12 @@ import { PATCHES as PATCHES_Tile } from "./Tile.js";
 import { PATCHES as PATCHES_TileConfig } from "./TileConfig.js";
 import { PATCHES as PATCHES_Token } from "./Token.js";
 import { PATCHES as PATCHES_Wall } from "./Wall.js";
+import { PATCHES as PATCHES_CanvasEdges } from "./CanvasEdges.js";
 
 export const PATCHES = {
   ActiveEffect: PATCHES_ActiveEffect,
   ActiveEffectConfig: PATCHES_ActiveEffectConfig,
+  ["foundry.canvas.edges.CanvasEdges"]: PATCHES_CanvasEdges,
   ItemDirectory: PATCHES_ItemDirectory,
   "PIXI.Graphics": PATCHES_PIXI_Graphics,
   MeasuredTemplate: PATCHES_MeasuredTemplate,
