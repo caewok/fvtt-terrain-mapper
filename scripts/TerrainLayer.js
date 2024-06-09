@@ -5,7 +5,6 @@ Dialog,
 FullCanvasObjectMixin,
 game,
 InteractionLayer,
-mergeObject,
 PIXI,
 PreciseText,
 readTextFromFile,
@@ -204,7 +203,7 @@ export class TerrainLayer extends InteractionLayer {
 
   /** @overide */
   static get layerOptions() {
-    return mergeObject(super.layerOptions, {
+    return foundry.utils.mergeObject(super.layerOptions, {
       name: "Terrain"
     });
   }

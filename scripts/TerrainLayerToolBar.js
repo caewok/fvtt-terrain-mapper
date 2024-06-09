@@ -2,8 +2,7 @@
 Application,
 canvas,
 foundry,
-game,
-mergeObject,
+game
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
@@ -83,7 +82,7 @@ export class TerrainLayerToolBar extends Application {
     };
 
     options.editable = game.user.isGM;
-    return mergeObject(super.defaultOptions, options);
+    return foundry.utils.mergeObject(super.defaultOptions, options);
   }
 
   activateListeners(html) {
