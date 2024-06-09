@@ -984,7 +984,7 @@ export class TerrainLayer extends InteractionLayer {
    * Create a grid shape that can be shared among drawn instances
    */
   #initializeGridShape() {
-    const useHex = canvas.grid.isHex;
+    const useHex = canvas.grid.isHexagonal;
     const p = { x: 0, y: 0 };
     const shape = useHex ? this._hexGridShape(p) : this._squareGridShape(p);
 
@@ -1415,11 +1415,11 @@ export class TerrainLayer extends InteractionLayer {
    * @param {boolean} [options.temporary]   If true, don't immediately require a save.
    *   This setting does not prevent a save if the user further modifies the canvas.
    * @param {boolean} [options.useHex]      If true, use a hex grid; if false use square.
-   *   Defaults to canvas.grid.isHex.
+   *   Defaults to canvas.grid.isHexagonal.
    *
    * @returns {PIXI.Graphics} The child graphics added to the _graphicsContainer
    */
-  setTerrainForGridSpace(p, terrain, { temporary = false, useHex = canvas.grid.isHex } = {}) {
+  setTerrainForGridSpace(p, terrain, { temporary = false, useHex = canvas.grid.isHexagonal } = {}) {
     const shape = useHex ? this._hexGridShape(p) : this._squareGridShape(p);
     return this.addTerrainShapeToCanvas(shape, terrain, { temporary });
   }
