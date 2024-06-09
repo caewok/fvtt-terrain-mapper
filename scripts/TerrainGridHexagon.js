@@ -36,8 +36,8 @@ export class TerrainGridHexagon extends Hexagon {
    * @returns {Square}
    */
   static fromLocation(x, y) {
-    const [tlx, tly] = canvas.grid.grid.getTopLeft(x, y);
-    return this._fromTopLeft(tlx, tly);
+    const tl = canvas.grid.getTopLeftPoint({ x, y });
+    return this._fromTopLeft(tl.x, tl.y);
   }
 
   /**
