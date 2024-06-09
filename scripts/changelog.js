@@ -55,6 +55,14 @@ Hooks.once("ready", () => {
                 balcony portion.`
         })
 
+        .addEntry({
+            version: "0.2.0",
+            title: "Foundry v12",
+            body: `\
+                This release offers compatibility for Foundry v12. For v11, please use the v0.1 series.
+                Currently, terrains are completely separate from Foundry Regions, but additional releases of Terrain Mapper
+                will focus on incorporating terrains into Regions.`
+        })
 
         .build()
         ?.render(true);
