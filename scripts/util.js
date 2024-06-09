@@ -72,8 +72,8 @@ export function groupBy(list, keyGetter) {
  * @returns {PIXI.Rectangle|PIXI.Polygon}
  */
 export function gridShapeFromGridCoords(gridCoords) {
-  const [tlx, tly] = canvas.grid.grid.getPixelsFromGridPosition(gridCoords[0], gridCoords[1]);
-  if ( canvas.grid.isHexagonal ) return hexGridShape(tlx, tly);
+  const tl = canvas.grid.getTopLeftPoint({ i: gridCoords[0], j: gridCoords[1] });
+  if ( canvas.grid.isHexagonal ) return hexGridShape(tl.x, tl.y);
   return squareGridShape(tlx, tly)
 
 }
