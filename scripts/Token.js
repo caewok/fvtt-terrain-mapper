@@ -37,7 +37,7 @@ function preUpdateTokenHook(tokenD, changes, _options, _userId) {
 
   const changeKeys = new Set(Object.keys(foundry.utils.flattenObject(changes)));
   const token = tokenD.object;
-  const destination = token.getCenter(changes.x ?? token.x, changes.y ?? token.y);
+  const destination = token.getCenterPoint({ x: changes.x ?? token.x, y: changes.y ?? token.y });
   const tm = token[MODULE_ID] ??= {};
   const origTTR = tm.ttr;
   if ( changeKeys.has("elevation") && origTTR ) {
@@ -72,7 +72,7 @@ function refreshTokenHook(token, flags) {
     if ( !ttr ) return;
 
     // Determine if there are any active terrains based on the center of this token.
-    const center = token.getCenter(token.position.x, token.position.y);
+    const center = token.getCenterPoint(token.position);
     const pathTerrains = ttr.activeTerrainsAtClosestPoint(center);
     if ( !pathTerrains.size ) {
       Terrain.removeAllFromToken(token); // Async
