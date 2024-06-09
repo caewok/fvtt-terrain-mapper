@@ -13,12 +13,12 @@ Wall
 
 // WallTracer3
 
-import { groupBy, segmentBounds } from "../util.js";
-import { Draw } from "../geometry/Draw.js";
-import { Graph, GraphVertex, GraphEdge } from "../geometry/Graph.js";
-import { Settings } from "../settings.js";
-import { doSegmentsOverlap, IX_TYPES, segmentCollision } from "../geometry/util.js";
-import { MODULE_ID } from "../const.js";
+import { groupBy, segmentBounds } from "./util.js";
+import { Draw } from "./geometry/Draw.js";
+import { Graph, GraphVertex, GraphEdge } from "./geometry/Graph.js";
+import { Settings } from "./settings.js";
+import { doSegmentsOverlap, IX_TYPES, segmentCollision } from "./geometry/util.js";
+import { MODULE_ID } from "./const.js";
 
 /* WallTracerVertex
 
