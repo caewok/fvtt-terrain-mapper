@@ -1,7 +1,10 @@
 /* globals
 canvas,
-flattenObject,
-game
+Dialog,
+foundry,
+fromUuidSync,
+game,
+PIXI
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
@@ -35,9 +38,9 @@ function preUpdateTokenHook(tokenD, changes, _options, _userId) {
   if ( autoT === AUTO.CHOICES.NO ) return;
   if ( autoT === AUTO.CHOICES.COMBAT && !game.combat?.isActive ) return;
 
-  const changeKeys = new Set(Object.keys(flattenObject(changes)));
+  const changeKeys = new Set(Object.keys(foundry.utils.flattenObject(changes)));
   const token = tokenD.object;
-  const destination = token.getCenter(changes.x ?? token.x, changes.y ?? token.y);
+  const destination = token.getCenterPoint({ x: changes.x ?? token.x, y: changes.y ?? token.y });
   const tm = token[MODULE_ID] ??= {};
   const origTTR = tm.ttr;
   if ( changeKeys.has("elevation") && origTTR ) {
@@ -58,46 +61,62 @@ function preUpdateTokenHook(tokenD, changes, _options, _userId) {
  * Adjust terrain as the token moves; handle animation pauses.
  */
 function refreshTokenHook(token, flags) {
+  if ( token.isPreview ) {
+    // Token is clone in a drag operation.
+    if ( flags.refreshPosition || flags.refreshElevation || flags.refreshSize ) {
+      let text = token._getTooltipText();
+      // Get every active terrain below the center of the token.
+      const terrains = canvas.terrain.activeTerrainsAt(token.center, token.elevationE);
+      if ( terrains.size ) {
+        // Limit to visible terrains for the user.
+        const userTerrains = game.user.isGM ? terrains : terrains.filter(t => t.userVisible);
+
+        // Combine all the terrains.
+        const names = [...userTerrains].map(t => t.name);
+        text = `${names.join("\n")}\n${text}`;
+      }
+      token.tooltip.text = text;
+    }
+    return;
+  }
+
   token[MODULE_ID] ??= {};
   const autoT = Settings.get(AUTO.ALGORITHM);
   if ( autoT === AUTO.CHOICES.NO ) return;
   if ( autoT === AUTO.CHOICES.COMBAT && !game.combat?.isActive ) return;
   if ( !(flags.refreshPosition || flags.refreshElevation) ) return;
 
-  if ( token._original ) {
-    // This token is a clone in a drag operation.
+  const ttr = token[MODULE_ID].ttr;
+  if ( !ttr ) return;
 
-  } else if ( token._animation ) {
-    const ttr = token[MODULE_ID].ttr;
-    if ( !ttr ) return;
-
-    // Determine if there are any active terrains based on the center of this token.
-    const center = token.getCenter(token.position.x, token.position.y);
-    const pathTerrains = ttr.activeTerrainsAtClosestPoint(center);
-    if ( !pathTerrains.size ) {
-      Terrain.removeAllFromToken(token); // Async
-      return;
-    }
-
-    // Determine if terrains must be added or removed from the token at this point.
-    const tokenTerrains = new Set(Terrain.allOnToken(token));
-    const terrainsToRemove = tokenTerrains.difference(pathTerrains);
-    const terrainsToAdd = pathTerrains.difference(tokenTerrains);
-
-    // Following remove/add is async.
-    terrainsToRemove.forEach(t => t.removeFromToken(token));
-    terrainsToAdd.forEach(t => t.addToToken(token));
-
-    // If no terrains added or no dialog required when adding terrains, we are done.
-    if ( !terrainsToAdd.size ) return;
-    if ( Settings.get(AUTO.DIALOG) ) {
-      token.stopAnimation();
-      token.document.update({ x: token.position.x, y: token.position.y });
-      game.togglePause(true); // Pause for this user only.
-      const dialogContent = terrainEncounteredDialogContent(token, [...terrainsToAdd]);
-      SOCKETS.socket.executeAsGM("terrainEncounteredDialog", token.document.uuid, dialogContent, ttr.destination, game.user.id);
-    }
+  // Determine if there are any active terrains based on the center of this token.
+  const center = token.getCenterPoint(token.position);
+  const pathTerrains = ttr.activeTerrainsAtClosestPoint(center);
+  if ( !pathTerrains.size ) {
+    Terrain.removeAllFromToken(token); // Async
+    return;
   }
+
+  // Determine if terrains must be added or removed from the token at this point.
+  const tokenTerrains = new Set(Terrain.allOnToken(token));
+  const terrainsToRemove = tokenTerrains.difference(pathTerrains);
+  const terrainsToAdd = pathTerrains.difference(tokenTerrains);
+
+  // Following remove/add is async.
+  terrainsToRemove.forEach(t => t.removeFromToken(token));
+  terrainsToAdd.forEach(t => t.addToToken(token));
+
+  // If no terrains added or no dialog required when adding terrains, we are done.
+  if ( !terrainsToAdd.size ) return;
+  if ( Settings.get(AUTO.DIALOG) && token.animationContexts.size ) {
+    log(`refreshTokenHook|Stopping animation for ${token.name} at ${token.position.x},${token.position.y} (destination ${ttr.destination.x},${ttr.destination.y}).`);
+    token.stopAnimation({ reset: false });
+    token.document.update({ x: token.position.x, y: token.position.y });
+    game.togglePause(true); // Pause for this user only.
+    const dialogContent = terrainEncounteredDialogContent(token, [...terrainsToAdd]);
+    SOCKETS.socket.executeAsGM("terrainEncounteredDialog", token.document.uuid, dialogContent, ttr.destination, game.user.id);
+  }
+
 }
 
 /**
@@ -133,7 +152,7 @@ export function terrainEncounteredDialog(tokenUUID, content, destination, userId
         icon: "<i class='fas fa-person-hiking'></i>",
         label: localize("continue"),
         callback: async () => {
-          log("Continued animation.");
+          log(`Continued animation to ${destination.x},${destination.y}.`);
           const tl = token.getTopLeft(destination.x, destination.y);
           await token.document.update({x: tl.x, y: tl.y});
           // SOCKETS.socket.executeAsUser("updateTokenDocument", userId, tokenUUID, {x: tl.x, y: tl.y});
@@ -208,32 +227,4 @@ PATCHES.BASIC.METHODS = {
   removeAllTerrains,
   hasTerrain,
   getTopLeft
-};
-
-// ----- NOTE: Wraps ----- //
-
-/**
- * Display the terrain name as the token is dragged.
- */
-function _getTooltipText(wrapper) {
-  let text = wrapper();
-
-  // If not a clone, return.
-  if ( !this._original ) return text;
-
-  // Get every active terrain below the center of the token.
-  const terrains = canvas.terrain.activeTerrainsAt(this.center, this.elevationE);
-  if ( !terrains.size ) return text;
-
-  // Limit to visible terrains for the user.
-  const userTerrains = game.user.isGM ? terrains : terrains.filter(t => t.userVisible);
-
-  // Combine all the terrains.
-  const names = [...userTerrains].map(t => t.name);
-
-  return `${names.join("\n")}\n${text}`;
-}
-
-PATCHES.BASIC.WRAPS = {
-  _getTooltipText
 };

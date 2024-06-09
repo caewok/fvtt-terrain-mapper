@@ -236,7 +236,7 @@ export class TerrainFileManager {
     let width = dims.sceneWidth;
     let height = dims.sceneHeight;
 
-    let resolution = Math.clamped(CONFIG[MODULE_ID]?.resolution ?? 0.25, .01, 1);
+    let resolution = Math.clamp(CONFIG[MODULE_ID]?.resolution ?? 0.25, .01, 1);
     const maxSize = Math.min(
       this.constructor.#MAXIMUM_TEXTURE_SIZE,
       resolution * Math.max(width, height));

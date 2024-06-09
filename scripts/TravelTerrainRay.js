@@ -3,7 +3,6 @@ canvas,
 CONFIG,
 foundry,
 game,
-mergeObject,
 PIXI
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
@@ -259,7 +258,7 @@ export class TravelTerrainRay {
     // Track terrain levels that are present at each location.
     for ( const marker of combinedMarkers ) {
       const sameT = marker.t.almostEqual(prevMarker.t);
-      const currMarker = sameT ? prevMarker : mergeObject(prevMarker, { t: marker.t }, { inplace: false });
+      const currMarker = sameT ? prevMarker : foundry.utils.mergeObject(prevMarker, { t: marker.t }, { inplace: false });
       if ( !sameT ) finalMarkers.push(currMarker);
       if ( marker.type === "elevation" ) {
         currMarker.elevation = marker.elevation.elevation;

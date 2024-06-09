@@ -47,7 +47,9 @@ export class FillPolygonHelper extends ControlHelper {
 
     // Mandatory additions
     delete data._id;
-    origin = canvas.grid.getSnappedPosition(origin.x, origin.y, this.gridPrecision);
+    const M = CONST.GRID_SNAPPING_MODES;
+    const mode = M.CENTER | M.VERTEX | M.CORNER | M.SIDE_MIDPOINT;
+    origin = canvas.grid.getSnappedPoint(origin, { mode, resolution: this.gridPrecision });
     data.x = origin.x;
     data.y = origin.y;
     data.author = game.user.id;
@@ -97,8 +99,10 @@ export class FillPolygonHelper extends ControlHelper {
 
     // Snap the origin to the grid
     if ( !event.isShift ) {
+      const M = CONST.GRID_SNAPPING_MODES;
+      const mode = M.CENTER | M.VERTEX | M.CORNER | M.SIDE_MIDPOINT;
       interaction.origin =
-        canvas.grid.getSnappedPosition(interaction.origin.x, interaction.origin.y, this.gridPrecision);
+        canvas.grid.getSnappedPoint(interaction.origin, { mode, resolution: this.gridPrecision });
     }
 
     // Register the ongoing creation

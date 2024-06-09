@@ -10,7 +10,10 @@
   <div class="form-group">
     <label>Color</label>
     <div class="form-fields">
-      {{colorPicker name="flags.terrainmapper.color" value=data.flags.terrainmapper.color}}
+      <color-picker name="flags.terrainmapper.color" value={{data.flags.terrainmapper.color}} id="terrainmapper.color"}}
+        <input type="text" placeholder="#FFFFFF">
+        <input type="color">
+      </color-picker>
     </div>
   </div>
 

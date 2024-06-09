@@ -16,7 +16,6 @@ import { TerrainMap } from "./TerrainMap.js";
 import { EffectHelper } from "./EffectHelper.js";
 import { PATCHER, initializePatching } from "./patching.js";
 import { registerGeometry } from "./geometry/registration.js";
-import { registerElevationConfig } from "./geometry/elevation_configs.js";
 import { terrainEncounteredDialog, updateTokenDocument } from "./Token.js";
 
 import { TerrainLayerShader } from "./glsl/TerrainLayerShader.js";
@@ -50,8 +49,6 @@ Hooks.once("init", function() {
  */
 Hooks.once("setup", function() {
   Settings.registerAll();
-  registerElevationConfig("TileConfig", "Terrain Mapper");
-  registerElevationConfig("MeasuredTemplateConfig", "Terrain Mapper");
 });
 
 

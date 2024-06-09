@@ -67,7 +67,7 @@ export class Terrain {
   /**
    * @typedef {Object} TerrainConfig          Terrain configuration data
    * @property {string} name                  User-facing name of the terrain.
-   * @property {string} icon                  URL of icon representing the terrain
+   * @property {string} img                   URL of icon representing the terrain
    * @property {hex} color                    Hex value for the color representing the terrain
    * @property {FLAGS.ANCHOR.CHOICES} anchor  Measure elevation as fixed, from terrain, or from layer.
    * @property {number} offset                Offset elevation from anchor
@@ -147,9 +147,14 @@ export class Terrain {
   async setDescription(value) { return this.activeEffect.update({ description: value }); }
 
   /** @type {string} */
-  get icon() { return this.activeEffect?.icon || null; }
+  get img() { return this.activeEffect?.img || null; }
 
-  async setIcon(value) { return this.activeEffect.update({ icon: value }); }
+  async setImg(value) { return this.activeEffect.update({ img: value }); }
+
+  /** @type {alias} */
+  get icon() { return this.img; }
+
+  async setIcon(value) { return this.setImg(value); }
 
   /** @type {FLAGS.ANCHOR.CHOICES} */
   get anchor() { return this.#getAEFlag(FLAGS.ANCHOR.VALUE) || FLAGS.ANCHOR.CHOICES.ABSOLUTE; }
