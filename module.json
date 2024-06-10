@@ -48,6 +48,13 @@
     }
   ],
 
+  "documentTypes": {
+    "RegionBehavior": {
+      "addTerrain": {},
+      "removeTerrain": {}
+    }
+  },
+
   "styles": [
     "styles/terrainlayer.css"
   ],

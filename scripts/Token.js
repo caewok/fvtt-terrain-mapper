@@ -80,42 +80,42 @@ function refreshTokenHook(token, flags) {
     return;
   }
 
-  token[MODULE_ID] ??= {};
-  const autoT = Settings.get(AUTO.ALGORITHM);
-  if ( autoT === AUTO.CHOICES.NO ) return;
-  if ( autoT === AUTO.CHOICES.COMBAT && !game.combat?.isActive ) return;
-  if ( !(flags.refreshPosition || flags.refreshElevation) ) return;
-
-  const ttr = token[MODULE_ID].ttr;
-  if ( !ttr ) return;
-
-  // Determine if there are any active terrains based on the center of this token.
-  const center = token.getCenterPoint(token.position);
-  const pathTerrains = ttr.activeTerrainsAtClosestPoint(center);
-  if ( !pathTerrains.size ) {
-    Terrain.removeAllFromToken(token); // Async
-    return;
-  }
-
-  // Determine if terrains must be added or removed from the token at this point.
-  const tokenTerrains = new Set(Terrain.allOnToken(token));
-  const terrainsToRemove = tokenTerrains.difference(pathTerrains);
-  const terrainsToAdd = pathTerrains.difference(tokenTerrains);
-
-  // Following remove/add is async.
-  terrainsToRemove.forEach(t => t.removeFromToken(token));
-  terrainsToAdd.forEach(t => t.addToToken(token));
-
-  // If no terrains added or no dialog required when adding terrains, we are done.
-  if ( !terrainsToAdd.size ) return;
-  if ( Settings.get(AUTO.DIALOG) && token.animationContexts.size ) {
-    log(`refreshTokenHook|Stopping animation for ${token.name} at ${token.position.x},${token.position.y} (destination ${ttr.destination.x},${ttr.destination.y}).`);
-    token.stopAnimation({ reset: false });
-    token.document.update({ x: token.position.x, y: token.position.y });
-    game.togglePause(true); // Pause for this user only.
-    const dialogContent = terrainEncounteredDialogContent(token, [...terrainsToAdd]);
-    SOCKETS.socket.executeAsGM("terrainEncounteredDialog", token.document.uuid, dialogContent, ttr.destination, game.user.id);
-  }
+//   token[MODULE_ID] ??= {};
+//   const autoT = Settings.get(AUTO.ALGORITHM);
+//   if ( autoT === AUTO.CHOICES.NO ) return;
+//   if ( autoT === AUTO.CHOICES.COMBAT && !game.combat?.isActive ) return;
+//   if ( !(flags.refreshPosition || flags.refreshElevation) ) return;
+//
+//   const ttr = token[MODULE_ID].ttr;
+//   if ( !ttr ) return;
+//
+//   // Determine if there are any active terrains based on the center of this token.
+//   const center = token.getCenterPoint(token.position);
+//   const pathTerrains = ttr.activeTerrainsAtClosestPoint(center);
+//   if ( !pathTerrains.size ) {
+//     Terrain.removeAllFromToken(token); // Async
+//     return;
+//   }
+//
+//   // Determine if terrains must be added or removed from the token at this point.
+//   const tokenTerrains = new Set(Terrain.allOnToken(token));
+//   const terrainsToRemove = tokenTerrains.difference(pathTerrains);
+//   const terrainsToAdd = pathTerrains.difference(tokenTerrains);
+//
+//   // Following remove/add is async.
+//   terrainsToRemove.forEach(t => t.removeFromToken(token));
+//   terrainsToAdd.forEach(t => t.addToToken(token));
+//
+//   // If no terrains added or no dialog required when adding terrains, we are done.
+//   if ( !terrainsToAdd.size ) return;
+//   if ( Settings.get(AUTO.DIALOG) && token.animationContexts.size ) {
+//     log(`refreshTokenHook|Stopping animation for ${token.name} at ${token.position.x},${token.position.y} (destination ${ttr.destination.x},${ttr.destination.y}).`);
+//     token.stopAnimation({ reset: false });
+//     token.document.update({ x: token.position.x, y: token.position.y });
+//     game.togglePause(true); // Pause for this user only.
+//     const dialogContent = terrainEncounteredDialogContent(token, [...terrainsToAdd]);
+//     SOCKETS.socket.executeAsGM("terrainEncounteredDialog", token.document.uuid, dialogContent, ttr.destination, game.user.id);
+//   }
 
 }
 

@@ -62,8 +62,28 @@
   "terrainmapper.settings.auto_terrain_display_icon.name": "Display terrain icon",
   "terrainmapper.settings.auto_terrain_display_icon.hint": "When adding terrain effect to a token, display a status icon.",
 
+  "terrainmapper.behavior.types.add-terrain.fields.terrain.hint": "Select terrain that will be added to the token as an active effect",
+
+  "terrainmapper.behavior.types.add-terrain.fields.duplicates.name": "Allow Duplicates",
+  "terrainmapper.behavior.types.add-terrain.fields.duplicates.hint": "When enabled, the terrain can be added to a token more than once.",
+
+  "terrainmapper.behavior.types.add-terrain.fields.removeOther.name": "Remove Others",
+  "terrainmapper.behavior.types.add-terrain.fields.removeOther.hint": "When enabled, all other terrains on the token will be removed.",
+
+  "terrainmapper.behavior.types.add-terrain.fields.secret.name": "Secret",
+  "terrainmapper.behavior.types.add-terrain.fields.secret.hint": "When enabled, dragging the token will not reveal the existence of the terrain to users.",
+
+  "terrainmapper.behavior.types.remove-terrain.fields.terrain.hint": "Select one or more terrains that will be removed from the token. Leave blank to remove all terrains.",
+
+  "terrainmapper.behavior.types.remove-terrain.fields.keepSelected.name": "Keep selected",
+  "terrainmapper.behavior.types.remove-terrain.fields.keepSelected.hint": "Enable to keep the selected terrains and remove all the rest from the token.",
+
+  "TYPES.RegionBehavior.terrainmapper.addTerrain": "Add Terrains",
+  "TYPES.RegionBehavior.terrainmapper.removeTerrain": "Remove Terrains",
+
   "terrainmapper.phrases.terrainLayer": "Terrain Layer",
   "terrainmapper.phrases.terrain": "Terrain",
+  "terrainmapper.phrases.terrains": "Terrains",
   "terrainmapper.phrases.no-terrain": "No Terrain",
   "terrainmapper.phrases.new-terrain": "New Terrain",
   "terrainmapper.phrases.layer-number": "Layer {layerNumber}"
