@@ -44,6 +44,12 @@ Hooks.once("init", function() {
   registerGeometry();
   TerrainLayer.register();
 
+  // Must set up the Terrains prior to the region data validation.
+  const terrainItem = Settings.terrainEffectsDataItem;
+  if ( terrainItem ) {
+    for ( const effect of terrainItem.effects ) Terrain.fromEffectId(effect._id);
+  }
+
   Object.assign(CONFIG.RegionBehavior.dataModels, {
     [`${MODULE_ID}.addTerrain`]: AddTerrainRegionBehaviorType,
     [`${MODULE_ID}.removeTerrain`]: RemoveTerrainRegionBehaviorType,

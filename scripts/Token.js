@@ -1,5 +1,6 @@
 /* globals
 canvas,
+CONST,
 Dialog,
 foundry,
 fromUuidSync,
@@ -65,8 +66,13 @@ function refreshTokenHook(token, flags) {
     // Token is clone in a drag operation.
     if ( flags.refreshPosition || flags.refreshElevation || flags.refreshSize ) {
       let text = token._getTooltipText();
+
       // Get every active terrain below the center of the token.
-      const terrains = canvas.terrain.activeTerrainsAt(token.center, token.elevationE);
+      let terrains = canvas.terrain.activeTerrainsAt(token.center, token.elevationE);
+
+      // Test for regions with terrains.
+      for ( const region of identifyRegions(token) ) terrains = terrains.union(identifyRegionTerrains(region));
+
       if ( terrains.size ) {
         // Limit to visible terrains for the user.
         const userTerrains = game.user.isGM ? terrains : terrains.filter(t => t.userVisible);
@@ -228,3 +234,53 @@ PATCHES.BASIC.METHODS = {
   hasTerrain,
   getTopLeft
 };
+
+// ----- NOTE: Helper functions ----- //
+
+/**
+ * For a given preview token, determine what regions it would be in.
+ * See TokenDocument##identifyRegions
+ * @param {Token} token
+ * @returns {Set<Region>}
+ */
+function identifyRegions(token) {
+  const regions = new Set();
+  const center = token.getCenterPoint();
+  const elevation = token.elevation;
+  for ( const region of canvas.regions.placeables ) {
+    if ( region.testPoint(center, elevation) ) regions.add(region);
+  }
+  return regions;
+}
+
+/**
+ * For a given preview token, determine what terrains it would have if it entered the region.
+ * @param {Region} region
+ * @returns {Set<Terrain>}
+ */
+const ENTRY_EVENTS = new Set([
+  CONST.REGION_EVENTS.TOKEN_ENTER,
+  CONST.REGION_EVENTS.TOKEN_MOVE,
+  CONST.REGION_EVENTS.TOKEN_MOVE_IN,
+  CONST.REGION_EVENTS.TOKEN_PRE_MOVE,
+]);
+
+const ENTRY_EVENTS_COMBAT = new Set([
+  CONST.REGION_EVENTS.TOKEN_ROUND_END,
+  CONST.REGION_EVENTS.TOKEN_ROUND_START,
+  CONST.REGION_EVENTS.TOKEN_TURN_END,
+  CONST.REGION_EVENTS.TOKEN_TURN_START
+]);
+
+function identifyRegionTerrains(region, isGM = game.user.isGM) {
+  const events = game.combat?.started ? ENTRY_EVENTS.union(ENTRY_EVENTS_COMBAT) : ENTRY_EVENTS;
+  const terrainIds = new Set();
+  for ( const behavior of region.document.behaviors.values() ) {
+    if ( behavior.disabled ) continue;
+    if ( behavior.type !== "terrainmapper.addTerrain" ) continue;
+    if ( !behavior.system.events.intersects(events) ) continue;
+    if ( !isGM && behavior.system.secret ) continue;
+    behavior.system.terrains.forEach(t => terrainIds.add(t));
+  }
+  return new Set([...terrainIds].map(id => Terrain._instances.get(id)).filter(t => Boolean(t)));
+}

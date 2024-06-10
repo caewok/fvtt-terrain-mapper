@@ -21,9 +21,8 @@ export class TerrainRegionBehaviorType extends foundry.data.regionBehaviors.Regi
     };
 
     return new fields.SetField(new fields.StringField({
-      required: true,
       choices: this.terrainChoices,
-      blank: true
+      blank: false
     }), setFieldOptions);
   }
 

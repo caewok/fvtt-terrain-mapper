@@ -87,7 +87,7 @@ export class Terrain {
   constructor(activeEffect) {
     if ( activeEffect ) {
       const instances = this.constructor._instances;
-      const id = activeEffect.id;
+      const id = activeEffect._id;
       if (instances.has(id) ) return instances.get(id); // eslint-disable-line no-constructor-return
       instances.set(id, this);
     }
@@ -131,7 +131,7 @@ export class Terrain {
   get activeEffect() { return this._effectHelper.effect; }
 
   /** @type {string} */
-  get id() { return this.activeEffect?.id || ""; }
+  get id() { return this.activeEffect?._id || ""; }
 
   /** @type {string} */
   get uuid() { return this.activeEffect.uuid; }
