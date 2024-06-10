@@ -14,6 +14,8 @@ This [Foundry VTT](https://foundryvtt.com) module provides a terrain canvas laye
 
 This module intends to be system-neutral. Note that at the moment, however, this module requires a system that uses Foundry VTT's active effects system. I will endeavor to make this module compatible with other systems upon request (and to the extent possible).
 
+You can use the [wiki page](https://github.com/caewok/fvtt-terrain-mapper/wiki/Terrains) to share exported terrains.
+
 # Thanks
 
 Special thanks to:
