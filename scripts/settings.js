@@ -167,7 +167,16 @@ export class Settings extends ModuleSettingsAbstract {
     await this.set(this.KEYS.TERRAINS_ITEM, item.id);
   }
 
+  /**
+   * Retrieve the item before game.items or settings are set up.
+   */
+  static get terrainEffectsDataItem() {
+    const id = this._getStorageValue(this.KEYS.TERRAINS_ITEM);
+    return game.data.items.find(item => item._id === id);
+  }
+
   static get terrainEffectsItem() {
+    if ( !game.items ) return this.terrainEffectsDataItem;
     return game.items.get(this.get(this.KEYS.TERRAINS_ITEM));
   }
 

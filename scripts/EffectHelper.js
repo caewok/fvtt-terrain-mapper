@@ -24,8 +24,10 @@ export class EffectHelper {
   effect;
 
   constructor(activeEffect) {
-    if ( activeEffect && this.constructor.terrainEffectExists(activeEffect) ) {
-      this.effect = this.constructor.getTerrainEffectById(activeEffect.id);
+    if ( !activeEffect ) return;
+    if ( !(activeEffect instanceof ActiveEffect) ) activeEffect = new CONFIG.ActiveEffect.documentClass(activeEffect);
+    if ( this.constructor.terrainEffectExists(activeEffect) ) {
+      this.effect = this.constructor.getTerrainEffectById(activeEffect._id);
     }
   }
 
@@ -104,7 +106,7 @@ export class EffectHelper {
    */
   async delete() {
     const item = Settings.terrainEffectsItem;
-    const res = await item.deleteEmbeddedDocuments("ActiveEffect", [this.effect.id]);
+    const res = await item.deleteEmbeddedDocuments("ActiveEffect", [this.effect._id]);
     this.effect = undefined;
     return res;
   }
@@ -133,9 +135,9 @@ export class EffectHelper {
     if ( !this.effect ) return;
 
     const effectData = this.effect.toObject();
-    effectData.origin = `TerrainMapper.${this.effect.id}`;
+    effectData.origin = `TerrainMapper.${this.effect._id}`;
     effectData.flags[MODULE_ID] ??= {};
-    effectData.flags[MODULE_ID][FLAGS.EFFECT_ID] = this.effect.id;
+    effectData.flags[MODULE_ID][FLAGS.EFFECT_ID] = this.effect._id;
     if ( effectData.img && Settings.get(Settings.KEYS.AUTO_TERRAIN.DISPLAY_ICON) ) effectData.statuses = [effectData.img];
     return await actor.createEmbeddedDocuments("ActiveEffect", [effectData]);
   }
@@ -147,7 +149,7 @@ export class EffectHelper {
     if ( !actor ) return;
 
     // Need to find the effect that shares this id.
-    const ids = actor.effects.filter(e => e.flags?.[MODULE_ID]?.effectId === this.effect.id).map(e => e.id);
+    const ids = actor.effects.filter(e => e.flags?.[MODULE_ID]?.effectId === this.effect._id).map(e => e._id);
     if ( !ids.length ) return;
     return await actor.deleteEmbeddedDocuments("ActiveEffect", ids);
   }
@@ -158,7 +160,7 @@ export class EffectHelper {
 
     const activeEffect = this.getTerrainEffectById(id);
     if ( !activeEffect ) return;
-    await item.deleteEmbeddedDocuments("ActiveEffect", [activeEffect.id]);
+    await item.deleteEmbeddedDocuments("ActiveEffect", [activeEffect._id]);
   }
 
   /**
@@ -178,7 +180,8 @@ export class EffectHelper {
   static terrainEffectExists(effect) {
     const item = Settings.terrainEffectsItem;
     if ( !item ) return false;
-    return item.effects.has(effect.id);
+    if ( item instanceof Item ) return item.effects.has(effect._id);
+    return item.effects.some(e => e._id === effect._id);
   }
 
   /**
@@ -189,7 +192,10 @@ export class EffectHelper {
   static getTerrainEffectByName(name) {
     const item = Settings.terrainEffectsItem;
     if ( !item ) return undefined;
-    return item.effects.find(e => e.name === name);
+    const effect = item.effects.find(e => e.name === name);
+    if ( !effect ) return undefined;
+    return effect instanceof ActiveEffect ? effect
+      : new CONFIG.ActiveEffect.documentClass(effect);
   }
 
   /**
@@ -200,6 +206,9 @@ export class EffectHelper {
   static getTerrainEffectById(id) {
     const item = Settings.terrainEffectsItem;
     if ( !item ) return undefined;
-    return item.effects.find(e => e.id === id);
+    const effect = item.effects.find(e => e._id === id); // _id for not yet instantiated effects.
+    if ( !effect ) return undefined;
+    return effect instanceof ActiveEffect ? effect
+      : new CONFIG.ActiveEffect.documentClass(effect);
   }
 }

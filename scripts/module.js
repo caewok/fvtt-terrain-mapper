@@ -23,6 +23,9 @@ import { WallTracerEdge, WallTracerVertex, WallTracer, SCENE_GRAPH } from "./Wal
 import { TerrainLayerPixelCache, TerrainPixelCache, TerrainKey } from "./TerrainPixelCache.js";
 import { buildDirPath } from "./TerrainFileManager.js";
 
+import { AddTerrainRegionBehaviorType } from "./regions/AddTerrainRegionBehaviorType.js";
+import { RemoveTerrainRegionBehaviorType } from "./regions/RemoveTerrainRegionBehaviorType.js";
+
 // import { BlendFilter } from "./pixi-picture/BlendFilter.js";
 // import { applyMixins } from "./pixi-picture/FilterSystemMixin.js";
 
@@ -40,6 +43,17 @@ Hooks.once("init", function() {
   initializeAPI();
   registerGeometry();
   TerrainLayer.register();
+
+  // Must set up the Terrains prior to the region data validation.
+  const terrainItem = Settings.terrainEffectsDataItem;
+  if ( terrainItem ) {
+    for ( const effect of terrainItem.effects ) Terrain.fromEffectId(effect._id);
+  }
+
+  Object.assign(CONFIG.RegionBehavior.dataModels, {
+    [`${MODULE_ID}.addTerrain`]: AddTerrainRegionBehaviorType,
+    [`${MODULE_ID}.removeTerrain`]: RemoveTerrainRegionBehaviorType,
+  });
 });
 
 /**
