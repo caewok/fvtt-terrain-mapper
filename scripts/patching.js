@@ -17,6 +17,8 @@ import { PATCHES as PATCHES_TileConfig } from "./TileConfig.js";
 import { PATCHES as PATCHES_Token } from "./Token.js";
 import { PATCHES as PATCHES_Wall } from "./Wall.js";
 import { PATCHES as PATCHES_CanvasEdges } from "./CanvasEdges.js";
+import { PATCHES as PATCHES_RegionSceneControls } from "./regions/controls.js";
+import { PATCHES as PATCHES_RegionLayer } from "./regions/RegionLayer.js";
 
 export const PATCHES = {
   ActiveEffect: PATCHES_ActiveEffect,
@@ -26,11 +28,14 @@ export const PATCHES = {
   "PIXI.Graphics": PATCHES_PIXI_Graphics,
   MeasuredTemplate: PATCHES_MeasuredTemplate,
   MeasuredTemplateConfig: PATCHES_MeasuredTemplateConfig,
+  RegionLayer: PATCHES_RegionLayer,
   SidebarTab: PATCHES_SidebarTab,
   Tile: PATCHES_Tile,
   TileConfig: PATCHES_TileConfig,
   Token: PATCHES_Token,
-  Wall: PATCHES_Wall
+  Wall: PATCHES_Wall,
+
+  RegionSceneControls: PATCHES_RegionSceneControls // Only hooks.
 };
 
 export const PATCHER = new Patcher();
@@ -38,5 +43,6 @@ PATCHER.addPatchesFromRegistrationObject(PATCHES);
 
 export function initializePatching() {
   PATCHER.registerGroup("BASIC");
+  PATCHER.registerGroup("REGIONS");
   PATCHER.registerGroup(game.system.id);
 }

@@ -58,6 +58,15 @@ export const FLAGS = {
   ALPHA_THRESHOLD: "alphaThreshold" // Stored in Tile documents
 };
 
+/**
+ * Icons used for controls in this module.
+ */
+export const ICONS = {
+  MODULE: "fa-solid fa-mountain-sun",
+  FILL_BY_GRID: "fa-solid fa-brush",
+  FILL_BY_LOS: "fa-solid fa-eye",
+  FILL_BY_WALLS: "fa-solid fa-fill-drip"
+}
 
 
 // https://www.canva.com/colors/color-wheel/
