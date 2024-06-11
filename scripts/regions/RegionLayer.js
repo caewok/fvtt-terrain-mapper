@@ -28,6 +28,18 @@ let fillByGridTracker;
  * @param {PIXI.InteractionEvent} event
  */
 function _onClickLeft(wrapper, event) {
+  if ( game.activeTool === "fill-by-los" ) {
+    const type = "move";
+    const los = CONFIG.Canvas.polygonBackends[type].create(event.interactionData.origin, { type });
+    const elev = this.legend.elevation;
+    const shapeData = createRegionShapeData(los, { bottomE: elev.bottom, topE: elev.top, isHole: this._holeMode });
+    const drawingRegion = this.controlled.at(0);
+    const drawingColor = drawingRegion?.document.color;
+    addShapesToRegion(shapeData, drawingRegion, drawingColor);
+  }
+
+  // if ( canvas.mouseInteractionManager.isDragging ) console.log("Dragging!");
+
 //   const interaction = event.interactionData;
 //   if ( game.activeTool !== "fill-by-grid" ) return wrapper(event);
 //   log("RegionLayer#_onClickLeft");
@@ -371,4 +383,5 @@ function _addOptionalShapeData(data, topE, bottomE, isHole = false) {
   };
   return data;
 }
+
 

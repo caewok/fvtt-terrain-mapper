@@ -14,9 +14,15 @@ TOOLS.FILL_BY_GRID = {
   name: "fill-by-grid",
   title: `${MODULE_ID}.controls.fill-by-grid.name`,
   icon: ICONS.FILL_BY_GRID,
-  toggle: false,
-  onClick: () => console.log("Region fill-by-grid")
+  toggle: false
 };
+
+TOOLS.FILL_BY_LOS = {
+  name: "fill-by-los",
+  title: `${MODULE_ID}.controls.fill-by-los.name`,
+  icon: ICONS.FILL_BY_LOS,
+  toggle: false
+}
 
 /**
  * Hook getSceneControlButtons
@@ -25,10 +31,13 @@ TOOLS.FILL_BY_GRID = {
 function getSceneControlButtons(controls, _html, _data) {
   if ( !canvas.scene ) return;
   const regionTools = controls.find(c => c.name === "regions");
+  if ( !regionTools ) return;
   if ( !canvas.grid.isGridless ) {
-    const fbgIdx = regionTools.tools.findIndex(t => t.name === "select");
-    regionTools.tools.splice(fbgIdx + 1, 0, TOOLS.FILL_BY_GRID);
+    const selectIdx = regionTools.tools.findIndex(t => t.name === "select");
+    regionTools.tools.splice(selectIdx + 1, 0, TOOLS.FILL_BY_GRID);
   }
+  const polyIdx = regionTools.tools.findIndex(t => t.name === "polygon");
+  regionTools.tools.splice(polyIdx + 1, 0, TOOLS.FILL_BY_LOS);
 }
 
 PATCHES.REGIONS.HOOKS = {
