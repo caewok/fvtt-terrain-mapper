@@ -24,6 +24,14 @@ TOOLS.FILL_BY_LOS = {
   toggle: false
 }
 
+TOOLS.FILL_BY_WALLS = {
+  name: "fill-by-walls",
+  title: `${MODULE_ID}.controls.fill-space.name`,
+  icon: ICONS.FILL_BY_WALLS,
+  toggle: false,
+  onClick:
+}
+
 /**
  * Hook getSceneControlButtons
  * Add additional shape controls to the region controls.
@@ -37,6 +45,7 @@ function getSceneControlButtons(controls, _html, _data) {
     regionTools.tools.splice(selectIdx + 1, 0, TOOLS.FILL_BY_GRID);
   }
   const polyIdx = regionTools.tools.findIndex(t => t.name === "polygon");
+  regionTools.tools.splice(polyIdx + 1, 0, TOOLS.FILL_BY_WALLS);
   regionTools.tools.splice(polyIdx + 1, 0, TOOLS.FILL_BY_LOS);
 }
 
