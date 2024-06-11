@@ -1,5 +1,6 @@
 /* globals
 canvas,
+CONFIG,
 foundry,
 game,
 PIXI,
@@ -13,6 +14,7 @@ ui
 import { log } from "../util.js";
 import { Draw } from "../geometry/Draw.js";
 import { ClipperPaths } from "../geometry/ClipperPaths.js";
+import { SCENE_GRAPH } from "../WallTracer.js";
 
 export const PATCHES = {};
 PATCHES.REGIONS = {};
@@ -28,11 +30,22 @@ let fillByGridTracker;
  * @param {PIXI.InteractionEvent} event
  */
 function _onClickLeft(wrapper, event) {
-  if ( game.activeTool === "fill-by-los" ) {
-    const type = "move";
-    const los = CONFIG.Canvas.polygonBackends[type].create(event.interactionData.origin, { type });
+  if ( game.activeTool === "fill-by-los" || game.activeTool === "fill-by-walls" ) {
+    const origin = event.interactionData.origin;
+    let paths;
+    if ( game.activeTool === "fill-by-los" ) {
+      const type = "move";
+      paths = CONFIG.Canvas.polygonBackends[type].create(origin, { type });
+    } else { // fill-by-walls
+      const polys = SCENE_GRAPH.encompassingPolygonWithHoles(origin);
+      if ( !polys.length ) {
+        ui.notifications.warn(`Sorry; cannot locate a closed boundary for the requested fill at { x: ${origin.x}, y: ${origin.y} }!`);
+        return wrapper(event);
+      }
+      paths = ClipperPaths.fromPolygons(polys);
+    }
     const elev = this.legend.elevation;
-    const shapeData = createRegionShapeData(los, { bottomE: elev.bottom, topE: elev.top, isHole: this._holeMode });
+    const shapeData = createRegionShapeData(paths, { bottomE: elev.bottom, topE: elev.top, isHole: this._holeMode });
     const drawingRegion = this.controlled.at(0);
     const drawingColor = drawingRegion?.document.color;
     addShapesToRegion(shapeData, drawingRegion, drawingColor);
