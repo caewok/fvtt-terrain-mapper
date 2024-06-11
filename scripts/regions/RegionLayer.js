@@ -11,6 +11,7 @@ ui
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
+import { MODULE_ID } from "../const.js";
 import { log } from "../util.js";
 import { Draw } from "../geometry/Draw.js";
 import { ClipperPaths } from "../geometry/ClipperPaths.js";
@@ -51,26 +52,34 @@ function _onClickLeft(wrapper, event) {
     addShapesToRegion(shapeData, drawingRegion, drawingColor);
   }
 
-  // if ( canvas.mouseInteractionManager.isDragging ) console.log("Dragging!");
+  // Handle fill-by-grid later
+  else if ( game.activeTool === "fill-by-grid" ) {
+    // From RegionLayer#_canDragLeftStart
+    if ( !PlaceablesLayer.prototype._canDragLeftStart.call(this, game.user, event)
+      || this.controlled.length > 1
+      || this.controlled.at(0)?.document.locked ) return wrapper();
 
-//   const interaction = event.interactionData;
-//   if ( game.activeTool !== "fill-by-grid" ) return wrapper(event);
-//   log("RegionLayer#_onClickLeft");
-//
-//
-//   // Set the drawing information
-//   if ( !event.shiftKey ) interaction.origin = this.getSnappedPoint(interaction.origin);
-//   interaction.drawingTool = game.activeTool;
-//   interaction.drawingRegion = this.controlled.at(0);
-//   interaction.drawingColor = interaction.drawingRegion?.document.color
-//     ?? Color.from(RegionDocument.schema.fields.color.getInitialValue({}));
-//
-//   // Construct the grid shape.
-//   const pts = canvas.grid.getVertices(interaction.origin);
-//   const elev = this.legend.elevation;
-//   const shapeData = createRegionShapeData(new PIXI.Polygon(pts), { bottomE: elev.bottom, topE: elev.top, isHole: this._holeMode });
-//   addShapesToRegion(shapeData, interaction.drawingRegion, interaction.drawingColor);
+    // Set a callback to draw the grid shape if drag is not initiated.
+    const handleMouseUp = handleMouseUpFillByGrid.bind(this);
+    canvas.stage.once("mouseup", handleMouseUp);
+  }
+
   wrapper(event);
+}
+
+/**
+ * Callback to handle mouseup event after a click left on the canvas.
+ */
+function handleMouseUpFillByGrid(event) {
+  if ( event.interactionData[MODULE_ID]?.dragging ) return;
+  const gridCoords = canvas.grid.getOffset(event.interactionData.origin);
+  const pts = canvas.grid.getVertices(gridCoords);
+  const poly = new PIXI.Polygon(pts);
+  const elev = this.legend.elevation;
+  const shapeData = createRegionShapeData(poly, { bottomE: elev.bottom, topE: elev.top, isHole: this._holeMode });
+  const drawingRegion = this.controlled.at(0);
+  const drawingColor = drawingRegion?.document.color;
+  addShapesToRegion(shapeData, drawingRegion, drawingColor);
 }
 
 /**
@@ -105,6 +114,9 @@ function _canDragLeftStart(wrapper, user, event) {
  */
 function _onDragLeftStart(wrapper, event) {
   wrapper(event);
+  event.interactionData[MODULE_ID] ??= {}
+  event.interactionData[MODULE_ID].dragging = true;
+
   const interaction = event.interactionData;
   if ( interaction.drawingTool !== "fill-by-grid" ) return;
 
