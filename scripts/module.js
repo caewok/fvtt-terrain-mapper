@@ -6,7 +6,7 @@ socketlib
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { MODULE_ID, SOCKETS } from "./const.js";
+import { MODULE_ID, SOCKETS, ICONS } from "./const.js";
 import { log } from "./util.js";
 import { TerrainLayer } from "./TerrainLayer.js";
 import { TerrainLevel } from "./TerrainLevel.js";
@@ -54,6 +54,9 @@ Hooks.once("init", function() {
     [`${MODULE_ID}.addTerrain`]: AddTerrainRegionBehaviorType,
     [`${MODULE_ID}.removeTerrain`]: RemoveTerrainRegionBehaviorType,
   });
+
+  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.addTerrain`] = ICONS.MODULE;
+  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.removeTerrain`] = ICONS.MODULE;
 });
 
 /**
