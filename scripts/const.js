@@ -11,7 +11,8 @@ export const SOCKETS = { socket: null };
 export const TEMPLATES = {
   TILE: `modules/${MODULE_ID}/templates/tile-config.html`,
   MEASURED_TEMPLATE: `modules/${MODULE_ID}/templates/template-config.html`,
-  SCENE: `modules/${MODULE_ID}/templates/scene-config.html`
+  SCENE: `modules/${MODULE_ID}/templates/scene-config.html`,
+  ACTIVE_EFFECT: `modules/${MODULE_ID}/templates/active-effect-config.html`
 }
 
 export const LABELS = {
@@ -48,6 +49,7 @@ export const FLAGS = {
   },
 
   EFFECT_ID: "effectId",
+  IS_TERRAIN: "isTerrain",
 
   OFFSET: "offset",
   RANGE_BELOW: "rangeBelow",

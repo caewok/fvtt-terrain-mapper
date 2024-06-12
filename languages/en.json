@@ -42,6 +42,9 @@
   "terrainmapper.list-config.replace": "Replace all terrains",
   "terrainmapper.list-config.export": "Export all terrains",
 
+  "terrainmapper.active-effect-config.duplicatesAllowed.name": "Duplicates Allowed",
+  "terrainmapper.active-effect-config.duplicatesAllowed.hint": "When enabled, this terrain effect may be applied multiple times to a single token",
+
   "terrainmapper.tile-config.transparency-threshold.name": "Inner Transparency Threshold",
   "terrainmapper.tile-config.transparency-threshold.hint": "Inner tile pixels with transparency less than this percent will be considered 'holes' when testing terrain.",
 

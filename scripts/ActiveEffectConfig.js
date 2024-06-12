@@ -3,8 +3,9 @@
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { MODULE_ID, LABELS } from "./const.js";
+import { TEMPLATES, MODULE_ID, FLAGS } from "./const.js";
 import { TerrainEffectsApp } from "./TerrainEffectsApp.js";
+import { renderTemplateSync } from "./util.js";
 
 export const PATCHES = {};
 PATCHES.BASIC = {};
@@ -25,21 +26,19 @@ function closeActiveEffectConfig(_app, _html) {
  * @param {object} data                 The object of data used when rendering the application
  */
 async function renderActiveEffectConfig(app, html, data) {
-  if ( !app.object.getFlag(MODULE_ID, "anchor") ) return;
+  // Avoid changing all active effects everywhere.
+  if ( !app.object.getFlag(MODULE_ID, FLAGS.IS_TERRAIN) ) return;
 
-  const renderData = {};
-  renderData[MODULE_ID] = {
-    anchorOptions: LABELS.ANCHOR_OPTIONS
-  };
-  foundry.utils.mergeObject(data, renderData, { inplace: true });
+  const myHTML = renderTemplateSync(TEMPLATES.ACTIVE_EFFECT, data);
+  if ( !myHTML ) return;
 
-  // Insert the new configuration fields into the active effect config.
-  const tabName = game.i18n.localize(`${MODULE_ID}.name`);
+  const div = document.createElement("div");
+  div.innerHTML = myHTML;
 
-  const template = `modules/${MODULE_ID}/templates/active-effect-config.html`;
-  const myHTML = await renderTemplate(template, data);
-  html.find('nav').find('a[data-tab="details"]').first().before(`<a class="item" data-tab="${MODULE_ID}"><i class="fas fa-mountain-sun"></i>${tabName}</a>`);
-  html.find('section[data-tab="details"]').first().before(myHTML);
+  // Place in the basic tab at the end of the form groups.
+  const basicTab = html.find(`.tab[data-tab="details"]`)[0];
+  if ( !basicTab ) return;
+  basicTab.appendChild(div);
   app.setPosition(app.position);
 }
 

@@ -14,6 +14,19 @@ export const PATCHES = {};
 PATCHES.BASIC = {};
 
 /**
+ * Hook preCreateActiveEffect.
+ * If the active effect is a terrain and it already exists on the token, don't create.
+ * @param {Document} document                     The pending document which is requested for creation
+ * @param {object} data                           The initial data object provided to the document creation request
+ * @param {Partial<DatabaseCreateOperation>} options Additional options which modify the creation request
+ * @param {string} userId                         The ID of the requesting user, always game.user.id
+ * @returns {boolean|void}                        Explicitly return false to prevent creation of this Document
+ */
+function preCreateActiveEffect(document, data, options, userId) {
+
+}
+
+/**
  * Hook active effect creation. If the terrain color is updated, update the TerrainLayerShader.
  *
  * @event updateDocument
@@ -29,4 +42,4 @@ function updateActiveEffect(ae, changed, _options, _userId) {
   canvas.terrain._terrainColorsMesh.shader.updateTerrainColor(terrain);
 }
 
-PATCHES.BASIC.HOOKS = { updateActiveEffect };
+PATCHES.BASIC.HOOKS = { updateActiveEffect, preCreateActiveEffect };

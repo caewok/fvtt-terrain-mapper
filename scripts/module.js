@@ -6,7 +6,7 @@ socketlib
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { MODULE_ID, SOCKETS, ICONS, TEMPLATES } from "./const.js";
+import { MODULE_ID, FLAGS, SOCKETS, ICONS, TEMPLATES } from "./const.js";
 import { log } from "./util.js";
 import { TerrainLayer } from "./TerrainLayer.js";
 import { TerrainLevel } from "./TerrainLevel.js";
@@ -86,6 +86,15 @@ Hooks.on("canvasReady", async function(canvas) {
   log("TerrainMapper|canvasReady");
   await Settings.initializeTerrainsItem();
   await canvas.terrain.initialize();
+
+  // Ensure terrain item flags are accurate.
+  const promises = [];
+  for ( const effect of Settings.terrainEffectsItem.effects.values() ) {
+    if ( typeof effect.getFlag(MODULE_ID, FLAGS.IS_TERRAIN) !== "undefined" ) continue;
+    promises.push(effect.setFlag(MODULE_ID, FLAGS.IS_TERRAIN, true));
+  }
+  await Promise.allSettled(promises);
+
 });
 
 // ----- Set up sockets for changing effects on tokens and creating a dialog ----- //

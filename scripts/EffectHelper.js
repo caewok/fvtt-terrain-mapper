@@ -138,6 +138,7 @@ export class EffectHelper {
     effectData.origin = `TerrainMapper.${this.effect._id}`;
     effectData.flags[MODULE_ID] ??= {};
     effectData.flags[MODULE_ID][FLAGS.EFFECT_ID] = this.effect._id;
+    effectData.flags[MODULE_ID][FLAGS.IS_TERRAIN] = true;
     if ( effectData.img && Settings.get(Settings.KEYS.AUTO_TERRAIN.DISPLAY_ICON) ) effectData.statuses = [effectData.img];
     return await actor.createEmbeddedDocuments("ActiveEffect", [effectData]);
   }
