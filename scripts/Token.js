@@ -16,7 +16,7 @@ Methods and hooks related to tokens.
 Hook token movement to add/remove terrain effects and pause tokens dependent on settings.
 */
 
-import { MODULE_ID, SOCKETS } from "./const.js";
+import { MODULE_ID, SOCKETS, FLAGS } from "./const.js";
 import { log } from "./util.js";
 import { Settings } from "./settings.js";
 import { TravelTerrainRay } from "./TravelTerrainRay.js";
@@ -31,10 +31,25 @@ const AUTO = SETTINGS.AUTO_TERRAIN;
 // ----- NOTE: Hooks ----- //
 
 /**
+ * Hook preCreateToken
+ * When creating the token, set its elevation to the scene background.
+ * @param {Document} document                     The pending document which is requested for creation
+ * @param {object} data                           The initial data object provided to the document creation request
+ * @param {Partial<DatabaseCreateOperation>} options Additional options which modify the creation request
+ * @param {string} userId                         The ID of the requesting user, always game.user.id
+ * @returns {boolean|void}                        Explicitly return false to prevent creation of this Document
+ */
+function preCreateToken(tokenD, data, options, userId) {
+  if ( !canvas.scene ) return;
+  const elevation = canvas.scene.getFlag(MODULE_ID, FLAGS.SCENE_BACKGROUND_ELEVATION) ?? 0;
+  if ( elevation && !data.elevation ) tokenD.updateSource({ elevation });
+}
+
+/**
  * Hook preUpdateToken.
  * If the token moves, determine its terrain status.
  */
-function preUpdateTokenHook(tokenD, changes, _options, _userId) {
+function preUpdateToken(tokenD, changes, _options, _userId) {
   const autoT = Settings.get(AUTO.ALGORITHM);
   if ( autoT === AUTO.CHOICES.NO ) return;
   if ( autoT === AUTO.CHOICES.COMBAT && !game.combat?.isActive ) return;
@@ -61,7 +76,7 @@ function preUpdateTokenHook(tokenD, changes, _options, _userId) {
  * Hook refreshToken.
  * Adjust terrain as the token moves; handle animation pauses.
  */
-function refreshTokenHook(token, flags) {
+function refreshToken(token, flags) {
   if ( token.isPreview ) {
     // Token is clone in a drag operation.
     if ( flags.refreshPosition || flags.refreshElevation || flags.refreshSize ) {
@@ -193,8 +208,9 @@ export async function updateTokenDocument(tokenUUID, data) {
 }
 
 PATCHES.BASIC.HOOKS = {
-  preUpdateToken: preUpdateTokenHook,
-  refreshToken: refreshTokenHook
+  preCreateToken,
+  preUpdateToken,
+  refreshToken
 };
 
 // ----- NOTE: Methods ----- //
