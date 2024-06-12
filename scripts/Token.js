@@ -293,8 +293,8 @@ function identifyRegionTerrains(region, isGM = game.user.isGM) {
   const terrainIds = new Set();
   for ( const behavior of region.document.behaviors.values() ) {
     if ( behavior.disabled ) continue;
-    if ( behavior.type !== "terrainmapper.addTerrain" ) continue;
-    if ( !behavior.system.events.intersects(events) ) continue;
+    if ( !(behavior.type === `${MODULE_ID}.addTerrain` || behavior.type === `${MODULE_ID}.setTerrain`) ) continue;
+    if ( behavior.type === `${MODULE_ID}.addTerrain` && !behavior.system.events.intersects(events) ) continue;
     if ( !isGM && behavior.system.secret ) continue;
     behavior.system.terrains.forEach(t => terrainIds.add(t));
   }
