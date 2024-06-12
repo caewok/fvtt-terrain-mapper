@@ -1,4 +1,6 @@
 /* globals
+game,
+Hooks
 */
 "use strict";
 
@@ -9,6 +11,7 @@ export const SOCKETS = { socket: null };
 export const TEMPLATES = {
   TILE: `modules/${MODULE_ID}/templates/tile-config.html`,
   MEASURED_TEMPLATE: `modules/${MODULE_ID}/templates/template-config.html`,
+  SCENE: `modules/${MODULE_ID}/templates/scene-config.html`
 }
 
 export const LABELS = {
@@ -51,6 +54,7 @@ export const FLAGS = {
   RANGE_ABOVE: "rangeAbove",
   USER_VISIBLE: "userVisible",
   COLOR: "color",
+  SCENE_BACKGROUND_ELEVATION: "backgroundElevation",
 
   LAYER_ELEVATIONS: "layerElevations", // Stored per scene.
 
@@ -65,7 +69,8 @@ export const ICONS = {
   MODULE: "fa-solid fa-mountain-sun",
   FILL_BY_GRID: "fa-solid fa-brush",
   FILL_BY_LOS: "fa-solid fa-eye",
-  FILL_BY_WALLS: "fa-solid fa-fill-drip"
+  FILL_BY_WALLS: "fa-solid fa-fill-drip",
+  ELEVATE: "fa-solid fa-elevator"
 }
 
 

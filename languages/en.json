@@ -24,6 +24,9 @@
   "terrainmapper.terrain-encountered-dialog.continue": "Continue token movement",
   "terrainmapper.terrain-encountered-dialog.cancel": "Cancel token movement",
 
+  "terrainmapper.scene-config.backgroundElevation.name": "Background Elevation",
+  "terrainmapper.scene-config.backgroundElevation.hint": "The default elevation for tokens placed on the canvas.",
+
   "terrainmapper.scene-config.title": "Advanced Scene Configuration",
   "terrainmapper.scene-config.layer-elevation.header": "Terrain Layer Elevations",
   "terrainmapper.scene-config.layer-elevation.hint": "Each layer can represent a distinct terrain at each pixel on the scene. To overlap terrains at a given pixel, you must use a different terrain layer for each overlapping terrain. A scene can hold a maximum of eight terrain layers. Each terrain layer can be set to a specific anchor elevation. Set the terrain property 'Anchor' to 'Relative to Layer Elevation' to force the terrain to follow the elevation of its respective layer.",
@@ -78,8 +81,15 @@
   "terrainmapper.behavior.types.remove-terrain.fields.keepSelected.name": "Keep selected",
   "terrainmapper.behavior.types.remove-terrain.fields.keepSelected.hint": "Enable to keep the selected terrains and remove all the rest from the token.",
 
+    "terrainmapper.behavior.types.set-elevation.fields.elevation.name": "Elevation",
+  "terrainmapper.behavior.types.set-elevation.fields.elevation.hint": "When moving into the region, the token will be set to this elevation. For a typical scene, you should set the region top to this elevation and the region bottom to negative infinity.",
+
+    "terrainmapper.behavior.types.set-elevation.fields.reset.name": "Reset on exit",
+  "terrainmapper.behavior.types.set-elevation.fields.reset.hint": "When enabled, the token's elevation will be reset to the scene's background elevation when the token exits the region.",
+
   "TYPES.RegionBehavior.terrainmapper.addTerrain": "Add Terrains",
   "TYPES.RegionBehavior.terrainmapper.removeTerrain": "Remove Terrains",
+  "TYPES.RegionBehavior.terrainmapper.setElevation": "Set Elevation",
 
   "terrainmapper.phrases.terrainLayer": "Terrain Layer",
   "terrainmapper.phrases.terrain": "Terrain",
