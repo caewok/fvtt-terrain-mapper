@@ -21,10 +21,6 @@ export class AddTerrainRegionBehaviorType extends TerrainRegionBehaviorType {
     return {
       events: this._createEventsField(),
       terrains: this._createTerrainsField(`${MODULE_ID}.behavior.types.add-terrain.fields.terrain.hint`),
-      duplicates: new foundry.data.fields.BooleanField({
-        label: `${MODULE_ID}.behavior.types.add-terrain.fields.duplicates.name`,
-        hint: `${MODULE_ID}.behavior.types.add-terrain.fields.duplicates.hint`
-      }),
       removeOther: new foundry.data.fields.BooleanField({
         label: `${MODULE_ID}.behavior.types.add-terrain.fields.removeOther.name`,
         hint: `${MODULE_ID}.behavior.types.add-terrain.fields.removeOther.hint`
@@ -55,6 +51,6 @@ export class AddTerrainRegionBehaviorType extends TerrainRegionBehaviorType {
     }
 
     // Add terrains, possibly allowing duplicates.
-    for ( const terrain of terrainsToAdd ) await terrain.addToToken(token, { duplicate: this.duplicates });
+    for ( const terrain of terrainsToAdd ) await terrain.addToToken(token);
   }
 }

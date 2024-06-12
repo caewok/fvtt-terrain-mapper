@@ -42,6 +42,9 @@
   "terrainmapper.list-config.replace": "Replace all terrains",
   "terrainmapper.list-config.export": "Export all terrains",
 
+  "terrainmapper.active-effect-config.duplicatesAllowed.name": "Duplicates Allowed",
+  "terrainmapper.active-effect-config.duplicatesAllowed.hint": "When enabled, this terrain effect may be applied multiple times to a single token",
+
   "terrainmapper.tile-config.transparency-threshold.name": "Inner Transparency Threshold",
   "terrainmapper.tile-config.transparency-threshold.hint": "Inner tile pixels with transparency less than this percent will be considered 'holes' when testing terrain.",
 
@@ -68,9 +71,6 @@
   "terrainmapper.behavior.types.add-terrain.fields.terrain.hint": "Select terrain that will be added to the token as an active effect.",
 
   "terrainmapper.behavior.types.set-terrain.fields.terrain.hint": "Select terrain that will be added to the token as an active effect. When the token exits the region, the terrain will be automatically removed.",
-
-  "terrainmapper.behavior.types.add-terrain.fields.duplicates.name": "Allow Duplicates",
-  "terrainmapper.behavior.types.add-terrain.fields.duplicates.hint": "When enabled, the terrain can be added to a token more than once.",
 
   "terrainmapper.behavior.types.add-terrain.fields.removeOther.name": "Remove Others",
   "terrainmapper.behavior.types.add-terrain.fields.removeOther.hint": "When enabled, all other terrains on the token will be removed.",
