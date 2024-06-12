@@ -52,7 +52,8 @@
     "RegionBehavior": {
       "addTerrain": {},
       "removeTerrain": {},
-      "setElevation": {}
+      "setElevation": {},
+      "setTerrain": {}
     }
   },
 
