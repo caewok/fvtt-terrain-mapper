@@ -6,7 +6,7 @@ socketlib
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { MODULE_ID, SOCKETS, ICONS } from "./const.js";
+import { MODULE_ID, SOCKETS, ICONS, TEMPLATES } from "./const.js";
 import { log } from "./util.js";
 import { TerrainLayer } from "./TerrainLayer.js";
 import { TerrainLevel } from "./TerrainLevel.js";
@@ -60,6 +60,9 @@ Hooks.once("init", function() {
   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.addTerrain`] = ICONS.MODULE;
   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.removeTerrain`] = ICONS.MODULE;
   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.setElevation`] = ICONS.ELEVATE;
+
+  // Must go at end?
+  loadTemplates(Object.values(TEMPLATES)).then(_value => log(`Templates loaded.`));
 });
 
 /**
