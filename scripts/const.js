@@ -65,7 +65,8 @@ export const ICONS = {
   MODULE: "fa-solid fa-mountain-sun",
   FILL_BY_GRID: "fa-solid fa-brush",
   FILL_BY_LOS: "fa-solid fa-eye",
-  FILL_BY_WALLS: "fa-solid fa-fill-drip"
+  FILL_BY_WALLS: "fa-solid fa-fill-drip",
+  ELEVATE: "fa-solid fa-elevator"
 }
 
 

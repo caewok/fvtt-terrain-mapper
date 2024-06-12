@@ -25,6 +25,7 @@ import { buildDirPath } from "./TerrainFileManager.js";
 
 import { AddTerrainRegionBehaviorType } from "./regions/AddTerrainRegionBehaviorType.js";
 import { RemoveTerrainRegionBehaviorType } from "./regions/RemoveTerrainRegionBehaviorType.js";
+import { SetElevationRegionBehaviorType } from "./regions/SetElevationRegionBehaviorType.js";
 
 // import { BlendFilter } from "./pixi-picture/BlendFilter.js";
 // import { applyMixins } from "./pixi-picture/FilterSystemMixin.js";
@@ -53,10 +54,12 @@ Hooks.once("init", function() {
   Object.assign(CONFIG.RegionBehavior.dataModels, {
     [`${MODULE_ID}.addTerrain`]: AddTerrainRegionBehaviorType,
     [`${MODULE_ID}.removeTerrain`]: RemoveTerrainRegionBehaviorType,
+    [`${MODULE_ID}.setElevation`]: SetElevationRegionBehaviorType
   });
 
   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.addTerrain`] = ICONS.MODULE;
   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.removeTerrain`] = ICONS.MODULE;
+  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.setElevation`] = ICONS.ELEVATE;
 });
 
 /**

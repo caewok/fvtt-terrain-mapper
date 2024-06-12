@@ -78,8 +78,15 @@
   "terrainmapper.behavior.types.remove-terrain.fields.keepSelected.name": "Keep selected",
   "terrainmapper.behavior.types.remove-terrain.fields.keepSelected.hint": "Enable to keep the selected terrains and remove all the rest from the token.",
 
+    "terrainmapper.behavior.types.set-elevation.fields.elevation.name": "Elevation",
+  "terrainmapper.behavior.types.set-elevation.fields.elevation.hint": "When moving into the region, the token will be set to this elevation.",
+
+    "terrainmapper.behavior.types.set-elevation.fields.doNotReset.name": "Do not reset on exit",
+  "terrainmapper.behavior.types.set-elevation.fields.doNotReset.hint": "When enabled, the token will not be reset to the scene's background elevation when the token exits the region.",
+
   "TYPES.RegionBehavior.terrainmapper.addTerrain": "Add Terrains",
   "TYPES.RegionBehavior.terrainmapper.removeTerrain": "Remove Terrains",
+  "TYPES.RegionBehavior.terrainmapper.setElevation": "Set Elevation",
 
   "terrainmapper.phrases.terrainLayer": "Terrain Layer",
   "terrainmapper.phrases.terrain": "Terrain",
