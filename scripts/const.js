@@ -50,6 +50,7 @@ export const FLAGS = {
 
   EFFECT_ID: "effectId",
   IS_TERRAIN: "isTerrain",
+  DUPLICATES_ALLLOWED: "duplicatesAllowed",
 
   OFFSET: "offset",
   RANGE_BELOW: "rangeBelow",

@@ -181,6 +181,8 @@ export class Terrain {
 
   async setUserVisible(value) { return this.#setAEFlag(FLAGS.USER_VISIBLE, value); }
 
+  get duplicatesAllowed() { return this.#getAEFlag(FLAGS.DUPLICATES_ALLOWED) || false; }
+
   /** @type {Color} */
   get color() {
     return Color.from(this.#getAEFlag(FLAGS.COLOR) ?? 0x000000);
@@ -271,12 +273,11 @@ export class Terrain {
    * @param {Token} token
    * @param {boolean} [duplicate=false]     If false, don't add if already present.
    */
-  async addToToken(token, {
-    duplicate = false, removeOtherSceneTerrains = false, removeAllOtherTerrains = false } = {}) {
+  async addToToken(token, { removeOtherSceneTerrains = false, removeAllOtherTerrains = false } = {}) {
 
     await this.constructor.lock.acquire();
     let currTerrains = new Set(this.constructor.allOnToken(token));
-    if ( duplicate || !currTerrains.has(this) ) {
+    if ( this.duplicatesAllowed || !currTerrains.has(this) ) {
       log(`Adding ${this.name} terrain to ${token.name}.`);
       await SOCKETS.socket.executeAsGM("addTerrainEffect", token.document.uuid, this.id);
     }
