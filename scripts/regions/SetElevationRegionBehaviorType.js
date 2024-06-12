@@ -1,13 +1,16 @@
 /* globals
-RegionBehaviorType
+canvas,
+CONST,
+foundry
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { MODULE_ID } from "../const.js";
-import { Terrain } from "../Terrain.js";
+import { MODULE_ID, FLAGS } from "../const.js";
 import { log } from "../util.js";
-import { TerrainRegionBehaviorType } from "./TerrainRegionBehaviorType.js";
+
+export const PATCHES = {};
+PATCHES.REGIONS = {};
 
 
 /* Move In vs Enter
@@ -31,7 +34,7 @@ Because that is how you get infinitely looping teleportation.
 /**
  * Region behavior to add terrain to token.
  * @property {number} elevation       The elevation at which to set the token
- * @property {boolean} doNotReset     When enabled, elevation will not be reset to scene background on exit.
+ * @property {boolean} reset          When enabled, elevation will be reset to scene background on exit.
  */
 export class SetElevationRegionBehaviorType extends foundry.data.regionBehaviors.RegionBehaviorType {
   static defineSchema() {
@@ -39,22 +42,21 @@ export class SetElevationRegionBehaviorType extends foundry.data.regionBehaviors
       elevation: new foundry.data.fields.NumberField({
         label: `${MODULE_ID}.behavior.types.set-elevation.fields.elevation.name`,
         hint: `${MODULE_ID}.behavior.types.set-elevation.fields.elevation.hint`,
-        initial: 0,
-        step: 1
+        initial: 0
       }),
 
-      doNotReset: new foundry.data.fields.BooleanField({
-        label: `${MODULE_ID}.behavior.types.set-elevation.fields.doNotReset.name`,
-        hint: `${MODULE_ID}.behavior.types.set-elevation.fields.doNotReset.hint`
+      reset: new foundry.data.fields.BooleanField({
+        label: `${MODULE_ID}.behavior.types.set-elevation.fields.reset.name`,
+        hint: `${MODULE_ID}.behavior.types.set-elevation.fields.reset.hint`,
+        initial: true
       })
     };
   }
 
   /** @override */
   static events = {
-    [CONST.REGION_EVENTS.TOKEN_MOVE_IN]: this.#onTokenMoveIn,
-    [CONST.REGION_EVENTS.TOKEN_MOVE_OUT]: this.#onTokenMoveOut,
-    [CONST.REGION_EVENTS.TOKEN_PRE_MOVE]: this.#onTokenPreMove
+    [CONST.REGION_EVENTS.TOKEN_ENTER]: this.#onTokenEnter,
+    [CONST.REGION_EVENTS.TOKEN_EXIT]: this.#onTokenExit
   };
 
   async _handleRegionEvent(event) {
@@ -66,16 +68,39 @@ export class SetElevationRegionBehaviorType extends foundry.data.regionBehaviors
     if ( !token ) return;
   }
 
-  static async #onTokenMoveIn(event) {
-    console.log(`Token ${event.data.token} moving in!`);
+  static async #onTokenEnter(event) {
+    const data = event.data;
+    log(`Token ${data.token.name} entering ${event.region.name}!`);
+    const tokenD = data.token;
+    return tokenD.update({ elevation: this.elevation });
   }
 
-  static async #onTokenMoveOut(event) {
-    console.log(`Token ${event.data.token} moving out!`);
+  static async #onTokenExit(event) {
+    const tokenD = event.data.token;
+    log(`Token ${tokenD.name} exiting ${event.region.name}!`);
+    if ( !this.reset ) return;
+    if ( tokenD.elevation > this.elevation ) return;
+    return tokenD.update({ elevation: canvas.scene.getFlag(MODULE_ID, FLAGS.SCENE_BACKGROUND_ELEVATION) ?? 0 });
   }
-
-  static async #onTokenPreMove(event) {
-    console.log(`Token ${event.data.token} premove!`);
-  }
-
 }
+
+
+/**
+ * Hook preCreateRegionBehavior
+ * Set the default elevation to the region top elevation if defined.
+ * @param {Document} document                     The pending document which is requested for creation
+ * @param {object} data                           The initial data object provided to the document creation request
+ * @param {Partial<DatabaseCreateOperation>} options Additional options which modify the creation request
+ * @param {string} userId                         The ID of the requesting user, always game.user.id
+ * @returns {boolean|void}                        Explicitly return false to prevent creation of this Document
+ */
+function preCreateRegionBehavior(document, data, options, userId) {
+  log("preCreateRegionBehavior");
+  if ( data.type !== `${MODULE_ID}.setElevation` ) return;
+  const topE = document.region.elevation.top;
+  const elevation = topE ?? canvas.scene.getFlag(MODULE_ID, FLAGS.SCENE_BACKGROUND_ELEVATION) ?? 0;
+  document.updateSource({ ["system.elevation"]: elevation });
+}
+
+PATCHES.REGIONS.HOOKS = { preCreateRegionBehavior };
+

@@ -20,6 +20,7 @@ import { PATCHES as PATCHES_CanvasEdges } from "./CanvasEdges.js";
 import { PATCHES as PATCHES_RegionSceneControls } from "./regions/controls.js";
 import { PATCHES as PATCHES_RegionLayer } from "./regions/RegionLayer.js";
 import { PATCHES as PATCHES_SceneConfig } from "./SceneConfig.js";
+import { PATCHES as PATCHES_SetElevationRegionBehaviorType } from "./regions/SetElevationRegionBehaviorType.js";
 
 export const PATCHES = {
   ActiveEffect: PATCHES_ActiveEffect,
@@ -37,7 +38,9 @@ export const PATCHES = {
   Token: PATCHES_Token,
   Wall: PATCHES_Wall,
 
-  RegionSceneControls: PATCHES_RegionSceneControls // Only hooks.
+  // Only hooks
+  RegionSceneControls: PATCHES_RegionSceneControls,
+  SetElevationRegionBehaviorType: PATCHES_SetElevationRegionBehaviorType
 };
 
 export const PATCHER = new Patcher();
