@@ -1,6 +1,9 @@
 /* globals
+CONFIG,
+Dialog,
 Hooks,
 game,
+loadTemplates,
 socketlib
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
@@ -8,20 +11,14 @@ socketlib
 
 import { MODULE_ID, FLAGS, SOCKETS, ICONS, TEMPLATES } from "./const.js";
 import { log } from "./util.js";
-import { TerrainLayer } from "./TerrainLayer.js";
-import { TerrainLevel } from "./TerrainLevel.js";
 import { Settings } from "./settings.js";
 import { Terrain, addTerrainEffect, removeTerrainEffect } from "./Terrain.js";
-import { TerrainMap } from "./TerrainMap.js";
 import { EffectHelper } from "./EffectHelper.js";
 import { PATCHER, initializePatching } from "./patching.js";
 import { registerGeometry } from "./geometry/registration.js";
-import { terrainEncounteredDialog, updateTokenDocument } from "./Token.js";
+import { updateTokenDocument } from "./Token.js";
 
-import { TerrainLayerShader } from "./glsl/TerrainLayerShader.js";
 import { WallTracerEdge, WallTracerVertex, WallTracer, SCENE_GRAPH } from "./WallTracer.js";
-import { TerrainLayerPixelCache, TerrainPixelCache, TerrainKey } from "./TerrainPixelCache.js";
-import { buildDirPath } from "./TerrainFileManager.js";
 
 import { AddTerrainRegionBehaviorType } from "./regions/AddTerrainRegionBehaviorType.js";
 import { RemoveTerrainRegionBehaviorType } from "./regions/RemoveTerrainRegionBehaviorType.js";
@@ -32,7 +29,6 @@ import { SetElevationRegionBehaviorType } from "./regions/SetElevationRegionBeha
 // import { applyMixins } from "./pixi-picture/FilterSystemMixin.js";
 
 // Self-executing hooks.
-import "./controls.js";
 import "./changelog.js";
 
 /**
@@ -44,7 +40,6 @@ Hooks.once("init", function() {
   initializeConfig();
   initializeAPI();
   registerGeometry();
-  TerrainLayer.register();
 
   // Must set up the Terrains prior to the region data validation.
   const terrainItem = Settings.terrainEffectsDataItem;
@@ -85,7 +80,6 @@ Hooks.once("setup", function() {
 Hooks.on("canvasReady", async function(canvas) {
   log("TerrainMapper|canvasReady");
   await Settings.initializeTerrainsItem();
-  await canvas.terrain.initialize();
 
   // Ensure terrain item flags are accurate.
   const promises = [];
@@ -103,8 +97,6 @@ Hooks.once("socketlib.ready", () => {
   SOCKETS.socket.register("addTerrainEffect", addTerrainEffect);
   SOCKETS.socket.register("removeTerrainEffect", removeTerrainEffect);
   SOCKETS.socket.register("dialog", dialog);
-  SOCKETS.socket.register("buildDirPath", buildDirPath);
-  SOCKETS.socket.register("terrainEncounteredDialog", terrainEncounteredDialog);
   SOCKETS.socket.register("updateTokenDocument", updateTokenDocument);
 });
 
@@ -116,19 +108,13 @@ function dialog(data, options) {
 function initializeAPI() {
   game.modules.get(MODULE_ID).api = {
     Terrain,
-    TerrainMap,
     EffectHelper,
     Settings,
     PATCHER,
-    TerrainLayerShader,
     WallTracerEdge,
     WallTracerVertex,
     WallTracer,
-    SCENE_GRAPH,
-    TerrainLayerPixelCache,
-    TerrainPixelCache,
-    TerrainKey,
-    TerrainLevel
+    SCENE_GRAPH
   };
 }
 

@@ -31,8 +31,6 @@ function createWall(wallD, _options, _userId) {
     SCENE_GRAPH.addWall(wallD.object);
     SCENE_GRAPH.updateCyclePolygons();
   }
-  if ( !game.user.isGM ) return;
-  canvas.terrain._addWall(wallD.object);
 }
 
 /**
@@ -59,9 +57,6 @@ function updateWall(wallD, changes, _options, _userId) {
 
   // Update the polygons regardless, in case a wall limitation or wall height has changed.
   SCENE_GRAPH.updateCyclePolygons();
-
-  if ( !game.user.isGM ) return;
-  canvas.terrain._updateWall(wallD.object);
 }
 
 /**
@@ -79,9 +74,6 @@ function deleteWall(wallD, _options, _userId) {
   // The document.object is now null; use the id to remove the wall.
   SCENE_GRAPH.removeWall(document.id);
   SCENE_GRAPH.updateCyclePolygons();
-
-  if ( !game.user.isGM ) return;
-  canvas.terrain._removeWall(wallD.id);
 }
 
 PATCHES.BASIC.HOOKS = {

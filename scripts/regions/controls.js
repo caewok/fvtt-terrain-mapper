@@ -42,8 +42,7 @@ TOOLS.TERRAIN_BOOK = {
   name: "terrain-book",
   title: `${MODULE_ID}.phrases.terrains`,
   icon: ICONS.TERRAIN_BOOK,
-  onClick: () => { new TerrainEffectsApp().render(true); },
-  visible: game.user.isGM
+  onClick: () => { new TerrainEffectsApp().render(true); }
 }
 
 let wallDisplay;
@@ -82,8 +81,10 @@ function getSceneControlButtons(controls, _html, _data) {
   regionTools.tools.splice(polyIdx + 1, 0, TOOLS.FILL_BY_WALLS);
   regionTools.tools.splice(polyIdx + 1, 0, TOOLS.FILL_BY_LOS);
 
-  const trashIdx = regionTools.tools.findIndex(t => t.name === "clear");
-  regionTools.tools.splice(trashIdx, 0, TOOLS.TERRAIN_BOOK);
+  if ( game.user.isGM ) {
+    const trashIdx = regionTools.tools.findIndex(t => t.name === "clear");
+    regionTools.tools.splice(trashIdx, 0, TOOLS.TERRAIN_BOOK);
+  }
 }
 
 PATCHES.REGIONS.HOOKS = {

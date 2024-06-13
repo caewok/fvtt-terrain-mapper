@@ -1,5 +1,4 @@
 /* globals
-canvas,
 Color,
 CONFIG,
 CONST,
@@ -7,7 +6,6 @@ Dialog,
 foundry,
 game,
 getProperty,
-PIXI,
 readTextFromFile,
 renderTemplate,
 saveDataToFile,
@@ -23,9 +21,6 @@ import { EffectHelper } from "./EffectHelper.js";
 import { TerrainEffectsApp } from "./TerrainEffectsApp.js";
 import { Lock } from "./Lock.js";
 import { getDefaultSpeedAttribute } from "./systems.js";
-import { TravelTerrainRay } from "./TravelTerrainRay.js";
-import { TerrainListConfig } from "./TerrainListConfig.js";
-import { TerrainLevel } from "./TerrainLevel.js";
 
 // ----- Set up sockets for changing effects on tokens and creating a dialog ----- //
 // Don't pass complex classes through the socket. Use token ids instead.
@@ -58,9 +53,6 @@ export class Terrain {
   /** @type {number} */
   #pixelValue = 0;
 
-  /** @type {TerrainMap} */
-  static #sceneMap;
-
   /** @type {Lock} */
   static lock = new Lock();
 
@@ -88,7 +80,7 @@ export class Terrain {
     if ( activeEffect ) {
       const instances = this.constructor._instances;
       const id = activeEffect._id;
-      if (instances.has(id) ) return instances.get(id); // eslint-disable-line no-constructor-return
+      if (instances.has(id) ) return instances.get(id);
       instances.set(id, this);
     }
     this._effectHelper = new EffectHelper(activeEffect);
@@ -103,8 +95,6 @@ export class Terrain {
     return new this(EffectHelper.getTerrainEffectById(id));
   }
 
-  /** @type {TerrainMap} */
-  get sceneMap() { return canvas.terrain.sceneMap; }
 
   /**
    * @param {TerrainConfig} config
@@ -195,51 +185,13 @@ export class Terrain {
 
   /** @type {number} */
   get pixelValue() {
-    return this.#pixelValue || (this.#pixelValue = this.sceneMap.keyForValue(this));
+    return this.#pixelValue
   }
 
   // Helpers to get/set the active effect flags.
   #getAEFlag(flag) { return this.activeEffect?.getFlag(MODULE_ID, flag); }
 
   async #setAEFlag(flag, value) { return this.activeEffect?.setFlag(MODULE_ID, flag, value); }
-
-
-  // NOTE: ----- Scene map -----
-
-  /**
-   * Is this terrain in the scene map?
-   * @returns {boolean}
-   */
-  isInSceneMap() { return this.sceneMap.hasTerrainId(this.id); }
-
-  /**
-   * Is this terrain actually used on the scene canvas?
-   * @returns {boolean}
-   */
-  isUsedInScene() { return canvas.terrain.pixelValueInScene(this.pixelValue); }
-
-  /**
-   * Add this terrain to the scene, which assigns a pixel value for this terrain.
-   */
-  addToScene() { this.#pixelValue = canvas.terrain._addTerrainToScene(this); }
-
-  /**
-   * Remove this terrain from the scene, which removes the pixel value for this terrain.
-   * (But not necessarily the underlying pixels -- a placeholder terrain will be assigned.)
-   */
-  async removeFromScene() {
-    await canvas.terrain._removeTerrainFromScene(this);
-    this.#pixelValue = undefined;
-  }
-
-  /**
-   * Reset the pixel value.
-   * Internal use when cleaning the scene.
-   */
-  _unassignPixel() {
-    if ( this.isInSceneMap() ) console.warn(`Terrain ${this.name} (${this.pixelValue}) is still present in the scene map.`);
-    this.#pixelValue = undefined;
-  }
 
   /**
    * Duplicate this terrain.
@@ -283,7 +235,7 @@ export class Terrain {
     }
 
     // Remove other terrains from the token.
-    if ( removeOtherSceneTerrains ) currTerrains = currTerrains.filter(t => this.sceneMap.hasTerrainId(t.id));
+//     if ( removeOtherSceneTerrains ) currTerrains = currTerrains.filter(t => this.sceneMap.hasTerrainId(t.id));
     if ( removeOtherSceneTerrains || removeAllOtherTerrains ) {
       currTerrains.delete(this);
       for ( const terrain of currTerrains ) {
@@ -404,42 +356,8 @@ export class Terrain {
    * @param {string} [speedAttribute]
    * @returns {number} Percent of the distance between origin and destination
    */
-  static percentMovementForTokenAlongPath(token, origin, destination, speedAttribute) {
-    speedAttribute ??= getDefaultSpeedAttribute();
-    if ( !(origin instanceof PIXI.Point) ) origin = new PIXI.Point(origin.x, origin.y);
-    if ( !(destination instanceof PIXI.Point) ) destination = new PIXI.Point(destination.x, destination.y);
-
-    const currTerrains = new Set(token.getAllTerrains()); // Store in advance for speed.
-    const ttr = new TravelTerrainRay(token, { origin, destination});
-    const path = ttr.path;
-    let tPrev = 0;
-    let prevTerrains = ttr.activeTerrainsAtT(0);
-    let percent = 0;
-    const nMarkers = path.length;
-    const tChangeFn = markerT => {
-      const tDiff = markerT - tPrev;
-      const percentChange = this.percentMovementChangeForTerrainSet(token, prevTerrains, speedAttribute, currTerrains);
-      return percentChange * tDiff;
-    };
-
-    for ( let i = 1; i < nMarkers; i += 1 ) {
-      const marker = path[i];
-      const activeTerrains = ttr.activeTerrainsAtT(marker.t);
-
-      // If nothing has changed, combine segments.
-      if ( prevTerrains.equals(activeTerrains) ) continue;
-
-      // Measure effect of movement for the terrains across this segment.
-      percent += tChangeFn(marker.t);
-
-      // Update for the next segment.
-      tPrev = marker.t;
-      prevTerrains = activeTerrains;
-    }
-
-    // Handle the last segment.
-    percent += tChangeFn(1);
-    return percent;
+  static percentMovementForTokenAlongPath(_token, _origin, _destination, _speedAttribute) {
+    console.error("percentMovementForTokenAlongPath is currently not implemented for v12.");
   }
 
   /**
@@ -477,13 +395,8 @@ export class Terrain {
    *   Equal to 100: no increase.
    *   Less than 100: decrease.
    */
-  static percentMovementChangeForTokenAtPoint(token, location, speedAttribute) {
-    location ??= token.center;
-    let elevationE;
-    if ( Object.hasOwn(location, "z") ) elevationE = CONFIG.GeometryLib.utils.pixelsToGridUnits(location.z);
-    else elevationE = token.elevationE;
-    const terrains = canvas.terrain.activeTerrainsAt(location, elevationE);
-    return this.percentMovementChangeForTerrainSet(token, terrains, speedAttribute);
+  static percentMovementChangeForTokenAtPoint(_token, _location, _speedAttribute) {
+    console.error("percentMovementChangeForTokenAtPoint is currently not implemented for v12.");
   }
 
   /**
@@ -501,31 +414,8 @@ export class Terrain {
    *   Less than 100: decrease.
    */
 
-  static percentMovementChangeForTokenWithinShape(token, shape, minPercentArea = 0.5, speedAttribute, elevationE) {
-    elevationE = token.elevationE;
-    shape ??= token.constrainedTokenBorder;
-    const ter = canvas.terrain;
-    const terrainLevels = ter._templateTerrainLevelsAtShape(shape)
-      .union(ter._tileTerrainLevelsAtShape(shape));
-
-    // TODO: Simpler way to get terrain levels.
-    // For now, cycle through all terrains and all levels.
-    const nLayers = ter.constructor.MAX_LAYERS;
-    for ( const t of ter.sceneMap.values() ) {
-      for ( let l = 0; l < nLayers; l += 1 ) {
-        const tl = new TerrainLevel(t, l);
-        terrainLevels.add(tl);
-      }
-    }
-
-    // Keep terrains if they cover more than the percent area for the shape.
-    const terrains = new Set();
-    terrainLevels.forEach(tl => {
-      const t = tl.terrain;
-      if ( terrains.has(t) ) return;
-      if ( tl.percentCoverage(shape, elevationE) >= minPercentArea ) terrains.add(t);
-    });
-    return this.percentMovementChangeForTerrainSet(token, terrains, speedAttribute);
+  static percentMovementChangeForTokenWithinShape(_token, _shape, _minPercentArea = 0.5, _speedAttribute, _elevationE) {
+    console.error("percentMovementChangeForTokenWithinShape is currently not implemented for v12.");
   }
 
   /**
@@ -604,7 +494,6 @@ export class Terrain {
               log("importFromJSONDialog|Read text");
               await this.importFromJSON(json);
               TerrainEffectsApp.rerender();
-              TerrainListConfig.rerender();
               log("importFromJSONDialog|Finished rerender");
               resolve(true);
             }
@@ -648,7 +537,6 @@ export class Terrain {
               const json = await readTextFromFile(form.data.files[0]);
               await this.replaceFromJSON(json);
               TerrainEffectsApp.rerender();
-              TerrainListConfig.rerender();
               resolve(true);
             }
           },
@@ -743,7 +631,7 @@ function applyEffectTemporarily(ae, actor, change) {
       delta = ae._castArray(change.value, innerType);
     }
     else delta = ae._castDelta(change.value, targetType);
-  } catch(err) {
+  } catch(_err) { // eslint-disable-line no-unused-vars
     console.warn(`Actor [${actor.id}] | Unable to parse active effect change for ${change.key}: "${change.value}"`);
     return;
   }

@@ -15,8 +15,6 @@ import { Settings } from "./settings.js";
 import { log } from "./util.js";
 import { Terrain } from "./Terrain.js";
 import { EffectHelper } from "./EffectHelper.js";
-import { TerrainSceneConfig } from "./TerrainSceneConfig.js";
-import { TerrainListConfig } from "./TerrainListConfig.js";
 
 /**
  * Controller class to handle app events and manipulate underlying Foundry data.
@@ -100,9 +98,9 @@ export class TerrainEffectsController {
 
   _fetchSceneTerrains(terrains) {
     log("TerrainEffectsController|_fetchSceneTerrains");
-    const map = canvas.terrain.sceneMap;
-    const ids = new Set([...map.values()].map(terrain => terrain.id));
-    return terrains.filter(t => ids.has(t.id));
+   //  const map = canvas.terrain.sceneMap;
+//     const ids = new Set([...map.values()].map(terrain => terrain.id));
+//     return terrains.filter(t => ids.has(t.id));
   }
 
 
@@ -127,22 +125,11 @@ export class TerrainEffectsController {
   }
 
   /**
-   * Handles clicks on the edit scene terrain map button.
-   * Displays a mini-configuration that lists all scene terrains with their
-   * pixel values. Allows re-assignment of pixel values to different terrains.
-   */
-  async onEditSceneTerrains() {
-    log("TerrainEffectsController|onEditSceneTerrains");
-    new TerrainSceneConfig().render(true);
-  }
-
-  /**
    * Handles clicks on the list terrains button.
    * Displays a mini-configuration that lists all terrains, allows for quick editing.
    */
   async onListTerrains() {
     log("TerrainEffectsController|onListTerrains");
-    new TerrainListConfig().render(true);
   }
 
   /**
@@ -253,12 +240,6 @@ export class TerrainEffectsController {
     await this.onEditEffectClick(event);
   }
 
-  _findNearestEffectId(event) {
-    return $(event.target)
-      .closest("[data-effect-id], .terrainmapper-effect")
-      .data()?.effectId;
-  }
-
   /**
    * Handle adding the effect to the favorites settings and to the favorites folder
    * @param {jQuery} effectItem - jQuery element representing the effect list item
@@ -304,7 +285,7 @@ export class TerrainEffectsController {
   isInScene(effectItem) {
     log("TerrainEffectsController|isInScene");
     const effectId = effectItem.data().effectId;
-    return canvas.terrain.sceneMap.hasTerrainId(effectId);
+//     return canvas.terrain.sceneMap.hasTerrainId(effectId);
   }
 
   /**

@@ -1,24 +1,20 @@
 /* globals
+ActiveEffect,
 CONFIG,
 foundry,
-fromUuidSync
+fromUuidSync,
+Item
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
 import { Settings } from "./settings.js";
-import { FLAGS, COLORS, MODULE_ID } from "./const.js";
+import { FLAGS, MODULE_ID } from "./const.js";
 
 /**
  * Class to handle creating and storing the active effect for a given Terrain.
  */
 export class EffectHelper {
-  // Default colors for terrains.
-  static COLORS = COLORS;
-
-  static #colorId = 0;
-
-  static nextColor() { return this.COLORS[this.#colorId++]; }
 
   /** @type {ActiveEffect} */
   effect;
@@ -80,12 +76,8 @@ export class EffectHelper {
     // Store other terrain data as flags on the effect.
     const terrainFlags = {};
     const tf = terrainFlags[MODULE_ID] = {};
-    tf[FLAGS.ANCHOR.VALUE] = config.anchor ?? FLAGS.ANCHOR.CHOICES.RELATIVE_TO_TERRAIN;
-    tf[FLAGS.OFFSET] = config.offset ?? 0;
-    tf[FLAGS.RANGE_BELOW] = config.rangeBelow ?? 0;
-    tf[FLAGS.RANGE_ABOVE] = config.rangeAbove ?? 0;
-    tf[FLAGS.USER_VISIBLE] = config.userVisible ?? false;
-    tf[FLAGS.COLOR] = config.color ?? this.constructor.nextColor();
+    tf[FLAGS.IS_TERRAIN] = true;
+    tf[FLAGS.DUPLICATES_ALLOWED] = false;
     config.flags = foundry.utils.mergeObject(terrainFlags, config.flags);
 
     // Create the active effect.
