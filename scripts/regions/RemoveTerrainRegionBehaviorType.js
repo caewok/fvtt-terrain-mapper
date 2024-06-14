@@ -5,7 +5,6 @@ RegionBehaviorType
 "use strict";
 
 import { MODULE_ID } from "../const.js";
-import { Terrain } from "../Terrain.js";
 import { log } from "../util.js";
 import { TerrainRegionBehaviorType } from "./TerrainRegionBehaviorType.js";
 
@@ -35,6 +34,7 @@ export class RemoveTerrainRegionBehaviorType extends TerrainRegionBehaviorType {
     if ( !token ) return;
 
     // Remove all if terrains is empty.
+    const Terrain = CONFIG[MODULE_ID].Terrain;
     if ( !this.terrains.size && !this.keepSelected ) return Terrain.removeAllFromToken(token);
 
     // Determine which terrains to remove.

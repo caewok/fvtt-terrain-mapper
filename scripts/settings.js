@@ -68,6 +68,8 @@ export class Settings extends ModuleSettingsAbstract {
       EXPANDED_FOLDERS: "app_expanded_folders"
     },
 
+    UNIQUE_EFFECTS_FLAGS_DATA: "uniqueEffectsFlagsData",
+
     // Dialog with announcements re major updates.
     CHANGELOG: "changelog"
   };
@@ -151,6 +153,13 @@ export class Settings extends ModuleSettingsAbstract {
       default: true,
       requiresReload: false,
       type: Boolean
+    });
+
+     // ----- NOTE: Hidden settings ----- //
+    register(KEYS.UNIQUE_EFFECTS_FLAGS_DATA, {
+      scope: "world",
+      config: false,
+      default: {}
     });
   }
 

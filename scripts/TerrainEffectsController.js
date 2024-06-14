@@ -13,8 +13,6 @@ SearchFilter
 
 import { Settings } from "./settings.js";
 import { log } from "./util.js";
-import { Terrain } from "./Terrain.js";
-import { EffectHelper } from "./EffectHelper.js";
 
 /**
  * Controller class to handle app events and manipulate underlying Foundry data.
@@ -38,9 +36,8 @@ export class TerrainEffectsController {
    * @returns {Object} the data to pass to the template
    */
   get data() {
-    const terrains = Terrain.getAll();
-    const userTerrains = game.user.isGM ? terrains : terrains.filter(t => t.userVisible);
-    this._sortTerrains(userTerrains);
+    const terrains = CONFIG.Terrain._instances.values()
+    this._sortTerrains(terrains);
 
     return {
       // Folders:
@@ -51,19 +48,7 @@ export class TerrainEffectsController {
         {
           id: "favorites",
           name: "Favorites",
-          effects: this._fetchFavorites(userTerrains).map(e => {
-            return {
-              name: e.name,
-              icon: e.icon,
-              id: e.id,
-              description: e.description
-            };
-          })
-        },
-        {
-          id: "scene",
-          name: "Scene",
-          effects: this._fetchSceneTerrains(userTerrains).map(e => {
+          effects: this._fetchFavorites(terrains).map(e => {
             return {
               name: e.name,
               icon: e.icon,
@@ -77,10 +62,10 @@ export class TerrainEffectsController {
           name: "All",
           effects: userTerrains.map(e => {
             return {
-              name: e.name,
-              icon: e.icon,
-              id: e.id,
-              description: e.description
+              name: e.document.name,
+              icon: e.document.icon,
+              id: e.document.id,
+              description: e.document.description
             };
           })
         }
@@ -94,13 +79,6 @@ export class TerrainEffectsController {
     log("TerrainEffectsController|_fetchFavorites");
     const favorites = new Set(Settings.get(Settings.KEYS.FAVORITES));
     return terrains.filter(t => favorites.has(t.id));
-  }
-
-  _fetchSceneTerrains(terrains) {
-    log("TerrainEffectsController|_fetchSceneTerrains");
-   //  const map = canvas.terrain.sceneMap;
-//     const ids = new Set([...map.values()].map(terrain => terrain.id));
-//     return terrains.filter(t => ids.has(t.id));
   }
 
 
@@ -122,14 +100,6 @@ export class TerrainEffectsController {
     Settings.expandedFolders.forEach(folderId => {
       this._viewMvc.expandFolder(folderId);
     });
-  }
-
-  /**
-   * Handles clicks on the list terrains button.
-   * Displays a mini-configuration that lists all terrains, allows for quick editing.
-   */
-  async onListTerrains() {
-    log("TerrainEffectsController|onListTerrains");
   }
 
   /**

@@ -8,7 +8,6 @@ Terrain
 // Methods related to ActiveEffect
 
 import { MODULE_ID, FLAGS } from "./const.js";
-import { Terrain } from "./Terrain.js";
 
 export const PATCHES = {};
 PATCHES.BASIC = {};
@@ -33,7 +32,7 @@ function preCreateActiveEffect(document, data, options, userId) {
   // If this terrain already exists, don't add it to the actor.
   const terrainId = document.origin.split(".")[1];
   if ( !terrainId ) return;
-  const terrain = Terrain._instances.get(terrainId);
+  const terrain = CONFIG[MODULE_ID].Terrain._instances.get(terrainId);
   if ( !terrain ) return;
   if ( terrain.tokenHasTerrain(terrain) ) return false;
 }

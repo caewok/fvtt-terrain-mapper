@@ -1,5 +1,6 @@
 /* globals
 canvas,
+CONFIG,
 CONST,
 fromUuidSync,
 game,
@@ -15,7 +16,6 @@ Hook token movement to add/remove terrain effects and pause tokens dependent on 
 */
 
 import { MODULE_ID, FLAGS } from "./const.js";
-import { Terrain } from "./Terrain.js";
 
 export const PATCHES = {};
 PATCHES.BASIC = {};
@@ -33,7 +33,7 @@ PATCHES.BASIC = {};
  */
 function preCreateToken(tokenD, data, _options, _userId) {
   if ( !canvas.scene ) return;
-  const elevation = canvas.scene.getFlag(MODULE_ID, FLAGS.SCENE_BACKGROUND_ELEVATION) ?? 0;
+  const elevation = canvas.scene.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0;
   if ( elevation && !data.elevation ) tokenD.updateSource({ elevation });
 }
 
@@ -48,6 +48,7 @@ function refreshToken(token, flags) {
       let text = token._getTooltipText();
 
       // Test for regions with terrains.
+      const terrains = new Set();
       for ( const region of identifyRegions(token) ) terrains = terrains.union(identifyRegionTerrains(region));
 
       if ( terrains.size ) {
@@ -86,12 +87,12 @@ PATCHES.BASIC.HOOKS = {
  * Retrieve all terrains on the token.
  * @returns {Terrain[]}
  */
-function getAllTerrains() { return Terrain.allOnToken(this); }
+function getAllTerrains() { return CONFIG[MODULE_ID].Terrain.allOnToken(this); }
 
 /**
  * Remove all terrains from the token.
  */
-async function removeAllTerrains() { return Terrain.removeAllFromToken(this); }
+async function removeAllTerrains() { return CONFIG[MODULE_ID].Terrain.removeAllFromToken(this); }
 
 /**
  * Test if token has a given terrain.
@@ -165,5 +166,5 @@ function identifyRegionTerrains(region, isGM = game.user.isGM) {
     if ( !isGM && behavior.system.secret ) continue;
     behavior.system.terrains.forEach(t => terrainIds.add(t));
   }
-  return new Set([...terrainIds].map(id => Terrain._instances.get(id)).filter(t => Boolean(t)));
+  return new Set([...terrainIds].map(id => CONFIG[MODULE_ID].Terrain._instances.get(id)).filter(t => Boolean(t)));
 }

@@ -5,7 +5,6 @@ RegionBehaviorType
 "use strict";
 
 import { MODULE_ID } from "../const.js";
-import { Terrain } from "../Terrain.js";
 import { log } from "../util.js";
 
 /**
@@ -28,7 +27,7 @@ export class TerrainRegionBehaviorType extends foundry.data.regionBehaviors.Regi
 
   static terrainChoices() {
     const choices = {};
-    Terrain._instances.forEach(t => choices[t.id] = t.name);
+    CONFIG[MODULE_ID].Terrain._instances.forEach(t => choices[t.id] = t.name);
     return choices;
   }
 }
