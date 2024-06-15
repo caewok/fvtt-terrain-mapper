@@ -31,6 +31,7 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
   get effectData() {
     const data = super.effectData;
     data.origin = this.constructor._storageMap.model.id;
+    if ( this.img ) data.statuses = [this.img]; // Force display of the terrain status
     return data;
   }
 

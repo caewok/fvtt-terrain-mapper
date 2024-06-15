@@ -29,7 +29,7 @@ export class UniqueFlagEffect extends AbstractUniqueEffect {
    * @param {Token} token
    * @returns {DocumentCollection|Map} The collection for this token
    */
-  static getTokenStorage(token) {
+  static getTokenStorage(_token) {
     const map = new Map();
     Object.entries(Settings.get(FlagDocument.settingsKey)).forEach(([id, dat]) => map.set(id, dat));
     return map;
@@ -180,7 +180,7 @@ class FlagDocument {
     return Settings.set(this.settingsKey, settingsData);
   }
 
-  async unsetFlag(scope, key, value) {
+  async unsetFlag(scope, key) {
     const settingsData = Settings.get(this.settingsKey);
     const doc = settingsData[this.id] ??= {};
     doc[scope] ??= {};

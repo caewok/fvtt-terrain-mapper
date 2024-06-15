@@ -22,8 +22,8 @@ PATCHES.BASIC = {};
  * @returns {boolean|void}                        Explicitly return false to prevent creation of this Document
  */
 function preCreateActiveEffect(document, data, options, userId) {
-  if ( !document.getFlag(MODULE_ID, FLAGS.IS_TERRAIN)
-    || document.getFlag(MODULE_ID, FLAGS.DUPLICATES_ALLOWED) ) return;
+  if ( !document.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.ID)
+    || document.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.DUPLICATES_ALLOWED) ) return;
   const actor = document.parent;
   if ( !actor || !(actor instanceof Actor) ) return;
   const token = actor.token?.object;

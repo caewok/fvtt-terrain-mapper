@@ -113,7 +113,7 @@ export class AbstractUniqueEffect {
   get document() { return this.#document || (this.#document = this._findLocalDocument)}
 
   get allowDuplicates() {
-    return this.document?.getFlag(MODULE_ID, CONST.FLAGS.ALLOW_DUPLICATES)
+    return this.document?.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.DUPLICATES_ALLOWED)
       ?? this.document.allowDuplicates;
   }
 
@@ -123,8 +123,8 @@ export class AbstractUniqueEffect {
   get effectData() {
     const data = this.document?.toObject() || foundry.utils.duplicate(this.document);
     data.flags[MODULE_ID] ??= {};
-    data.flags[MODULE_ID][FLAGS.EFFECT.ID] = this.id;
-    data.flags[MODULE_ID][FLAGS.EFFECT.TYPE] = this.constructor.name;
+    data.flags[MODULE_ID][FLAGS.UNIQUE_EFFECT.ID] = this.uniqueEffectId;
+    data.flags[MODULE_ID][FLAGS.UNIQUE_EFFECT.TYPE] = this.constructor.type
     return data;
   }
 
@@ -145,7 +145,7 @@ export class AbstractUniqueEffect {
    */
   get localEffectData() {
     const data = this.effectData;
-    data.flags[MODULE_ID][FLAGS.EFFECT.LOCAL] = true;
+    data.flags[MODULE_ID][FLAGS.UNIQUE_EFFECT.LOCAL] = true;
     return data;
   }
 
@@ -271,7 +271,7 @@ export class AbstractUniqueEffect {
    * @returns {boolean} True if change was made.
    */
   async addToToken(token, { exclusive = false } = {}) {
-    const currEffects = this.constructor.allOnToken(token);
+    const currEffects = new Set(this.constructor.allOnToken(token));
     if ( !this.allowDuplicates && currEffects.has(this) ) return false;
     if ( exclusive ) {
       currEffects.delete(this);
@@ -298,7 +298,7 @@ export class AbstractUniqueEffect {
    * @returns {boolean} True if change was made
    */
   addToTokenLocally(token, { exclusive = false } = {}) {
-    const currEffects = this.constructor.allOnToken(token);
+    const currEffects = new Set(this.constructor.allOnToken(token));
     if ( !this.allowDuplicates && currEffects.has(this) ) return false;
     if ( exclusive ) {
       currEffects.delete(this);
@@ -323,8 +323,10 @@ export class AbstractUniqueEffect {
    * @returns {boolean}
    */
   isOnToken(token) {
-    const ids = this._effectIdsOnToken(token);
-    return ids.some(id => id === this.id);
+    for ( const doc of this.constructor.getTokenStorage(token).values() ) {
+      if ( doc.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.ID) === this.id ) return true;
+    }
+    return false;
   }
 
   // ----- NOTE: Static token-related methods ----- //
@@ -388,7 +390,7 @@ export class AbstractUniqueEffect {
    */
   static _trimDuplicates(token, effects) {
     if ( !(effects instanceof Set) ) effects = new Set(effects);
-    const currEffects = this.allOnToken(token);
+    const currEffects = new Set(this.allOnToken(token));
     const toAdd = [];
     for ( const effect of effects ) {
       if ( currEffects.has(effect) && !effect.allowDuplicates ) continue;
@@ -405,7 +407,7 @@ export class AbstractUniqueEffect {
    */
   static async removeFromToken(token, effects) {
     if ( !(effects instanceof Set) ) effects = new Set(effects);
-    const toRemove = effects.intersection(this.allOnToken(token));
+    const toRemove = effects.intersection(new Set(this.allOnToken(token)));
     if ( !toRemove.size ) return false;
     return await this._removeFromToken(token, [...toRemove]);
   }
@@ -418,7 +420,7 @@ export class AbstractUniqueEffect {
    */
   static removeFromTokenLocally(token, effects, refresh = true) {
     if ( !(effects instanceof Set) ) effects = new Set(effects);
-    const toRemove = effects.intersection(this.allOnToken(token));
+    const toRemove = effects.intersection(new Set(this.allOnToken(token)));
     if ( !toRemove.size ) return false;
     if ( !this._removeFromTokenLocally(token, [...toRemove]) ) return false;
     if ( refresh ) this.constructor.refreshTokenDisplay(token);
@@ -532,21 +534,14 @@ export class AbstractUniqueEffect {
    * @returns {AbstractUniqueEffect[]} All effects, possibly repeated
    */
   static allOnToken(token) {
-    return this._allEffectDocsOnToken(token)
-      .map(id => this._instances.get(id))
-      .filter(effect => Boolean(effect));
-  }
-
-  /**
-   * Get all unique effect documents on the token.
-   * @param {Token} token
-   * @returns {Document[]} All documents that represent unique effect
-   */
-  static _allEffectDocsOnToken(token) {
-    const storage = this.getTokenStorage(token);
-    return [...storage.values()]
-      .map(doc => doc.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.ID))
-      .filter(id => Boolean(id));
+    const instances = [];
+    for ( const doc of this.getTokenStorage(token).values() ) {
+      const uniqueEffectId = doc.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.ID);
+      if ( !uniqueEffectId ) continue;
+      const instance = this._instances.get(uniqueEffectId);
+      if ( instance ) instances.push(instance);
+    }
+    return instances;
   }
 
   /**
@@ -592,10 +587,11 @@ export class AbstractUniqueEffect {
     if ( savedVersion && !foundry.utils.isNewerVersion(moduleVersion, savedVersion) ) return false;
 
     // Set the id if possible.
-    if ( !uniqueId ) {
+    const uniqueEffectId = doc.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.ID);
+    if ( !uniqueEffectId ) {
       let effect;
       for ( effect of this._storageMap.values() ) {
-        if ( elem.name === doc.name ) break;
+        if ( effect.name === doc.name ) break;
       }
       if ( effect ) await doc.setFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.ID, effect.uniqueEffectId);
     }

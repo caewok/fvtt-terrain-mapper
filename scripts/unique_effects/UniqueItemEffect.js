@@ -6,8 +6,10 @@ game
 
 import { AbstractUniqueEffect } from "./AbstractUniqueEffect.js";
 import {
+  createDocument,
+  updateDocument,
+  deleteDocument,
   createEmbeddedDocuments,
-  updateEmbeddedDocuments,
   deleteEmbeddedDocuments } from "./sockets.js";
 
 /**

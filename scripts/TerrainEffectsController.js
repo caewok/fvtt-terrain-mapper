@@ -36,7 +36,7 @@ export class TerrainEffectsController {
    * @returns {Object} the data to pass to the template
    */
   get data() {
-    const terrains = CONFIG.Terrain._instances.values()
+    const terrains = CONFIG[MODULE_ID].Terrain._instances.values()
     this._sortTerrains(terrains);
 
     return {
