@@ -72,6 +72,7 @@ Hooks.once("init", function() {
  */
 Hooks.once("setup", function() {
   Settings.registerAll();
+  CONFIG[MODULE_ID].Terrain.initialize();
 });
 
 
@@ -81,15 +82,9 @@ Hooks.once("setup", function() {
  */
 Hooks.on("canvasReady", async function(_canvas) {
   log("TerrainMapper|canvasReady");
-  await Settings.initializeTerrainsItem();
 
   // Ensure terrain item flags are accurate.
-  const promises = [];
-  for ( const effect of Settings.terrainEffectsItem.effects.values() ) {
-    if ( typeof effect.getFlag(MODULE_ID, FLAGS.IS_TERRAIN) !== "undefined" ) continue;
-    promises.push(effect.setFlag(MODULE_ID, FLAGS.IS_TERRAIN, true));
-  }
-  await Promise.allSettled(promises);
+  await CONFIG[MODULE_ID].Terrain.transitionDocuments();
 
 });
 

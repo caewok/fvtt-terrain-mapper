@@ -30,7 +30,7 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
    */
   get effectData() {
     const data = super.effectData;
-    data.origin = this._storageItem.id;
+    data.origin = this.constructor._storageMap.model.id;
     return data;
   }
 
@@ -44,6 +44,13 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
   }
 
   // ----- NOTE: Token-related methods ----- //
+
+  /**
+   * The token storage for this class
+   * @param {Token} token
+   * @returns {DocumentCollection|Map} The collection for this token
+   */
+  static getTokenStorage(token) { return token.actor?.effects; }
 
   /**
    * Method implemented by child class to add 1+ effects to the token.
@@ -110,7 +117,7 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
    */
   static get newEffectData() {
     const data = super.newEffectData;
-    data.origin = this._storageItem.id;
+    data.origin = this._storageMap.model.id;
     data.transfer = false;
     return data;
   }
@@ -120,9 +127,8 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
    * @returns {Document|object}
    */
   async _createNewDocument(uniqueEffectId) {
-    if ( !this._storageItem ) await this.initialize();
-    const data = await this.dataForId(uniqueEffectId);
-    return createEmbeddedDocuments(this._storageItem.uuid, "ActiveEffect", [data]);
+    const data = await this.constructor.dataForId(uniqueEffectId);
+    return createEmbeddedDocuments(this.constructor._storageMap.model.uuid, "ActiveEffect", [data])[0];
   }
 
   /**
@@ -132,20 +138,20 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
    */
   async updateDocument(data) {
     data._id = this.document.id;
-    return updateEmbeddedDocuments(this._storageItem.uuid, "ActiveEffect", [data]);
+    return updateEmbeddedDocuments(this.constructor._storageMap.model.uuid, "ActiveEffect", [data]);
   }
 
   /**
    * Delete the underlying stored document.
    */
   async _deleteDocument() {
-    return deleteEmbeddedDocuments(this._storageItem.uuid, "ActiveEffect", [this.document.id]);
+    return deleteEmbeddedDocuments(this.constructor._storageMap.model.uuid, "ActiveEffect", [this.document.id]);
   }
 
   // ----- NOTE: Static multiple document handling ---- //
 
   /** @type {object} */
-  static get _storageItemData() {
+  static get _storageMapData() {
     return {
       name: "Unique Active Effects",
       img: "icons/svg/ruins.svg",
@@ -157,13 +163,14 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
    * Initialize item used to store active effects.
    * Once created, it will be stored in the world and becomes the method by which cover effects
    * are saved.
+   * @returns {DocumentCollection|Map}
    */
-  static async _initializeStorageItem() {
-    if ( this._storageItem ) return;
-    const data = this._storageItemData;
-    this._storageItem = await createDocument("CONFIG.Item.documentClass", data);
+  static async _initializeStorageMap() {
+    const data = this._storageMapData;
+    const item = game.items.find(item => item.name === data.name)
+      ?? (await createDocument("CONFIG.Item.documentClass", data));
+    return item.effects;
   }
-
 
   // ----- NOTE: Static default data handling ----- //
 

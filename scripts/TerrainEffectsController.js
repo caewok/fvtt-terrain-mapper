@@ -77,7 +77,7 @@ export class TerrainEffectsController {
 
   _fetchFavorites(terrains) {
     log("TerrainEffectsController|_fetchFavorites");
-    const favorites = new Set(Settings.get(Settings.KEYS.FAVORITES));
+    const favorites = new Set(Settings.get(Settings.KEYS.CONTROL_APP.FAVORITES));
     return terrains.filter(t => favorites.has(t.id));
   }
 

@@ -25,7 +25,7 @@ export class UniqueItemEffect extends AbstractUniqueEffect {
    */
   get effectData() {
     const data = super.effectData;
-    data.origin = this._storageItem.id;
+    data.origin = this.document.id;
     return data;
   }
 
@@ -39,6 +39,13 @@ export class UniqueItemEffect extends AbstractUniqueEffect {
   }
 
   // ----- NOTE: Token-related methods ----- //
+
+  /**
+   * The token storage for this class
+   * @param {Token} token
+   * @returns {DocumentCollection|Map} The collection for this token
+   */
+  static getTokenStorage(token) { return token.actor?.items; }
 
   /**
    * Method implemented by child class to add 1+ effects to the token.
@@ -105,7 +112,6 @@ export class UniqueItemEffect extends AbstractUniqueEffect {
    */
   static get newEffectData() {
     const data = super.newEffectData;
-    data.origin = this._storageItem.id;
     data.transfer = false;
     return data;
   }
@@ -115,9 +121,8 @@ export class UniqueItemEffect extends AbstractUniqueEffect {
    * @returns {Document|object}
    */
   async _createNewDocument(uniqueEffectId) {
-    if ( !this._storageItem ) await this.initialize();
-    const data = await this.dataForId(uniqueEffectId);
-    return createEmbeddedDocuments(this._storageItem.uuid, "Item", [data]);
+    const data = await this.constructor.dataForId(uniqueEffectId);
+    return createDocument("CONFIG.Item.documentClass", data);
   }
 
   /**
@@ -126,37 +131,24 @@ export class UniqueItemEffect extends AbstractUniqueEffect {
    * @param {object[]} [data]    Data used to update the document
    */
   async updateDocument(data) {
-    data._id = this.document.id;
-    return updateEmbeddedDocuments(this._storageItem.uuid, "Item", [data]);
+    return updateDocument(this.document.uuid, data);
   }
 
   /**
    * Delete the underlying stored document.
    */
   async _deleteDocument() {
-    return deleteEmbeddedDocuments(this._storageItem.uuid, "Item", [this.document.id]);
+    return deleteDocument(this.document.uuid);
   }
 
   // ----- NOTE: Static multiple document handling ---- //
-
-  /** @type {object} */
-  static get _storageItemData() {
-    return {
-      name: "Unique Item Effects",
-      img: "icons/svg/ruins.svg",
-      type: "base",
-    };
-  }
 
   /**
    * Initialize item used to store active effects.
    * Once created, it will be stored in the world and becomes the method by which cover effects
    * are saved.
    */
-  static async _initializeStorageItem() {
-    if ( this._storageItem ) return;
-    this._storageItem = game.items;
-  }
+  static async _initializeStorageMap() { return game.items; }
 }
 
 // ----- NOTE: Helper functions ----- //

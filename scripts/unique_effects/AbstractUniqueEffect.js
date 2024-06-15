@@ -30,10 +30,9 @@ AbstractUniqueEffect
    - CoverFlags
      - CoverFlagsDND5E
 
-Mix-ins?
+Mix-ins
 - terrain
 - cover
-
 */
 
 /*
@@ -51,6 +50,10 @@ Construct a unique effect by providing the base effect id. Use the async "create
 when creating a new base document.
 
 Unique effects are responsible for adding and removing themselves from tokens (typically, actors).
+
+Each class has a defined _storageMap. This is an EmbeddedCollection or Map that holds the
+unique effect documents.
+
 */
 
 /**
@@ -67,11 +70,11 @@ export class AbstractUniqueEffect {
   /** @type {string} */
   uniqueEffectId = "";
 
-  /** @type {EmbeddedCollection|Map} */
-  static _storageItem;
-
   /** @type {Map<string, AbstractTerrain} */
   static _instances = new Map();
+
+  /** @type {string} */
+  static type = "UniqueEffect";
 
   /**
    * @param baseEffectId
@@ -82,7 +85,7 @@ export class AbstractUniqueEffect {
     // Enforce singleton.
     const instances = this.constructor._instances;
     if ( instances.has(uniqueEffectId) ) return instances.get(uniqueEffectId);
-    instances.set(this.id, uniqueEffectId);
+    instances.set(this.uniqueEffectId, this);
   }
 
   /**
@@ -96,12 +99,13 @@ export class AbstractUniqueEffect {
   static async create(uniqueEffectId) {
     const obj = new this(uniqueEffectId);
     await obj.initializeDocument();
-
-    const doc = await this.findDocument(obj.uniqueEffectId);
-    return new this(doc);
+    return obj
   }
 
   // ----- NOTE: Getters, setters, related properties ----- //
+
+  /** @type {EmbeddedCollection|Map} */
+  static _storageMap;
 
   /** @type {Document|Object} */
   #document;
@@ -166,12 +170,11 @@ export class AbstractUniqueEffect {
   /**
    * Find or create a document for a given unique effect id.
    * @param {string} uniqueEffectId
-   * @returns {Document|undefined}
    */
   async initializeDocument(uniqueEffectId) {
-    return this._findLocalDocument(uniqueEffectId)
+    uniqueEffectId ??= this.uniqueEffectId;
+    this.#document = this._findLocalDocument(uniqueEffectId)
       || (await this._loadDocument(uniqueEffectId))
-      || (await this._createDefaultDocument(uniqueEffectId))
       || (await this._createNewDocument(uniqueEffectId));
   }
 
@@ -181,8 +184,7 @@ export class AbstractUniqueEffect {
    * @returns {Document|object|undefined}
    */
   _findLocalDocument(uniqueEffectId) {
-    if ( !this._storageItem ) return;
-    for ( const doc of this._storageItem.values() ) {
+    for ( const doc of this.constructor._storageMap.values() ) {
       if ( doc.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.ID) === uniqueEffectId ) return doc;
     }
   }
@@ -193,7 +195,6 @@ export class AbstractUniqueEffect {
    * @returns {Document|object|undefined}
    */
   async _loadDocument(uniqueEffectId) {
-    if ( !this._storageItem ) await this.initialize();
     return this._findLocalDocument(uniqueEffectId);
   }
 
@@ -453,12 +454,12 @@ export class AbstractUniqueEffect {
    * @param {object} [opts]     Parts of the id
    * @returns {string} moduleId.effectType.systemId.baseEffectId
    */
-  static uniqueEffectId({ moduleId, effectType, systemId, baseEffectId } = {}) {
+  static uniqueEffectId({ moduleId, type, systemId, baseEffectId } = {}) {
     moduleId ??= MODULE_ID;
-    effectType ??= this.constructor.name;
+    type ??= this.type;
     systemId ??= game.system.id;
-    baseEffectId ??= foundry.utils.randomId();
-    return [moduleId, effectType, systemId, baseEffectId].join(".");
+    baseEffectId ??= foundry.utils.randomID();
+    return [moduleId, type, systemId, baseEffectId].join(".");
   }
 
   /**
@@ -486,7 +487,7 @@ export class AbstractUniqueEffect {
    */
   static get newEffectData() { return {
     flags: {
-      [MODULE_ID]: { [FLAGS.EFFECT.TYPE]: this.name }
+      [MODULE_ID]: { [FLAGS.UNIQUE_EFFECT.TYPE]: this.type }
       }
     };
   }
@@ -495,7 +496,7 @@ export class AbstractUniqueEffect {
    * Data to construct an effect from a default source of data.
    */
   static async defaultEffectData(uniqueEffectId) {
-    if ( !this.defaultEffectIds.has(uniqueEffectId) ) return;
+    if ( !this.defaultEffectIds().has(uniqueEffectId) ) return;
 
     const data = this.newEffectData;
     data.flags = { [MODULE_ID]: { [FLAGS.UNIQUE_EFFECT.ID]: uniqueEffectId } }
@@ -551,48 +552,73 @@ export class AbstractUniqueEffect {
   /**
    * Transition all documents in a scene, when updating versions.
    */
-  async transitionDocuments() {
-    if ( !this._storageItem ) await this._initializeStorageItem();
-    const moduleVersion = game.modules.get(MODULE_ID).version;
-
-    const processTransition = transitionFn => {
-      return doc => {
-        const savedVersion = doc.getFlag(MODULE_ID, FLAGS.VERSION);
-        if ( savedVersion && !foundry.utils.isNewerVersion(moduleVersion, savedVersion) ) return false;
-        transitionFn(doc).then(_value => doc.setFlag(MODULE_ID, FLAGS.VERSION, moduleVersion));
-      }
-    }
+  static async transitionDocuments() {
+    if ( !this._storageMap ) this._storageMap = await this._initializeStorageMap();
 
     // Transition each of the effects on the storage item
-    const promises = [];
-    const transitionStorageFn = processTransition(this._transitionStorageDocument);
-    for ( const doc of this._storageItem.values() ) {
-      const res = transitionStorageFn(doc);
-      if ( res ) promises.push(res);
-    }
+    const storagePromises = [];
+    for ( const doc of this._storageMap.values() ) storagePromises.push(this._doStorageTransition(doc));
+    const storageConverted = await Promise.allSettled(storagePromises);
+    if ( storageConverted.some(elem => elem) ) await this.initialize();
 
     // Same for all tokens
-    const transitionTokenFn = processTransition(this._transitionTokenDocument);
+    const tokenPromises = [];
     for ( const token of canvas.tokens.placeables ) {
-      for ( const doc of this.getTokenStorage(token).values() ) {
-        const res = transitionTokenFn(doc);
-        if ( res ) promises.push(res);;
-      }
+      for ( const doc of this.getTokenStorage(token).values() ) tokenPromises.push(this._doTokenTransition(doc));
     }
+    await Promise.allSettled(tokenPromises);
   }
+
+  static async _doStorageTransition(doc) {
+    const moduleVersion = game.modules.get(MODULE_ID).version;
+    const savedVersion = doc.getFlag(MODULE_ID, FLAGS.VERSION);
+    if ( savedVersion && !foundry.utils.isNewerVersion(moduleVersion, savedVersion) ) return false;
+
+    // Set the id if not present.
+    const uniqueId = doc.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.ID);
+    if ( !uniqueId ) await doc.setFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.ID, this.uniqueEffectId());
+
+    // Child transitions.
+    await this._transitionStorageDocument(doc);
+
+    // Indicate that we are finished.
+    await doc.setFlag(MODULE_ID, FLAGS.VERSION, moduleVersion)
+    return true;
+  }
+
+  static async _doTokenTransition(doc) {
+    const moduleVersion = game.modules.get(MODULE_ID).version;
+    const savedVersion = doc.getFlag(MODULE_ID, FLAGS.VERSION);
+    if ( savedVersion && !foundry.utils.isNewerVersion(moduleVersion, savedVersion) ) return false;
+
+    // Set the id if possible.
+    if ( !uniqueId ) {
+      let effect;
+      for ( effect of this._storageMap.values() ) {
+        if ( elem.name === doc.name ) break;
+      }
+      if ( effect ) await doc.setFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.ID, effect.uniqueEffectId);
+    }
+
+    // Child transitions.
+    await this._transitionTokenDocument(doc);
+
+    // Indicate that we are finished.
+    await doc.setFlag(MODULE_ID, FLAGS.VERSION, moduleVersion)
+    return true;
+  }
+
 
   /**
    * Transition a single document stored in the storage object
    */
-  async _transitionStorageDocument() {
-    console.warn("AbstractUniqueEffect#transitionDocument must be handled by child class");
+  static async _transitionStorageDocument(_doc) {
   }
 
   /**
    * Transition a single document stored on the token.
    */
-  async _transitionTokenDocument() {
-    console.warn("AbstractUniqueEffect#transitionDocument must be handled by child class");
+  static async _transitionTokenDocument(_doc) {
   }
 
   // ----- NOTE: Static multiple document handling ---- //
@@ -602,13 +628,13 @@ export class AbstractUniqueEffect {
    * By default, all known documents and all defaults not already docs are instantiated
    */
   static async initialize() {
-    await this._initializeStorageItem();
+    this._storageMap = await this._initializeStorageMap();
 
     // Create unique effects from the documents held in the storage document.
-    for ( const doc of this._storageItem.values() ) await new this.create(doc.getFlag(MODULE_ID, FLAGS.ABSTRACT_EFFECT.ID));
+    for ( const doc of this._storageMap.values() ) await this.create(doc.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.ID));
 
     // Create unique effects from default ids
-    for ( const uniqueEffectId of this.defaultEffectIds() ) await new this.create(uniqueEffectId);
+    for ( const uniqueEffectId of this.defaultEffectIds() ) await this.create(uniqueEffectId);
   }
 
   /**
@@ -616,8 +642,8 @@ export class AbstractUniqueEffect {
    * Once created, it will be stored in the world and becomes the method by which cover effects
    * are saved.
    */
-  static async _initializeStorageItem() {
-     console.error("AbstractUniqueEffect#_initializeStorageItem must be handled by child class");
+  static async _initializeStorageMap() {
+     console.error("AbstractUniqueEffect._initializeStorageMap must be handled by child class");
   }
 
   /**
@@ -639,10 +665,8 @@ export class AbstractUniqueEffect {
    * This should not require anything to be loaded, so it can be run at canvas.init.
    * @returns {Map<string, string>} Effect id keyed to effect name
    */
-  static allStoredEffectNames() {
-    const map = new Map();
-    this._storageItem.forEach(([obj, key]) => map.set(key, obj.name));
-    return map;
+  static _mapStoredEffectNames() {
+    console.error("AbstractUniqueEffect._mapStoredEffectNames must be handled by child class");
   }
 
   /**

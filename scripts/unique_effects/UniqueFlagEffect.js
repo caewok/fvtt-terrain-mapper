@@ -25,6 +25,18 @@ export class UniqueFlagEffect extends AbstractUniqueEffect {
   // ----- NOTE: Token-related methods ----- //
 
   /**
+   * The token storage for this class
+   * @param {Token} token
+   * @returns {DocumentCollection|Map} The collection for this token
+   */
+  static getTokenStorage(token) {
+    const map = new Map();
+    Object.entries(Settings.get(FlagDocument.settingsKey)).forEach(([id, dat]) => map.set(id, dat));
+    return map;
+  }
+
+
+  /**
    * Method implemented by child class to add 1+ effects to the token.
    * Does not consider whether the effect is already present.
    * @param {Token } token      Token to remove the effect from.
@@ -83,8 +95,7 @@ export class UniqueFlagEffect extends AbstractUniqueEffect {
    * @returns {Document|object}
    */
   async _createNewDocument(uniqueEffectId) {
-    if ( !this._storageItem ) await this.initialize();
-    const data = await this.dataForId(uniqueEffectId);
+    const data = await this.constructor.dataForId(uniqueEffectId);
     data.id = uniqueEffectId;
     return FlagDocument.create({ data });
   }
@@ -112,8 +123,8 @@ export class UniqueFlagEffect extends AbstractUniqueEffect {
    * Once created, it will be stored in the world and becomes the method by which cover effects
    * are saved.
    */
-  static async _initializeStorageItem() {
-    this._storageItem = () => new Map(Object.entries(Settings.get(FlagDocument.settingsKey)));
+  static async _initializeStorageMap() {
+    this._storageMap = () => new Map(Object.entries(Settings.get(FlagDocument.settingsKey)));
   }
 }
 
@@ -166,6 +177,14 @@ class FlagDocument {
     const doc = settingsData[this.id] ??= {};
     doc[scope] ??= {};
     doc[scope][key] = value;
+    return Settings.set(this.settingsKey, settingsData);
+  }
+
+  async unsetFlag(scope, key, value) {
+    const settingsData = Settings.get(this.settingsKey);
+    const doc = settingsData[this.id] ??= {};
+    doc[scope] ??= {};
+    delete doc[scope][key];
     return Settings.set(this.settingsKey, settingsData);
   }
 

@@ -1,15 +1,12 @@
 /* globals
-Application,
 foundry,
-isEmpty,
-game,
-saveDataToFile
+game
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
 import { Settings } from "./settings.js";
-import { MODULE_ID, ICONS, FLAGS } from "./const.js";
+import { MODULE_ID, FLAGS } from "./const.js";
 import { UniqueActiveEffect } from "./unique_effects/UniqueActiveEffect.js";
 import { UniqueItemEffect } from "./unique_effects/UniqueItemEffect.js";
 import { UniqueFlagEffect } from "./unique_effects/UniqueFlagEffect.js";
@@ -17,6 +14,25 @@ import { TerrainMixin } from "./UniqueEffectTerrainMixin.js";
 
 export class TerrainActiveEffect extends TerrainMixin(UniqueActiveEffect) {
 
+  /**
+   * Search documents for all stored effects.
+   * Child class may also include default effects not yet created.
+   * This should not require anything to be loaded, so it can be run at canvas.init.
+   * @returns {Object<string, string>} Effect id keyed to effect name
+   */
+  static _mapStoredEffectNames() {
+    const map = {}
+    const storageData = this._storageMapData;
+    const items = game.items ?? game.data.items;
+    const item = items.find(item => item.name === storageData.name);
+    if ( !item ) return map;
+    item.effects.forEach(effect => {
+      const id = effect.flags?.[MODULE_ID]?.[FLAGS.UNIQUE_EFFECT.ID];
+      if ( id ) map[id] = effect.name;
+    });
+    // Currently no default names, otherwise those would be valid as well.
+    return map;
+  }
 
 }
 
@@ -51,6 +67,43 @@ export class TerrainItemEffect extends TerrainMixin(UniqueItemEffect) {
     index.forEach(idx => ids.add(idx._id));
     return ids;
   }
+
+    /**
+   * Search documents for all stored effects.
+   * Child class may also include default effects not yet created.
+   * This should not require anything to be loaded, so it can be run at canvas.init.
+   * @returns {Object<string, string>} Effect id keyed to effect name
+   */
+  static _mapStoredEffectNames() {
+    const map = {}
+    const items = game.items ?? game.data.items;
+    items.forEach(item => {
+      const id = item.flags?.[MODULE_ID]?.[FLAGS.UNIQUE_EFFECT.ID];
+      if ( id ) map[id] = item.name;
+    });
+
+    // Currently no default names, otherwise those would be valid as well.
+    return map;
+  }
 }
 
-export class TerrainFlagEffect extends TerrainMixin(UniqueFlagEffect) {}
+export class TerrainFlagEffect extends TerrainMixin(UniqueFlagEffect) {
+  /**
+   * Search documents for all stored effects.
+   * Child class may also include default effects not yet created.
+   * This should not require anything to be loaded, so it can be run at canvas.init.
+   * @returns {Object<string, string>} Effect id keyed to effect name
+   */
+  static _mapStoredEffectNames() {
+    const map = {}
+    const items = Settings._getStorageValue(this.settingsKey);
+    items.forEach(item => {
+      const id = item.flags?.[MODULE_ID]?.[FLAGS.UNIQUE_EFFECT.ID];
+      if ( id ) map[id] = item.name;
+    });
+
+    // Currently no default names, otherwise those would be valid as well.
+    return map;
+  }
+
+}

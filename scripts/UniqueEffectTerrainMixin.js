@@ -1,3 +1,12 @@
+/* globals
+foundry,
+game
+*/
+/* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
+"use strict";
+
+import { ICONS } from "./const.js";
+
 /**
  * A mixin which extends the UniqueEffect with specialized terrain behaviors
  * @category - Mixins
@@ -13,5 +22,17 @@ export function TerrainMixin(Base) {
      * @returns {boolean}
      */
     tokenHasTerrain(token) { return this.isOnToken(token); }
+
+    /** @type {string} */
+    static type = "Terrain";
+
+    /** @type {object} */
+    static get _storageMapData() {
+      return {
+        name: "Terrains",
+        img: ICONS.MODULE,
+        type: "base",
+      };
+    }
   };
 }

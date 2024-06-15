@@ -26,8 +26,6 @@ export class TerrainRegionBehaviorType extends foundry.data.regionBehaviors.Regi
   }
 
   static terrainChoices() {
-    const choices = {};
-    CONFIG[MODULE_ID].Terrain._instances.forEach(t => choices[t.id] = t.name);
-    return choices;
+    return CONFIG[MODULE_ID].Terrain._mapStoredEffectNames()
   }
 }
