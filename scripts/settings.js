@@ -159,7 +159,11 @@ export class Settings extends ModuleSettingsAbstract {
     const key = this.KEYS.CONTROL_APP.FAVORITES;
     const favorites = new Set(this.get(key));
     favorites.add(id); // Avoids duplicates.
-    return this.set(key, [...favorites]);
+    await this.set(key, [...favorites]);
+    // this.cache.delete(key);
+
+    console.debug("addToFavorites", { favorites: [...this.get(key)] });
+
   }
 
   /**
@@ -170,7 +174,9 @@ export class Settings extends ModuleSettingsAbstract {
     const key = this.KEYS.CONTROL_APP.FAVORITES;
     const favorites = new Set(this.get(key));
     favorites.delete(id); // Avoids duplicates.
-    return this.set(key, [...favorites]);
+    await this.set(key, [...favorites]);
+    // this.cache.delete(key);
+    console.debug("addToFavorites", { favorites: [...this.get(key)] });
   }
 
 }

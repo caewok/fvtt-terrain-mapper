@@ -79,7 +79,8 @@ export class TerrainEffectsController {
   _fetchFavorites(terrains) {
     log("TerrainEffectsController|_fetchFavorites");
     const favorites = new Set(Settings.get(Settings.KEYS.CONTROL_APP.FAVORITES));
-    return terrains.filter(t => favorites.has(t.id));
+    console.debug("_fetchFavorites", { favorites });
+    return terrains.filter(t => favorites.has(t.uniqueEffectId));
   }
 
 
@@ -264,7 +265,7 @@ export class TerrainEffectsController {
     log("TerrainEffectsController|onExportTerrain");
     const effectId = effectItem.data().effectId;
     const terrain = CONFIG[MODULE_ID].Terrain._instances.get(effectId);
-    terrain.exportToJSON();
+    terrain.toJSON();
   }
 
   /**
