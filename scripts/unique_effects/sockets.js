@@ -75,13 +75,13 @@ export async function deleteDocument(uuid) {
  */
 export async function createEmbeddedDocuments(containerUuid, embeddedName, data, uuids) {
   if ( !game.user.isGM ) return SOCKETS.socket.executeAsGM("createEmbeddedDocuments", containerUuid, embeddedName, data);
-  if ( !data.length ) return;
-  const container = fromUuidSync(containerUuid);
+  if ( !data.length && !uuids?.length ) return;
+  const container = await fromUuid(containerUuid);
   if ( !container ) return [];
   if ( uuids ) {
     const promises = [];
     for ( const uuid of uuids ) promises.push(fromUuid(uuid));
-    data = (await Promise.allSettled(promises)).filter(doc => Boolean(doc));
+    data = (await Promise.allSettled(promises)).map(p => p.value).filter(doc => Boolean(doc));
   }
   const res = await container.createEmbeddedDocuments(embeddedName, data);
   return res.map(elem => elem.uuid);

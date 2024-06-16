@@ -112,7 +112,7 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
     return true;
   }
 
-  // ----- NOTE: Static document handling ----- //
+  // ----- NOTE: document handling ----- //
 
   /**
    * Data to construct a new effect
