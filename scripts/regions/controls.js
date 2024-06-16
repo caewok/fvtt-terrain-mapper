@@ -42,7 +42,8 @@ TOOLS.TERRAIN_BOOK = {
   name: "terrain-book",
   title: `${MODULE_ID}.phrases.terrains`,
   icon: ICONS.TERRAIN_BOOK,
-  onClick: () => { new TerrainEffectsApp().render(true); }
+  onClick: () => { new TerrainEffectsApp().render(true); },
+  button: true
 }
 
 let wallDisplay;
