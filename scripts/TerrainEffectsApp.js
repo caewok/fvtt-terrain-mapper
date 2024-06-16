@@ -157,16 +157,6 @@ export class TerrainEffectsApp extends Application {
       this._controller.onEffectClick.bind(this._controller)
     );
 
-    this._editSceneTerrainsButton.on(
-      "click",
-      this._controller.onEditSceneTerrains.bind(this._controller)
-    );
-
-    this._listTerrainsButton.on(
-      "click",
-      this._controller.onListTerrains.bind(this._controller)
-    );
-
     this._folderHeaders.on(
       "click",
       this._controller.onFolderClick.bind(this._controller)

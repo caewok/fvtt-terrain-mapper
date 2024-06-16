@@ -1,5 +1,5 @@
 /* globals
-canvas,
+CONFIG,
 CONST,
 Dialog,
 game,
@@ -13,6 +13,7 @@ SearchFilter
 
 import { Settings } from "./settings.js";
 import { log } from "./util.js";
+import { MODULE_ID } from "./const.js";
 
 /**
  * Controller class to handle app events and manipulate underlying Foundry data.
@@ -36,7 +37,7 @@ export class TerrainEffectsController {
    * @returns {Object} the data to pass to the template
    */
   get data() {
-    const terrains = CONFIG[MODULE_ID].Terrain._instances.values()
+    const terrains = [...CONFIG[MODULE_ID].Terrain._instances.values()];
     this._sortTerrains(terrains);
 
     return {
@@ -51,20 +52,20 @@ export class TerrainEffectsController {
           effects: this._fetchFavorites(terrains).map(e => {
             return {
               name: e.name,
-              icon: e.icon,
-              id: e.id,
-              description: e.description
+              icon: e.img,
+              id: e.uniqueEffectId,
+              description: e.document.description
             };
           })
         },
         {
           id: "all",
           name: "All",
-          effects: userTerrains.map(e => {
+          effects: terrains.map(e => {
             return {
-              name: e.document.name,
-              icon: e.document.icon,
-              id: e.document.id,
+              name: e.name,
+              icon: e.img,
+              id: e.uniqueEffectId,
               description: e.document.description
             };
           })
@@ -108,8 +109,7 @@ export class TerrainEffectsController {
    */
   async onCreateEffectClick(_event) {
     log("TerrainEffectsController|onCreateEffectClick");
-    const terrain = new Terrain();
-    await terrain.initialize();
+    const terrain = await CONFIG[MODULE_ID].Terrain.create();
     this._viewMvc.render();
     terrain.activeEffect.sheet.render(true);
   }
@@ -121,8 +121,8 @@ export class TerrainEffectsController {
   async onEditEffectClick(_effectItem) {
     log("TerrainEffectsController|onEditEffectClick");
     const effectId = this._findNearestEffectId(event);
-    const activeEffect = EffectHelper.getTerrainEffectById(effectId);
-    activeEffect.sheet.render(true);
+    const terrain = CONFIG[MODULE_ID].Terrain._instances.get(effectId);
+    terrain.document.sheet.render(true);
   }
 
   /**
@@ -140,7 +140,8 @@ export class TerrainEffectsController {
         "<h4>Are You Sure?</h4><p>This will remove the terrain from all scenes.",
       yes: async () => {
         log("TerrainEffectsController|onDeleteEffectClick yes");
-        await EffectHelper.deleteEffectById(effectId);
+        const terrain = CONFIG[MODULE_ID].Terrain._instances.get(effectId);
+        await terrain.destroy();
         view.render();
       }
     });
@@ -241,21 +242,6 @@ export class TerrainEffectsController {
     log("TerrainEffectsController|isFavoritedEffect");
     const effectId = effectItem.data().effectId;
     return Settings.isFavorite(effectId);
-
-  // Unused:
-  //     const effectName = effectItem.data().effectName;
-  //     return this._settings.isFavoritedEffect(effectName);
-  }
-
-  /**
-   * Check if the given item is already in the scene map.
-   * @param {jQuery} effectItem - jQuery element representing the effect list item
-   * @returns true if the effect is in the scene map.
-   */
-  isInScene(effectItem) {
-    log("TerrainEffectsController|isInScene");
-    const effectId = effectItem.data().effectId;
-//     return canvas.terrain.sceneMap.hasTerrainId(effectId);
   }
 
   /**
@@ -265,7 +251,7 @@ export class TerrainEffectsController {
   async onImportTerrain(effectItem) {
     log("TerrainEffectsController|onImportTerrain");
     const effectId = effectItem.data().effectId;
-    const terrain = Terrain.fromEffectId(effectId);
+    const terrain = CONFIG[MODULE_ID].Terrain._instances.get(effectId);
     await terrain.importFromJSONDialog();
     this._viewMvc.render();
   }
@@ -277,7 +263,7 @@ export class TerrainEffectsController {
   onExportTerrain(effectItem) {
     log("TerrainEffectsController|onExportTerrain");
     const effectId = effectItem.data().effectId;
-    const terrain = Terrain.fromEffectId(effectId);
+    const terrain = CONFIG[MODULE_ID].Terrain._instances.get(effectId);
     terrain.exportToJSON();
   }
 
@@ -288,9 +274,8 @@ export class TerrainEffectsController {
   async onDuplicate(effectItem) {
     log("TerrainEffectsController|onDuplicate");
     const effectId = effectItem.data().effectId;
-    const eHelper = EffectHelper.fromId(effectId);
-    const dupe = await eHelper.duplicate();
-    dupe.effect.name = `${dupe.effect.name} Copy`;
+    const terrain = CONFIG[MODULE_ID].Terrain._instances.get(effectId);
+    await terrain.duplicate();
     this._viewMvc.render();
   }
 
@@ -302,14 +287,10 @@ export class TerrainEffectsController {
    */
   onEffectDragStart(_event) {
     log(`TerrainEffectsController|onEffectDragStart for ${event.target.dataset.effectName}`);
-    const terrain = Terrain.fromEffectId(event.target.dataset.effectId);
+    const terrain = CONFIG[MODULE_ID].Terrain._instances.get(event.target.dataset.effectId);
     event.dataTransfer.setData(
       "text/plain",
-      JSON.stringify({
-        name: terrain.name,
-        type: "ActiveEffect",
-        data: terrain._effectHelper.effect
-      })
+      JSON.stringify(terrain.dragData)
     );
   }
 
@@ -373,5 +354,11 @@ export class TerrainEffectsController {
       effectNames,
       folderIds
     };
+  }
+
+  _findNearestEffectId(event) {
+    return $(event.target)
+      .closest("[data-effect-id], .terrainmapper-effect")
+      .data()?.effectId;
   }
 }
