@@ -106,14 +106,14 @@ export class UniqueFlagEffect extends AbstractUniqueEffect {
    * @param {object[]} [data]    Data used to update the document
    */
   async updateDocument(data) {
-    data.id = this.id;
+    data.id = this.document.id;
     return this.document.update([data]);
   }
 
   /**
    * Delete the underlying stored document.
    */
-  async _deleteDocument() { return this.document.delete([this.id]); }
+  async _deleteDocument() { return this.document.delete([this.document.id]); }
 
   // ----- NOTE: Static multiple document handling ---- //
 

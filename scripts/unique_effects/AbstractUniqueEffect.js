@@ -257,8 +257,8 @@ export class AbstractUniqueEffect {
    * @param {boolean} [deleteDocument=false]  If true, delete the underlying document.
    */
   async destroy(deleteDocument=false) {
-    if ( deleteDocument ) await this.constructor._deleteDocument(this.id);
-    this.constructor_instances.delete(this.id);
+    if ( deleteDocument ) await this._deleteDocument();
+    this.constructor._instances.delete(this.uniqueEffectId);
   }
 
   // ----- NOTE: Token-related methods ----- //
@@ -324,7 +324,7 @@ export class AbstractUniqueEffect {
    */
   isOnToken(token) {
     for ( const doc of this.constructor.getTokenStorage(token).values() ) {
-      if ( doc.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.ID) === this.id ) return true;
+      if ( doc.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.ID) === this.uniqueEffectId ) return true;
     }
     return false;
   }
@@ -542,6 +542,21 @@ export class AbstractUniqueEffect {
       if ( instance ) instances.push(instance);
     }
     return instances;
+  }
+
+  /**
+   * Get all the effect documents on the token.
+   * @param {Token} token
+   * @returns {Document[]}
+   */
+  static _allUniqueEffectDocumentsOnToken(token) {
+    const docs = [];
+    for ( const doc of this.getTokenStorage(token).values() ) {
+      const uniqueEffectId = doc.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.ID);
+      if ( !uniqueEffectId ) continue;
+      docs.push(doc);
+    }
+    return docs;
   }
 
   /**
