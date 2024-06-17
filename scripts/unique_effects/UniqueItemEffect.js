@@ -21,18 +21,6 @@ export class UniqueItemEffect extends AbstractUniqueEffect {
   /** @type {ActiveEffect} */
   get item() { return this.document; }
 
-  /**
-   * Data to construct an effect.
-   * @type {object}
-   */
-  get effectData() {
-    const data = super.effectData;
-    data.origin = this.document.id;
-    return data;
-  }
-
-
-
   // ----- NOTE: Document-related methods ----- //
 
   /**
@@ -115,12 +103,32 @@ export class UniqueItemEffect extends AbstractUniqueEffect {
   // ----- NOTE: Static document handling ----- //
 
   /**
+   * Default data required to be present in the base effect document.
+   * @param {string} [activeEffectId]   The id to use
+   * @returns {object}
+   */
+  static newDocumentData(activeEffectId) {
+    const data = AbstractUniqueEffect.newDocumentData.call(this, activeEffectId);
+    data.name = "UniqueItemEffect";
+    data.img = "icons/svg/ruins.svg";
+    data.type = "base";
+    return data;
+  }
+
+  /** @type {Document[]} */
+  static get storageDocuments() {
+    // Only those items that have the module flag.
+    return [...this._storageMap.values()].filter(doc => Boolean(doc.flags?.[MODULE_ID]))
+  }
+
+  /**
    * Create an effect document from scratch.
    * @param {object} data   Data to use to construct the document
    * @returns {Document|object}
    */
   static async _createNewDocument(data) {
-    return createDocument("CONFIG.Item.documentClass", undefined, data);
+    const uuid = createDocument("CONFIG.Item.documentClass", undefined, data);
+    return await fromUuid(uuid);
   }
 
   /**

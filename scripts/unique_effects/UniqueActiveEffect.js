@@ -128,7 +128,7 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
     log("UniqueActiveEffect#_createNewDocument|Creating embedded document");
     const res = await createEmbeddedDocuments(this._storageMap.model.uuid, "ActiveEffect", undefined, [data]);
     log("UniqueActiveEffect#_createNewDocument|Finished creating embedded document");
-    return res[0];
+    return await fromUuid(res[0]);
   }
 
   /**

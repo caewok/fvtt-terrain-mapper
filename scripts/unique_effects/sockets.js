@@ -41,7 +41,7 @@ export async function createDocument(classPath, uuid, data) {
   if ( uuid && data ) foundry.utils.mergeObject(baseData, data);
 
   // Create the new document.
-  const doc = cl.create(data);
+  const doc = await cl.create(baseData);
   return doc.uuid;
 }
 
@@ -111,9 +111,9 @@ export async function createEmbeddedDocuments(containerUuid, embeddedName, uuids
 
   // Construct the new embeds.
   log("Socket|createEmbeddedDocuments|creating embedded document");
-  const res = await container.createEmbeddedDocuments(embeddedName, baseData);
+  const newDocs = await container.createEmbeddedDocuments(embeddedName, baseData);
   log("Socket|createEmbeddedDocuments|finished creating embedded document");
-  return res;
+  return newDocs.map(doc => doc.uuid);
 }
 
 /**

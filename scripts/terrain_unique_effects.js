@@ -114,5 +114,18 @@ export class TerrainFlagEffect extends TerrainMixin(UniqueFlagEffect) {
     // Currently no default names, otherwise those would be valid as well.
     return map;
   }
+}
 
+export class TerrainPF2E extends TerrainItemEffect {
+
+  /**
+   * Default data required to be present in the base effect document.
+   * @param {string} [activeEffectId]   The id to use
+   * @returns {object}
+   */
+  static newDocumentData(activeEffectId) {
+    const data = TerrainItemEffect.newDocumentData.call(this, activeEffectId);
+    data.type = "effect";
+    return data;
+  }
 }

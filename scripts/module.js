@@ -7,7 +7,7 @@ loadTemplates
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { MODULE_ID, FLAGS, ICONS, TEMPLATES } from "./const.js";
+import { MODULE_ID, ICONS, TEMPLATES } from "./const.js";
 import { log } from "./util.js";
 import { Settings } from "./settings.js";
 import { PATCHER, initializePatching } from "./patching.js";
@@ -23,7 +23,7 @@ import { SetTerrainRegionBehaviorType } from "./regions/SetTerrainRegionBehavior
 import { SetElevationRegionBehaviorType } from "./regions/SetElevationRegionBehaviorType.js";
 
 // Unique Terrain Effects
-import { TerrainActiveEffect, TerrainItemEffect, TerrainFlagEffect } from "./terrain_unique_effects.js";
+import { TerrainActiveEffect, TerrainItemEffect, TerrainFlagEffect, TerrainPF2E } from "./terrain_unique_effects.js";
 import { defaultTerrains } from "./default_terrains.js";
 
 // import { BlendFilter } from "./pixi-picture/BlendFilter.js";
@@ -42,9 +42,6 @@ Hooks.once("init", function() {
   initializeAPI();
   registerGeometry();
   Settings.registerAll();
-
-
-
 
   Object.assign(CONFIG.RegionBehavior.dataModels, {
     [`${MODULE_ID}.addTerrain`]: AddTerrainRegionBehaviorType,
@@ -136,7 +133,7 @@ function initializeConfig() {
   switch ( game.system.id ) {
     case "sfrpg":
     case "pf2e":
-      CONFIG[MODULE_ID].Terrain = TerrainItemEffect; break;
+      CONFIG[MODULE_ID].Terrain = TerrainPF2E; break;
     default:
       CONFIG[MODULE_ID].Terrain = TerrainActiveEffect;
   }
