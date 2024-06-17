@@ -13,7 +13,7 @@ import {
   createEmbeddedDocuments,
   updateEmbeddedDocuments,
   deleteEmbeddedDocuments } from "./sockets.js";
-
+import { log } from "../util.js";
 
 /**
  * Represent a unique effect that is applied to tokens. E.g., cover, terrain.
@@ -24,7 +24,16 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
   /** @type {ActiveEffect} */
   get activeEffect() { return this.document; }
 
+  // ----- NOTE: Token-related methods ----- //
+
   /**
+   * The token storage for this class
+   * @param {Token} token
+   * @returns {DocumentCollection|Map} The collection for this token
+   */
+  static getTokenStorage(token) { return token.actor?.effects; }
+
+        /**
    * Data to construct an effect.
    * @type {object}
    */
@@ -36,24 +45,6 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
   }
 
   /**
-   * Data used when dragging an effect to an actor sheet.
-   */
-  get dragData() {
-    const data = super.dragData;
-    data.type = "ActiveEffect";
-    return data;
-  }
-
-  // ----- NOTE: Token-related methods ----- //
-
-  /**
-   * The token storage for this class
-   * @param {Token} token
-   * @returns {DocumentCollection|Map} The collection for this token
-   */
-  static getTokenStorage(token) { return token.actor?.effects; }
-
-  /**
    * Method implemented by child class to add 1+ effects to the token.
    * Does not consider whether the effect is already present.
    * @param {Token } token      Token to remove the effect from.
@@ -62,7 +53,13 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
    */
   static async _addToToken(token, effects) {
     if ( !token.actor ) return false;
-    await createEmbeddedDocuments(token.actor.uuid, "ActiveEffect", effects.map(e => e.effectData));
+    const uuids = effects.map(e => e.document.uuid)
+
+    // Force display of the status icon
+    const data = effects.map(e => { return { statuses: e.document.img ? [e.document.img] : [] }; });
+    if ( this.img ) data.statuses = [this.img];
+
+    await createEmbeddedDocuments(token.actor.uuid, "ActiveEffect", uuids, data);
     return true;
   }
 
@@ -75,52 +72,50 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
   static _addToTokenLocally(token, effects) {
     if ( !token.actor ) return false;
     for ( const effect of effects ) {
-      const ae = token.actor.effects.createDocument(effect.localEffectData);
+      const ae = token.actor.effects.createDocument(effect.document);
       token.actor.effects.set(ae.id, ae);
     }
     return true;
   }
 
   /**
-   * Method implemented by child class to add to token.
+   * Method implemented by child class to remove from token.
    * If duplicates, only the first effect present will be removed
    * @param {Token } token      Token to remove the effect from.
    * @param {AbstractUniqueEffect[]} effects
-   * @param {boolean} [removeAll=false] If true, remove all effects that match, not just the first
    * @returns {boolean} True if change was made
    */
-  static async _removeFromToken(token, effects, removeAll = false) {
+  static async _removeFromToken(token, effects) {
     if ( !token.actor ) return false;
-    const ids = this._allUniqueEffectDocumentsOnToken(token).map(doc => doc.id);
+    const ids = effects.map(doc => doc.id);
     if ( !ids.length ) return false;
     await deleteEmbeddedDocuments(token.actor.uuid, "ActiveEffect", ids);
     return true;
   }
 
   /**
-   * Method implemented by child class to add to token.
+   * Method implemented by child class to remove from token.
    * @param {Token } token      Token to remove the effect from.
    * @param {AbstractUniqueEffect[]} effects
-   * @param {boolean} [removeAll=false] If true, remove all effects that match, not just the first
    * @returns {boolean} True if change was made
    */
-  static _removeFromTokenLocally(token, effects, removeAll = false) {
+  static _removeFromTokenLocally(token, effects) {
     if ( !token.actor ) return false;
-    const ids = this._allUniqueEffectDocumentsOnToken(token).map(doc => doc.id);
+    const ids = effects.map(doc => doc.id);
     if ( !ids.length ) return false;
     for ( const id of ids ) token.actor.effects.delete(id);
     return true;
   }
 
-  // ----- NOTE: document handling ----- //
+  // ----- NOTE: Document-related methods ----- //
 
   /**
-   * Data to construct a new effect
+   * Data used when dragging an effect to an actor sheet or token.
+   * @returns {object}
    */
-  static get newEffectData() {
-    const data = super.newEffectData;
-    data.origin = this._storageMap.model.id;
-    data.transfer = false;
+  toDragData() {
+    const data = super.toDragData;
+    data.type = "ActiveEffect";
     return data;
   }
 
@@ -129,8 +124,12 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
    * @returns {Document|object}
    */
   async _createNewDocument(uniqueEffectId) {
-    const data = await this.constructor.dataForId(uniqueEffectId);
-    return createEmbeddedDocuments(this.constructor._storageMap.model.uuid, "ActiveEffect", [data])[0];
+    log("UniqueActiveEffect#_createNewDocument|Getting new data");
+    const data = await this.constructor.newDocumentData(uniqueEffectId);
+    log("UniqueActiveEffect#_createNewDocument|Creating embedded document");
+    const res = await createEmbeddedDocuments(this.constructor._storageMap.model.uuid, "ActiveEffect", undefined, [data]);
+    log("UniqueActiveEffect#_createNewDocument|Finished creating embedded document");
+    return res[0];
   }
 
   /**
@@ -140,14 +139,30 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
    */
   async updateDocument(data) {
     data._id = this.document.id;
-    return updateEmbeddedDocuments(this.constructor._storageMap.model.uuid, "ActiveEffect", [data]);
+    await updateEmbeddedDocuments(this.constructor._storageMap.model.uuid, "ActiveEffect", [data]);
+    return true;
   }
 
   /**
    * Delete the underlying stored document.
    */
   async _deleteDocument() {
-    return deleteEmbeddedDocuments(this.constructor._storageMap.model.uuid, "ActiveEffect", [this.document.id]);
+    await deleteEmbeddedDocuments(this.constructor._storageMap.model.uuid, "ActiveEffect", [this.document.id]);
+    return true;
+  }
+
+  // ----- NOTE: Static document handling ----- //
+
+  /**
+   * Default data required to be present in the base effect document.
+   * @param {string} [activeEffectId]   The id to use
+   * @returns {object}
+   */
+  static newDocumentData(activeEffectId) {
+    const data = AbstractUniqueEffect.newDocumentData.call(this, activeEffectId);
+    data.transfer = false;
+    data.name = "UniqueActiveEffect";
+    return data;
   }
 
   // ----- NOTE: Static multiple document handling ---- //

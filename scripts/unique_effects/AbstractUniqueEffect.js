@@ -1,7 +1,6 @@
 /* globals
 Application,
 canvas,
-CONST,
 foundry,
 game,
 saveDataToFile
@@ -12,6 +11,7 @@ saveDataToFile
 import { MODULE_ID, FLAGS } from "../const.js";
 import { log } from "../util.js";
 import { AsyncQueue } from "./AsyncQueue.js";
+import { updateDocument } from "./sockets.js";
 
 /* Class structure
 AbstractUniqueEffect
@@ -53,6 +53,24 @@ Unique effects are responsible for adding and removing themselves from tokens (t
 
 Each class has a defined _storageMap. This is an EmbeddedCollection or Map that holds the
 unique effect documents.
+
+Data handling:
+Base effects are used as the example documents to construct new token effects.
+The child class can choose to add additional data to token effects (or override this altogether).
+
+AbstractUniqueEffect.newDocumentData(): Data required to be present in the base effect
+  - Used when creating a new base effect
+  - Used to add new properties when transitioning versions
+
+AbstractUniqueEffect.defaultDocumentData(activeEffectId): Data changes when creating a default effect
+  - Used to create a base effect document from an existing template
+
+
+AbstractUniqueEffect#newTokenEffectData(token): Data changes to the base effect for a given token and effect
+  - Used when adding effects to tokens
+
+√ AbstractUniqueEffect#toDragData: Serialize key information when dragging it
+  - See ClientDocument#toDragData and fromDropData for examples
 
 */
 
@@ -99,7 +117,7 @@ export class AbstractUniqueEffect {
   static async create(uniqueEffectId) {
     const obj = new this(uniqueEffectId);
     await obj.initializeDocument();
-    return obj
+    return obj;
   }
 
   // ----- NOTE: Getters, setters, related properties ----- //
@@ -110,43 +128,11 @@ export class AbstractUniqueEffect {
   /** @type {Document|Object} */
   #document;
 
-  get document() { return this.#document || (this.#document = this._findLocalDocument)}
+  get document() { return this.#document || (this.#document = this._findLocalDocument(this.uniqueEffectId)); }
 
   get allowDuplicates() {
     return this.document?.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.DUPLICATES_ALLOWED)
       ?? this.document.allowDuplicates;
-  }
-
-  /**
-   * Data to construct an effect.
-   */
-  get effectData() {
-    const data = this.document?.toObject() || foundry.utils.duplicate(this.document);
-    data.flags[MODULE_ID] ??= {};
-    data.flags[MODULE_ID][FLAGS.UNIQUE_EFFECT.ID] = this.uniqueEffectId;
-    data.flags[MODULE_ID][FLAGS.UNIQUE_EFFECT.TYPE] = this.constructor.type
-    return data;
-  }
-
-  /**
-   * Data used when dragging an effect to an actor sheet.
-   */
-  get dragData() {
-    return {
-      name: this.document.name,
-      data: this.effectData
-    }
-  }
-
-  /**
-   * Data to construct a local effect.
-   * Local cover effects have the local flag.
-   * @type {object}
-   */
-  get localEffectData() {
-    const data = this.effectData;
-    data.flags[MODULE_ID][FLAGS.UNIQUE_EFFECT.LOCAL] = true;
-    return data;
   }
 
   /** @type {string} */
@@ -168,14 +154,30 @@ export class AbstractUniqueEffect {
   // ----- NOTE: Document-related methods ----- //
 
   /**
+   * Data used when dragging an effect to an actor sheet or token.
+   * @returns {object}
+   */
+  toDragData() {
+    return {
+      name: this.document.name,
+      uuid: this.document.uuid
+    }
+  }
+
+  /**
    * Find or create a document for a given unique effect id.
    * @param {string} uniqueEffectId
    */
   async initializeDocument(uniqueEffectId) {
     uniqueEffectId ??= this.uniqueEffectId;
-    this.#document = this._findLocalDocument(uniqueEffectId)
-      || (await this._loadDocument(uniqueEffectId))
-      || (await this._createNewDocument(uniqueEffectId));
+    this.#document = this._findLocalDocument(uniqueEffectId);
+    if ( this.#document ) return;
+
+    this.#document = await this._loadDocument(uniqueEffectId);
+    if ( this.#document ) return;
+
+    this.#document =  await this._createNewDocument(uniqueEffectId);
+    return;
   }
 
   /**
@@ -198,29 +200,30 @@ export class AbstractUniqueEffect {
     return this._findLocalDocument(uniqueEffectId);
   }
 
+
   /**
    * Create an effect document from scratch.
    * @returns {Document|object}
    */
-  async _createNewDocument(_uniqueEffectId) {
-    console.error("AbstractUniqueEffect#_createDocument must be defined by child class.");
-  }
+//   async _createNewDocument(_uniqueEffectId) {
+//     console.error("AbstractUniqueEffect#_createDocument must be defined by child class.");
+//   }
 
   /**
    * Update the document for this effect.
    * Typically when importing from JSON.
    * @param {object} [config={}]    Data used to update the document
    */
-  async updateDocument(_data) {
-    console.error("AbstractUniqueEffect#updateDocument must be defined by child class.");
-  }
+//   async updateDocument(_data) {
+//     console.error("AbstractUniqueEffect#updateDocument must be defined by child class.");
+//   }
 
   /**
    * Delete the underlying stored document.
    */
-  async _deleteDocument() {
-    console.error("AbstractUniqueEffect#updateDocument must be defined by child class.");
-  }
+//   async _deleteDocument() {
+//     console.error("AbstractUniqueEffect#updateDocument must be defined by child class.");
+//   }
 
   /**
    * Duplicate the document data for this cover effect and place in a new document.
@@ -470,7 +473,8 @@ export class AbstractUniqueEffect {
    * @returns {object} With moduleId, effectType, systemId, baseEffectId
    */
   static deconstructUniqueEffectId(uniqueEffectId) {
-    const [moduleId, effectType, systemId, baseEffectId] = uniqueEffectId;
+    const splits = uniqueEffectId.split(".", 4);
+    const [moduleId, effectType, systemId, baseEffectId] = splits;
     return { moduleId, effectType, systemId, baseEffectId };
   }
 
@@ -485,38 +489,21 @@ export class AbstractUniqueEffect {
   }
 
   /**
-   * Data to construct a new effect
+   * Default data required to be present in the base effect document.
+   * @param {string} [activeEffectId]   The id to use
+   * @returns {object}
    */
-  static get newEffectData() { return {
-    flags: {
-      [MODULE_ID]: { [FLAGS.UNIQUE_EFFECT.TYPE]: this.type }
-      }
-    };
-  }
-
-  /**
-   * Data to construct an effect from a default source of data.
-   */
-  static async defaultEffectData(uniqueEffectId) {
-    if ( !this.defaultEffectIds().has(uniqueEffectId) ) return;
-
-    const data = this.newEffectData;
-    data.flags = { [MODULE_ID]: { [FLAGS.UNIQUE_EFFECT.ID]: uniqueEffectId } }
-    // Subclass to handle rest.
-    return data;
-  }
-
-  /**
-   * Data to construct an effect for a specific unique id.
-   * @param {string} uniqueEffectId
-   */
-  static async dataForId(uniqueEffectId) {
-    const data = this._instances.get(uniqueEffectId)?.effectData
-      ?? (await this.defaultEffectData(uniqueEffectId))
-      ?? this.newEffectData;
-
-    data.flags[MODULE_ID][FLAGS.UNIQUE_EFFECT.ID] = uniqueEffectId;
-    return data;
+  static newDocumentData(activeEffectId) {
+    return {
+      flags: {
+        [MODULE_ID]: {
+          [FLAGS.UNIQUE_EFFECT.TYPE]: this.type,
+          [FLAGS.UNIQUE_EFFECT.ID]: activeEffectId ?? this.uniqueEffectId(),
+          [FLAGS.UNIQUE_EFFECT.DUPLICATES_ALLOWED]: false,
+          [FLAGS.VERSION]: game.modules.get(MODULE_ID).version
+          }
+        }
+      };
   }
 
   // ----- NOTE: Static token handling ----- //
@@ -563,74 +550,64 @@ export class AbstractUniqueEffect {
    * Transition all documents in a scene, when updating versions.
    */
   static async transitionDocuments() {
-    if ( !this._storageMap ) this._storageMap = await this._initializeStorageMap();
+    const newDocData = this.newDocumentData();
 
     // Transition each of the effects on the storage item
     const storagePromises = [];
-    for ( const doc of this._storageMap.values() ) storagePromises.push(this._doStorageTransition(doc));
-    const storageConverted = await Promise.allSettled(storagePromises);
-    if ( storageConverted.some(elem => elem) ) await this.initialize();
+    for ( const doc of this._storageMap.values() ) storagePromises.push(this._doTransition(doc, newDocData));
+    await Promise.allSettled(storagePromises);
+  }
 
-    // Same for all tokens
+  /**
+   * Transition all tokens in a scene, when updating versions.
+   */
+  static async transitionTokens() {
+    const newDocData = this.newDocumentData();
+
+    // Transition each token if it has data
     const tokenPromises = [];
     for ( const token of canvas.tokens.placeables ) {
-      for ( const doc of this.getTokenStorage(token).values() ) tokenPromises.push(this._doTokenTransition(doc));
+      for ( const doc of this.getTokenStorage(token).values() ) {
+        // Only if this document might be an effect.
+        if ( !doc.flags?.[MODULE_ID] ) continue;
+        tokenPromises.push(this._doTransition(doc, newDocData));
+      }
     }
     await Promise.allSettled(tokenPromises);
   }
 
-  static async _doStorageTransition(doc) {
+
+  /**
+   * Transition all tokens in a scene, when updating versions
+   */
+
+  static async _doTransition(doc, newDocData = {}) {
     const moduleVersion = game.modules.get(MODULE_ID).version;
     const savedVersion = doc.getFlag(MODULE_ID, FLAGS.VERSION);
     if ( savedVersion && !foundry.utils.isNewerVersion(moduleVersion, savedVersion) ) return false;
 
-    // Set the id if not present.
-    const uniqueId = doc.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.ID);
-    if ( !uniqueId ) await doc.setFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.ID, this.uniqueEffectId());
+    // Overwrite default new data with existing fields if present
+    const changes = foundry.utils.mergeObject(newDocData, doc.toObject(), { inplace: false, insertKeys: false, insertValues: true });
+
+    // Ensure the unique id is correctly formatted by overwriting from a known good value.
+    const oldId = doc.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.ID);
+    const splitRes = this.deconstructUniqueEffectId(oldId);
+    const newId = this.uniqueEffectId({ baseEffectId: splitRes.baseEffectId });
+    changes.flags[MODULE_ID][FLAGS.UNIQUE_EFFECT.ID] = newId;
+
+    // Update the document.
+    await updateDocument(doc.uuid, changes);
 
     // Child transitions.
-    await this._transitionStorageDocument(doc);
-
-    // Indicate that we are finished.
-    await doc.setFlag(MODULE_ID, FLAGS.VERSION, moduleVersion)
+    await this._transitionDocument(doc);
     return true;
   }
-
-  static async _doTokenTransition(doc) {
-    const moduleVersion = game.modules.get(MODULE_ID).version;
-    const savedVersion = doc.getFlag(MODULE_ID, FLAGS.VERSION);
-    if ( savedVersion && !foundry.utils.isNewerVersion(moduleVersion, savedVersion) ) return false;
-
-    // Set the id if possible.
-    const uniqueEffectId = doc.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.ID);
-    if ( !uniqueEffectId ) {
-      let effect;
-      for ( effect of this._storageMap.values() ) {
-        if ( effect.name === doc.name ) break;
-      }
-      if ( effect ) await doc.setFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.ID, effect.uniqueEffectId);
-    }
-
-    // Child transitions.
-    await this._transitionTokenDocument(doc);
-
-    // Indicate that we are finished.
-    await doc.setFlag(MODULE_ID, FLAGS.VERSION, moduleVersion)
-    return true;
-  }
-
 
   /**
    * Transition a single document stored in the storage object
    */
-  static async _transitionStorageDocument(_doc) {
-  }
+  static async _transitionDocument(_doc) { }
 
-  /**
-   * Transition a single document stored on the token.
-   */
-  static async _transitionTokenDocument(_doc) {
-  }
 
   // ----- NOTE: Static multiple document handling ---- //
 
@@ -639,7 +616,9 @@ export class AbstractUniqueEffect {
    * By default, all known documents and all defaults not already docs are instantiated
    */
   static async initialize() {
+    // Check if documents must be updated for a new version.
     this._storageMap = await this._initializeStorageMap();
+    await this.transitionDocuments();
 
     // Create unique effects from the documents held in the storage document.
     for ( const doc of this._storageMap.values() ) await this.create(doc.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.ID));
@@ -669,6 +648,17 @@ export class AbstractUniqueEffect {
 
 
   // ----- NOTE: Static default data handling ----- //
+
+  /**
+   * Construct a base effect document from a default template.
+   * @param {string} [activeEffectId]   The id to use
+   * @returns {object}
+   */
+  static async defaultEffectData(activeEffectId) {
+    // Must be handled by subclass.
+    // Should merge with the new document data.
+    return this.newDocumentData(activeEffectId);
+  }
 
   /**
    * Search documents for all stored effects.

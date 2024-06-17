@@ -79,7 +79,6 @@ export class TerrainEffectsController {
   _fetchFavorites(terrains) {
     log("TerrainEffectsController|_fetchFavorites");
     const favorites = new Set(Settings.get(Settings.KEYS.CONTROL_APP.FAVORITES));
-    console.debug("_fetchFavorites", { favorites });
     return terrains.filter(t => favorites.has(t.uniqueEffectId));
   }
 
@@ -112,7 +111,7 @@ export class TerrainEffectsController {
     log("TerrainEffectsController|onCreateEffectClick");
     const terrain = await CONFIG[MODULE_ID].Terrain.create();
     this._viewMvc.render();
-    terrain.activeEffect.sheet.render(true);
+    terrain.document.sheet.render(true);
   }
 
   /**
@@ -253,6 +252,7 @@ export class TerrainEffectsController {
     log("TerrainEffectsController|onImportTerrain");
     const effectId = effectItem.data().effectId;
     const terrain = CONFIG[MODULE_ID].Terrain._instances.get(effectId);
+    await this.importFromJSONDialog
     await terrain.importFromJSONDialog();
     this._viewMvc.render();
   }
@@ -362,4 +362,50 @@ export class TerrainEffectsController {
       .closest("[data-effect-id], .terrainmapper-effect")
       .data()?.effectId;
   }
+
+  /**
+   * Open a dialog to import data into a terrain.
+   * @param {UniqueActiveEffect} terrain    The terrain for which to overwrite
+   */
+  async importFromJSONDialog(terrain, app) {
+    // See https://github.com/DFreds/dfreds-convenient-effects/blob/c2d5e81eb1d28d4db3cb0889c22a775c765c24e3/scripts/effects/custom-effects-handler.js#L156
+    const content = await renderTemplate("templates/apps/import-data.html", {
+      hint1: "You may import terrain settings data from an exported JSON file.",
+      hint2: "This operation will overwrite this terrain."
+    });
+
+    const importPromise = new Promise((resolve, _reject) => {
+      new Dialog({
+        title: "Import Multiple Terrains Setting Data",
+        content,
+        buttons: {
+          import: {
+            icon: '<i class="fas fa-file-import"></i>',
+            label: "Import",
+            callback: async html => {
+              const form = html.find("form")[0];
+              if ( !form.data.files.length ) return ui.notifications.error("You did not upload a data file!");
+              const json = await readTextFromFile(form.data.files[0]);
+              log("importFromJSONDialog|Read text");
+              await terrain.importFromJSON(json);
+              // this._viewMvc.render();
+              log("importFromJSONDialog|Finished rerender");
+              resolve(true);
+            }
+          },
+          no: {
+            icon: '<i class="fas fa-times"></i>',
+            label: "Cancel"
+          }
+        },
+        default: "import"
+      }, {
+        width: 400
+      }).render(true);
+    });
+
+    return importPromise;
+  }
 }
+
+

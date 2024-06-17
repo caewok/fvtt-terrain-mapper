@@ -14,12 +14,10 @@ import { AbstractUniqueEffect } from "./AbstractUniqueEffect.js";
  */
 export class UniqueFlagEffect extends AbstractUniqueEffect {
 
-  /**
-   * Data used when dragging an effect to an actor sheet.
-   */
-  get dragData() {
-    console.error("Cannot drag UniqueFlagEffect!")
-    return super.dragData();
+  // ----- NOTE: Document-related methods ----- //
+  toDragData() {
+    console.error("UniqueFlagEffect|toDragData not yet implemented.");
+    return super.toDragData();
   }
 
   // ----- NOTE: Token-related methods ----- //
@@ -95,7 +93,7 @@ export class UniqueFlagEffect extends AbstractUniqueEffect {
    * @returns {Document|object}
    */
   async _createNewDocument(uniqueEffectId) {
-    const data = await this.constructor.dataForId(uniqueEffectId);
+    const data = await this.constructor.newDocumentData(uniqueEffectId);
     data.id = uniqueEffectId;
     return FlagDocument.create({ data });
   }

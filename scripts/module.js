@@ -42,13 +42,6 @@ Hooks.once("init", function() {
   registerGeometry();
 
 
-
-  // Must set up the Terrains prior to the region data validation.
-//   const terrainItem = Settings.terrainEffectsDataItem;
-//   if ( terrainItem ) {
-//     for ( const effect of terrainItem.effects ) Terrain.fromEffectId(effect._id);
-//   }
-
   Object.assign(CONFIG.RegionBehavior.dataModels, {
     [`${MODULE_ID}.addTerrain`]: AddTerrainRegionBehaviorType,
     [`${MODULE_ID}.removeTerrain`]: RemoveTerrainRegionBehaviorType,
@@ -72,20 +65,29 @@ Hooks.once("init", function() {
  */
 Hooks.once("setup", function() {
   Settings.registerAll();
-  CONFIG[MODULE_ID].Terrain.initialize();
+  CONFIG[MODULE_ID].Terrain.initialize(); // Async
 });
 
+
+// Hooks.on("ready", async function(_canvas) {
+//   log("TerrainMapper|ready");
+// });
+//
+//
+// Hooks.on("canvasInit", async function(_canvas) {
+//   log("TerrainMapper|canvasInit");
+// });
+//
+// Hooks.on("canvasDraw", async function(_canvas) {
+//   log("TerrainMapper|canvasDraw");
+// });
 
 /**
  * A hook event that fires when the Canvas is ready.
  * @param {Canvas} canvas The Canvas which is now ready for use
  */
 Hooks.on("canvasReady", async function(_canvas) {
-  log("TerrainMapper|canvasReady");
-
-  // Ensure terrain item flags are accurate.
-  await CONFIG[MODULE_ID].Terrain.transitionDocuments();
-
+  CONFIG[MODULE_ID].Terrain.transitionTokens(); // Async
 });
 
 

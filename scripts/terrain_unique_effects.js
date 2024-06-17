@@ -42,7 +42,7 @@ export class TerrainItemEffect extends TerrainMixin(UniqueItemEffect) {
    * Pull terrains from a compendium, if any.
    */
   static async defaultEffectData(uniqueEffectId) {
-    const data = await this.defaultEffectData(uniqueEffectId);
+    const data = await UniqueItemEffect.defaultEffectData.call(this, uniqueEffectId);
     if ( !data ) return;
 
     const pack = game.packs.get(`${MODULE_ID}.${MODULE_ID}_items_${game.system.id}`);

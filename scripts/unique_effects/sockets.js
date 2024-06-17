@@ -10,6 +10,7 @@ socketlib
 "use strict";
 
 import { MODULE_ID, SOCKETS } from "../const.js";
+import { log } from "../util.js";
 
 // ----- NOTE: Set up sockets so GM can create or modify effects on tokens ----- //
 Hooks.once("socketlib.ready", () => {
@@ -25,14 +26,21 @@ Hooks.once("socketlib.ready", () => {
 /**
  * Socket function: createDocument
  * GM creates an document such as an item
- * @param {string} classPath   Path to document to create. E.g. "CONFIG.Item.documentClass"
- * @param {object} data   Data used to create the document
+ * @param {string} classPath    Path to document to create. E.g. "CONFIG.Item.documentClass"
+ * @param {string} [uuid]       Example document to use
+ * @param {object} [data]       Changes from the example document
  * @returns {string} uuid of the item created
  */
-export async function createDocument(classPath, data) {
-  if ( !game.user.isGM ) return SOCKETS.socket.executeAsGM("createDocument", classPath, data);
+export async function createDocument(classPath, uuid, data) {
+  if ( !game.user.isGM ) return SOCKETS.socket.executeAsGM("createDocument", classPath, uuid, data);
   const cl = foundry.utils.getProperty(window, classPath);
   if ( !cl ) return;
+
+  // Merge the example document with any additional data.
+  const baseData = (uuid ? (await fromUuid(uuid)) : data) ?? {};
+  if ( uuid && data ) foundry.utils.mergeObject(baseData, data);
+
+  // Create the new document.
   const doc = cl.create(data);
   return doc.uuid;
 }
@@ -69,22 +77,43 @@ export async function deleteDocument(uuid) {
  * Document should already exist somewhere else so its data can be copied.
  * @param {string} uuid           Container that embeds the documents
  * @param {string} embeddedName   Name of the embed
- * @param {object[]} data         Document data
- * @param {string[]} [uuids]      If provided, used to locate the documents instead of the data parameter
+ * @param {string[]} [uuids]      Example documents to use
+ * @param {object[]} [data]       Changes from the example document
+
  * @returns {string[]} The created effect uuids.
  */
-export async function createEmbeddedDocuments(containerUuid, embeddedName, data, uuids) {
-  if ( !game.user.isGM ) return SOCKETS.socket.executeAsGM("createEmbeddedDocuments", containerUuid, embeddedName, data);
-  if ( !data.length && !uuids?.length ) return;
+export async function createEmbeddedDocuments(containerUuid, embeddedName, uuids = [], data = []) {
+  const numDocs = uuids.length || data.length;
+  if ( !numDocs ) return;
+  if ( !game.user.isGM ) return SOCKETS.socket.executeAsGM("createEmbeddedDocuments", containerUuid, embeddedName, uuids, data);
+
+  // Locate container in which to store the embedded documents.
   const container = await fromUuid(containerUuid);
   if ( !container ) return [];
-  if ( uuids ) {
-    const promises = [];
-    for ( const uuid of uuids ) promises.push(fromUuid(uuid));
-    data = (await Promise.allSettled(promises)).map(p => p.value).filter(doc => Boolean(doc));
+
+  // Locate the example documents, if any.
+  const exampleDocs = Array(numDocs);
+  for ( let i = 0; i < numDocs; i += 1 ) exampleDocs[i] = await fromUuid(uuids[i]);
+
+
+  // const exampleDocs = (await Promise.allSettled(promises)).map(p => p.value);
+
+  // Merge the example documents with any additional data.
+  const baseData = Array(numDocs);
+  for ( let i = 0; i < numDocs; i += 1 ) {
+    const exampleDoc = exampleDocs[i];
+    const uuid = uuids[i];
+    const datum = data[i];
+    const baseDatum = baseData[i] = exampleDoc ?? datum ?? {};
+    if ( uuid && datum ) foundry.utils.mergeObject(baseDatum, datum);
+    baseData[i] = baseDatum;
   }
-  const res = await container.createEmbeddedDocuments(embeddedName, data);
-  return res.map(elem => elem.uuid);
+
+  // Construct the new embeds.
+  log("Socket|createEmbeddedDocuments|creating embedded document");
+  const res = await container.createEmbeddedDocuments(embeddedName, baseData);
+  log("Socket|createEmbeddedDocuments|finished creating embedded document");
+  return res;
 }
 
 /**

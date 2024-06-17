@@ -5,7 +5,7 @@ game
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { ICONS } from "./const.js";
+import { ICONS, MODULE_ID } from "./const.js";
 
 /**
  * A mixin which extends the UniqueEffect with specialized terrain behaviors
@@ -33,6 +33,18 @@ export function TerrainMixin(Base) {
         img: ICONS.MODULE,
         type: "base",
       };
+    }
+
+    /**
+     * Default data required to be present in the base effect document.
+     * @param {string} [activeEffectId]   The id to use
+     * @returns {object}
+     */
+    static newDocumentData(activeEffectId) {
+      const data = Base.newDocumentData.call(this, activeEffectId);
+      data.name = `${MODULE_ID}.phrases.new-terrain`;
+      data.img = "icons/svg/hazard.svg";
+      return data;
     }
   };
 }

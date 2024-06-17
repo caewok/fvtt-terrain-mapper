@@ -31,16 +31,20 @@ export class UniqueItemEffect extends AbstractUniqueEffect {
     return data;
   }
 
+
+
+  // ----- NOTE: Document-related methods ----- //
+
   /**
    * Data used when dragging an effect to an actor sheet.
    */
-  get dragData() {
-    const data = super.dragData;
+  toDragData() {
+    const data = super.toDragData;
     data.type = "Item";
     return data;
   }
 
-  // ----- NOTE: Token-related methods ----- //
+  // ----- NOTE: Static token-related methods ----- //
 
   /**
    * The token storage for this class
@@ -85,9 +89,9 @@ export class UniqueItemEffect extends AbstractUniqueEffect {
    * @param {boolean} [removeAll=false] If true, remove all effects that match, not just the first
    * @returns {boolean} True if change was made
    */
-  static async _removeFromToken(token, effects, removeAll = false) {
+  static async _removeFromToken(token, effects) {
     if ( !token.actor ) return false;
-    const ids = this._allUniqueEffectDocumentsOnToken(token).map(doc => doc.id);
+    const ids = effects.map(doc => doc.id);
     if ( !ids.length ) return false;
     await deleteEmbeddedDocuments(token.actor.uuid, "Item", ids);
     return true;
@@ -101,7 +105,8 @@ export class UniqueItemEffect extends AbstractUniqueEffect {
    * @returns {boolean} True if change was made
    */
   static _removeFromTokenLocally(token, effects, removeAll = false) {
-    const ids = this._allUniqueEffectDocumentsOnToken(token).map(doc => doc.id);
+    if ( !token.actor ) return false;
+    const ids = effects.map(doc => doc.id);
     if ( !ids.length ) return false;
     for ( const id of ids ) token.actor.effects.delete(id);
     return true;
@@ -110,21 +115,12 @@ export class UniqueItemEffect extends AbstractUniqueEffect {
   // ----- NOTE: Static document handling ----- //
 
   /**
-   * Data to construct a new effect
-   */
-  static get newEffectData() {
-    const data = super.newEffectData;
-    data.transfer = false;
-    return data;
-  }
-
-  /**
    * Create an effect document from scratch.
    * @returns {Document|object}
    */
   async _createNewDocument(uniqueEffectId) {
-    const data = await this.constructor.dataForId(uniqueEffectId);
-    return createDocument("CONFIG.Item.documentClass", data);
+    const data = await this.constructor.newDocumentData(uniqueEffectId);
+    return createDocument("CONFIG.Item.documentClass", undefined, data);
   }
 
   /**
