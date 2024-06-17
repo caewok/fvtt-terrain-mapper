@@ -42,7 +42,7 @@ export function TerrainMixin(Base) {
      */
     static newDocumentData(activeEffectId) {
       const data = Base.newDocumentData.call(this, activeEffectId);
-      data.name = `${MODULE_ID}.phrases.new-terrain`;
+      data.name = game.i18n.localize(`${MODULE_ID}.phrases.new-terrain`);
       data.img = "icons/svg/hazard.svg";
       return data;
     }
