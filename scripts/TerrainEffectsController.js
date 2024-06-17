@@ -141,7 +141,7 @@ export class TerrainEffectsController {
       yes: async () => {
         log("TerrainEffectsController|onDeleteEffectClick yes");
         const terrain = CONFIG[MODULE_ID].Terrain._instances.get(effectId);
-        await terrain.destroy();
+        await terrain.destroy(true);
         view.render();
       }
     });
@@ -300,7 +300,7 @@ export class TerrainEffectsController {
     const terrain = CONFIG[MODULE_ID].Terrain._instances.get(event.target.dataset.effectId);
     event.dataTransfer.setData(
       "text/plain",
-      JSON.stringify(terrain.dragData)
+      JSON.stringify(terrain.toDragData())
     );
   }
 
