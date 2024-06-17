@@ -43,7 +43,7 @@ export class UniqueFlagEffect extends AbstractUniqueEffect {
    */
   static async _addToToken(token, effects) {
     const promises = [];
-    for ( const effect of effects ) promises.push(effect.addToToken(token));
+    for ( const effect of effects ) promises.push(effect.document.addToToken(token));
     await Promise.allSettled(promises);
     return true;
   }
@@ -55,34 +55,42 @@ export class UniqueFlagEffect extends AbstractUniqueEffect {
    * @returns {boolean} True if change was made
    */
   static _addToTokenLocally(token, effects) {
-    for ( const effect of effects ) effect.addToTokenLocally(token);
+    for ( const effect of effects ) effect.document.addToTokenLocally(token);
     return true;
   }
 
   /**
-   * Method implemented by child class to add to token.
+   * Method implemented by child class to remove from token.
    * If duplicates, only the first effect present will be removed
    * @param {Token } token      Token to remove the effect from.
    * @param {AbstractUniqueEffect[]} effects
    * @param {boolean} [removeAll=false] If true, remove all effects that match, not just the first
    * @returns {boolean} True if change was made
    */
-  static async _removeFromToken(token, effects) {
+  static async _removeFromToken(token, effects, removeAllDuplicates = true) {
+    const effectsSet = new Set([...effects]);
     const promises = [];
-    for ( const effect of effects ) promises.push(effect.removeFromToken(token));
+    for ( const effect of effects ) {
+      promises.push(effect.document.removeFromToken(token));
+      if ( !removeAllDuplicates ) effectsSet.delete(effect);
+    }
     await Promise.allSettled(promises);
     return true;
   }
 
   /**
-   * Method implemented by child class to add to token.
+   * Method implemented by child class to remove from token.
    * @param {Token } token      Token to remove the effect from.
    * @param {AbstractUniqueEffect[]} effects
    * @param {boolean} [removeAll=false] If true, remove all effects that match, not just the first
    * @returns {boolean} True if change was made
    */
-  static _removeFromTokenLocally(token, effects) {
-    for ( const effect of effects ) effect.removeFromTokenLocally(token);
+  static _removeFromTokenLocally(token, effects, removeAllDuplicates = true) {
+    const effectsSet = new Set([...effects]);
+    for ( const effect of effects ) {
+      effect.document.removeFromTokenLocally(token);
+      if ( !removeAllDuplicates ) effectsSet.delete(effect);
+    }
     return true;
   }
 
