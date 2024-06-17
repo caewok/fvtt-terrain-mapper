@@ -116,10 +116,10 @@ export class UniqueItemEffect extends AbstractUniqueEffect {
 
   /**
    * Create an effect document from scratch.
+   * @param {object} data   Data to use to construct the document
    * @returns {Document|object}
    */
-  async _createNewDocument(uniqueEffectId) {
-    const data = await this.constructor.newDocumentData(uniqueEffectId);
+  static async _createNewDocument(data) {
     return createDocument("CONFIG.Item.documentClass", undefined, data);
   }
 

@@ -148,10 +148,17 @@ export class TerrainEffectsApp extends Application {
       "click",
       this._controller.onCollapseAllClick.bind(this._controller)
     );
+
     this._createEffectButton.on(
       "click",
       this._controller.onCreateEffectClick.bind(this._controller)
     );
+
+    this._createDefaultsButton.on(
+      "click",
+      this._controller.onCreateDefaultsClick.bind(this._controller)
+    );
+
     this._effectListItems.on(
       "click",
       this._controller.onEffectClick.bind(this._controller)
@@ -229,6 +236,10 @@ export class TerrainEffectsApp extends Application {
 
   get _createEffectButton() {
     return this._rootView.find(".create-effect");
+  }
+
+  get _createDefaultsButton() {
+    return this._rootView.find(".create-defaults");
   }
 
   get _collapseAllButton() {

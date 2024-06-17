@@ -19,6 +19,9 @@
 
   "terrainmapper.controls.currentLayer": "Current layer",
 
+  "terrainmapper.terrainbook.create-terrain": "Create Terrain",
+  "terrainmapper.terrainbook.create-defaults": "Reset Default Terrains",
+
   "terrainmapper.terrain-encountered-dialog.title": "Terrain Mapper|Terrain Encountered",
   "terrainmapper.terrain-encountered-dialog.content": "{tokenName} has encountered terrain!",
   "terrainmapper.terrain-encountered-dialog.continue": "Continue token movement",
@@ -99,5 +102,8 @@
   "terrainmapper.phrases.terrains": "Terrains",
   "terrainmapper.phrases.no-terrain": "No Terrain",
   "terrainmapper.phrases.new-terrain": "New Terrain",
-  "terrainmapper.phrases.layer-number": "Layer {layerNumber}"
+  "terrainmapper.phrases.layer-number": "Layer {layerNumber}",
+  "terrainmapper.phrases.difficult_x2": "Difficult (x2)",
+  "terrainmapper.phrases.water_swimming": "Water (Swimming)",
+  "terrainmapper.phrases.cliff_climbing": "Cliff (Climbing)"
 }
