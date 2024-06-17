@@ -1,9 +1,12 @@
 /* globals
+foundry,
+fromUuid,
 game
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
+import { MODULE_ID, FLAGS } from "../const.js";
 import { AbstractUniqueEffect } from "./AbstractUniqueEffect.js";
 import {
   createDocument,
@@ -20,18 +23,6 @@ export class UniqueItemEffect extends AbstractUniqueEffect {
   // Alias
   /** @type {ActiveEffect} */
   get item() { return this.document; }
-
-  /**
-   * Data to construct an effect.
-   * @type {object}
-   */
-  get effectData() {
-    const data = super.effectData;
-    data.origin = this.document.id;
-    return data;
-  }
-
-
 
   // ----- NOTE: Document-related methods ----- //
 
@@ -62,7 +53,8 @@ export class UniqueItemEffect extends AbstractUniqueEffect {
    */
   static async _addToToken(token, effects) {
     if ( !token.actor ) return false;
-    await createEmbeddedDocuments(token.actor.uuid, "Item", effects.map(e => e.effectData));
+    const uuids = effects.map(e => e.document.uuid)
+    await createEmbeddedDocuments(token.actor.uuid, "Item", uuids);
     return true;
   }
 
@@ -75,7 +67,7 @@ export class UniqueItemEffect extends AbstractUniqueEffect {
   static _addToTokenLocally(token, effects) {
     if ( !token.actor ) return false;
     for ( const effect of effects ) {
-      const ae = token.actor.effects.createDocument(effect.localEffectData);
+      const ae = token.actor.effects.createDocument(effect.document);
       token.actor.effects.set(ae.id, ae);
     }
     return true;
@@ -115,12 +107,50 @@ export class UniqueItemEffect extends AbstractUniqueEffect {
   // ----- NOTE: Static document handling ----- //
 
   /**
+   * Default data required to be present in the base effect document.
+   * @param {string} [activeEffectId]   The id to use
+   * @returns {object}
+   */
+  static newDocumentData(activeEffectId) {
+    const data = AbstractUniqueEffect.newDocumentData.call(this, activeEffectId);
+    data.name = "UniqueItemEffect";
+    data.img = "icons/svg/ruins.svg";
+    data.type = "base";
+    return data;
+  }
+
+  /**
+   * Process drop of item data to the effect book.
+   */
+  static async _processEffectDrop(data) {
+    const newData = this.newDocumentData();
+    if ( data.type !== "Item" || data.itemType !== newData.type ) return;
+
+    // For safety, let's duplicate the item and then create the UniqueItemEffect instance.
+    const item = await fromUuid(data.uuid);
+    if ( !item ) return;
+    const itemData = item.toObject();
+    delete newData.name;
+    delete newData.img;
+    foundry.utils.mergeObject(itemData, newData);
+    await this._createNewDocument(itemData);
+    await this.create(newData.flags[MODULE_ID][FLAGS.UNIQUE_EFFECT.ID]);
+  }
+
+  /** @type {Document[]} */
+  static get storageDocuments() {
+    // Only those items that have the module flag.
+    return [...this._storageMap.values()].filter(doc => Boolean(doc.flags?.[MODULE_ID]))
+  }
+
+  /**
    * Create an effect document from scratch.
    * @param {object} data   Data to use to construct the document
    * @returns {Document|object}
    */
   static async _createNewDocument(data) {
-    return createDocument("CONFIG.Item.documentClass", undefined, data);
+    const uuid = await createDocument("CONFIG.Item.documentClass", undefined, data);
+    return await fromUuid(uuid);
   }
 
   /**

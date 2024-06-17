@@ -122,9 +122,6 @@ export class AbstractUniqueEffect {
 
   // ----- NOTE: Getters, setters, related properties ----- //
 
-  /** @type {EmbeddedCollection|Map} */
-  static _storageMap;
-
   /** @type {Document|Object} */
   #document;
 
@@ -187,6 +184,7 @@ export class AbstractUniqueEffect {
    * @returns {Document|object|undefined}
    */
   _findLocalDocument(uniqueEffectId) {
+    // Could use this.storageDocuments but that would loop over the items twice for UniqueItemEffect
     for ( const doc of this.constructor._storageMap.values() ) {
       if ( doc.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.ID) === uniqueEffectId ) return doc;
     }
@@ -455,6 +453,12 @@ export class AbstractUniqueEffect {
 
   // ----- NOTE: Static document handling ----- //
 
+  /** @type {EmbeddedCollection|Map} */
+  static _storageMap;
+
+  /** @type {Document[]} */
+  static get storageDocuments() { return [...this._storageMap.values()]; }
+
   /**
    * Construct a new unique effect id.
    * @param {object} [opts]     Parts of the id
@@ -526,6 +530,12 @@ export class AbstractUniqueEffect {
       };
   }
 
+  /**
+   * Process an attempt to add an effect to the effect book via drop.
+   * @param {object} data     Data that was dropped
+   */
+  static _processEffectDrop() { } // Must be handled by child class.
+
   // ----- NOTE: Static token handling ----- //
 
   /**
@@ -574,7 +584,7 @@ export class AbstractUniqueEffect {
 
     // Transition each of the effects on the storage item
     const storagePromises = [];
-    for ( const doc of this._storageMap.values() ) storagePromises.push(this._doTransition(doc, newDocData));
+    for ( const doc of this.storageDocuments ) storagePromises.push(this._doTransition(doc, newDocData));
     await Promise.allSettled(storagePromises);
   }
 
@@ -646,7 +656,7 @@ export class AbstractUniqueEffect {
     await this.transitionDocuments();
 
     // Create unique effects from the documents held in the storage document.
-    for ( const doc of this._storageMap.values() ) await this.create(doc.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.ID));
+    for ( const doc of this.storageDocuments ) await this.create(doc.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.ID));
   }
 
   /**

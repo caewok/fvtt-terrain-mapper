@@ -329,6 +329,18 @@ export class TerrainEffectsController {
   }
 
   /**
+   * Callback actions which occur when a dragged element is dropped on a target.
+   * @param {DragEvent} event       The originating DragEvent
+   */
+  async onEffectDrop(event) {
+    log(`TerrainEffectsController|onEffectDrop`);
+    event.preventDefault();
+    const data = TextEditor.getDragEventData(event);
+    await CONFIG[MODULE_ID].Terrain._processEffectDrop(data);
+    this._viewMvc.render();
+  }
+
+  /**
    * Handles search text changes
    * @param {KeyboardEvent} event - event that corresponds to the key press
    * @param {string} query - string representation of the entered search text
