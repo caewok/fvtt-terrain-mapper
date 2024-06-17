@@ -53,7 +53,8 @@ export class UniqueItemEffect extends AbstractUniqueEffect {
    */
   static async _addToToken(token, effects) {
     if ( !token.actor ) return false;
-    await createEmbeddedDocuments(token.actor.uuid, "Item", effects.map(e => e.effectData));
+    const uuids = effects.map(e => e.document.uuid)
+    await createEmbeddedDocuments(token.actor.uuid, "Item", uuids);
     return true;
   }
 
@@ -66,7 +67,7 @@ export class UniqueItemEffect extends AbstractUniqueEffect {
   static _addToTokenLocally(token, effects) {
     if ( !token.actor ) return false;
     for ( const effect of effects ) {
-      const ae = token.actor.effects.createDocument(effect.localEffectData);
+      const ae = token.actor.effects.createDocument(effect.document);
       token.actor.effects.set(ae.id, ae);
     }
     return true;
