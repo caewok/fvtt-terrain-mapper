@@ -130,9 +130,9 @@ export class AbstractUniqueEffect {
 
   get document() { return this.#document || (this.#document = this._findLocalDocument(this.uniqueEffectId)); }
 
-  get allowDuplicates() {
+  get allowsDuplicates() {
     return this.document?.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.DUPLICATES_ALLOWED)
-      ?? this.document.allowDuplicates;
+      ?? this.document.allowsDuplicates;
   }
 
   /** @type {string} */
@@ -276,7 +276,7 @@ export class AbstractUniqueEffect {
    */
   async addToToken(token, { exclusive = false } = {}) {
     const currEffects = new Set(this.constructor.allOnToken(token));
-    if ( !this.allowDuplicates && currEffects.has(this) ) return false;
+    if ( !this.allowsDuplicates && currEffects.has(this) ) return false;
     if ( exclusive ) {
       currEffects.delete(this);
       await this.constructor.removeFromToken(token, currEffects, true); // Remove all other effects.
@@ -291,7 +291,7 @@ export class AbstractUniqueEffect {
    */
   async removeFromToken(token) {
     if ( !this.isOnToken(token) ) return false;
-    return this.constructor.removeFromToken(token, [this], !this.allowDuplicates); // Async
+    return this.constructor.removeFromToken(token, [this], !this.allowsDuplicates); // Async
   }
 
   /**
@@ -303,7 +303,7 @@ export class AbstractUniqueEffect {
    */
   addToTokenLocally(token, { exclusive = false } = {}) {
     const currEffects = new Set(this.constructor.allOnToken(token));
-    if ( !this.allowDuplicates && currEffects.has(this) ) return false;
+    if ( !this.allowsDuplicates && currEffects.has(this) ) return false;
     if ( exclusive ) {
       currEffects.delete(this);
       this.constructor.removeFromTokenLocally(token, currEffects, true); // Remove all other effects.
@@ -318,7 +318,7 @@ export class AbstractUniqueEffect {
    */
   async removeFromTokenLocally(token) {
     if ( !this.isOnToken(token) ) return false;
-    return this.constructor.removeFromTokenLocally(token, [this], !this.allowDuplicates);
+    return this.constructor.removeFromTokenLocally(token, [this], !this.allowsDuplicates);
   }
 
   /**
@@ -397,7 +397,7 @@ export class AbstractUniqueEffect {
     const currEffects = new Set(this.allOnToken(token));
     const toAdd = [];
     for ( const effect of effects ) {
-      if ( currEffects.has(effect) && !effect.allowDuplicates ) continue;
+      if ( currEffects.has(effect) && !effect.allowsDuplicates ) continue;
       toAdd.push(effect);
     }
     return toAdd;
@@ -409,11 +409,11 @@ export class AbstractUniqueEffect {
    * @param {AbstractUniqueEffect[]|Set<AbstractUniqueEffect>} effects   Effects to remove
    * @returns {boolean} True if change was made
    */
-  static async removeFromToken(token, effects) {
+  static async removeFromToken(token, effects, { removeAllDuplicates = true } = {}) {
     if ( !(effects instanceof Set) ) effects = new Set(effects);
     const toRemove = effects.intersection(new Set(this.allOnToken(token)));
     if ( !toRemove.size ) return false;
-    return await this._removeFromToken(token, [...toRemove]);
+    return await this._removeFromToken(token, [...toRemove], removeAllDuplicates);
   }
 
   /**
@@ -422,11 +422,11 @@ export class AbstractUniqueEffect {
    * @param {AbstractUniqueEffect[]|Set<AbstractUniqueEffect>} effects   Effects to remove
    * @returns {boolean} True if change was made
    */
-  static removeFromTokenLocally(token, effects, refresh = true) {
+  static removeFromTokenLocally(token, effects, { refresh = true, removeAllDuplicates = true } = {}) {
     if ( !(effects instanceof Set) ) effects = new Set(effects);
     const toRemove = effects.intersection(new Set(this.allOnToken(token)));
     if ( !toRemove.size ) return false;
-    if ( !this._removeFromTokenLocally(token, [...toRemove]) ) return false;
+    if ( !this._removeFromTokenLocally(token, [...toRemove], removeAllDuplicates) ) return false;
     if ( refresh ) this.constructor.refreshTokenDisplay(token);
     return true;
   }
@@ -493,14 +493,17 @@ export class AbstractUniqueEffect {
    * Get the corresponding token document(s) for a given unique effect
    * @param {Token} token                           Token to search
    * @param {AbstractUniqueEffect[]} effects        Unique effects to search for
+   * @param {boolean} [allDuplicates=true]          If true, return all documents that represent the effect;
+   *                                                If false, return only the first document that represents the effect
    * @returns {Document[]|Object[]} doc             Array of Document or object on the token
    */
-  static tokenDocumentsForUniqueEffects(token, effects) {
+  static tokenDocumentsForUniqueEffects(token, effects, allDuplicates = true) {
     const effectIds = new Set([...effects.map(effect => effect.uniqueEffectId)]);
     const docs = [];
     for ( const doc of this.getTokenStorage(token) ) {
       const uniqueEffectId = doc.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.ID);
       if ( effectIds.has(uniqueEffectId) ) docs.push(doc);
+      if ( !allDuplicates ) effectIds.delete(uniqueEffectId);
     }
     return docs;
   }

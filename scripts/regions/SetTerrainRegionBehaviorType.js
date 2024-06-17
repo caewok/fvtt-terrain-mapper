@@ -69,15 +69,25 @@ export class SetTerrainRegionBehaviorType extends TerrainRegionBehaviorType {
     const token = event.data.token?.object;
     if ( !token ) return;
 
-    // Remove all terrains for this region.
+    // Get all terrains for this region.
     const Terrain = CONFIG[MODULE_ID].Terrain;
     let terrains = new Set([...this.terrains].map(id => Terrain._instances.get(id)).filter(t => Boolean(t)));
     if ( !terrains.size ) return;
 
-    // If the token belongs to another set terrain region, don't remove those terrains.
+    // If the token belongs to another terrain region, don't remove those terrains.
+    // But if the terrain allows duplicates, remove once.
+    // Otherwise, remove all.
     const otherTerrains = getAllRegionTerrainsForToken(token);
-    const terrainsToRemove = terrains.difference(otherTerrains);
-    for ( const terrain of terrainsToRemove ) await terrain.removeFromToken(token);
+    const dupeTerrainsToReduce = [];
+    const terrainsToRemove = [];
+    for ( const terrain of terrains ) {
+      if ( otherTerrains.has(terrain) ) {
+        if ( terrain.allowsDuplicates ) dupeTerrainsToReduce.push(terrain);
+      } else terrainsToRemove.push(terrain);
+    }
+
+    if ( terrainsToRemove.length ) await Terrain.removeFromToken(token, terrainsToRemove, { removeAllDuplicates: true });
+    if ( dupeTerrainsToReduce.length) await Terrain.removeFromToken(token, dupeTerrainsToReduce, { removeAllDuplicates: false });
   }
 }
 

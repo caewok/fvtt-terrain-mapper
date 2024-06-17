@@ -85,9 +85,9 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
    * @param {AbstractUniqueEffect[]} effects
    * @returns {boolean} True if change was made
    */
-  static async _removeFromToken(token, effects) {
+  static async _removeFromToken(token, effects, removeAllDuplicates = true) {
     if ( !token.actor ) return false;
-    const ids = this.tokenDocumentsForUniqueEffects(token, effects).map(doc => doc.id);
+    const ids = this.tokenDocumentsForUniqueEffects(token, effects, removeAllDuplicates).map(doc => doc.id);
     if ( !ids.length ) return false;
     await deleteEmbeddedDocuments(token.actor.uuid, "ActiveEffect", ids);
     return true;
@@ -99,9 +99,9 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
    * @param {AbstractUniqueEffect[]} effects
    * @returns {boolean} True if change was made
    */
-  static _removeFromTokenLocally(token, effects) {
+  static _removeFromTokenLocally(token, effects, removeAllDuplicates = true) {
     if ( !token.actor ) return false;
-    const ids = this.tokenDocumentsForUniqueEffects(token, effects).map(doc => doc.id);
+    const ids = this.tokenDocumentsForUniqueEffects(token, effects, removeAllDuplicates).map(doc => doc.id);
     if ( !ids.length ) return false;
     for ( const id of ids ) token.actor.effects.delete(id);
     return true;
