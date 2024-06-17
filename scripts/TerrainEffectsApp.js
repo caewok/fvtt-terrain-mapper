@@ -159,6 +159,11 @@ export class TerrainEffectsApp extends Application {
       this._controller.onCreateDefaultsClick.bind(this._controller)
     );
 
+    this._effectListItems.on(
+      "click",
+      this._controller.onEffectClick.bind(this._controller)
+    );
+
     this._folderHeaders.on(
       "click",
       this._controller.onFolderClick.bind(this._controller)
@@ -239,6 +244,10 @@ export class TerrainEffectsApp extends Application {
 
   get _collapseAllButton() {
     return this._rootView.find(".collapse-all");
+  }
+
+  get _effectListItems() {
+    return this._rootView.find(".terrainmapper-effect");
   }
 
   get _editSceneTerrainsButton() {
