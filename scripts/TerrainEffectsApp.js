@@ -97,6 +97,11 @@ export class TerrainEffectsApp extends Application {
     return this._controller.canDragStart();
   }
 
+  /** @override */
+  _onDrop(event) {
+    return this._controller.onEffectDrop(event);
+  }
+
   /**
    * Checks if the folder is collapsed
    *

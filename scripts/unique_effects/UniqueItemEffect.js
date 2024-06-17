@@ -1,9 +1,12 @@
 /* globals
+foundry,
+fromUuid,
 game
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
+import { MODULE_ID, FLAGS } from "../const.js";
 import { AbstractUniqueEffect } from "./AbstractUniqueEffect.js";
 import {
   createDocument,
@@ -113,6 +116,24 @@ export class UniqueItemEffect extends AbstractUniqueEffect {
     data.img = "icons/svg/ruins.svg";
     data.type = "base";
     return data;
+  }
+
+  /**
+   * Process drop of item data to the effect book.
+   */
+  static async _processEffectDrop(data) {
+    const newData = this.newDocumentData();
+    if ( data.type !== "Item" || data.itemType !== newData.type ) return;
+
+    // For safety, let's duplicate the item and then create the UniqueItemEffect instance.
+    const item = await fromUuid(data.uuid);
+    if ( !item ) return;
+    const itemData = item.toObject();
+    delete newData.name;
+    delete newData.img;
+    foundry.utils.mergeObject(itemData, newData);
+    await this._createNewDocument(itemData);
+    await this.create(newData.flags[MODULE_ID][FLAGS.UNIQUE_EFFECT.ID]);
   }
 
   /** @type {Document[]} */
