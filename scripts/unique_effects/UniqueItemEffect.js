@@ -127,7 +127,7 @@ export class UniqueItemEffect extends AbstractUniqueEffect {
    * @returns {Document|object}
    */
   static async _createNewDocument(data) {
-    const uuid = createDocument("CONFIG.Item.documentClass", undefined, data);
+    const uuid = await createDocument("CONFIG.Item.documentClass", undefined, data);
     return await fromUuid(uuid);
   }
 
