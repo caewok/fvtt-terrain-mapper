@@ -39,7 +39,7 @@ export class UniqueItemEffect extends AbstractUniqueEffect {
    * Data used when dragging an effect to an actor sheet.
    */
   toDragData() {
-    const data = super.toDragData;
+    const data = super.toDragData();
     data.type = "Item";
     return data;
   }

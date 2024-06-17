@@ -114,7 +114,7 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
    * @returns {object}
    */
   toDragData() {
-    const data = super.toDragData;
+    const data = super.toDragData();
     data.type = "ActiveEffect";
     return data;
   }
