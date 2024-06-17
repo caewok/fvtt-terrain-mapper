@@ -80,7 +80,7 @@ export class SetElevationRegionBehaviorType extends foundry.data.regionBehaviors
     log(`Token ${tokenD.name} exiting ${event.region.name}!`);
     if ( !this.reset ) return;
     if ( tokenD.elevation > this.elevation ) return;
-    return tokenD.update({ elevation: canvas.scene.getFlag(MODULE_ID, FLAGS.SCENE_BACKGROUND_ELEVATION) ?? 0 });
+    return tokenD.update({ elevation: canvas.scene.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0 });
   }
 }
 
@@ -98,7 +98,7 @@ function preCreateRegionBehavior(document, data, options, userId) {
   log("preCreateRegionBehavior");
   if ( data.type !== `${MODULE_ID}.setElevation` ) return;
   const topE = document.region.elevation.top;
-  const elevation = topE ?? canvas.scene.getFlag(MODULE_ID, FLAGS.SCENE_BACKGROUND_ELEVATION) ?? 0;
+  const elevation = topE ?? canvas.scene.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0;
   document.updateSource({ ["system.elevation"]: elevation });
 }
 

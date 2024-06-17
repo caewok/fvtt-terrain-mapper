@@ -10,6 +10,7 @@ ui
 
 import { MODULE_ID, ICONS } from "../const.js";
 import { Draw } from "../geometry/Draw.js";
+import { TerrainEffectsApp } from "../TerrainEffectsApp.js";
 
 export const PATCHES = {};
 PATCHES.REGIONS = {};
@@ -35,6 +36,14 @@ TOOLS.FILL_BY_WALLS = {
   icon: ICONS.FILL_BY_WALLS,
   toggle: false,
   onClick: toggleWallDisplay
+}
+
+TOOLS.TERRAIN_BOOK = {
+  name: "terrain-book",
+  title: `${MODULE_ID}.phrases.terrains`,
+  icon: ICONS.TERRAIN_BOOK,
+  onClick: () => { new TerrainEffectsApp().render(true); },
+  button: true
 }
 
 let wallDisplay;
@@ -72,6 +81,11 @@ function getSceneControlButtons(controls, _html, _data) {
   const polyIdx = regionTools.tools.findIndex(t => t.name === "polygon");
   regionTools.tools.splice(polyIdx + 1, 0, TOOLS.FILL_BY_WALLS);
   regionTools.tools.splice(polyIdx + 1, 0, TOOLS.FILL_BY_LOS);
+
+  if ( game.user.isGM ) {
+    const trashIdx = regionTools.tools.findIndex(t => t.name === "clear");
+    regionTools.tools.splice(trashIdx, 0, TOOLS.TERRAIN_BOOK);
+  }
 }
 
 PATCHES.REGIONS.HOOKS = {

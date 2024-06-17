@@ -8,7 +8,6 @@ foundry
 
 import { MODULE_ID, FLAGS } from "../const.js";
 import { log } from "../util.js";
-import { Terrain } from "../Terrain.js";
 import { TerrainRegionBehaviorType } from "./TerrainRegionBehaviorType.js";
 
 
@@ -59,6 +58,7 @@ export class SetTerrainRegionBehaviorType extends TerrainRegionBehaviorType {
     if ( !token ) return;
 
     // Add all terrains for this region.
+    const Terrain = CONFIG[MODULE_ID].Terrain;
     const terrainsToAdd = new Set([...this.terrains].map(id => Terrain._instances.get(id)).filter(t => Boolean(t)));
     if ( !terrainsToAdd.size ) return;
     for ( const terrain of terrainsToAdd ) await terrain.addToToken(token);
@@ -70,6 +70,7 @@ export class SetTerrainRegionBehaviorType extends TerrainRegionBehaviorType {
     if ( !token ) return;
 
     // Remove all terrains for this region.
+    const Terrain = CONFIG[MODULE_ID].Terrain;
     let terrains = new Set([...this.terrains].map(id => Terrain._instances.get(id)).filter(t => Boolean(t)));
     if ( !terrains.size ) return;
 
@@ -86,6 +87,7 @@ export class SetTerrainRegionBehaviorType extends TerrainRegionBehaviorType {
  * @returns {Set<Terrain>}
  */
 function getAllRegionTerrainsForToken(token) {
+  const Terrain = CONFIG[MODULE_ID].Terrain;
   const terrains = new Set();
   for ( const region of token.document.regions.values() ) {
     for ( const behavior of region.behaviors.values() ) {

@@ -5,7 +5,6 @@ RegionBehaviorType
 "use strict";
 
 import { MODULE_ID } from "../const.js";
-import { Terrain } from "../Terrain.js";
 import { log } from "../util.js";
 import { TerrainRegionBehaviorType } from "./TerrainRegionBehaviorType.js";
 
@@ -39,6 +38,8 @@ export class AddTerrainRegionBehaviorType extends TerrainRegionBehaviorType {
     const tokenD = event.data.token;
     const token = tokenD?.object;
     if ( !token ) return;
+
+    const Terrain = CONFIG[MODULE_ID].Terrain;
     const terrainsToAdd = new Set([...this.terrains].map(id => Terrain._instances.get(id)).filter(t => Boolean(t)));
     if ( !terrainsToAdd.size ) return;
 
