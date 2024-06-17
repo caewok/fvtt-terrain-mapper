@@ -252,8 +252,7 @@ export class TerrainEffectsController {
     log("TerrainEffectsController|onImportTerrain");
     const effectId = effectItem.data().effectId;
     const terrain = CONFIG[MODULE_ID].Terrain._instances.get(effectId);
-    await this.importFromJSONDialog
-    await terrain.importFromJSONDialog();
+    await this.importFromJSONDialog(terrain, this);
     this._viewMvc.render();
   }
 
@@ -265,7 +264,17 @@ export class TerrainEffectsController {
     log("TerrainEffectsController|onExportTerrain");
     const effectId = effectItem.data().effectId;
     const terrain = CONFIG[MODULE_ID].Terrain._instances.get(effectId);
-    terrain.toJSON();
+    const data = terrain.toJSON();
+
+    data.flags.exportSource = {
+      world: game.world.id,
+      system: game.system.id,
+      coreVersion: game.version,
+      systemVersion: game.system.version,
+      terrainMapperVersion: game.modules.get(MODULE_ID).version
+    };
+    const filename = `${MODULE_ID}_${terrain.name}`;
+    saveDataToFile(JSON.stringify(data, null, 2), "text/json", `${filename}.json`);
   }
 
   /**
@@ -387,8 +396,8 @@ export class TerrainEffectsController {
               if ( !form.data.files.length ) return ui.notifications.error("You did not upload a data file!");
               const json = await readTextFromFile(form.data.files[0]);
               log("importFromJSONDialog|Read text");
-              await terrain.importFromJSON(json);
-              // this._viewMvc.render();
+              await terrain.fromJSON(json);
+              app._viewMvc.render();
               log("importFromJSONDialog|Finished rerender");
               resolve(true);
             }

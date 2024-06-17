@@ -239,7 +239,7 @@ export class AbstractUniqueEffect {
    * Export this effect to JSON
    * @returns {object}
    */
-  toJSON() { return this.document?.toJSON || JSON.stringify(this.document); }
+  toJSON() { return this.document?.toJSON() || JSON.stringify(this.document); }
 
   /**
    * Import this effect from JSON
@@ -252,7 +252,7 @@ export class AbstractUniqueEffect {
       console.error(`${MODULE_ID}|AbstractUniqueEffect#fromJSON`, err);
       return;
     }
-    return this.update(json);
+    return this.updateDocument(json);
   }
 
   /**
