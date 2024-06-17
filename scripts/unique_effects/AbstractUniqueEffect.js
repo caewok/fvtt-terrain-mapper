@@ -645,6 +645,11 @@ export class AbstractUniqueEffect {
   static async _initializeDefaultEffects() { }
 
   /**
+   * Reset default effects by removing the existing ids and re-adding.
+   */
+  // static async _resetDefaultEffects() { }
+
+  /**
    * Delete all effects and optionally their underlying documents.
    * @param {boolean} [deleteDocument=false]  If true, delete the underlying document.
    */

@@ -72,7 +72,8 @@ export class TerrainEffectsController {
         }
       ],
 
-      isGM: game.user.isGM
+      isGM: game.user.isGM,
+      hasDefaults: Boolean(CONFIG[MODULE_ID].Terrain._resetDefaultEffects)
     };
   }
 
@@ -112,6 +113,25 @@ export class TerrainEffectsController {
     const terrain = await CONFIG[MODULE_ID].Terrain.create();
     this._viewMvc.render();
     terrain.document.sheet.render(true);
+  }
+
+  /**
+   * Handles clicks on the create defaults button
+   * @param {MouseEvent} event
+   */
+  async onCreateDefaultsClick(_event) {
+    log("TerrainEffectsController|onCreateDefaultsClick");
+    const view = this._viewMvc;
+    return Dialog.confirm({
+      title: "Replace Default Terrains",
+      content:
+        "<h4>Are You Sure?</h4><p>This will reset any existing default terrains and otherwise add new default terrains.",
+      yes: async () => {
+        log("TerrainEffectsController|onCreateDefaultsClick yes");
+        await CONFIG[MODULE_ID].Terrain._resetDefaultEffects();
+        view.render();
+      }
+    });
   }
 
   /**

@@ -4,12 +4,24 @@
 >
   <!-- Directory Header -->
   <header class='directory-header'>
+
+      <!-- Create Terrain Button -->
       <div class='header-actions action-buttons flexrow'>
         <button class='create-effect'>
           <i class='fas fa-person-hiking'></i>
-          Create Terrain
+          {{ localize "terrainmapper.terrainbook.create-terrain" }}
         </button>
       </div>
+
+      <!-- Create Defaults Button -->
+      {{#if hasDefaults}}
+      <div class='header-actions action-buttons flexrow'>
+        <button class='create-defaults'>
+          <i class='fas fa-file-image'></i>
+           {{ localize "terrainmapper.terrainbook.create-defaults" }}
+        </button>
+      </div>
+      {{/if}}
     <div class='header-search flexrow'>
       <i class='fas fa-search'></i>
       <input

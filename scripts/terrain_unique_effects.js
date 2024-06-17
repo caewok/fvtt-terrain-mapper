@@ -49,6 +49,31 @@ export class TerrainActiveEffect extends TerrainMixin(UniqueActiveEffect) {
     await Promise.allSettled(promises);
   }
 
+  /**
+   * Reset default effects by removing the existing ids and re-adding.
+   */
+  static async _resetDefaultEffects() {
+    if ( !CONFIG[MODULE_ID].defaultTerrainJSONs.length ) return;
+    const defaultMap = await loadDefaultTerrainJSONs(CONFIG[MODULE_ID].defaultTerrainJSONs);
+
+    // Delete existing.
+    for ( const key of defaultMap.keys() ) {
+      const terrain = this._instances.get(key);
+      if ( !terrain ) continue;
+      await terrain._deleteDocument();
+    }
+
+    const promises = [];
+    defaultMap.forEach(data => {
+      data.name = game.i18n.localize(data.name);
+      promises.push(this._createNewDocument(data));
+    });
+    await Promise.allSettled(promises);
+
+    // Re-create the terrains as necessary.
+    for ( const key of defaultMap.keys() ) { await CONFIG[MODULE_ID].Terrain.create(key); }
+  }
+
 }
 
 export class TerrainItemEffect extends TerrainMixin(UniqueItemEffect) {
