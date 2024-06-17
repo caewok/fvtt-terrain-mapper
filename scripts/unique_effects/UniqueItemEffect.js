@@ -91,7 +91,7 @@ export class UniqueItemEffect extends AbstractUniqueEffect {
    */
   static async _removeFromToken(token, effects) {
     if ( !token.actor ) return false;
-    const ids = effects.map(doc => doc.id);
+    const ids = this.tokenDocumentsForUniqueEffects(token, effects).map(doc => doc.id);
     if ( !ids.length ) return false;
     await deleteEmbeddedDocuments(token.actor.uuid, "Item", ids);
     return true;
@@ -106,7 +106,7 @@ export class UniqueItemEffect extends AbstractUniqueEffect {
    */
   static _removeFromTokenLocally(token, effects, removeAll = false) {
     if ( !token.actor ) return false;
-    const ids = effects.map(doc => doc.id);
+    const ids = this.tokenDocumentsForUniqueEffects(token, effects).map(doc => doc.id);
     if ( !ids.length ) return false;
     for ( const id of ids ) token.actor.effects.delete(id);
     return true;

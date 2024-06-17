@@ -484,9 +484,25 @@ export class AbstractUniqueEffect {
    * @param {Document|Object} doc     Document or object that has `getFlag` method
    * @returns {AbstractUniqueEffect|undefined} If effect id flag present, returns the effet
    */
-  static uniqueEffectForDocument(doc) {
+  static uniqueEffectForTokenDocument(doc) {
     const uniqueEffectId = doc.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.ID);
     return this._instances.get(uniqueEffectId);
+  }
+
+  /**
+   * Get the corresponding token document(s) for a given unique effect
+   * @param {Token} token                           Token to search
+   * @param {AbstractUniqueEffect[]} effects        Unique effects to search for
+   * @returns {Document[]|Object[]} doc             Array of Document or object on the token
+   */
+  static tokenDocumentsForUniqueEffects(token, effects) {
+    const effectIds = new Set([...effects.map(effect => effect.uniqueEffectId)]);
+    const docs = [];
+    for ( const doc of this.getTokenStorage(token) ) {
+      const uniqueEffectId = doc.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.ID);
+      if ( effectIds.has(uniqueEffectId) ) docs.push(doc);
+    }
+    return docs;
   }
 
   /**
