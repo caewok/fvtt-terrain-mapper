@@ -99,5 +99,8 @@
   "terrainmapper.phrases.terrains": "Terrains",
   "terrainmapper.phrases.no-terrain": "No Terrain",
   "terrainmapper.phrases.new-terrain": "New Terrain",
-  "terrainmapper.phrases.layer-number": "Layer {layerNumber}"
+  "terrainmapper.phrases.layer-number": "Layer {layerNumber}",
+  "terrainmapper.phrases.difficult_x2": "Difficult (x2)",
+  "terrainmapper.phrases.water_swimming": "Water (Swimming)",
+  "terrainmapper.phrases.cliff_climbing": "Cliff (Climbing)"
 }

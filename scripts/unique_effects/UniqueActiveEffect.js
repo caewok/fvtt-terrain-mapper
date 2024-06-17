@@ -121,13 +121,12 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
 
   /**
    * Create an effect document from scratch.
+   * @param {object} data   Data to use to construct the document
    * @returns {Document|object}
    */
-  async _createNewDocument(uniqueEffectId) {
-    log("UniqueActiveEffect#_createNewDocument|Getting new data");
-    const data = await this.constructor.newDocumentData(uniqueEffectId);
+  static async _createNewDocument(data) {
     log("UniqueActiveEffect#_createNewDocument|Creating embedded document");
-    const res = await createEmbeddedDocuments(this.constructor._storageMap.model.uuid, "ActiveEffect", undefined, [data]);
+    const res = await createEmbeddedDocuments(this._storageMap.model.uuid, "ActiveEffect", undefined, [data]);
     log("UniqueActiveEffect#_createNewDocument|Finished creating embedded document");
     return res[0];
   }

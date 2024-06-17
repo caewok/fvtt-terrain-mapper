@@ -176,7 +176,8 @@ export class AbstractUniqueEffect {
     this.#document = await this._loadDocument(uniqueEffectId);
     if ( this.#document ) return;
 
-    this.#document =  await this._createNewDocument(uniqueEffectId);
+    const data = await this.constructor.newDocumentData(uniqueEffectId);
+    this.#document = await this.constructor._createNewDocument(data);
     return;
   }
 
@@ -205,7 +206,7 @@ export class AbstractUniqueEffect {
    * Create an effect document from scratch.
    * @returns {Document|object}
    */
-//   async _createNewDocument(_uniqueEffectId) {
+//  static async _createNewDocument(data) {
 //     console.error("AbstractUniqueEffect#_createDocument must be defined by child class.");
 //   }
 
@@ -616,15 +617,17 @@ export class AbstractUniqueEffect {
    * By default, all known documents and all defaults not already docs are instantiated
    */
   static async initialize() {
-    // Check if documents must be updated for a new version.
+
     this._storageMap = await this._initializeStorageMap();
+
+    // If no effects are present in the storage map, add default effects back in.
+    if ( !this._storageMap.size ) await this._initializeDefaultEffects();
+
+    // Check if documents must be updated for a new version.
     await this.transitionDocuments();
 
     // Create unique effects from the documents held in the storage document.
     for ( const doc of this._storageMap.values() ) await this.create(doc.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.ID));
-
-    // Create unique effects from default ids
-    for ( const uniqueEffectId of this.defaultEffectIds() ) await this.create(uniqueEffectId);
   }
 
   /**
@@ -635,6 +638,11 @@ export class AbstractUniqueEffect {
   static async _initializeStorageMap() {
      console.error("AbstractUniqueEffect._initializeStorageMap must be handled by child class");
   }
+
+  /**
+   * Initialize default effects by adding the document(s) to the storage map.
+   */
+  static async _initializeDefaultEffects() { }
 
   /**
    * Delete all effects and optionally their underlying documents.
@@ -650,17 +658,6 @@ export class AbstractUniqueEffect {
   // ----- NOTE: Static default data handling ----- //
 
   /**
-   * Construct a base effect document from a default template.
-   * @param {string} [activeEffectId]   The id to use
-   * @returns {object}
-   */
-  static async defaultEffectData(activeEffectId) {
-    // Must be handled by subclass.
-    // Should merge with the new document data.
-    return this.newDocumentData(activeEffectId);
-  }
-
-  /**
    * Search documents for all stored effects.
    * Child class may also include default effects not yet created.
    * This should not require anything to be loaded, so it can be run at canvas.init.
@@ -669,13 +666,6 @@ export class AbstractUniqueEffect {
   static _mapStoredEffectNames() {
     console.error("AbstractUniqueEffect._mapStoredEffectNames must be handled by child class");
   }
-
-  /**
-   * Obtain unique effect ids for all default effects that should be instantiated.
-   * @returns {Set<string>}
-   */
-  static defaultEffectIds() { return new Set(); }
-
 
   // ---- NOTE: Static import/export ----- //
 

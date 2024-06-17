@@ -90,11 +90,11 @@ export class UniqueFlagEffect extends AbstractUniqueEffect {
 
   /**
    * Create an effect document from scratch.
+   * @param {object} data   Data to use to construct the document
    * @returns {Document|object}
    */
-  async _createNewDocument(uniqueEffectId) {
-    const data = await this.constructor.newDocumentData(uniqueEffectId);
-    data.id = uniqueEffectId;
+  static async _createNewDocument(data) {
+    data.id = data.flags[MODULE_ID][FLAGS.UNIQUE_EFFECT.ID];
     return FlagDocument.create({ data });
   }
 

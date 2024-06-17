@@ -24,6 +24,7 @@ import { SetElevationRegionBehaviorType } from "./regions/SetElevationRegionBeha
 
 // Unique Terrain Effects
 import { TerrainActiveEffect, TerrainItemEffect, TerrainFlagEffect } from "./terrain_unique_effects.js";
+import { defaultTerrains } from "./default_terrains.js";
 
 // import { BlendFilter } from "./pixi-picture/BlendFilter.js";
 // import { applyMixins } from "./pixi-picture/FilterSystemMixin.js";
@@ -40,6 +41,9 @@ Hooks.once("init", function() {
   initializeConfig();
   initializeAPI();
   registerGeometry();
+  Settings.registerAll();
+
+
 
 
   Object.assign(CONFIG.RegionBehavior.dataModels, {
@@ -64,7 +68,6 @@ Hooks.once("init", function() {
  * applications, or the Canvas have been initialized.
  */
 Hooks.once("setup", function() {
-  Settings.registerAll();
   CONFIG[MODULE_ID].Terrain.initialize(); // Async
 });
 
@@ -116,7 +119,13 @@ function initializeConfig() {
      * Alpha threshold below which a tile is considered transparent for purposes of terrain.
      * @type {number} Between 0 and 1
      */
-    alphaThreshold: 0.75
+    alphaThreshold: 0.75,
+
+    /**
+     * Default terrain jsons
+     * @type {string} File path
+     */
+    defaultTerrainJSONs: defaultTerrains()
 
   };
 
@@ -132,3 +141,6 @@ function initializeConfig() {
       CONFIG[MODULE_ID].Terrain = TerrainActiveEffect;
   }
 }
+
+
+

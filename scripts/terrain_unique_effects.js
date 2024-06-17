@@ -1,5 +1,5 @@
 /* globals
-foundry,
+CONFIG,
 game
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
@@ -11,6 +11,7 @@ import { UniqueActiveEffect } from "./unique_effects/UniqueActiveEffect.js";
 import { UniqueItemEffect } from "./unique_effects/UniqueItemEffect.js";
 import { UniqueFlagEffect } from "./unique_effects/UniqueFlagEffect.js";
 import { TerrainMixin } from "./UniqueEffectTerrainMixin.js";
+import { loadDefaultTerrainJSONs } from "./default_terrains.js";
 
 export class TerrainActiveEffect extends TerrainMixin(UniqueActiveEffect) {
 
@@ -34,41 +35,24 @@ export class TerrainActiveEffect extends TerrainMixin(UniqueActiveEffect) {
     return map;
   }
 
+  /**
+   * Initialize default effects by adding the document(s) to the storage map.
+   */
+  static async _initializeDefaultEffects() {
+    if ( !CONFIG[MODULE_ID].defaultTerrainJSONs.length ) return;
+    const defaultMap = await loadDefaultTerrainJSONs(CONFIG[MODULE_ID].defaultTerrainJSONs);
+    const promises = [];
+    defaultMap.forEach(data => {
+      data.name = game.i18n.localize(data.name);
+      promises.push(this._createNewDocument(data));
+    });
+    await Promise.allSettled(promises);
+  }
+
 }
 
 export class TerrainItemEffect extends TerrainMixin(UniqueItemEffect) {
   /**
-   * Data to construct an effect from a default source of data.
-   * Pull terrains from a compendium, if any.
-   */
-  static async defaultEffectData(uniqueEffectId) {
-    const data = await UniqueItemEffect.defaultEffectData.call(this, uniqueEffectId);
-    if ( !data ) return;
-
-    const pack = game.packs.get(`${MODULE_ID}.${MODULE_ID}_items_${game.system.id}`);
-    if ( !pack ) return;
-
-    const compendiumData = await pack.getDocument(uniqueEffectId);
-    if ( !compendiumData ) return;
-
-    foundry.utils.mergeObject(data, compendiumData);
-    return data;
-  }
-
-  /**
-   * Obtain unique effect ids for all default effects that should be instantiated.
-   * @returns {Set<string>}
-   */
-  static async defaultEffectIds() {
-    const ids = new Set();
-    const pack = game.packs.get(`${MODULE_ID}.${MODULE_ID}_items_${game.system.id}`);
-    if ( !pack ) return ids;
-    const index = await pack.getIndex({ fields: "_id" });
-    index.forEach(idx => ids.add(idx._id));
-    return ids;
-  }
-
-    /**
    * Search documents for all stored effects.
    * Child class may also include default effects not yet created.
    * This should not require anything to be loaded, so it can be run at canvas.init.
