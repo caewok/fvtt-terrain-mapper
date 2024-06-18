@@ -41,7 +41,8 @@ export class SetTerrainRegionBehaviorType extends TerrainRegionBehaviorType {
       terrains: this._createTerrainsField(`${MODULE_ID}.behavior.types.set-terrain.fields.terrain.hint`),
       secret: new foundry.data.fields.BooleanField({
         label: `${MODULE_ID}.behavior.types.add-terrain.fields.secret.name`,
-        hint: `${MODULE_ID}.behavior.types.add-terrain.fields.secret.hint`
+        hint: `${MODULE_ID}.behavior.types.add-terrain.fields.secret.hint`,
+        default: false
       })
     };
   }

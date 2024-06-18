@@ -38,6 +38,30 @@ function preCreateToken(tokenD, data, _options, _userId) {
 }
 
 /**
+ * Hook preUpdateToken
+ * If disposition changes, change actor's unique effect status icon display.
+ * @param {Document} document                       The Document instance being updated
+ * @param {object} changed                          Differential data that will be used to update the document
+ * @param {Partial<DatabaseUpdateOperation>} options Additional options which modify the update request
+ * @param {string} userId                           The ID of the requesting user, always game.user.id
+ * @returns {boolean|void}                          Explicitly return false to prevent update of this Document
+ */
+function updateToken(tokenD, changed, _options, userId) {
+  if ( !game.users.get(userId).isGM ) return;
+  if ( !Object.hasOwn(changed, "disposition") ) return;
+  if ( !tokenD.object ) return;
+  const terrainDocs = CONFIG[MODULE_ID].Terrain._allUniqueEffectDocumentsOnToken(tokenD.object)
+  if ( !terrainDocs.length ) return;
+
+  if ( changed.disposition === CONST.TOKEN_DISPOSITIONS.SECRET ) {
+    terrainDocs.forEach(doc =>  doc.update({ statuses: []})); // Async
+  } else terrainDocs.forEach(doc => {
+    if ( !doc.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.DISPLAY_ICON) ) return;
+    doc.update({ statuses: [doc.img]}); // Async
+  });
+}
+
+/**
  * Hook refreshToken.
  * Adjust terrain as the token moves; handle animation pauses.
  */
@@ -49,8 +73,7 @@ function refreshToken(token, flags) {
 
       // Test for regions with terrains.
       const terrains = new Set();
-      for ( const region of identifyRegions(token) ) terrains = terrains.union(identifyRegionTerrains(region));
-
+      for ( const region of identifyRegions(token) ) identifyRegionTerrains(region).forEach(t => terrains.add(t));
       if ( terrains.size ) {
         // Limit to visible terrains for the user.
         const userTerrains = game.user.isGM ? terrains : terrains.filter(t => t.userVisible);
@@ -78,7 +101,8 @@ export async function updateTokenDocument(tokenUUID, data) {
 
 PATCHES.BASIC.HOOKS = {
   preCreateToken,
-  refreshToken
+  refreshToken,
+  updateToken
 };
 
 // ----- NOTE: Methods ----- //

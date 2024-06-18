@@ -1,8 +1,8 @@
 /* globals
 CONST,
 foundry,
+fromUuid,
 game
-
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
@@ -56,8 +56,14 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
     const uuids = effects.map(e => e.document.uuid)
 
     // Force display of the status icon
-    const data = effects.map(e => { return { statuses: e.document.img ? [e.document.img] : [] }; });
-    if ( this.img ) data.statuses = [this.img];
+    let data;
+    if ( token.document.disposition !== CONST.TOKEN_DISPOSITIONS.SECRET ) {
+      data = effects.map(e => {
+        const datum = { statuses: [] };
+        if ( e.img && e.displayStatusIcon ) datum.statuses.push(e.img);
+        return datum;
+      });
+    }
 
     await createEmbeddedDocuments(token.actor.uuid, "ActiveEffect", uuids, data);
     return true;

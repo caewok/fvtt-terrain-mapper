@@ -13,6 +13,9 @@
   "terrainmapper.active-effect-config.duplicatesAllowed.name": "Duplicates Allowed",
   "terrainmapper.active-effect-config.duplicatesAllowed.hint": "When enabled, this terrain effect may be applied multiple times to a single token",
 
+  "terrainmapper.active-effect-config.displayStatusIcon.name": "Status Icon",
+  "terrainmapper.active-effect-config.displayStatusIcon.hint": "When disabled, the terrain status icon will not display on affected tokens.",
+
   "terrainmapper.behavior.types.add-terrain.fields.terrain.hint": "Select terrain that will be added to the token as an active effect.",
 
   "terrainmapper.behavior.types.set-terrain.fields.terrain.hint": "Select terrain that will be added to the token as an active effect. When the token exits the region, the terrain will be automatically removed.",
