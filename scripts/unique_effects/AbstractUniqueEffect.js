@@ -196,6 +196,7 @@ export class AbstractUniqueEffect {
   /**
    * Load an async effect document to use for storage.
    * Async allows us to pull from compendiums or otherwise construct a default.
+   * @param {string} uniqueEffectId
    * @returns {Document|object|undefined}
    */
   async _loadDocument(uniqueEffectId) {
