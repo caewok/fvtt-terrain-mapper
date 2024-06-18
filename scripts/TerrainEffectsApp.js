@@ -98,9 +98,7 @@ export class TerrainEffectsApp extends Application {
   }
 
   /** @override */
-  _onDrop(event) {
-    return this._controller.onEffectDrop(event);
-  }
+  _onDrop(event) { return this._controller.onEffectDrop(event); }
 
   /**
    * Checks if the folder is collapsed
@@ -108,76 +106,41 @@ export class TerrainEffectsApp extends Application {
    * @param {string} folderId - the folder ID to check
    * @returns {boolean} true if the folder is collapsed, false otherwise
    */
-  isFolderCollapsed(folderId) {
-    return this._getFolderById(folderId).hasClass("collapsed");
-  }
+  isFolderCollapsed(folderId) { return this._getFolderById(folderId).hasClass("collapsed"); }
 
   /**
    * Collapses a folder by adding the "collapsed" CSS class to it
    *
    * @param {string} folderId - the folder ID to collapse
    */
-  collapseFolder(folderId) {
-    this._getFolderById(folderId).addClass("collapsed");
-  }
+  collapseFolder(folderId) { this._getFolderById(folderId).addClass("collapsed"); }
 
   /**
    * Expands a folder by removing the "collapsed" CSS class from it
    *
    * @param {string} folderId - the folder ID to expand
    */
-  expandFolder(folderId) {
-    this._getFolderById(folderId).removeClass("collapsed");
-  }
+  expandFolder(folderId) { this._getFolderById(folderId).removeClass("collapsed"); }
 
   /**
    * Collapse all folders by adding the "collapsed" CSS class to them
    */
-  collapseAllFolders() {
-    this._allDirectories.addClass("collapsed");
-  }
+  collapseAllFolders() { this._allDirectories.addClass("collapsed"); }
 
   /**
    * Indicate to the user that a reload is required to update status effects
    */
-  showReloadRequired() {
-    ui.notifications.warn("Foundry must be reloaded to update token status effects.");
-  }
+  showReloadRequired() { ui.notifications.warn("Foundry must be reloaded to update token status effects."); }
 
-  _getFolderById(folderId) {
-    return this._rootView.find(`.folder[data-folder-id="${folderId}"]`);
-  }
+  _getFolderById(folderId) { return this._rootView.find(`.folder[data-folder-id="${folderId}"]`); }
 
   _initClickListeners() {
-    this._collapseAllButton.on(
-      "click",
-      this._controller.onCollapseAllClick.bind(this._controller)
-    );
-
-    this._createEffectButton.on(
-      "click",
-      this._controller.onCreateEffectClick.bind(this._controller)
-    );
-
-    this._createDefaultsButton.on(
-      "click",
-      this._controller.onCreateDefaultsClick.bind(this._controller)
-    );
-
-    this._effectListItems.on(
-      "click",
-      this._controller.onEffectClick.bind(this._controller)
-    );
-
-    this._folderHeaders.on(
-      "click",
-      this._controller.onFolderClick.bind(this._controller)
-    );
-
-    this._resetStatusEffectsButton.on(
-      "click",
-      this._controller.onResetStatusEffectsClick.bind(this._controller)
-    );
+    this._collapseAllButton.on("click", this._controller.onCollapseAllClick.bind(this._controller));
+    this._createEffectButton.on("click", this._controller.onCreateEffect.bind(this._controller));
+    this._createDefaultsButton.on("click", this._controller.onCreateDefaults.bind(this._controller));
+    this._effectListItems.on("click", this._controller.onEffectClick.bind(this._controller));
+    this._folderHeaders.on("click", this._controller.onFolderClick.bind(this._controller));
+    this._resetStatusEffectsButton.on("click", this._controller.onReset.bind(this._controller));
   }
 
   _initContextMenus() {
@@ -186,7 +149,7 @@ export class TerrainEffectsApp extends Application {
         name: "Edit Terrain",
         icon: '<i class="fas fa-edit fa-fw"></i>',
         condition: () => game.user.isGM,
-        callback: this._controller.onEditEffectClick.bind(this._controller)
+        callback: this._controller.onEdit.bind(this._controller)
       },
       {
         name: "Duplicate",
@@ -216,59 +179,40 @@ export class TerrainEffectsApp extends Application {
         name: "Import Terrain",
         icon: '<i class="far fa-file-arrow-up"></i>',
         condition: () => game.user.isGM,
-        callback: this._controller.onImportTerrain.bind(this._controller)
+        callback: this._controller.onImport.bind(this._controller)
       },
 
       {
         name: "Export Terrain",
         icon: '<i class="far fa-file-arrow-down"></i>',
         condition: () => game.user.isGM,
-        callback: this._controller.onExportTerrain.bind(this._controller)
+        callback: this._controller.onExport.bind(this._controller)
       },
 
       {
         name: "Delete Terrain",
         icon: '<i class="fas fa-trash fa-fw"></i>',
         condition: () => game.user.isGM,
-        callback: this._controller.onDeleteEffectClick.bind(this._controller)
+        callback: this._controller.onDelete.bind(this._controller)
       }
     ]);
   }
 
-  get _allDirectories() {
-    return this._rootView.find(".folder");
-  }
+  get _allDirectories() { return this._rootView.find(".folder"); }
 
-  get _createEffectButton() {
-    return this._rootView.find(".create-effect");
-  }
+  get _createEffectButton() { return this._rootView.find(".create-effect"); }
 
-  get _createDefaultsButton() {
-    return this._rootView.find(".create-defaults");
-  }
+  get _createDefaultsButton() { return this._rootView.find(".create-defaults"); }
 
-  get _collapseAllButton() {
-    return this._rootView.find(".collapse-all");
-  }
+  get _collapseAllButton() { return this._rootView.find(".collapse-all"); }
 
-  get _effectListItems() {
-    return this._rootView.find(".terrainmapper-effect");
-  }
+  get _effectListItems() { return this._rootView.find(".terrainmapper-effect"); }
 
-  get _editSceneTerrainsButton() {
-    return this._rootView.find(".edit-scene-terrains");
-  }
+  get _editSceneTerrainsButton() { return this._rootView.find(".edit-scene-terrains") }
 
-  get _listTerrainsButton() {
-    return this._rootView.find(".list-terrains");
-  }
+  get _listTerrainsButton() { return this._rootView.find(".list-terrains"); }
 
-  get _folderHeaders() {
-    return this._rootView.find(".directory-list .folder-header");
-  }
+  get _folderHeaders() { return this._rootView.find(".directory-list .folder-header"); }
 
-  get _resetStatusEffectsButton() {
-    return this._rootView.find(".reset-status-effects");
-  }
-
+  get _resetStatusEffectsButton() { return this._rootView.find(".reset-status-effects"); }
 }

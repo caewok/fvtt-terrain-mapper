@@ -3,7 +3,12 @@ CONFIG,
 CONST,
 Dialog,
 game,
-SearchFilter
+readTextFromFile,
+renderTemplate,
+saveDataToFile,
+SearchFilter,
+TextEditor,
+ui
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
@@ -108,7 +113,7 @@ export class TerrainEffectsController {
    * Handles clicks on the create effect button
    * @param {MouseEvent} event
    */
-  async onCreateEffectClick(_event) {
+  async onCreateEffect(_event) {
     log("TerrainEffectsController|onCreateEffectClick");
     const terrain = await CONFIG[MODULE_ID].Terrain.create();
     this._viewMvc.render();
@@ -119,7 +124,7 @@ export class TerrainEffectsController {
    * Handles clicks on the create defaults button
    * @param {MouseEvent} event
    */
-  async onCreateDefaultsClick(_event) {
+  async onCreateDefaults(_event) {
     log("TerrainEffectsController|onCreateDefaultsClick");
     const view = this._viewMvc;
     return Dialog.confirm({
@@ -138,9 +143,9 @@ export class TerrainEffectsController {
    * Handle editing the custom effect
    * @param {jQuery} effectItem - jQuery element representing the effect list item
    */
-  async onEditEffectClick(_effectItem) {
+  async onEdit(effectItem) {
     log("TerrainEffectsController|onEditEffectClick");
-    const effectId = this._findNearestEffectId(event);
+    const effectId = effectItem.data().effectId;
     const terrain = CONFIG[MODULE_ID].Terrain._instances.get(effectId);
     terrain.document.sheet.render(true);
   }
@@ -149,9 +154,9 @@ export class TerrainEffectsController {
    * Handle deleting the custom effect
    * @param {jQuery} effectItem - jQuery element representing the effect list item
    */
-  async onDeleteEffectClick(_effectItem) {
+  async onDelete(effectItem) {
     log("TerrainEffectsController|onDeleteEffectClick");
-    const effectId = this._findNearestEffectId(event);
+    const effectId = effectItem.data().effectId;
     const view = this._viewMvc;
 
     return Dialog.confirm({
@@ -180,7 +185,7 @@ export class TerrainEffectsController {
    * Handles clicks on the reset status effects button
    * @param {MouseEvent} event
    */
-  async onResetStatusEffectsClick(_event) {
+  async onReset(_event) {
     return Dialog.confirm({
       title: "Reset Terrain",
       content:
@@ -258,7 +263,7 @@ export class TerrainEffectsController {
    * @param {jQuery} effectItem - jQuery element representing the effect list item
    * @returns true if the effect is favorited
    */
-  isFavoritedEffect(effectItem) {
+  isFavorited(effectItem) {
     log("TerrainEffectsController|isFavoritedEffect");
     const effectId = effectItem.data().effectId;
     return Settings.isFavorite(effectId);
@@ -268,7 +273,7 @@ export class TerrainEffectsController {
    * Handle clicks on the import terrain menu item.
    * @param {jQuery} effectItem - jQuery element representing the effect list item
    */
-  async onImportTerrain(effectItem) {
+  async onImport(effectItem) {
     log("TerrainEffectsController|onImportTerrain");
     const effectId = effectItem.data().effectId;
     const terrain = CONFIG[MODULE_ID].Terrain._instances.get(effectId);
@@ -280,7 +285,7 @@ export class TerrainEffectsController {
    * Handle clicks on the export terrain menu item.
    * @param {jQuery} effectItem - jQuery element representing the effect list item
    */
-  onExportTerrain(effectItem) {
+  onExport(effectItem) {
     log("TerrainEffectsController|onExportTerrain");
     const effectId = effectItem.data().effectId;
     const terrain = CONFIG[MODULE_ID].Terrain._instances.get(effectId);
@@ -399,7 +404,7 @@ export class TerrainEffectsController {
   }
 
   _findNearestEffectId(event) {
-    return $(event.target)
+    return event.target
       .closest("[data-effect-id], .terrainmapper-effect")
       .data()?.effectId;
   }
@@ -417,7 +422,7 @@ export class TerrainEffectsController {
 
     const importPromise = new Promise((resolve, _reject) => {
       new Dialog({
-        title: "Import Multiple Terrains Setting Data",
+        title: "Import Cover Setting Data",
         content,
         buttons: {
           import: {
@@ -448,5 +453,3 @@ export class TerrainEffectsController {
     return importPromise;
   }
 }
-
-
