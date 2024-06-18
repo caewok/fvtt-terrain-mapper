@@ -56,7 +56,11 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
     const uuids = effects.map(e => e.document.uuid)
 
     // Force display of the status icon
-    const data = effects.map(e => { return { statuses: e.img ? [e.img] : [] }; });
+    const data = effects.map(e => {
+      const datum = { statuses: [] };
+      if ( e.img && e.displayStatusIcon ) datum.statuses.push(e.img);
+      return datum;
+    });
 
     await createEmbeddedDocuments(token.actor.uuid, "ActiveEffect", uuids, data);
     return true;

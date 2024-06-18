@@ -36,6 +36,7 @@ export const FLAGS = {
     TYPE: "uniqueEffectType",
     DUPLICATES_ALLOWED: "duplicatesAllowed",
     IS_LOCAL: "isLocal",
+    DISPLAY_ICON: "displayStatusIcon"
   },
 
   // Scene

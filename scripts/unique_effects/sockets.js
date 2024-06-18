@@ -37,8 +37,9 @@ export async function createDocument(classPath, uuid, data) {
   if ( !cl ) return;
 
   // Merge the example document with any additional data.
-  const baseData = (uuid ? (await fromUuid(uuid)).toObject() : data) ?? {};
-  if ( uuid && data ) foundry.utils.mergeObject(baseData, data);
+  const exampleDoc = (await fromUuid(uuid))?.toObject();
+  const baseData = exampleDoc ?? data ?? {};
+  if ( exampleDoc && data ) foundry.utils.mergeObject(baseData, data);
 
   // Create the new document.
   const doc = await cl.create(baseData);
@@ -101,11 +102,11 @@ export async function createEmbeddedDocuments(containerUuid, embeddedName, uuids
   // Merge the example documents with any additional data.
   const baseData = Array(numDocs);
   for ( let i = 0; i < numDocs; i += 1 ) {
-    const exampleDoc = exampleDocs[i];
+    const exampleDoc = exampleDocs[i]?.toObject();
     const uuid = uuids[i];
     const datum = data[i];
-    const baseDatum = baseData[i] = exampleDoc.toObject() ?? datum ?? {};
-    if ( uuid && datum ) foundry.utils.mergeObject(baseDatum, datum);
+    const baseDatum = baseData[i] = exampleDoc ?? datum ?? {};
+    if ( exampleDoc && datum ) foundry.utils.mergeObject(baseDatum, datum);
     baseData[i] = baseDatum;
   }
 

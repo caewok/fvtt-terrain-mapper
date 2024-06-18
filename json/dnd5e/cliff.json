@@ -4,6 +4,7 @@
       "uniqueEffectType": "Terrain",
       "uniqueEffectId": "terrainmapper.Terrain.dnd5e.cliff",
       "duplicatesAllowed": false,
+      "displayStatusIcon": true,
       "version": "0.3.0"
     },
     "exportSource": {

@@ -127,10 +127,13 @@ export class AbstractUniqueEffect {
 
   get document() { return this.#document || (this.#document = this._findLocalDocument(this.uniqueEffectId)); }
 
-  get allowsDuplicates() {
-    return this.document?.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.DUPLICATES_ALLOWED)
-      ?? this.document.allowsDuplicates;
-  }
+  get allowsDuplicates() { return this.document?.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.DUPLICATES_ALLOWED) ?? false }
+
+  /**
+   * Control whether it should display a status icon.
+   * @type {boolean}
+   */
+  get displayStatusIcon() { return this.document?.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.DISPLAY_ICON) ?? true }
 
   /** @type {string} */
   get name() { return this.document?.name; }
@@ -524,6 +527,7 @@ export class AbstractUniqueEffect {
           [FLAGS.UNIQUE_EFFECT.TYPE]: this.type,
           [FLAGS.UNIQUE_EFFECT.ID]: activeEffectId ?? this.uniqueEffectId(),
           [FLAGS.UNIQUE_EFFECT.DUPLICATES_ALLOWED]: false,
+          [FLAGS.UNIQUE_EFFECT.DISPLAY_ICON]: true,
           [FLAGS.VERSION]: game.modules.get(MODULE_ID).version
           }
         }
