@@ -37,7 +37,11 @@ export async function createDocument(classPath, uuid, data) {
   if ( !cl ) return;
 
   // Merge the example document with any additional data.
-  const exampleDoc = (await fromUuid(uuid))?.toObject();
+  let exampleDoc;
+  if ( uuid ) {
+    exampleDoc = await fromUuid(uuid);
+    exampleDoc = exampleDoc?.toObject();
+  }
   const baseData = exampleDoc ?? data ?? {};
   if ( exampleDoc && data ) foundry.utils.mergeObject(baseData, data);
 

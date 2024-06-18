@@ -189,9 +189,12 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
    */
   static async _initializeStorageMap() {
     const data = this._storageMapData;
-    const item = game.items.find(item => item.name === data.name)
-      ?? (await createDocument("CONFIG.Item.documentClass", data));
-    return item.effects;
+    let item = game.items.find(item => item.name === data.name);
+    if ( !item ) {
+      const uuid = await createDocument("CONFIG.Item.documentClass", undefined, data);
+      if ( uuid ) item = await fromUuid(uuid);
+    }
+    return item?.effects;
   }
 
   // ----- NOTE: Static default data handling ----- //
