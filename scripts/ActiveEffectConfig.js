@@ -27,7 +27,7 @@ function closeActiveEffectConfig(_app, _html) {
  */
 async function renderActiveEffectConfig(app, html, data) {
   // Avoid changing all active effects everywhere.
-  if ( !app.object.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.TYPE) === "Terrain" ) return;
+  if ( app.object.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.TYPE) !== "Terrain" ) return;
 
   const myHTML = renderTemplateSync(TEMPLATES.ACTIVE_EFFECT, data);
   if ( !myHTML ) return;
