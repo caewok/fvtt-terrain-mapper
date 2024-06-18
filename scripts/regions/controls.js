@@ -8,7 +8,7 @@ ui
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { MODULE_ID, ICONS } from "../const.js";
+import { MODULE_ID, FA_ICONS } from "../const.js";
 import { Draw } from "../geometry/Draw.js";
 import { TerrainEffectsApp } from "../TerrainEffectsApp.js";
 
@@ -19,21 +19,21 @@ const TOOLS = {};
 TOOLS.FILL_BY_GRID = {
   name: "fill-by-grid",
   title: `${MODULE_ID}.controls.fill-by-grid.name`,
-  icon: ICONS.FILL_BY_GRID,
+  icon: FA_ICONS.FILL_BY_GRID,
   toggle: false
 };
 
 TOOLS.FILL_BY_LOS = {
   name: "fill-by-los",
   title: `${MODULE_ID}.controls.fill-by-los.name`,
-  icon: ICONS.FILL_BY_LOS,
+  icon: FA_ICONS.FILL_BY_LOS,
   toggle: false
 }
 
 TOOLS.FILL_BY_WALLS = {
   name: "fill-by-walls",
   title: `${MODULE_ID}.controls.fill-space.name`,
-  icon: ICONS.FILL_BY_WALLS,
+  icon: FA_ICONS.FILL_BY_WALLS,
   toggle: false,
   onClick: toggleWallDisplay
 }
@@ -41,7 +41,7 @@ TOOLS.FILL_BY_WALLS = {
 TOOLS.TERRAIN_BOOK = {
   name: "terrain-book",
   title: `${MODULE_ID}.phrases.terrains`,
-  icon: ICONS.TERRAIN_BOOK,
+  icon: FA_ICONS.TERRAIN_BOOK,
   onClick: () => { new TerrainEffectsApp().render(true); },
   button: true
 }

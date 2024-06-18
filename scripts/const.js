@@ -48,7 +48,7 @@ export const FLAGS = {
 };
 
 // Icons used in this module in controls or tabs
-export const ICONS = {
+export const FA_ICONS = {
   MODULE: "fa-solid fa-mountain-sun",
   FILL_BY_GRID: "fa-solid fa-brush",
   FILL_BY_LOS: "fa-solid fa-eye",
@@ -56,3 +56,7 @@ export const ICONS = {
   ELEVATE: "fa-solid fa-elevator",
   TERRAIN_BOOK: "fa-solid fa-mountain-sun"
 };
+
+export const ICONS = {
+  MODULE: "icons/svg/mountain.svg"
+}
