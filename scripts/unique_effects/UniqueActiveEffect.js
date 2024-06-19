@@ -14,6 +14,7 @@ import {
   updateEmbeddedDocuments,
   deleteEmbeddedDocuments } from "./sockets.js";
 import { log } from "../util.js";
+import { MODULE_ID, FLAGS } from "../const.js";
 
 /**
  * Represent a unique effect that is applied to tokens. E.g., cover, terrain.
@@ -79,7 +80,7 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
     if ( !token.actor ) return false;
     for ( const effect of effects ) {
       const doc = effect.document.toObject();
-
+      doc.flags[MODULE_ID][FLAGS.UNIQUE_EFFECT.IS_LOCAL] = true;
 
       // Force display of the status icon
       if ( token.document.disposition !== CONST.TOKEN_DISPOSITIONS.SECRET

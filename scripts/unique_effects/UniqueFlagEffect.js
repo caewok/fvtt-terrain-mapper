@@ -4,7 +4,7 @@ foundry
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { MODULE_ID } from "../const.js";
+import { MODULE_ID, FLAGS } from "../const.js";
 import { Settings } from "../settings.js";
 import { AbstractUniqueEffect } from "./AbstractUniqueEffect.js";
 
@@ -219,7 +219,8 @@ class FlagDocument {
     return token.document.updateSource({
       flags: {
         [MODULE_ID]: {
-          [this.id]: this._allFlagData
+          [this.id]: this._allFlagData,
+          [FLAGS.UNIQUE_EFFECT.IS_LOCAL]: true
         }
       }
     });

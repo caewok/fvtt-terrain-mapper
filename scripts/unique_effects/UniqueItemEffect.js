@@ -67,6 +67,9 @@ export class UniqueItemEffect extends AbstractUniqueEffect {
   static _addToTokenLocally(token, effects) {
     if ( !token.actor ) return false;
     for ( const effect of effects ) {
+      const doc = effect.document.toObject();
+      doc.flags[MODULE_ID][FLAGS.UNIQUE_EFFECT.IS_LOCAL] = true;
+
       const ae = token.actor.effects.createDocument(effect.document);
       token.actor.effects.set(ae.id, ae);
     }

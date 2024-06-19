@@ -144,12 +144,14 @@ export class AbstractUniqueEffect {
   /** @returns {string} */
   get img() { return this.document?.img || this.document?.icon; }
 
-  /** Alias @type{string} */
+  /** @alias{string} */
   get image() { return this.img; }
 
-  /** Alias @type{string} */
+  /** @alias{string} */
   get icon() { return this.img; }
 
+  /** @type {boolean} */
+  get isLocal() { return this.document?.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.IS_LOCAL) ?? false; }
 
   // ----- NOTE: Document-related methods ----- //
 
