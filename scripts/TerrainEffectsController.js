@@ -228,12 +228,14 @@ export class TerrainEffectsController {
   }
 
   /**
-   * Handles clicks on effect items by toggling them on or off on selected tokens
+   * Handles clicks on effect items by opening their edit control
    * @param {MouseEvent} event - event that corresponds to clicking an effect item
    */
   async onEffectClick(event) {
     log("TerrainEffectsController|onEffectClick");
-    await this.onEditEffectClick(event);
+    const effectId = event.currentTarget.dataset.effectId;
+    const ce = CONFIG[MODULE_ID].Terrain._instances.get(effectId);
+    ce.document.sheet.render(true);
   }
 
   /**
@@ -264,7 +266,7 @@ export class TerrainEffectsController {
    * @returns true if the effect is favorited
    */
   isFavorited(effectItem) {
-    log("TerrainEffectsController|isFavoritedEffect");
+    log("TerrainEffectsController|isFavorited");
     const effectId = effectItem.data().effectId;
     return Settings.isFavorite(effectId);
   }

@@ -234,7 +234,7 @@ export class AbstractUniqueEffect {
    */
   async duplicate() {
     const newObj = await this.constructor.create();
-    await newObj.fromJSON(this.toJSON());
+    await newObj.fromJSON(JSON.stringify(this.toJSON()));
     return newObj;
   }
 

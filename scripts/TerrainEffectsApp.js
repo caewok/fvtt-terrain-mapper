@@ -140,7 +140,6 @@ export class TerrainEffectsApp extends Application {
     this._createDefaultsButton.on("click", this._controller.onCreateDefaults.bind(this._controller));
     this._effectListItems.on("click", this._controller.onEffectClick.bind(this._controller));
     this._folderHeaders.on("click", this._controller.onFolderClick.bind(this._controller));
-    this._resetStatusEffectsButton.on("click", this._controller.onReset.bind(this._controller));
   }
 
   _initContextMenus() {
@@ -162,7 +161,7 @@ export class TerrainEffectsApp extends Application {
         name: "Add Favorite",
         icon: '<i class="fas fa-star fa-fw"></i>',
         condition: effectItem => {
-          return !this._controller.isFavoritedEffect(effectItem);
+          return !this._controller.isFavorited(effectItem);
         },
         callback: this._controller.onAddFavorite.bind(this._controller)
       },
@@ -170,7 +169,7 @@ export class TerrainEffectsApp extends Application {
         name: "Remove Favorite",
         icon: '<i class="far fa-star fa-fw"></i>',
         condition: effectItem => {
-          return this._controller.isFavoritedEffect(effectItem);
+          return this._controller.isFavorited(effectItem);
         },
         callback: this._controller.onRemoveFavorite.bind(this._controller)
       },
