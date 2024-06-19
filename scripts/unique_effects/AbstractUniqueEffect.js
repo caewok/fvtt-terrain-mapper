@@ -360,8 +360,8 @@ export class AbstractUniqueEffect {
   static addToTokenLocally(token, effects, refresh = true) {
     const toAdd = this._trimDuplicates(token, effects);
     if ( !toAdd.length ) return false;
-    if ( !this._addTokenLocally(token, toAdd) ) return false;
-    if ( refresh ) this.constructor.refreshTokenDisplay(token)
+    if ( !this._addToTokenLocally(token, toAdd) ) return false;
+    if ( refresh ) this.refreshTokenDisplay(token)
     return true;
   }
 
@@ -429,7 +429,7 @@ export class AbstractUniqueEffect {
     const toRemove = effects.intersection(new Set(this.allOnToken(token)));
     if ( !toRemove.size ) return false;
     if ( !this._removeFromTokenLocally(token, [...toRemove], removeAllDuplicates) ) return false;
-    if ( refresh ) this.constructor.refreshTokenDisplay(token);
+    if ( refresh ) this.refreshTokenDisplay(token);
     return true;
   }
 
