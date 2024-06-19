@@ -78,7 +78,15 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
   static _addToTokenLocally(token, effects) {
     if ( !token.actor ) return false;
     for ( const effect of effects ) {
-      const ae = token.actor.effects.createDocument(effect.document);
+      const doc = effect.document.toObject();
+
+
+      // Force display of the status icon
+      if ( token.document.disposition !== CONST.TOKEN_DISPOSITIONS.SECRET
+        && effect.img
+        && effect.displayStatusIcon )  doc.statuses = [effect.img];
+
+      const ae = token.actor.effects.createDocument(doc);
       token.actor.effects.set(ae.id, ae);
     }
     return true;
