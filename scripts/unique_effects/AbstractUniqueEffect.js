@@ -153,6 +153,9 @@ export class AbstractUniqueEffect {
   /** @type {boolean} */
   get isLocal() { return this.document?.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.IS_LOCAL) ?? false; }
 
+  /** @type {string} */
+  get type() { return this.document?.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.TYPE) ?? "UniqueEffect"; }
+
   // ----- NOTE: Document-related methods ----- //
 
   /**

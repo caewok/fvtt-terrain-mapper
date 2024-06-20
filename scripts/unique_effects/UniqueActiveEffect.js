@@ -34,7 +34,7 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
    */
   static getTokenStorage(token) { return token.actor?.effects; }
 
-        /**
+  /**
    * Data to construct an effect.
    * @type {object}
    */

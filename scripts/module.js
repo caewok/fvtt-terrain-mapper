@@ -128,6 +128,10 @@ function initializeConfig() {
 
   };
 
+  Object.defineProperty(CONFIG[MODULE_ID], "UniqueEffect", {
+    get: function() { return this.Terrain; }
+  });
+
   /**
    * The terrain type used for this system.
    * @type {TerrainActiveEffect|TerrainItemEffect|TerrainFlagEffect}
@@ -139,6 +143,8 @@ function initializeConfig() {
     default:
       CONFIG[MODULE_ID].Terrain = TerrainActiveEffect;
   }
+
+
 }
 
 
