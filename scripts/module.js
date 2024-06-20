@@ -64,14 +64,16 @@ Hooks.once("init", function() {
  * before the game state has been set up. Fires before any Documents, UI
  * applications, or the Canvas have been initialized.
  */
-Hooks.once("setup", function() {
-  CONFIG[MODULE_ID].Terrain.initialize(); // Async
-});
-
-
-// Hooks.on("ready", async function(_canvas) {
-//   log("TerrainMapper|ready");
+// Hooks.once("setup", function() {
+//
 // });
+
+/**
+ * A hook event that fires when the game is fully ready.
+ */
+Hooks.on("ready", async function(_canvas) {
+  CONFIG[MODULE_ID].Terrain.initialize(); // Async. Must wait until ready hook to store Settings for UniqueEffectFlag
+});
 //
 //
 // Hooks.on("canvasInit", async function(_canvas) {

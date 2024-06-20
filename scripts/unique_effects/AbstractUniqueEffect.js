@@ -654,10 +654,10 @@ export class AbstractUniqueEffect {
    */
   static async initialize() {
 
-    this._storageMap = await this._initializeStorageMap();
+    await this._initializeStorageMap();
 
     // If no effects are present in the storage map, add default effects back in.
-    if ( !this._storageMap.size ) await this._initializeDefaultEffects();
+    if ( !this._storageMap?.size ) await this._initializeDefaultEffects();
 
     // Check if documents must be updated for a new version.
     await this.transitionDocuments();

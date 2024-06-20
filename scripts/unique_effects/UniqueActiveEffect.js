@@ -203,7 +203,7 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
       const uuid = await createDocument("CONFIG.Item.documentClass", undefined, data);
       if ( uuid ) item = await fromUuid(uuid);
     }
-    return item?.effects;
+    this._storageMap = item?.effects;
   }
 
   // ----- NOTE: Static default data handling ----- //

@@ -27,10 +27,9 @@ export class UniqueFlagEffect extends AbstractUniqueEffect {
    * @param {Token} token
    * @returns {DocumentCollection|Map} The collection for this token
    */
-  static getTokenStorage(_token) {
-    const map = new Map();
-    Object.entries(Settings.get(FlagDocument.settingsKey)).forEach(([id, dat]) => map.set(id, dat));
-    return map;
+  static getTokenStorage(token) {
+    // Tokens do not have a map of effect docs, so this is effectively a map of flag documents "on" the token.
+    return FlagDocument.allDocumentsOnToken(token);
   }
 
 
@@ -103,7 +102,7 @@ export class UniqueFlagEffect extends AbstractUniqueEffect {
    */
   static async _createNewDocument(data) {
     data.id = data.flags[MODULE_ID][FLAGS.UNIQUE_EFFECT.ID];
-    return FlagDocument.create({ data });
+    return FlagDocument.create([ data ])[0];
   }
 
   /**
@@ -130,7 +129,7 @@ export class UniqueFlagEffect extends AbstractUniqueEffect {
    * are saved.
    */
   static async _initializeStorageMap() {
-    this._storageMap = () => new Map(Object.entries(Settings.get(FlagDocument.settingsKey)));
+    this._storageMap = FlagDocument.allDocuments;
   }
 }
 
@@ -145,7 +144,9 @@ class FlagDocument {
 
   constructor(id) {
     this.id = id;
+    this.constructor.allDocuments.set(id, this);
   }
+
 
   /**
    * Update this document.
@@ -167,7 +168,7 @@ class FlagDocument {
    * @returns {*}
    */
   getFlag(scope, key) {
-    const settingsData = Settings.get(this.settingsKey);
+    const settingsData = Settings.get(this.constructor.settingsKey);
     const doc = settingsData[this.id];
     return doc?.flags[scope]?.[key];
   }
@@ -179,19 +180,19 @@ class FlagDocument {
    * @returns {*}
    */
   async setFlag(scope, key, value) {
-    const settingsData = Settings.get(this.settingsKey);
+    const settingsData = Settings.get(this.constructor.settingsKey);
     const doc = settingsData[this.id] ??= {};
     doc[scope] ??= {};
     doc[scope][key] = value;
-    return Settings.set(this.settingsKey, settingsData);
+    return Settings.set(this.constructor.settingsKey, settingsData);
   }
 
   async unsetFlag(scope, key) {
-    const settingsData = Settings.get(this.settingsKey);
+    const settingsData = Settings.get(this.constructor.settingsKey);
     const doc = settingsData[this.id] ??= {};
     doc[scope] ??= {};
     delete doc[scope][key];
-    return Settings.set(this.settingsKey, settingsData);
+    return Settings.set(this.constructor.settingsKey, settingsData);
   }
 
   /**
@@ -199,7 +200,7 @@ class FlagDocument {
    * @type {object}
    */
   get _allFlagData() {
-    const settingsData = Settings.get(this.settingsKey);
+    const settingsData = Settings.get(this.constructor.settingsKey);
     return settingsData[this.id].flags;
   }
 
@@ -230,9 +231,7 @@ class FlagDocument {
    * Remove this from a token.
    * @param {Token} token
    */
-  async removeFromToken(token) {
-    token.document.unsetFlag()
-  }
+  async removeFromToken(token) { token.document.unsetFlag(MODULE_ID, this.id); }
 
   /**
    * Remove this from a token locally.
@@ -247,6 +246,33 @@ class FlagDocument {
   /** @type {string} */
   static get settingsKey() { return Settings.KEYS.UNIQUE_EFFECTS_FLAGS_DATA; }
 
+  /** @type {Map<id, FlagDocument>} */
+  static #allDocuments;
+
+  static get allDocuments() {
+    if ( !this.#allDocuments ) {
+      // Retrieve all documents from settings and initialize.
+      this.#allDocuments = new Map();
+      for ( const [key, value] of Object.entries(Settings.get(this.settingsKey)) ) this.#allDocuments.set(key, new this(key));
+    }
+    return this.#allDocuments;
+  }
+
+  /**
+   * All flag documents on the token.document.
+   * @param {Token} token
+   * @returns {Map<id, FlagDocument>}
+   */
+  static allDocumentsOnToken(token) {
+    const m = new Map();
+    const flags = token.document.flags?.[MODULE_ID];
+    if ( !flags ) return m;
+    const allDocs = this.allDocuments;
+    for ( const id of allDocs.keys() ) {
+      if ( Object.hasOwn(flags, id) ) m.set(id, allDocs.get(id));
+    }
+    return m;
+  }
 
   /**
    * Create document(s) in the settings.
@@ -262,7 +288,7 @@ class FlagDocument {
       foundry.utils.mergeObject(settingsData[datum.id], datum);
       docs.push(new this(datum.id));
     }
-    await Settings.set(this.settingsKey, settingsData); // Async
+    await Settings.set(this.settingsKey, settingsData);
     return docs;
   }
 
@@ -278,7 +304,7 @@ class FlagDocument {
       foundry.utils.mergeObject(settingsData[datum.id], datum);
       docs.push(new this(datum.id));
     }
-    await Settings.set(this.settingsKey, settingsData); // Async
+    await Settings.set(this.settingsKey, settingsData);
     return docs;
   }
 
@@ -287,7 +313,10 @@ class FlagDocument {
    */
   static async delete(ids) {
     const settingsData = Settings.get(this.settingKey);
-    for ( const id of ids ) delete settingsData[id];
-    return Settings.set(this.settingsKey, settingsData); // Async
+    for ( const id of ids ) {
+      delete settingsData[id];
+      this.allDocuments.delete(id);
+    }
+    await Settings.set(this.settingsKey, settingsData);
   }
 }

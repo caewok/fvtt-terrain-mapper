@@ -179,7 +179,7 @@ export class UniqueItemEffect extends AbstractUniqueEffect {
    * Once created, it will be stored in the world and becomes the method by which cover effects
    * are saved.
    */
-  static async _initializeStorageMap() { return game.items; }
+  static async _initializeStorageMap() { this._storageMap = game.items; }
 }
 
 // ----- NOTE: Helper functions ----- //
