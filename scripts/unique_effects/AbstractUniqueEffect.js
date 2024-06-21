@@ -473,12 +473,10 @@ export class AbstractUniqueEffect {
    * @param {object} [opts]     Parts of the id
    * @returns {string} moduleId.effectType.systemId.baseEffectId
    */
-  static uniqueEffectId({ moduleId, type, systemId, baseEffectId } = {}) {
-    moduleId ??= MODULE_ID;
+  static uniqueEffectId({type, baseEffectId } = {}) {
     type ??= this.type;
-    systemId ??= game.system.id;
     baseEffectId ??= foundry.utils.randomID();
-    return [moduleId, type, systemId, baseEffectId].join(".");
+    return [type, baseEffectId].join("_");
   }
 
   /**
@@ -487,9 +485,10 @@ export class AbstractUniqueEffect {
    * @returns {object} With moduleId, effectType, systemId, baseEffectId
    */
   static deconstructUniqueEffectId(uniqueEffectId) {
-    const splits = uniqueEffectId.split(".", 4);
-    const [moduleId, effectType, systemId, baseEffectId] = splits;
-    return { moduleId, effectType, systemId, baseEffectId };
+    // Do not use "." for separator, as that screws up `updateSource`
+    const splits = uniqueEffectId.split("_", 2);
+    const [effectType, baseEffectId] = splits;
+    return { effectType, baseEffectId };
   }
 
   /**

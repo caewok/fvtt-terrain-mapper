@@ -6,6 +6,7 @@ CONST,
 "use strict";
 
 import { MODULE_ID, FLAGS } from "../const.js";
+import { log } from "../util.js";
 import { UniqueActiveEffect } from "./UniqueActiveEffect.js";
 
 /**
@@ -90,6 +91,15 @@ export class UniqueFlagEffect extends UniqueActiveEffect {
     return true;
   }
 
+  /**
+   * Refresh the token display and sheet when adding a local effect.
+   * @param {Token} token
+   */
+  static refreshTokenDisplay(token) {
+    // Drop refreshing the actor sheet as there is none for cover flags.
+    // Also don't need to reset the actor as no effects applied.
+    token.renderFlags.set({ redrawEffects: true });
+  }
 }
 
 /**
@@ -125,7 +135,7 @@ class TokenFlagUniqueEffectDocument {
   /** @type {boolean} */
   get displayStatusIcon() {
     return this.token.document.disposition !== CONST.TOKEN_DISPOSITIONS.SECRET
-      && this.activeEffect.displayStatusIcon;
+      && this.uniqueEffect.displayStatusIcon;
   }
 
   /** @type {string} */
@@ -168,9 +178,10 @@ class TokenFlagUniqueEffectDocument {
    * @param {Token} token
    */
   async addToToken() {
-    await this.token.document.setFlag(MODULE_ID, this.id, true);
-    if ( this.displayStatusIcon ) this.token[MODULE_ID].TokenIcon.addIcon({
-        id: this.activeEffectId,
+    log(`UniqueFlagEffect#addToToken|Adding ${this.name} to ${this.token.name}`);
+    await this.token.document.setFlag(MODULE_ID, this.uniqueEffectId, true);
+    if ( this.displayStatusIcon ) this.token[MODULE_ID].addIcon({
+        id: this.uniqueEffectId,
         category: this.type,
         src: this.img });
   }
@@ -180,15 +191,20 @@ class TokenFlagUniqueEffectDocument {
    * @param {Token} token
    */
   addToTokenLocally() {
-    this.token.document.updateSource({
-      flags: {
-        [MODULE_ID]: {
-          [this.id]: "local"
-        }
-      }
-    });
-    if ( this.displayStatusIcon ) this.token[MODULE_ID].TokenIcon.addIcon({
-        id: this.activeEffectId,
+    log(`UniqueFlagEffect#addToTokenLocally|Adding ${this.name} to ${this.token.name}`);
+    // updateSource will not work with periods. Simpler actually to stop using periods in the id.
+    this.token.document.flags[MODULE_ID] ??= {};
+    this.token.document.flags[MODULE_ID][this.uniqueEffectId] = "local";
+
+    // this.token.document.updateSource({
+//       flags: {
+//         [MODULE_ID]: {
+//           [this.uniqueEffectId]: "local"
+//         }
+//       }
+//     });
+    if ( this.displayStatusIcon ) this.token[MODULE_ID].addIcon({
+        id: this.uniqueEffectId,
         category: this.type,
         src: this.img });
   }
@@ -198,9 +214,10 @@ class TokenFlagUniqueEffectDocument {
    * @param {Token} token
    */
   async removeFromToken() {
-    this.token.document.unsetFlag(MODULE_ID, this.id);
-    this.token[MODULE_ID].TokenIcon.removeIcon({
-        id: this.activeEffectId,
+    log(`UniqueFlagEffect#removeFromToken|Removing ${this.name} from ${this.token.name}`);
+    this.token.document.unsetFlag(MODULE_ID, this.uniqueEffectId);
+    this.token[MODULE_ID].removeIcon({
+        id: this.uniqueEffectId,
         category: this.type,
         src: this.img });
   }
@@ -210,11 +227,12 @@ class TokenFlagUniqueEffectDocument {
    * @param {Token} token
    */
   removeFromTokenLocally() {
+    log(`UniqueFlagEffect#removeFromTokenLocally|Removing ${this.name} from ${this.token.name}`);
     const flags = this.token.document.flags?.[MODULE_ID];
     if ( !flags ) return;
-    delete flags[this.id];
-    this.token[MODULE_ID].TokenIcon.removeIcon({
-        id: this.activeEffectId,
+    delete flags[`${this.uniqueEffectId}`];
+    this.token[MODULE_ID].removeIcon({
+        id: this.uniqueEffectId,
         category: this.type,
         src: this.img });
   }
