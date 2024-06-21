@@ -33,9 +33,8 @@ function renderItemSheet(app, html, data) {
   if ( app.object.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.TYPE) !== "Cover" ) return;
 
   // Insert the new configuration fields into the item config.
-  const myHTML = renderTemplateSync(TEMPLATES.ACTIVE_EFFECT, data);
   const insertFn = INSERT_FNS[game.system.id];
-  if ( insertFn ) insertFn(html, myHTML);
+  if ( insertFn ) insertFn(html, data);
 
   // html.find('.tab[data-tab="details"').children().last().after(myHTML);
   app.setPosition(app.position);
@@ -54,8 +53,8 @@ const INSERT_FNS = {
 /**
  * Insert the html for a PF2e effect item.
  */
-function insertPF2e(html, myHTML) {
-  const myHTML = renderTemplateSync(TEMPLATES.COVER_RULES_PF2E, data);
+function insertPF2e(html, data) {
+  const myHTML = renderTemplateSync(TEMPLATES.ITEM_PF2e, data);
   const div = document.createElement("div");
   div.innerHTML = myHTML;
 
@@ -68,6 +67,6 @@ function insertPF2e(html, myHTML) {
 /**
  * Insert the html for a SFRPG effect item.
  */
-function insertSFRPG(html, myHTML) {
+function insertSFRPG(html, data) {
 
 }
