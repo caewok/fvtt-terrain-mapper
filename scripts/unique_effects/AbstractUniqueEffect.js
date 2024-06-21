@@ -20,15 +20,17 @@ AbstractUniqueEffect
    - CoverActiveEffect
      - CoverEffectDND5E
      - CoverActiveEffectDFreds
+
+   - UniqueFlags
+     - TerrainFlags
+     - CoverFlags
+       - CoverFlagsDND5E
  - UniqueItemEffect
    - TerrainItem
    - CoverItem
      - CoverItemSFRPG
      - CoverItemPF2E (not currently used)
- - UniqueFlags
-   - TerrainFlags
-   - CoverFlags
-     - CoverFlagsDND5E
+
 
 Mix-ins
 - terrain

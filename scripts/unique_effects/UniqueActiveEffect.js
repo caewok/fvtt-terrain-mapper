@@ -208,6 +208,25 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
 
   // ----- NOTE: Static default data handling ----- //
 
+  /**
+   * Search documents for all stored effects.
+   * Child class may also include default effects not yet created.
+   * This should not require anything to be loaded, so it can be run at canvas.init.
+   * @returns {Object<string, string>} Effect id keyed to effect name
+   */
+  static _mapStoredEffectNames() {
+    const map = {}
+    const storageData = this._storageMapData;
+    const items = game.items ?? game.data.items;
+    const item = items.find(item => item.name === storageData.name);
+    if ( !item ) return map;
+    item.effects.forEach(effect => {
+      const id = effect.flags?.[MODULE_ID]?.[FLAGS.UNIQUE_EFFECT.ID];
+      if ( id ) map[id] = effect.name;
+    });
+    // Currently no default names, otherwise those would be valid as well.
+    return map;
+  }
 
   // ----- NOTE: Other methods specific to AEs ----- //
 

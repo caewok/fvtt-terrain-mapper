@@ -172,6 +172,24 @@ export class UniqueItemEffect extends AbstractUniqueEffect {
     return deleteDocument(this.document.uuid);
   }
 
+  /**
+   * Search documents for all stored effects.
+   * Child class may also include default effects not yet created.
+   * This should not require anything to be loaded, so it can be run at canvas.init.
+   * @returns {Object<string, string>} Effect id keyed to effect name
+   */
+  static _mapStoredEffectNames() {
+    const map = {}
+    const items = game.items ?? game.data.items;
+    items.forEach(item => {
+      const id = item.flags?.[MODULE_ID]?.[FLAGS.UNIQUE_EFFECT.ID];
+      if ( id ) map[id] = item.name;
+    });
+
+    // Currently no default names, otherwise those would be valid as well.
+    return map;
+  }
+
   // ----- NOTE: Static multiple document handling ---- //
 
   /**

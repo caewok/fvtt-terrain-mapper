@@ -16,26 +16,6 @@ import { loadDefaultTerrainJSONs } from "./default_terrains.js";
 export class TerrainActiveEffect extends TerrainMixin(UniqueActiveEffect) {
 
   /**
-   * Search documents for all stored effects.
-   * Child class may also include default effects not yet created.
-   * This should not require anything to be loaded, so it can be run at canvas.init.
-   * @returns {Object<string, string>} Effect id keyed to effect name
-   */
-  static _mapStoredEffectNames() {
-    const map = {}
-    const storageData = this._storageMapData;
-    const items = game.items ?? game.data.items;
-    const item = items.find(item => item.name === storageData.name);
-    if ( !item ) return map;
-    item.effects.forEach(effect => {
-      const id = effect.flags?.[MODULE_ID]?.[FLAGS.UNIQUE_EFFECT.ID];
-      if ( id ) map[id] = effect.name;
-    });
-    // Currently no default names, otherwise those would be valid as well.
-    return map;
-  }
-
-  /**
    * Initialize default effects by adding the document(s) to the storage map.
    */
   static async _initializeDefaultEffects() {
@@ -76,45 +56,9 @@ export class TerrainActiveEffect extends TerrainMixin(UniqueActiveEffect) {
 
 }
 
-export class TerrainItemEffect extends TerrainMixin(UniqueItemEffect) {
-  /**
-   * Search documents for all stored effects.
-   * Child class may also include default effects not yet created.
-   * This should not require anything to be loaded, so it can be run at canvas.init.
-   * @returns {Object<string, string>} Effect id keyed to effect name
-   */
-  static _mapStoredEffectNames() {
-    const map = {}
-    const items = game.items ?? game.data.items;
-    items.forEach(item => {
-      const id = item.flags?.[MODULE_ID]?.[FLAGS.UNIQUE_EFFECT.ID];
-      if ( id ) map[id] = item.name;
-    });
+export class TerrainItemEffect extends TerrainMixin(UniqueItemEffect) {}
 
-    // Currently no default names, otherwise those would be valid as well.
-    return map;
-  }
-}
-
-export class TerrainFlagEffect extends TerrainMixin(UniqueFlagEffect) {
-  /**
-   * Search documents for all stored effects.
-   * Child class may also include default effects not yet created.
-   * This should not require anything to be loaded, so it can be run at canvas.init.
-   * @returns {Object<string, string>} Effect id keyed to effect name
-   */
-  static _mapStoredEffectNames() {
-    const map = {}
-    const items = Settings._getStorageValue(this.settingsKey);
-    items.forEach(item => {
-      const id = item.flags?.[MODULE_ID]?.[FLAGS.UNIQUE_EFFECT.ID];
-      if ( id ) map[id] = item.name;
-    });
-
-    // Currently no default names, otherwise those would be valid as well.
-    return map;
-  }
-}
+export class TerrainFlagEffect extends TerrainMixin(UniqueFlagEffect) {}
 
 export class TerrainPF2E extends TerrainItemEffect {
 
