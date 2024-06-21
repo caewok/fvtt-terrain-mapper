@@ -1,4 +1,5 @@
 /* globals
+CONFIG,
 foundry,
 fromUuid,
 game
@@ -198,6 +199,47 @@ export class UniqueItemEffect extends AbstractUniqueEffect {
    * are saved.
    */
   static async _initializeStorageMap() { this._storageMap = game.items; }
+
+  /**
+   * Initialize default effects by adding the document(s) to the storage map.
+   */
+  static async _initializeDefaultEffects() {
+    const defaultCompendiumIds = CONFIG[MODULE_ID].defaultCoverJSONs;
+    if ( !defaultCompendiumIds ) return;
+    const defaultMap = await this.loadDefaultCompendiumItems(defaultCompendiumIds);
+    const promises = [];
+    defaultMap.forEach(data => {
+      data.name = game.i18n.localize(data.name);
+      promises.push(this._createNewDocument(data));
+    });
+    await Promise.allSettled(promises);
+  }
+
+  /**
+   * Reset default effects by removing the existing ids and re-adding.
+   */
+  static async _resetDefaultEffects() {
+    const defaultCompendiumIds = CONFIG[MODULE_ID].defaultCoverJSONs;
+    if ( !defaultCompendiumIds ) return;
+    const defaultMap = await this.loadDefaultCompendiumItems(defaultCompendiumIds);
+
+    // Delete existing.
+    for ( const key of defaultMap.keys() ) {
+      const effect = this._instances.get(key);
+      if ( !effect ) continue;
+      await effect._deleteDocument();
+    }
+
+    const promises = [];
+    defaultMap.forEach(data => {
+      data.name = game.i18n.localize(data.name);
+      promises.push(this._createNewDocument(data));
+    });
+    await Promise.allSettled(promises);
+
+    // Re-create the effects as necessary.
+    for ( const key of defaultMap.keys() ) { await this.create(key); }
+  }
 }
 
 // ----- NOTE: Helper functions ----- //

@@ -1,4 +1,5 @@
 /* globals
+CONFIG,
 CONST,
 foundry,
 fromUuid,
@@ -226,6 +227,47 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
     });
     // Currently no default names, otherwise those would be valid as well.
     return map;
+  }
+
+  /**
+   * Initialize default effects by adding the document(s) to the storage map.
+   */
+  static async _initializeDefaultEffects() {
+    const defaultCoverJSONs = CONFIG[MODULE_ID].defaultCoverJSONs;
+    if ( !defaultCoverJSONs ) return;
+    const defaultMap = await this.loadDefaultJSONs(defaultCoverJSONs);
+    const promises = [];
+    defaultMap.forEach(data => {
+      data.name = game.i18n.localize(data.name);
+      promises.push(this._createNewDocument(data));
+    });
+    await Promise.allSettled(promises);
+  }
+
+  /**
+   * Reset default effects by removing the existing ids and re-adding.
+   */
+  static async _resetDefaultEffects() {
+    const defaultCoverJSONs = CONFIG[MODULE_ID].defaultCoverJSONs;
+    if ( !defaultCoverJSONs ) return;
+    const defaultMap = await this.loadDefaultJSONs(defaultCoverJSONs);
+
+    // Delete existing.
+    for ( const key of defaultMap.keys() ) {
+      const effect = this._instances.get(key);
+      if ( !effect ) continue;
+      await effect._deleteDocument();
+    }
+
+    const promises = [];
+    defaultMap.forEach(data => {
+      data.name = game.i18n.localize(data.name);
+      promises.push(this._createNewDocument(data));
+    });
+    await Promise.allSettled(promises);
+
+    // Re-create the effects as necessary.
+    for ( const key of defaultMap.keys() ) { await this.create(key); }
   }
 
   // ----- NOTE: Other methods specific to AEs ----- //
