@@ -364,7 +364,7 @@ export class AbstractUniqueEffect {
    * @param {AbstractUniqueEffect[]|Set<AbstractUniqueEffect>} effects   Effects to add. Each unique effect may only be added once each call.
    * @returns {boolean} True if change was made.
    */
-  static addToTokenLocally(token, effects, refresh = true) {
+  static addToTokenLocally(token, effects, { refresh = true } = {}) {
     const toAdd = this._trimDuplicates(token, effects);
     if ( !toAdd.length ) return false;
     if ( !this._addToTokenLocally(token, toAdd) ) return false;
