@@ -1,18 +1,23 @@
 /* globals
-foundry
+CONFIG,
+CONST,
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
 import { MODULE_ID, FLAGS } from "../const.js";
-import { Settings } from "../settings.js";
-import { AbstractUniqueEffect } from "./AbstractUniqueEffect.js";
+import { log } from "../util.js";
+import { UniqueActiveEffect } from "./UniqueActiveEffect.js";
 
 /**
  * Represent a unique effect that is applied to tokens. E.g., cover, terrain.
  * Applied via active effects on the token actor.
+ * The base document is the active effect stored in the item, which governs the rules.
+ * The token flag stores the id of the base document and any post-doc creation flags, such as the local flag.
+ * To mimic the token.actor.effect map, a map is generated for the given ids.
+ * The token document also handles displaying the icon on the token.
  */
-export class UniqueFlagEffect extends AbstractUniqueEffect {
+export class UniqueFlagEffect extends UniqueActiveEffect {
 
   // ----- NOTE: Document-related methods ----- //
   toDragData() {
@@ -29,9 +34,8 @@ export class UniqueFlagEffect extends AbstractUniqueEffect {
    */
   static getTokenStorage(token) {
     // Tokens do not have a map of effect docs, so this is effectively a map of flag documents "on" the token.
-    return FlagDocument.allDocumentsOnToken(token);
+    return TokenFlagUniqueEffectDocument.allDocumentsOnToken(token);
   }
-
 
   /**
    * Method implemented by child class to add 1+ effects to the token.
@@ -41,8 +45,9 @@ export class UniqueFlagEffect extends AbstractUniqueEffect {
    * @returns {boolean} True if change was made
    */
   static async _addToToken(token, effects) {
+    const docs = effects.map(effect => new TokenFlagUniqueEffectDocument(token, effect));
     const promises = [];
-    for ( const effect of effects ) promises.push(effect.document.addToToken(token));
+    for ( const doc of docs ) promises.push(doc.addToToken());
     await Promise.allSettled(promises);
     return true;
   }
@@ -54,7 +59,8 @@ export class UniqueFlagEffect extends AbstractUniqueEffect {
    * @returns {boolean} True if change was made
    */
   static _addToTokenLocally(token, effects) {
-    for ( const effect of effects ) effect.document.addToTokenLocally(token);
+    const docs = effects.map(effect => new TokenFlagUniqueEffectDocument(token, effect));
+    for ( const doc of docs ) doc.addToTokenLocally();
     return true;
   }
 
@@ -63,16 +69,12 @@ export class UniqueFlagEffect extends AbstractUniqueEffect {
    * If duplicates, only the first effect present will be removed
    * @param {Token } token      Token to remove the effect from.
    * @param {AbstractUniqueEffect[]} effects
-   * @param {boolean} [removeAll=false] If true, remove all effects that match, not just the first
    * @returns {boolean} True if change was made
    */
-  static async _removeFromToken(token, effects, removeAllDuplicates = true) {
-    const effectsSet = new Set([...effects]);
+  static async _removeFromToken(token, effects) {
+    const docs = effects.map(effect => new TokenFlagUniqueEffectDocument(token, effect));
     const promises = [];
-    for ( const effect of effects ) {
-      promises.push(effect.document.removeFromToken(token));
-      if ( !removeAllDuplicates ) effectsSet.delete(effect);
-    }
+    for ( const doc of docs ) promises.push(doc.removeFromToken());
     await Promise.allSettled(promises);
     return true;
   }
@@ -81,181 +83,78 @@ export class UniqueFlagEffect extends AbstractUniqueEffect {
    * Method implemented by child class to remove from token.
    * @param {Token } token      Token to remove the effect from.
    * @param {AbstractUniqueEffect[]} effects
-   * @param {boolean} [removeAll=false] If true, remove all effects that match, not just the first
    * @returns {boolean} True if change was made
    */
-  static _removeFromTokenLocally(token, effects, removeAllDuplicates = true) {
-    const effectsSet = new Set([...effects]);
-    for ( const effect of effects ) {
-      effect.document.removeFromTokenLocally(token);
-      if ( !removeAllDuplicates ) effectsSet.delete(effect);
-    }
+  static _removeFromTokenLocally(token, effects) {
+    const docs = effects.map(effect => new TokenFlagUniqueEffectDocument(token, effect));
+    for ( const doc of docs ) doc.removeFromTokenLocally();
     return true;
   }
 
-  // ----- NOTE: Static document handling ----- //
-
   /**
-   * Create an effect document from scratch.
-   * @param {object} data   Data to use to construct the document
-   * @returns {Document|object}
+   * Refresh the token display and sheet when adding a local effect.
+   * @param {Token} token
    */
-  static async _createNewDocument(data) {
-    data.id = data.flags[MODULE_ID][FLAGS.UNIQUE_EFFECT.ID];
-    return FlagDocument.create([ data ])[0];
-  }
-
-  /**
-   * Update the document for this effect.
-   * Typically when importing from JSON.
-   * @param {object[]} [data]    Data used to update the document
-   */
-  async updateDocument(data) {
-    data.id = this.document.id;
-    return this.document.update([data]);
-  }
-
-  /**
-   * Delete the underlying stored document.
-   */
-  async _deleteDocument() { return this.document.delete([this.document.id]); }
-
-  // ----- NOTE: Static multiple document handling ---- //
-
-
-  /**
-   * Initialize item used to store active effects.
-   * Once created, it will be stored in the world and becomes the method by which cover effects
-   * are saved.
-   */
-  static async _initializeStorageMap() {
-    this._storageMap = FlagDocument.allDocuments;
+  static refreshTokenDisplay(token) {
+    // Drop refreshing the actor sheet as there is none for cover flags.
+    // Also don't need to reset the actor as no effects applied.
+    token.renderFlags.set({ redrawEffects: true });
   }
 }
 
 /**
- * Basic document representation for setting values using only flags.
- * Stored to a settings key
+ * Represents a unique effect document stored on a token flag.
+ * Flags passed through to the token, but changes to the underlying document flags store at the token level.
+ * Handles display of token icons.
  */
-class FlagDocument {
+class TokenFlagUniqueEffectDocument {
 
-  /** @type {object} */
-  id = "";
+  /** @type {Token} */
+  token;
 
-  constructor(id) {
-    this.id = id;
-    this.constructor.allDocuments.set(id, this);
-  }
+  /** @type {AbstractUniqueEffect} */
+  uniqueEffect;
 
-
-  /**
-   * Update this document.
-   */
-  async update(data) {
-    data.id = this.id;
-    return this.constructor.update([data]);
-  }
-
-  /**
-   * Delete this document.
-   */
-  async delete() { return this.constructor.delete([this.id]); }
-
-  /**
-   * Mimics the Foundry Document#getFlag method.
-   * @param {string} scope    Module id
-   * @param {string} key      Which flag to return
-   * @returns {*}
-   */
-  getFlag(scope, key) {
-    const settingsData = Settings.get(this.constructor.settingsKey);
-    const doc = settingsData[this.id];
-    return doc?.flags[scope]?.[key];
-  }
-
-  /**
-   * Mimics the Foundry Document#getFlag method.
-   * @param {string} scope    Module id
-   * @param {string} key      Which flag to return
-   * @returns {*}
-   */
-  async setFlag(scope, key, value) {
-    const settingsData = Settings.get(this.constructor.settingsKey);
-    const doc = settingsData[this.id] ??= {};
-    doc[scope] ??= {};
-    doc[scope][key] = value;
-    return Settings.set(this.constructor.settingsKey, settingsData);
-  }
-
-  async unsetFlag(scope, key) {
-    const settingsData = Settings.get(this.constructor.settingsKey);
-    const doc = settingsData[this.id] ??= {};
-    doc[scope] ??= {};
-    delete doc[scope][key];
-    return Settings.set(this.constructor.settingsKey, settingsData);
-  }
-
-  /**
-   * Get all flag data for adding to token.
-   * @type {object}
-   */
-  get _allFlagData() {
-    const settingsData = Settings.get(this.constructor.settingsKey);
-    return settingsData[this.id].flags;
-  }
-
-  /**
-   * Add this to a token.
-   * @param {Token} token
-   */
-  async addToToken(token) {
-    return token.document.setFlag(MODULE_ID, this.id, this._allFlagData);
-  }
-
-  /**
-   * Add this to a token locally.
-   * @param {Token} token
-   */
-  addToTokenLocally(token) {
-    return token.document.updateSource({
-      flags: {
-        [MODULE_ID]: {
-          [this.id]: this._allFlagData,
-          [FLAGS.UNIQUE_EFFECT.IS_LOCAL]: true
-        }
-      }
-    });
-  }
-
-  /**
-   * Remove this from a token.
-   * @param {Token} token
-   */
-  async removeFromToken(token) { token.document.unsetFlag(MODULE_ID, this.id); }
-
-  /**
-   * Remove this from a token locally.
-   * @param {Token} token
-   */
-  removeFromTokenLocally(token) {
-    const flags = token.document.flags[MODULE_ID];
-    if ( !flags ) return;
-    delete flags[this.id];
+  constructor(token, uniqueEffect) {
+    this.token = token;
+    this.uniqueEffect = uniqueEffect;
   }
 
   /** @type {string} */
-  static get settingsKey() { return Settings.KEYS.UNIQUE_EFFECTS_FLAGS_DATA; }
+  get img() { return this.uniqueEffect.img; }
 
-  /** @type {Map<id, FlagDocument>} */
-  static #allDocuments;
+  /** @type {string} */
+  get name() { return this.uniqueEffect.name; }
 
-  static get allDocuments() {
-    if ( !this.#allDocuments ) {
-      // Retrieve all documents from settings and initialize.
-      this.#allDocuments = new Map();
-      for ( const [key, value] of Object.entries(Settings.get(this.settingsKey)) ) this.#allDocuments.set(key, new this(key));
-    }
-    return this.#allDocuments;
+  /** @type {string} */
+  get uniqueEffectId() { return this.uniqueEffect.uniqueEffectId; }
+
+  /** @type {boolean} */
+  get isLocal() { return this.token.flags?.[MODULE_ID]?.[FLAGS.UNIQUE_EFFECT.IS_LOCAL] === "local" || false; }
+
+  /** @type {boolean} */
+  get displayStatusIcon() {
+    return this.token.document.disposition !== CONST.TOKEN_DISPOSITIONS.SECRET
+      && this.uniqueEffect.displayStatusIcon;
+  }
+
+  /** @type {string} */
+  get type() { return this.uniqueEffect.type; }
+
+  /**
+   * Get flag data from the token or if not present, the base effect.
+   */
+  getFlag(scope, key) {
+    const tokenFlag = this.token.document.getFlag(scope, key);
+    if ( typeof tokenFlag !== "undefined" )  return tokenFlag;
+    return this.uniqueEffect.document.getFlag(scope, key);
+  }
+
+  /**
+   * Set flag data on the token.
+   */
+  async setFlag(scope, key, value) {
+    return this.uniqueEffect.document.setFlag(scope, key, value);
   }
 
   /**
@@ -267,56 +166,77 @@ class FlagDocument {
     const m = new Map();
     const flags = token.document.flags?.[MODULE_ID];
     if ( !flags ) return m;
-    const allDocs = this.allDocuments;
-    for ( const id of allDocs.keys() ) {
-      if ( Object.hasOwn(flags, id) ) m.set(id, allDocs.get(id));
-    }
+
+    for ( const [id, effect] of CONFIG[MODULE_ID].UniqueEffect._instances.entries() ) {
+      if ( Object.hasOwn(flags, id) ) m.set(id, new this(token, effect));
+    };
     return m;
   }
 
   /**
-   * Create document(s) in the settings.
-   * @param {object[]} data     Each must have an id, optional flag property with data
-   * @returns {FlagDocument}
+   * Add reference to this effect to a token.
+   * @param {Token} token
    */
-  static async create(data) {
-    const settingsData = Settings.get(this.settingsKey) ?? {};
-    const docs = [];
-    for ( const datum of data ) {
-      if ( !datum.id ) continue;
-      settingsData[datum.id] ??= {};
-      foundry.utils.mergeObject(settingsData[datum.id], datum);
-      docs.push(new this(datum.id));
-    }
-    await Settings.set(this.settingsKey, settingsData);
-    return docs;
+  async addToToken() {
+    log(`UniqueFlagEffect#addToToken|Adding ${this.name} to ${this.token.name}`);
+    await this.token.document.setFlag(MODULE_ID, this.uniqueEffectId, true);
+    if ( this.displayStatusIcon ) this.token[MODULE_ID].addIcon({
+        id: this.uniqueEffectId,
+        category: this.type,
+        src: this.img });
   }
 
   /**
-   * Update document in settings.
+   * Add locally a reference to this effect to a token.
+   * @param {Token} token
    */
-  static async update(data) {
-    const settingsData = Settings.get(this.settingKey);
-    const docs = [];
-    for ( const datum of data ) {
-      if ( !datum.id ) continue;
-      if ( !settingsData[datum.id] ) continue;
-      foundry.utils.mergeObject(settingsData[datum.id], datum);
-      docs.push(new this(datum.id));
-    }
-    await Settings.set(this.settingsKey, settingsData);
-    return docs;
+  addToTokenLocally() {
+    log(`UniqueFlagEffect#addToTokenLocally|Adding ${this.name} to ${this.token.name}`);
+    // updateSource will not work with periods. Simpler actually to stop using periods in the id.
+    this.token.document.flags[MODULE_ID] ??= {};
+    this.token.document.flags[MODULE_ID][this.uniqueEffectId] = "local";
+
+    // this.token.document.updateSource({
+//       flags: {
+//         [MODULE_ID]: {
+//           [this.uniqueEffectId]: "local"
+//         }
+//       }
+//     });
+    if ( this.displayStatusIcon ) this.token[MODULE_ID].addIcon({
+        id: this.uniqueEffectId,
+        category: this.type,
+        src: this.img });
   }
 
   /**
-   * Delete document(s) from settings.
+   * Remove reference to this effect from a token.
+   * @param {Token} token
    */
-  static async delete(ids) {
-    const settingsData = Settings.get(this.settingKey);
-    for ( const id of ids ) {
-      delete settingsData[id];
-      this.allDocuments.delete(id);
-    }
-    await Settings.set(this.settingsKey, settingsData);
+  async removeFromToken() {
+    log(`UniqueFlagEffect#removeFromToken|Removing ${this.name} from ${this.token.name}`);
+    this.token.document.unsetFlag(MODULE_ID, this.uniqueEffectId);
+    this.token[MODULE_ID].removeIcon({
+        id: this.uniqueEffectId,
+        category: this.type,
+        src: this.img });
+  }
+
+  /**
+   * Remove locally a reference to this effect from a token.
+   * @param {Token} token
+   */
+  removeFromTokenLocally() {
+    log(`UniqueFlagEffect#removeFromTokenLocally|Removing ${this.name} from ${this.token.name}`);
+    const flags = this.token.document.flags?.[MODULE_ID];
+    if ( !flags ) return;
+    delete flags[`${this.uniqueEffectId}`];
+    this.token[MODULE_ID].removeIcon({
+        id: this.uniqueEffectId,
+        category: this.type,
+        src: this.img });
   }
 }
+
+
+

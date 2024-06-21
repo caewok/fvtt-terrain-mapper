@@ -2,7 +2,7 @@
   "flags": {
     "terrainmapper": {
       "uniqueEffectType": "Terrain",
-      "uniqueEffectId": "terrainmapper.Terrain.dnd5e.cliff",
+      "uniqueEffectId": "Terrain_cliff",
       "duplicatesAllowed": false,
       "displayStatusIcon": true,
       "version": "0.3.0"
