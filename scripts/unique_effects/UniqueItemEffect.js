@@ -70,8 +70,8 @@ export class UniqueItemEffect extends AbstractUniqueEffect {
       const doc = effect.document.toObject();
       doc.flags[MODULE_ID][FLAGS.UNIQUE_EFFECT.IS_LOCAL] = true;
 
-      const ae = token.actor.effects.createDocument(effect.document);
-      token.actor.effects.set(ae.id, ae);
+      const ae = token.actor.items.createDocument(effect.document);
+      token.actor.items.set(ae.id, ae);
     }
     return true;
   }
@@ -103,7 +103,7 @@ export class UniqueItemEffect extends AbstractUniqueEffect {
     if ( !token.actor ) return false;
     const ids = this.tokenDocumentsForUniqueEffects(token, effects, removeAllDuplicates).map(doc => doc.id);
     if ( !ids.length ) return false;
-    for ( const id of ids ) token.actor.effects.delete(id);
+    for ( const id of ids ) token.actor.items.delete(id);
     return true;
   }
 

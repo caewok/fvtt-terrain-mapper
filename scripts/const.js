@@ -15,7 +15,8 @@ export const TEMPLATES = {
   SCENE: `modules/${MODULE_ID}/templates/scene-config.html`,
   ACTIVE_EFFECT: `modules/${MODULE_ID}/templates/active-effect-config.html`,
   TERRAIN_BOOK: `modules/${MODULE_ID}/templates/terrain-effects-menu-app.html`,
-  SETTINGS: `modules/${MODULE_ID}/templates/settings-menu-tab-partial.html`
+  SETTINGS: `modules/${MODULE_ID}/templates/settings-menu-tab-partial.html`,
+  ITEM_PF2e: `modules/${MODULE_ID}/templates/item-config-pf2e.html`
 }
 
 // Track certain modules that complement features of this module.
