@@ -632,8 +632,8 @@ export class AbstractUniqueEffect {
 
     // Ensure the unique id is correctly formatted by overwriting from a known good value.
     const oldId = doc.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.ID);
-    const splitRes = this.deconstructUniqueEffectId(oldId);
-    const newId = this.uniqueEffectId({ baseEffectId: splitRes.baseEffectId });
+    const splitRes = oldId ? this.deconstructUniqueEffectId(oldId) : undefined;
+    const newId = this.uniqueEffectId({ baseEffectId: splitRes?.baseEffectId });
     changes.flags[MODULE_ID][FLAGS.UNIQUE_EFFECT.ID] = newId;
 
     // Update the document.
@@ -661,7 +661,7 @@ export class AbstractUniqueEffect {
     await this._initializeStorageMap();
 
     // If no effects are present in the storage map, add default effects back in.
-    if ( !this._storageMap?.size ) await this._initializeDefaultEffects();
+    if ( !this.storageDocuments.length ) await this._initializeDefaultEffects();
 
     // Check if documents must be updated for a new version.
     await this.transitionDocuments();
