@@ -55,6 +55,7 @@ export class SetTerrainRegionBehaviorType extends TerrainRegionBehaviorType {
 
   static async #onTokenEnter(event) {
     log(`Token ${event.data.token.name} entering ${event.region.name}!`);
+    if ( !game.user.isGM ) return;
     const token = event.data.token?.object;
     if ( !token ) return;
 
@@ -62,11 +63,12 @@ export class SetTerrainRegionBehaviorType extends TerrainRegionBehaviorType {
     const Terrain = CONFIG[MODULE_ID].Terrain;
     const terrainsToAdd = new Set([...this.terrains].map(id => Terrain._instances.get(id)).filter(t => Boolean(t)));
     if ( !terrainsToAdd.size ) return;
-    for ( const terrain of terrainsToAdd ) await terrain.addToToken(token);
+    await Terrain.addToToken(token, terrainsToAdd);
   }
 
   static async #onTokenExit(event) {
     log(`Token ${event.data.token.name} exiting ${event.region.name}!`);
+    if ( !game.user.isGM ) return;
     const token = event.data.token?.object;
     if ( !token ) return;
 
