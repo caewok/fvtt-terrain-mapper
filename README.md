@@ -14,6 +14,8 @@ This [Foundry VTT](https://foundryvtt.com) module provides a terrain canvas laye
 
 This module intends to be system-neutral. Note that at the moment, however, this module requires a system that uses Foundry VTT's active effects system. I will endeavor to make this module compatible with other systems upon request (and to the extent possible).
 
+You can use the [wiki page](https://github.com/caewok/fvtt-terrain-mapper/wiki/Terrains) to share exported terrains.
+
 # Thanks
 
 Special thanks to:
@@ -28,6 +30,9 @@ Special thanks to:
 
 ## Recommended modules
 - [Elevated Vision](https://github.com/caewok/fvtt-elevated-vision). Elevated Vision allows the GM to set elevation for the canvas. Terrain Mapper will account for the differing elevation when applying terrains to the token.
+
+# Known issues
+- Not currently compatible with PF2e system. Unfortunately, PF2e does not use active effects. I may implement an alternative for PF2e in the future.
 
 # Basic Use
 
