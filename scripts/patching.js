@@ -17,6 +17,7 @@ import { PATCHES as PATCHES_RegionLayer } from "./regions/RegionLayer.js";
 import { PATCHES as PATCHES_SceneConfig } from "./SceneConfig.js";
 import { PATCHES as PATCHES_SetElevationRegionBehaviorType } from "./regions/SetElevationRegionBehaviorType.js";
 import { PATCHES as PATCHES_ModuleSettingsAbstract } from "./ModuleSettingsAbstract.js";
+import { PATCHES as PATCHES_ItemSheet } from "./ItemSheet.js";
 
 export const PATCHES = {
   ActiveEffect: PATCHES_ActiveEffect,
@@ -24,6 +25,7 @@ export const PATCHES = {
   ["foundry.canvas.edges.CanvasEdges"]: PATCHES_CanvasEdges,
   ClientSettings: PATCHES_ModuleSettingsAbstract,
   ItemDirectory: PATCHES_ItemDirectory,
+  ItemSheet: PATCHES_ItemSheet,
   RegionLayer: PATCHES_RegionLayer,
   SceneConfig: PATCHES_SceneConfig,
   SidebarTab: PATCHES_SidebarTab,
@@ -42,4 +44,7 @@ export function initializePatching() {
   PATCHER.registerGroup("BASIC");
   PATCHER.registerGroup("REGIONS");
   PATCHER.registerGroup(game.system.id);
+
+  if ( game.system.id === "sfrpg" || game.system.id === "pf2e" ) PATCHER.registerGroup("COVER_ITEM");
+
 }

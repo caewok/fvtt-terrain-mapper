@@ -1,0 +1,89 @@
+{
+  "flags": {
+    "terrainmapper": {
+      "uniqueEffectType": "Terrain",
+      "uniqueEffectId": "Terrain_PmikWYvkACZ7LEkT",
+      "duplicatesAllowed": true,
+      "displayStatusIcon": true,
+      "version": "#{VERSION}#"
+    }
+  },
+  "name": "Greater Difficult Terrain",
+  "img": "icons/svg/downgrade.svg",
+  "type": "effect",
+  "effects": [],
+  "system": {
+    "description": {
+      "gm": "",
+      "value": "<p>75% Penalty to all speeds.</p>"
+    },
+    "rules": [
+      {
+        "key": "AdjustModifier",
+        "label": "PF2E.SpecificRule.CriticalDeck.Effect.Label",
+        "selector": "speed",
+        "slug": "difficult terrain penalty",
+        "type": "circumstance",
+        "value": 0.25,
+        "mode": "multiply"
+      }
+    ],
+    "slug": "difficult-terrain-penalty-quarter-speed",
+    "_migration": {
+      "version": 0.93,
+      "lastMigration": null,
+      "previous": {
+        "schema": null,
+        "foundry": "12.327",
+        "system": "6.0.2"
+      }
+    },
+    "traits": {
+      "otherTags": [],
+      "value": []
+    },
+    "publication": {
+      "title": "",
+      "authors": "",
+      "license": "OGL",
+      "remaster": false
+    },
+    "level": {
+      "value": 1
+    },
+    "duration": {
+      "value": -1,
+      "unit": "unlimited",
+      "expiry": null,
+      "sustained": false
+    },
+    "start": {
+      "value": 0,
+      "initiative": null
+    },
+    "tokenIcon": {
+      "show": true
+    },
+    "badge": null,
+    "context": null,
+    "unidentified": false
+  },
+  "folder": null,
+  "ownership": {
+    "default": 0,
+    "2pVrsrEmybzoncDe": 3
+  },
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "coreVersion": "12.327",
+    "systemId": "pf2e",
+    "systemVersion": "6.0.2",
+    "createdTime": 1719026606211,
+    "modifiedTime": 1719026606211,
+    "lastModifiedBy": "2pVrsrEmybzoncDe"
+  },
+  "_id": "98lbYn70C2mDJXIz",
+  "sort": 0,
+  "_key": "!items!98lbYn70C2mDJXIz"
+}
