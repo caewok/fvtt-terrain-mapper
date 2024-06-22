@@ -1,3 +1,10 @@
+## 0.3.0
+Uses the Foundry v12 Region system.
+Substantial re-write of the module.
+Provides two region behaviors: `setTerrain` and `setElevation`. Region behaviors trigger active effects on actors as they pass through regions.
+Enhanced region drawing tools provided: fill by grid squares, fill by line-of-sight, and fill enclosed walls. Fill by grid squares and fill enclosed walls both are capable of constructing region shapes with holes.
+Some default terrains provided for dnd5e and pf2e.
+
 ## 0.2.0
 Initial Foundry v12 compatibility.
 Additional releases (starting with v0.3.0) will focus on transitioning to using the Region system in v12. Version 0.2 series is completely separate from Regions and is intended as a stop-gap.
