@@ -50,8 +50,6 @@
 
   "documentTypes": {
     "RegionBehavior": {
-      "addTerrain": {},
-      "removeTerrain": {},
       "setElevation": {},
       "setTerrain": {}
     }

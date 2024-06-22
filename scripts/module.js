@@ -17,8 +17,8 @@ import { registerGeometry } from "./geometry/registration.js";
 import { WallTracerEdge, WallTracerVertex, WallTracer, SCENE_GRAPH } from "./WallTracer.js";
 
 // Regions
-import { AddTerrainRegionBehaviorType } from "./regions/AddTerrainRegionBehaviorType.js";
-import { RemoveTerrainRegionBehaviorType } from "./regions/RemoveTerrainRegionBehaviorType.js";
+// import { AddTerrainRegionBehaviorType } from "./regions/AddTerrainRegionBehaviorType.js";
+// import { RemoveTerrainRegionBehaviorType } from "./regions/RemoveTerrainRegionBehaviorType.js";
 import { SetTerrainRegionBehaviorType } from "./regions/SetTerrainRegionBehaviorType.js";
 import { SetElevationRegionBehaviorType } from "./regions/SetElevationRegionBehaviorType.js";
 
@@ -44,14 +44,14 @@ Hooks.once("init", function() {
   Settings.registerAll();
 
   Object.assign(CONFIG.RegionBehavior.dataModels, {
-    [`${MODULE_ID}.addTerrain`]: AddTerrainRegionBehaviorType,
-    [`${MODULE_ID}.removeTerrain`]: RemoveTerrainRegionBehaviorType,
+//     [`${MODULE_ID}.addTerrain`]: AddTerrainRegionBehaviorType,
+//     [`${MODULE_ID}.removeTerrain`]: RemoveTerrainRegionBehaviorType,
     [`${MODULE_ID}.setTerrain`]: SetTerrainRegionBehaviorType,
     [`${MODULE_ID}.setElevation`]: SetElevationRegionBehaviorType
   });
 
-  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.addTerrain`] = FA_ICONS.MODULE;
-  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.removeTerrain`] = FA_ICONS.MODULE;
+//   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.addTerrain`] = FA_ICONS.MODULE;
+//   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.removeTerrain`] = FA_ICONS.MODULE;
   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.setTerrain`] = FA_ICONS.MODULE;
   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.setElevation`] = FA_ICONS.ELEVATE;
 
