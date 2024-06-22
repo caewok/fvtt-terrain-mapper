@@ -22,7 +22,9 @@ PATCHES.BASIC = {};
  * @returns {boolean|void}                        Explicitly return false to prevent creation of this Document
  */
 function preCreateActiveEffect(document, data, options, userId) {
-  if ( !document.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.ID)
+  const uniqueEffectId = document.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.ID);
+  if ( !uniqueEffectId
+    || document.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.TYPE) !== "Terrain"
     || document.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.DUPLICATES_ALLOWED) ) return;
   const actor = document.parent;
   if ( !actor || !(actor instanceof Actor) ) return;
@@ -30,11 +32,9 @@ function preCreateActiveEffect(document, data, options, userId) {
   if ( !token ) return;
 
   // If this terrain already exists, don't add it to the actor.
-  const terrainId = document.origin.split(".")[1];
-  if ( !terrainId ) return;
-  const terrain = CONFIG[MODULE_ID].Terrain._instances.get(terrainId);
+  const terrain = CONFIG[MODULE_ID].Terrain._instances.get(uniqueEffectId);
   if ( !terrain ) return;
-  if ( terrain.tokenHasTerrain(terrain) ) return false;
+  if ( terrain.tokenHasTerrain(token) ) return false;
 }
 
 PATCHES.BASIC.HOOKS = { preCreateActiveEffect };
