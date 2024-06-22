@@ -69,19 +69,19 @@ Hooks.once("ready", () => {
             title: "Regions!",
             body: `\
                 This release is a substantial re-write of the module to take advantage of Foundry v12's regions.
-                Two region behaviors are provided: setTerrain and setElevation.
+                Two region behaviors are provided: Set Terrain and Set Elevation.
 
-                To use setTerrain, create one or more "Terrains" (which are essentially Active Effects) using the
+                To use Set Terrain, create one or more "Terrains" (which are essentially Active Effects) using the
                 Terrain Book found in the controls on the Region layer. Create a new region, and using the Set Terrain
                 region behavior, select one or more terrains. The terrains will be added as active effects to the token when
                 a token enters the region, and removed upon exit.
 
-                To use setTerrain, create a new region, and define an elevation using the Set Elevation region behavior.
+                To use Set Elevation, create a new region, and define an elevation using the Set Elevation region behavior.
                 The token will be set to the elevation upon entering the region, and restored to the scene background elevation
                 upon exit. You will find this works best if you set the top of the region to the elevation you want to apply.
                 (Think of the region as a plateau.)
 
-                For both setTerrain and setElevation, you can overlap 2+ regions to achieve more complex behavior.
+                For both Set Terrain and Set Elevation, you can overlap 2+ regions to achieve more complex behavior.
 
                 Advanced region drawing tools are also added to the region controls: fill-by-grid, fill-by-line-of-sight, and
                 fill-within-walls. These mimic tools provided in previous versions of Terrain Mapper.`
