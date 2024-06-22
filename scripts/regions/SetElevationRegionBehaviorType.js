@@ -7,7 +7,7 @@ foundry
 "use strict";
 
 import { MODULE_ID, FLAGS } from "../const.js";
-import { log } from "../util.js";
+import { log, isFirstGM } from "../util.js";
 
 export const PATCHES = {};
 PATCHES.REGIONS = {};
@@ -59,23 +59,16 @@ export class SetElevationRegionBehaviorType extends foundry.data.regionBehaviors
     [CONST.REGION_EVENTS.TOKEN_EXIT]: this.#onTokenExit
   };
 
-  async _handleRegionEvent(event) {
-    log("AddTerrainRegionBehaviorType|Set elevation", event, this);
-
-    // Confirm token is present.
-    const tokenD = event.data.token;
-    const token = tokenD?.object;
-    if ( !token ) return;
-  }
-
   static async #onTokenEnter(event) {
     const data = event.data;
     log(`Token ${data.token.name} entering ${event.region.name}!`);
+    if ( !isFirstGM() ) return;
     const tokenD = data.token;
     return tokenD.update({ elevation: this.elevation });
   }
 
   static async #onTokenExit(event) {
+    if ( !isFirstGM() ) return;
     const tokenD = event.data.token;
     const token = tokenD?.object;
     if ( !token ) return;

@@ -142,14 +142,14 @@ export function renderTemplateSync(path, data) {
   });
 }
 
-/*
-    cyrb53 (c) 2018 bryc (github.com/bryc)
+/**
+ * Locates a single active gm.
  * @returns {User|undefined}
  */
-    Largely inspired by MurmurHash2/3, but with a focus on speed/simplicity.
-    From https://github.com/bryc/code/blob/master/jshash/experimental/cyrb53.js
-*/
-const cyrb53 = function(str, seed = 0) {
-  let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
-  for(let i = 0, ch; i < str.length; i++) {
-    ch = str.charCodeAt(i);
+export function firstGM() { return game.users?.find((u) => u.isGM && u.active); }
+
+/**
+ * Is the current user the first active GM user?
+ * @returns {boolean}
+ */
+export function isFirstGM() { return game.user && game.user.id === firstGM()?.id; }
