@@ -11,7 +11,7 @@ saveDataToFile
 import { MODULE_ID, FLAGS } from "../const.js";
 import { log } from "../util.js";
 import { AsyncQueue } from "./AsyncQueue.js";
-import { updateDocument } from "./sockets.js";
+import { updateDocument } from "./documents.js";
 
 /* Class structure
 AbstractUniqueEffect

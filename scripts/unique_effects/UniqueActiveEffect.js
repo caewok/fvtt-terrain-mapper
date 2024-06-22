@@ -13,7 +13,7 @@ import {
   createDocument,
   createEmbeddedDocuments,
   updateEmbeddedDocuments,
-  deleteEmbeddedDocuments } from "./sockets.js";
+  deleteEmbeddedDocuments } from "./documents.js";
 import { log } from "../util.js";
 import { MODULE_ID, FLAGS } from "../const.js";
 

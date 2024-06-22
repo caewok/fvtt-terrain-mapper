@@ -5,7 +5,7 @@ RegionBehaviorType
 "use strict";
 
 import { MODULE_ID } from "../const.js";
-import { log } from "../util.js";
+import { log, isFirstGM } from "../util.js";
 import { TerrainRegionBehaviorType } from "./TerrainRegionBehaviorType.js";
 
 /**
@@ -27,6 +27,7 @@ export class RemoveTerrainRegionBehaviorType extends TerrainRegionBehaviorType {
 
   async _handleRegionEvent(event) {
     log("RemoveTerrainRegionBehaviorType|Remove terrain", event, this);
+    if ( !isFirstGM() ) return;
 
     // Confirm terrain and token are present.
     const tokenD = event.data.token;
