@@ -14,7 +14,7 @@ import {
   updateDocument,
   deleteDocument,
   createEmbeddedDocuments,
-  deleteEmbeddedDocuments } from "./sockets.js";
+  deleteEmbeddedDocuments } from "./documents.js";
 
 /**
  * Represent a unique effect that is applied to tokens. E.g., cover, terrain.

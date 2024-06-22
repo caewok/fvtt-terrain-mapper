@@ -7,7 +7,7 @@ foundry
 "use strict";
 
 import { MODULE_ID, FLAGS } from "../const.js";
-import { log } from "../util.js";
+import { log, isFirstGM } from "../util.js";
 import { TerrainRegionBehaviorType } from "./TerrainRegionBehaviorType.js";
 
 
@@ -55,7 +55,7 @@ export class SetTerrainRegionBehaviorType extends TerrainRegionBehaviorType {
 
   static async #onTokenEnter(event) {
     log(`Token ${event.data.token.name} entering ${event.region.name}!`);
-    if ( !game.user.isGM ) return;
+    if ( !isFirstGM() ) return;
     const token = event.data.token?.object;
     if ( !token ) return;
 
@@ -68,7 +68,7 @@ export class SetTerrainRegionBehaviorType extends TerrainRegionBehaviorType {
 
   static async #onTokenExit(event) {
     log(`Token ${event.data.token.name} exiting ${event.region.name}!`);
-    if ( !game.user.isGM ) return;
+    if ( !isFirstGM() ) return;
     const token = event.data.token?.object;
     if ( !token ) return;
 

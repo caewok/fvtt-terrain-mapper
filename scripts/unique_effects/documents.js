@@ -9,22 +9,10 @@ socketlib
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { MODULE_ID, SOCKETS } from "../const.js";
+import { MODULE_ID } from "../const.js";
 import { log } from "../util.js";
 
-// ----- NOTE: Set up sockets so GM can create or modify effects on tokens ----- //
-// Hooks.once("socketlib.ready", () => {
-//   SOCKETS.socket ??= socketlib.registerModule(MODULE_ID);
-//   SOCKETS.socket.register("createDocument", createDocument);
-//   SOCKETS.socket.register("updateDocument", updateDocument);
-//   SOCKETS.socket.register("deleteDocument", deleteDocument);
-//   SOCKETS.socket.register("createEmbeddedDocuments", createEmbeddedDocuments);
-//   SOCKETS.socket.register("updateEmbeddedDocuments", updateEmbeddedDocuments);
-//   SOCKETS.socket.register("deleteEmbeddedDocuments", deleteEmbeddedDocuments);
-// });
-
 /**
- * Socket function: createDocument
  * GM creates an document such as an item
  * @param {string} classPath    Path to document to create. E.g. "CONFIG.Item.documentClass"
  * @param {string} [uuid]       Example document to use
@@ -32,7 +20,6 @@ import { log } from "../util.js";
  * @returns {string} uuid of the item created
  */
 export async function createDocument(classPath, uuid, data) {
-  if ( !game.user.isGM ) return; // return SOCKETS.socket.executeAsGM("createDocument", classPath, uuid, data);
   const cl = foundry.utils.getProperty(window, classPath);
   if ( !cl ) return;
 
@@ -51,33 +38,28 @@ export async function createDocument(classPath, uuid, data) {
 }
 
 /**
- * Socket function: updateDocument
  * GM updates an document such as an item
  * @param {string} uuid   Container to update
  * @param {object} data   Data used to update the document
  */
 export async function updateDocument(uuid, data) {
-  if ( !game.user.isGM ) return; // return SOCKETS.socket.executeAsGM("updateDocument", uuid, data);
   const doc = fromUuidSync(uuid);
   if ( !doc ) return;
   await doc.update(data);
 }
 
 /**
- * Socket function: deleteDocument
  * GM deletes a document such as an item
  * @param {string} uuid   Item to delete
  * @param {object} data   Data used to create the effect
  */
 export async function deleteDocument(uuid) {
-  if ( !game.user.isGM ) return; // return SOCKETS.socket.executeAsGM("deleteDocument", uuid);
   const doc = fromUuidSync(uuid);
   if ( !doc ) return;
   await doc.delete();
 }
 
 /**
- * Socket function: createEmbeddedDocuments
  * GM creates the embedded documents in a collection
  * Document should already exist somewhere else so its data can be copied.
  * @param {string} uuid           Container that embeds the documents
@@ -90,7 +72,6 @@ export async function deleteDocument(uuid) {
 export async function createEmbeddedDocuments(containerUuid, embeddedName, uuids = [], data = []) {
   const numDocs = uuids.length || data.length;
   if ( !numDocs ) return;
-  if ( !game.user.isGM ) return; // return SOCKETS.socket.executeAsGM("createEmbeddedDocuments", containerUuid, embeddedName, uuids, data);
 
   // Locate container in which to store the embedded documents.
   const container = await fromUuid(containerUuid);
@@ -122,7 +103,6 @@ export async function createEmbeddedDocuments(containerUuid, embeddedName, uuids
 }
 
 /**
- * Socket function: updateEmbeddedDocuments
  * GM updates the embedded documents in a collection
  * Document should already exist somewhere else so its data can be copied.
  * @param {string} uuid           Container that embeds the documents
@@ -130,7 +110,6 @@ export async function createEmbeddedDocuments(containerUuid, embeddedName, uuids
  * @param {string[]} data         Data used to update the embedded docs
  */
 export async function updateEmbeddedDocuments(containerUuid, embeddedName, data) {
-  if ( !game.user.isGM ) return; // return SOCKETS.socket.executeAsGM("updateEmbeddedDocuments", containerUuid, embeddedName, data);
   if ( !data.length ) return;
   const container = fromUuidSync(containerUuid);
   if ( !container ) return [];
@@ -138,7 +117,6 @@ export async function updateEmbeddedDocuments(containerUuid, embeddedName, data)
 }
 
 /**
- * Socket function: deleteEmbeddedDocuments
  * GM deletes the embedded documents from a collection
  * Document should already exist somewhere else so its data can be copied.
  * @param {string} uuid           Container that embeds the documents
@@ -146,7 +124,6 @@ export async function updateEmbeddedDocuments(containerUuid, embeddedName, data)
  * @param {string[]} ids          Document ids to be deleted
  */
 export async function deleteEmbeddedDocuments(containerUuid, embeddedName, ids) {
-  if ( !game.user.isGM ) return; // return SOCKETS.socket.executeAsGM("deleteEmbeddedDocuments", containerUuid, embeddedName, ids);
   if ( !ids.length ) return;
   const container = fromUuidSync(containerUuid);
   if ( !container ) return [];
