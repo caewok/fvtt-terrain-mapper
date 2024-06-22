@@ -143,9 +143,4 @@ function initializeConfig() {
     default:
       CONFIG[MODULE_ID].Terrain = TerrainActiveEffect;
   }
-
-
 }
-
-
-
