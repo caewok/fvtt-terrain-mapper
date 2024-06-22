@@ -4,28 +4,24 @@
 >
   <!-- Directory Header -->
   <header class='directory-header'>
-    {{#if isGM}}
+
+      <!-- Create Terrain Button -->
       <div class='header-actions action-buttons flexrow'>
         <button class='create-effect'>
           <i class='fas fa-person-hiking'></i>
-          Create Terrain
+          {{ localize "terrainmapper.terrainbook.create-terrain" }}
         </button>
       </div>
 
+      <!-- Create Defaults Button -->
+      {{#if hasDefaults}}
       <div class='header-actions action-buttons flexrow'>
-        <button class='edit-scene-terrains'>
-          <i class='fas fa-pen-to-square'></i>
-          Advanced Scene Configuration
+        <button class='create-defaults'>
+          <i class='fas fa-file-image'></i>
+           {{ localize "terrainmapper.terrainbook.create-defaults" }}
         </button>
       </div>
-
-      <div class='header-actions action-buttons flexrow'>
-        <button class='list-terrains'>
-          <i class='fas fa-rectangle-list'></i>
-          List Terrains (Advanced Edit)
-        </button>
-      </div>
-    {{/if}}
+      {{/if}}
     <div class='header-search flexrow'>
       <i class='fas fa-search'></i>
       <input
@@ -39,14 +35,12 @@
       <a class='header-control collapse-all' title='Collapse All Folders'>
         <i class='fas fa-duotone fa-folder-tree'></i>
       </a>
-      {{#if isGM}}
         <a
           class='header-control reset-status-effects'
           title='Reset Terrains to Defaults'
         >
           <i class='fas fa-undo fa-fw'></i>
         </a>
-      {{/if}}
     </div>
   </header>
   <!-- Directories List -->

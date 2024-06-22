@@ -48,8 +48,34 @@
     }
   ],
 
+  "documentTypes": {
+    "RegionBehavior": {
+      "setElevation": {},
+      "setTerrain": {}
+    }
+  },
+
   "styles": [
     "styles/terrainlayer.css"
+  ],
+
+  "packs": [
+    {
+      "name": "terrainmapper_items_sfrpg",
+      "label": "Terrain Mapper Items",
+      "path": "packs/items/sfrpg",
+      "type": "Item",
+      "private": false,
+      "system": "sfrpg"
+    },
+    {
+      "name": "terrainmapper_items_pf2e",
+      "label": "Terrain Mapper Items",
+      "path": "packs/items/pf2e",
+      "type": "Item",
+      "private": false,
+      "system": "pf2e"
+    }
   ],
 
   "url": "#{URL}#",

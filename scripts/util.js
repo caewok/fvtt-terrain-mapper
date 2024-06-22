@@ -126,3 +126,84 @@ export function segmentBounds(a, b) {
   return new PIXI.Rectangle(xMinMax.min, yMinMax.min, xMinMax.max - xMinMax.min, yMinMax.max - yMinMax.min);
 }
 
+/**
+ * Synchronous version of renderTemplate.
+ * Requires the template to be already loaded.
+ * @param {string} path             The file path to the target HTML template
+ * @param {Object} data             A data object against which to compile the template
+ * @returns {string|undefined}      Returns the compiled and rendered template as a string
+ */
+export function renderTemplateSync(path, data) {
+  if ( !Object.hasOwn(Handlebars.partials, path) ) return;
+  const template = Handlebars.partials[path];
+  return template(data || {}, {
+    allowProtoMethodsByDefault: true,
+    allowProtoPropertiesByDefault: true
+  });
+}
+
+/*
+    cyrb53 (c) 2018 bryc (github.com/bryc)
+    License: Public domain (or MIT if needed). Attribution appreciated.
+    A fast and simple 53-bit string hash function with decent collision resistance.
+    Largely inspired by MurmurHash2/3, but with a focus on speed/simplicity.
+    From https://github.com/bryc/code/blob/master/jshash/experimental/cyrb53.js
+*/
+const cyrb53 = function(str, seed = 0) {
+  let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
+  for(let i = 0, ch; i < str.length; i++) {
+    ch = str.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1  = Math.imul(h1 ^ (h1 >>> 16), 2246822507);
+  h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2  = Math.imul(h2 ^ (h2 >>> 16), 2246822507);
+  h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+};
+
+function hexEncode(str){
+    var hex, i;
+
+    var result = "";
+    for (i=0; i<str.length; i++) {
+        hex = str.charCodeAt(i).toString(16);
+        result += ("000"+hex).slice(-4);
+    }
+
+    return result
+}
+
+async function digest(message) {
+  const msgUint8 = new TextEncoder().encode(message); // encode as (utf-8) Uint8Array
+  const hashBuffer = await window.crypto.subtle.digest("SHA-256", msgUint8); // hash the message
+  const hashArray = Array.from(new Uint8Array(hashBuffer)); // convert buffer to byte array
+  const hashHex = hashArray
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join(""); // convert bytes to hex string
+  return hashHex;
+}
+
+
+
+// Assume the first 128 values of UTF-8 can be encoded.
+// Need to represent using A-Z, a-z, and 0-9: 62 unique values
+// So at most, ids can have 16 digits with no special characters.
+// e.g., "TMdnd5eHalfCover" is the most
+//       "11HalfC000000000" as an example
+// If special characters, limited to 8 characters.
+
+const CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+
+
+function toCipher16(str) {
+  const msgUint8 = new TextEncoder().encode(str); // Encode to UTF-8 Uint8Array
+  const hashArray = Array.from(msgUint8); // convert buffer to byte array
+  // Convert to Hex, padding to 16 characters.
+  // Mark the original length.
+  hashArray
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+

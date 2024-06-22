@@ -1,9 +1,14 @@
 /* globals
-canvas,
+CONFIG,
 CONST,
 Dialog,
 game,
-SearchFilter
+readTextFromFile,
+renderTemplate,
+saveDataToFile,
+SearchFilter,
+TextEditor,
+ui
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
@@ -13,10 +18,7 @@ SearchFilter
 
 import { Settings } from "./settings.js";
 import { log } from "./util.js";
-import { Terrain } from "./Terrain.js";
-import { EffectHelper } from "./EffectHelper.js";
-import { TerrainSceneConfig } from "./TerrainSceneConfig.js";
-import { TerrainListConfig } from "./TerrainListConfig.js";
+import { MODULE_ID } from "./const.js";
 
 /**
  * Controller class to handle app events and manipulate underlying Foundry data.
@@ -40,9 +42,8 @@ export class TerrainEffectsController {
    * @returns {Object} the data to pass to the template
    */
   get data() {
-    const terrains = Terrain.getAll();
-    const userTerrains = game.user.isGM ? terrains : terrains.filter(t => t.userVisible);
-    this._sortTerrains(userTerrains);
+    const terrains = [...CONFIG[MODULE_ID].Terrain._instances.values()];
+    this._sortTerrains(terrains);
 
     return {
       // Folders:
@@ -53,56 +54,38 @@ export class TerrainEffectsController {
         {
           id: "favorites",
           name: "Favorites",
-          effects: this._fetchFavorites(userTerrains).map(e => {
+          effects: this._fetchFavorites(terrains).map(e => {
             return {
               name: e.name,
-              icon: e.icon,
-              id: e.id,
-              description: e.description
-            };
-          })
-        },
-        {
-          id: "scene",
-          name: "Scene",
-          effects: this._fetchSceneTerrains(userTerrains).map(e => {
-            return {
-              name: e.name,
-              icon: e.icon,
-              id: e.id,
-              description: e.description
+              icon: e.img,
+              id: e.uniqueEffectId,
+              description: e.document.description
             };
           })
         },
         {
           id: "all",
           name: "All",
-          effects: userTerrains.map(e => {
+          effects: terrains.map(e => {
             return {
               name: e.name,
-              icon: e.icon,
-              id: e.id,
-              description: e.description
+              icon: e.img,
+              id: e.uniqueEffectId,
+              description: e.document.description
             };
           })
         }
       ],
 
-      isGM: game.user.isGM
+      isGM: game.user.isGM,
+      hasDefaults: Boolean(CONFIG[MODULE_ID].Terrain._resetDefaultEffects)
     };
   }
 
   _fetchFavorites(terrains) {
     log("TerrainEffectsController|_fetchFavorites");
-    const favorites = new Set(Settings.get(Settings.KEYS.FAVORITES));
-    return terrains.filter(t => favorites.has(t.id));
-  }
-
-  _fetchSceneTerrains(terrains) {
-    log("TerrainEffectsController|_fetchSceneTerrains");
-    const map = canvas.terrain.sceneMap;
-    const ids = new Set([...map.values()].map(terrain => terrain.id));
-    return terrains.filter(t => ids.has(t.id));
+    const favorites = new Set(Settings.get(Settings.KEYS.CONTROL_APP.FAVORITES));
+    return terrains.filter(t => favorites.has(t.uniqueEffectId));
   }
 
 
@@ -127,54 +110,53 @@ export class TerrainEffectsController {
   }
 
   /**
-   * Handles clicks on the edit scene terrain map button.
-   * Displays a mini-configuration that lists all scene terrains with their
-   * pixel values. Allows re-assignment of pixel values to different terrains.
-   */
-  async onEditSceneTerrains() {
-    log("TerrainEffectsController|onEditSceneTerrains");
-    new TerrainSceneConfig().render(true);
-  }
-
-  /**
-   * Handles clicks on the list terrains button.
-   * Displays a mini-configuration that lists all terrains, allows for quick editing.
-   */
-  async onListTerrains() {
-    log("TerrainEffectsController|onListTerrains");
-    new TerrainListConfig().render(true);
-  }
-
-  /**
    * Handles clicks on the create effect button
    * @param {MouseEvent} event
    */
-  async onCreateEffectClick(_event) {
+  async onCreateEffect(_event) {
     log("TerrainEffectsController|onCreateEffectClick");
-    const terrain = new Terrain();
-    await terrain.initialize();
+    const terrain = await CONFIG[MODULE_ID].Terrain.create();
     this._viewMvc.render();
-    terrain.activeEffect.sheet.render(true);
+    terrain.document.sheet.render(true);
+  }
+
+  /**
+   * Handles clicks on the create defaults button
+   * @param {MouseEvent} event
+   */
+  async onCreateDefaults(_event) {
+    log("TerrainEffectsController|onCreateDefaultsClick");
+    const view = this._viewMvc;
+    return Dialog.confirm({
+      title: "Replace Default Terrains",
+      content:
+        "<h4>Are You Sure?</h4><p>This will reset any existing default terrains and otherwise add new default terrains.",
+      yes: async () => {
+        log("TerrainEffectsController|onCreateDefaultsClick yes");
+        await CONFIG[MODULE_ID].Terrain._resetDefaultEffects();
+        view.render();
+      }
+    });
   }
 
   /**
    * Handle editing the custom effect
    * @param {jQuery} effectItem - jQuery element representing the effect list item
    */
-  async onEditEffectClick(_effectItem) {
+  async onEdit(effectItem) {
     log("TerrainEffectsController|onEditEffectClick");
-    const effectId = this._findNearestEffectId(event);
-    const activeEffect = EffectHelper.getTerrainEffectById(effectId);
-    activeEffect.sheet.render(true);
+    const effectId = effectItem.data().effectId;
+    const terrain = CONFIG[MODULE_ID].Terrain._instances.get(effectId);
+    terrain.document.sheet.render(true);
   }
 
   /**
    * Handle deleting the custom effect
    * @param {jQuery} effectItem - jQuery element representing the effect list item
    */
-  async onDeleteEffectClick(_effectItem) {
+  async onDelete(effectItem) {
     log("TerrainEffectsController|onDeleteEffectClick");
-    const effectId = this._findNearestEffectId(event);
+    const effectId = effectItem.data().effectId;
     const view = this._viewMvc;
 
     return Dialog.confirm({
@@ -183,7 +165,8 @@ export class TerrainEffectsController {
         "<h4>Are You Sure?</h4><p>This will remove the terrain from all scenes.",
       yes: async () => {
         log("TerrainEffectsController|onDeleteEffectClick yes");
-        await EffectHelper.deleteEffectById(effectId);
+        const terrain = CONFIG[MODULE_ID].Terrain._instances.get(effectId);
+        await terrain.destroy(true);
         view.render();
       }
     });
@@ -202,7 +185,7 @@ export class TerrainEffectsController {
    * Handles clicks on the reset status effects button
    * @param {MouseEvent} event
    */
-  async onResetStatusEffectsClick(_event) {
+  async onReset(_event) {
     return Dialog.confirm({
       title: "Reset Terrain",
       content:
@@ -245,18 +228,14 @@ export class TerrainEffectsController {
   }
 
   /**
-   * Handles clicks on effect items by toggling them on or off on selected tokens
+   * Handles clicks on effect items by opening their edit control
    * @param {MouseEvent} event - event that corresponds to clicking an effect item
    */
   async onEffectClick(event) {
     log("TerrainEffectsController|onEffectClick");
-    await this.onEditEffectClick(event);
-  }
-
-  _findNearestEffectId(event) {
-    return $(event.target)
-      .closest("[data-effect-id], .terrainmapper-effect")
-      .data()?.effectId;
+    const effectId = event.currentTarget.dataset.effectId;
+    const ce = CONFIG[MODULE_ID].Terrain._instances.get(effectId);
+    ce.document.sheet.render(true);
   }
 
   /**
@@ -286,36 +265,21 @@ export class TerrainEffectsController {
    * @param {jQuery} effectItem - jQuery element representing the effect list item
    * @returns true if the effect is favorited
    */
-  isFavoritedEffect(effectItem) {
-    log("TerrainEffectsController|isFavoritedEffect");
+  isFavorited(effectItem) {
+    log("TerrainEffectsController|isFavorited");
     const effectId = effectItem.data().effectId;
     return Settings.isFavorite(effectId);
-
-  // Unused:
-  //     const effectName = effectItem.data().effectName;
-  //     return this._settings.isFavoritedEffect(effectName);
-  }
-
-  /**
-   * Check if the given item is already in the scene map.
-   * @param {jQuery} effectItem - jQuery element representing the effect list item
-   * @returns true if the effect is in the scene map.
-   */
-  isInScene(effectItem) {
-    log("TerrainEffectsController|isInScene");
-    const effectId = effectItem.data().effectId;
-    return canvas.terrain.sceneMap.hasTerrainId(effectId);
   }
 
   /**
    * Handle clicks on the import terrain menu item.
    * @param {jQuery} effectItem - jQuery element representing the effect list item
    */
-  async onImportTerrain(effectItem) {
+  async onImport(effectItem) {
     log("TerrainEffectsController|onImportTerrain");
     const effectId = effectItem.data().effectId;
-    const terrain = Terrain.fromEffectId(effectId);
-    await terrain.importFromJSONDialog();
+    const terrain = CONFIG[MODULE_ID].Terrain._instances.get(effectId);
+    await this.importFromJSONDialog(terrain, this);
     this._viewMvc.render();
   }
 
@@ -323,11 +287,21 @@ export class TerrainEffectsController {
    * Handle clicks on the export terrain menu item.
    * @param {jQuery} effectItem - jQuery element representing the effect list item
    */
-  onExportTerrain(effectItem) {
+  onExport(effectItem) {
     log("TerrainEffectsController|onExportTerrain");
     const effectId = effectItem.data().effectId;
-    const terrain = Terrain.fromEffectId(effectId);
-    terrain.exportToJSON();
+    const terrain = CONFIG[MODULE_ID].Terrain._instances.get(effectId);
+    const data = terrain.toJSON();
+
+    data.flags.exportSource = {
+      world: game.world.id,
+      system: game.system.id,
+      coreVersion: game.version,
+      systemVersion: game.system.version,
+      terrainMapperVersion: game.modules.get(MODULE_ID).version
+    };
+    const filename = `${MODULE_ID}_${terrain.name}`;
+    saveDataToFile(JSON.stringify(data, null, 2), "text/json", `${filename}.json`);
   }
 
   /**
@@ -337,9 +311,8 @@ export class TerrainEffectsController {
   async onDuplicate(effectItem) {
     log("TerrainEffectsController|onDuplicate");
     const effectId = effectItem.data().effectId;
-    const eHelper = EffectHelper.fromId(effectId);
-    const dupe = await eHelper.duplicate();
-    dupe.effect.name = `${dupe.effect.name} Copy`;
+    const terrain = CONFIG[MODULE_ID].Terrain._instances.get(effectId);
+    await terrain.duplicate();
     this._viewMvc.render();
   }
 
@@ -351,19 +324,27 @@ export class TerrainEffectsController {
    */
   onEffectDragStart(_event) {
     log(`TerrainEffectsController|onEffectDragStart for ${event.target.dataset.effectName}`);
-    const terrain = Terrain.fromEffectId(event.target.dataset.effectId);
+    const terrain = CONFIG[MODULE_ID].Terrain._instances.get(event.target.dataset.effectId);
     event.dataTransfer.setData(
       "text/plain",
-      JSON.stringify({
-        name: terrain.name,
-        type: "ActiveEffect",
-        data: terrain._effectHelper.effect
-      })
+      JSON.stringify(terrain.toDragData())
     );
   }
 
   canDragStart() {
     return game.user.role >= CONST.USER_ROLES.ASSISTANT;
+  }
+
+  /**
+   * Callback actions which occur when a dragged element is dropped on a target.
+   * @param {DragEvent} event       The originating DragEvent
+   */
+  async onEffectDrop(event) {
+    log(`TerrainEffectsController|onEffectDrop`);
+    event.preventDefault();
+    const data = TextEditor.getDragEventData(event);
+    await CONFIG[MODULE_ID].Terrain._processEffectDrop(data);
+    this._viewMvc.render();
   }
 
   /**
@@ -422,5 +403,55 @@ export class TerrainEffectsController {
       effectNames,
       folderIds
     };
+  }
+
+  _findNearestEffectId(event) {
+    return event.target
+      .closest("[data-effect-id], .terrainmapper-effect")
+      .data()?.effectId;
+  }
+
+  /**
+   * Open a dialog to import data into a terrain.
+   * @param {UniqueActiveEffect} terrain    The terrain for which to overwrite
+   */
+  async importFromJSONDialog(terrain, app) {
+    // See https://github.com/DFreds/dfreds-convenient-effects/blob/c2d5e81eb1d28d4db3cb0889c22a775c765c24e3/scripts/effects/custom-effects-handler.js#L156
+    const content = await renderTemplate("templates/apps/import-data.html", {
+      hint1: "You may import terrain settings data from an exported JSON file.",
+      hint2: "This operation will overwrite this terrain."
+    });
+
+    const importPromise = new Promise((resolve, _reject) => {
+      new Dialog({
+        title: "Import Cover Setting Data",
+        content,
+        buttons: {
+          import: {
+            icon: '<i class="fas fa-file-import"></i>',
+            label: "Import",
+            callback: async html => {
+              const form = html.find("form")[0];
+              if ( !form.data.files.length ) return ui.notifications.error("You did not upload a data file!");
+              const json = await readTextFromFile(form.data.files[0]);
+              log("importFromJSONDialog|Read text");
+              await terrain.fromJSON(json);
+              app._viewMvc.render();
+              log("importFromJSONDialog|Finished rerender");
+              resolve(true);
+            }
+          },
+          no: {
+            icon: '<i class="fas fa-times"></i>',
+            label: "Cancel"
+          }
+        },
+        default: "import"
+      }, {
+        width: 400
+      }).render(true);
+    });
+
+    return importPromise;
   }
 }

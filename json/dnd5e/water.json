@@ -1,0 +1,81 @@
+{
+  "flags": {
+    "terrainmapper": {
+      "uniqueEffectType": "Terrain",
+      "uniqueEffectId": "Terrain_water",
+      "duplicatesAllowed": false,
+      "displayStatusIcon": true,
+      "version": "0.3.0"
+    },
+    "exportSource": {
+      "world": "test-dnd5e",
+      "system": "dnd5e",
+      "coreVersion": "12.327",
+      "systemVersion": "3.2.0",
+      "terrainMapperVersion": "0.2.0"
+    }
+  },
+  "transfer": false,
+  "name": "terrainmapper.phrases.water_swimming",
+  "img": "icons/svg/waterfall.svg",
+  "_id": "4PUglpb4TcHavmib",
+  "type": "base",
+  "system": {},
+  "changes": [
+    {
+      "key": "system.attributes.movement.walk",
+      "mode": 1,
+      "value": "0.5",
+      "priority": null
+    },
+    {
+      "key": "system.attributes.movement.burrow",
+      "mode": 1,
+      "value": "0.5",
+      "priority": null
+    },
+    {
+      "key": "system.attributes.movement.climb",
+      "mode": 1,
+      "value": "0.5",
+      "priority": null
+    },
+    {
+      "key": "system.attributes.movement.hover",
+      "mode": 1,
+      "value": "0.5",
+      "priority": null
+    },
+    {
+      "key": "system.attributes.movement.fly",
+      "mode": 1,
+      "value": "0.5",
+      "priority": null
+    }
+  ],
+  "disabled": false,
+  "duration": {
+    "startTime": null,
+    "seconds": null,
+    "combat": null,
+    "rounds": null,
+    "turns": null,
+    "startRound": null,
+    "startTurn": null
+  },
+  "description": "<p><span style=\"font-family:Georgia, serif\">While swimming, each foot of movement costs 1 extra foot, unless a creature has a swimming speed.</span></p>",
+  "origin": null,
+  "tint": "#ffffff",
+  "statuses": [],
+  "sort": 0,
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "coreVersion": "12.327",
+    "systemId": "dnd5e",
+    "systemVersion": "3.2.0",
+    "createdTime": 1718636629229,
+    "modifiedTime": 1718637169824,
+    "lastModifiedBy": "nx29hoGineoQv9Bs"
+  }
+}
