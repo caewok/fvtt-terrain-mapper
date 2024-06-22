@@ -77,8 +77,13 @@ export class SetElevationRegionBehaviorType extends foundry.data.regionBehaviors
 
   static async #onTokenExit(event) {
     const tokenD = event.data.token;
+    const token = tokenD?.object;
+    if ( !token ) return;
     log(`Token ${tokenD.name} exiting ${event.region.name}!`);
     if ( !this.reset ) return;
+
+    // Get all terrains for this region.
+    // const otherTerrains = getAllElevationTerrainsForToken(token);
     if ( tokenD.elevation > this.elevation ) return;
     return tokenD.update({ elevation: canvas.scene.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0 });
   }
@@ -104,3 +109,23 @@ function preCreateRegionBehavior(document, data, options, userId) {
 
 PATCHES.REGIONS.HOOKS = { preCreateRegionBehavior };
 
+
+/**
+ * Get all the terrains that should currently be applied to a token via elevation behaviors.
+ * @param {Token } token
+ * @returns {Set<Terrain>}
+ */
+function getAllElevationTerrainsForToken(token) {
+  const Terrain = CONFIG[MODULE_ID].Terrain;
+  const terrains = new Set();
+  for ( const region of token.document.regions.values() ) {
+    for ( const behavior of region.behaviors.values() ) {
+      if ( behavior.type !== `${MODULE_ID}.setElevation` ) continue;
+      behavior.system.terrains.forEach(id => {
+        const terrain = Terrain._instances.get(id);
+        if ( terrain ) terrains.add(terrain);
+      });
+    }
+  }
+  return terrains;
+}
