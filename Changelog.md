@@ -1,3 +1,6 @@
+## 0.3.1
+Remove the dependency on `socketslib`. Instead use `firstGM` test for setting terrain. Fixes duplicative terrain getting set when users enter region.
+
 ## 0.3.0
 Uses the Foundry v12 Region system.
 Substantial re-write of the module.
