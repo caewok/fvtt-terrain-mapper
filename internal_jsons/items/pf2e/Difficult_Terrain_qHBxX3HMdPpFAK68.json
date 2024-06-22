@@ -1,0 +1,89 @@
+{
+  "img": "icons/svg/hazard.svg",
+  "name": "Difficult Terrain",
+  "system": {
+    "description": {
+      "gm": "",
+      "value": "<p><strong>50% Penalty to all speeds.</strong></p>"
+    },
+    "rules": [
+      {
+        "key": "AdjustModifier",
+        "label": "PF2E.SpecificRule.CriticalDeck.Effect.Label",
+        "selector": "speed",
+        "slug": "difficult terrain penalty",
+        "type": "circumstance",
+        "value": 0.5,
+        "mode": "multiply"
+      }
+    ],
+    "slug": "difficult-terrain-penalty-half-speed",
+    "_migration": {
+      "version": 0.93,
+      "lastMigration": null,
+      "previous": null
+    },
+    "traits": {
+      "otherTags": [],
+      "value": [],
+      "rarity": "common"
+    },
+    "publication": {
+      "title": "Pathfinder Critical Decks",
+      "authors": "",
+      "license": "OGL",
+      "remaster": false
+    },
+    "level": {
+      "value": 1
+    },
+    "duration": {
+      "value": -1,
+      "unit": "unlimited",
+      "expiry": null,
+      "sustained": false
+    },
+    "start": {
+      "value": 0,
+      "initiative": null
+    },
+    "tokenIcon": {
+      "show": true
+    },
+    "badge": null,
+    "context": null,
+    "unidentified": false
+  },
+  "type": "effect",
+  "_stats": {
+    "compendiumSource": "Compendium.pf2e.other-effects.Item.ScZGg91ri19H4IIc",
+    "duplicateSource": null,
+    "coreVersion": "12.327",
+    "systemId": "pf2e",
+    "systemVersion": "6.0.2",
+    "createdTime": 1719026604264,
+    "modifiedTime": 1719026604264,
+    "lastModifiedBy": "2pVrsrEmybzoncDe"
+  },
+  "flags": {
+    "core": {
+      "sourceId": "Compendium.pf2e.other-effects.Item.ScZGg91ri19H4IIc"
+    },
+    "terrainmapper": {
+      "uniqueEffectType": "Terrain",
+      "uniqueEffectId": "Terrain_LpUsMEOrO4ygiRKl",
+      "duplicatesAllowed": true,
+      "displayStatusIcon": true,
+      "version": "#{VERSION}#"
+    }
+  },
+  "effects": [],
+  "folder": null,
+  "ownership": {
+    "default": 0,
+    "2pVrsrEmybzoncDe": 3
+  },
+  "_id": "qHBxX3HMdPpFAK68",
+  "sort": 0,
+  "_key": "!items!qHBxX3HMdPpFAK68"
+}

@@ -8,7 +8,7 @@ renderTemplate
 "use strict";
 
 import { MODULE_ID, FLAGS, TEMPLATES } from "./const.js";
-import { CoverEffectsApp } from "./CoverEffectsApp.js";
+import { TerrainEffectsApp } from "./TerrainEffectsApp.js";
 import { renderTemplateSync } from "./util.js";
 
 export const PATCHES = {};
@@ -20,7 +20,7 @@ PATCHES.COVER_ITEM = {};
  * Rerender the cover control app if it is open when the active effect configuration is closed.
  */
 function closeItemSheet(_app, _html) {
-  CoverEffectsApp.rerender();
+  TerrainEffectsApp.rerender();
 }
 
 /**
@@ -30,7 +30,7 @@ function closeItemSheet(_app, _html) {
  * @param {object} data                 The object of data used when rendering the application
  */
 function renderItemSheet(app, html, data) {
-  if ( app.object.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.TYPE) !== "Cover" ) return;
+  if ( app.object.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.TYPE) !== "Terrain" ) return;
 
   // Insert the new configuration fields into the item config.
   const insertFn = INSERT_FNS[game.system.id];

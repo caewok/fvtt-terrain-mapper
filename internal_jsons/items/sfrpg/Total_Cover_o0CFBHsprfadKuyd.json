@@ -1,0 +1,105 @@
+{
+  "name": "Total Cover",
+  "type": "effect",
+  "img": "modules/tokencover/assets/shield_high_gray.svg",
+  "system": {
+    "description": {
+      "chat": "",
+      "gmnotes": "",
+      "short": "",
+      "value": "<p>&gt;@UUID[Compendium.sfrpg.rules.0yJjfyvWg5pDLcVR]{Conditions}</p><hr /><p>You have total cover versus a specific token.</p><p>If an enemy doesn’t have line of effect to you (see page 271), you have total cover from the enemy. A creature can’t make an attack against a target that has total cover.</p><p>Cover does not necessarily block precise senses, but it does make it more difficult to hit a target. To determine whether your target has cover from your attack, choose a corner of your square. If any line from this corner to any corner of the target’s square passes through a square or border that blocks line of effect or provides cover, or through a square occupied by a creature, the target has cover. Cover grants you a +4 bonus to AC and a +2 bonus to Reflex saves against attacks that originate from a point on the other side of the cover from you. Note that spread effects can extend around corners and negate these bonuses.</p>",
+      "unidentified": ""
+    },
+    "source": "CRB.276",
+    "type": "condition",
+    "modifiers": [
+      {
+        "_id": "54c06ee6-5bdf-4015-acce-f294f1b201ad",
+        "name": "Total Cover",
+        "type": "armor",
+        "condition": "",
+        "effectType": "all-attacks",
+        "enabled": true,
+        "max": -99,
+        "modifier": "-99",
+        "modifierType": "constant",
+        "notes": "",
+        "source": "Condition",
+        "subtab": "misc",
+        "valueAffected": ""
+      },
+      {
+        "name": "Total Cover Reflex",
+        "modifier": "+99",
+        "type": "armor",
+        "modifierType": "constant",
+        "effectType": "save",
+        "valueAffected": "reflex",
+        "enabled": true,
+        "source": "",
+        "notes": "",
+        "subtab": "misc",
+        "condition": "",
+        "_id": "57d3dcdc-3b48-45b1-9f3b-ec39fa708100",
+        "max": 99
+      }
+    ],
+    "activeDuration": {
+      "unit": "permanent",
+      "value": 0,
+      "activationTime": 0,
+      "expiryMode": {
+        "type": "turn",
+        "turn": "parent"
+      },
+      "expiryInit": 0,
+      "endsOn": "onTurnStart"
+    },
+    "enabled": true,
+    "context": {
+      "origin": {
+        "actorUuid": "",
+        "itemUuid": ""
+      }
+    },
+    "showOnToken": true,
+    "abilityMods": {
+      "parts": []
+    },
+    "critical": {
+      "effect": "",
+      "parts": []
+    },
+    "damage": {
+      "parts": []
+    },
+    "requirements": "Condition",
+    "sourceActorId": null
+  },
+  "effects": [],
+  "folder": null,
+  "flags": {
+    "core": {},
+    "tokencover": {
+      "coverTypes": [
+        "tokencover.sfrpg.total"
+      ],
+      "coverEffectId": "tokencover.sfrpg.total"
+    }
+  },
+  "_stats": {
+    "systemId": "sfrpg",
+    "systemVersion": "0.25.2",
+    "coreVersion": "11.315",
+    "createdTime": 1693930613750,
+    "modifiedTime": 1713588789675,
+    "lastModifiedBy": "JEcpXSsAPXNXDYnc"
+  },
+  "_id": "o0CFBHsprfadKuyd",
+  "sort": 0,
+  "ownership": {
+    "default": 0,
+    "JEcpXSsAPXNXDYnc": 3
+  },
+  "_key": "!items!o0CFBHsprfadKuyd"
+}

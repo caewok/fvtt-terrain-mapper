@@ -1,0 +1,90 @@
+{
+  "_id": "aolmL82yGMgAlEcf",
+  "name": "Soft Cover",
+  "type": "effect",
+  "img": "modules/tokencover/assets/shield_virus_gray.svg",
+  "system": {
+    "description": {
+      "chat": "",
+      "gmnotes": "",
+      "short": "",
+      "value": "<p>&gt;@UUID[Compendium.sfrpg.rules.0yJjfyvWg5pDLcVR]{Conditions}</p><hr /><p>You have soft cover versus a specific token.</p><p>Creatures, even enemies, between you and the source of an effect provide you with cover against ranged attacks, giving you a +4 bonus to AC. However, soft cover provides no bonus to Reflex saves, nor does soft cover allow you to attempt a Stealth check.</p><p>Cover does not necessarily block precise senses, but it does make it more difficult to hit a target. To determine whether your target has cover from your attack, choose a corner of your square. If any line from this corner to any corner of the target’s square passes through a square or border that blocks line of effect or provides cover, or through a square occupied by a creature, the target has cover. Cover grants you a +4 bonus to AC and a +2 bonus to Reflex saves against attacks that originate from a point on the other side of the cover from you. Note that spread effects can extend around corners and negate these bonuses.</p>",
+      "unidentified": ""
+    },
+    "source": "CRB.276",
+    "type": "condition",
+    "modifiers": [
+      {
+        "_id": "54c06ee6-5bdf-4015-acce-f294f1b201ad",
+        "name": "Soft Cover",
+        "type": "armor",
+        "condition": "",
+        "effectType": "ranged-attacks",
+        "enabled": true,
+        "max": -4,
+        "modifier": "-4",
+        "modifierType": "constant",
+        "notes": "",
+        "source": "Condition",
+        "subtab": "misc",
+        "valueAffected": ""
+      }
+    ],
+    "activeDuration": {
+      "unit": "permanent",
+      "value": 0,
+      "activationTime": 0,
+      "expiryMode": {
+        "type": "turn",
+        "turn": "parent"
+      },
+      "expiryInit": 0,
+      "endsOn": "onTurnStart"
+    },
+    "enabled": true,
+    "context": {
+      "origin": {
+        "actorUuid": "",
+        "itemUuid": ""
+      }
+    },
+    "showOnToken": true,
+    "abilityMods": {
+      "parts": []
+    },
+    "critical": {
+      "effect": "",
+      "parts": []
+    },
+    "damage": {
+      "parts": []
+    },
+    "requirements": "Condition",
+    "sourceActorId": null
+  },
+  "effects": [],
+  "folder": null,
+  "flags": {
+    "core": {},
+    "tokencover": {
+      "coverTypes": [
+        "tokencover.sfrpg.soft"
+      ],
+      "coverEffectId": "tokencover.sfrpg.soft"
+    }
+  },
+  "_stats": {
+    "systemId": "sfrpg",
+    "systemVersion": "0.25.2",
+    "coreVersion": "11.315",
+    "createdTime": 1693930613750,
+    "modifiedTime": 1713588789675,
+    "lastModifiedBy": "JEcpXSsAPXNXDYnc"
+  },
+  "sort": 0,
+  "ownership": {
+    "default": 0,
+    "JEcpXSsAPXNXDYnc": 3
+  },
+  "_key": "!items!aolmL82yGMgAlEcf"
+}
