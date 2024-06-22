@@ -25,6 +25,7 @@ import { SetElevationRegionBehaviorType } from "./regions/SetElevationRegionBeha
 // Unique Terrain Effects
 import { TerrainActiveEffect, TerrainItemEffect, TerrainFlagEffect, TerrainPF2E } from "./terrain_unique_effects.js";
 import { defaultTerrains } from "./default_terrains.js";
+import { buildTerrainActiveEffectDataClass } from "./TerrainActiveEffect.js";
 
 // import { BlendFilter } from "./pixi-picture/BlendFilter.js";
 // import { applyMixins } from "./pixi-picture/FilterSystemMixin.js";
@@ -103,7 +104,8 @@ function initializeAPI() {
     SCENE_GRAPH,
     TerrainActiveEffect,
     TerrainItemEffect,
-    TerrainFlagEffect
+    TerrainFlagEffect,
+    TerrainAE: buildTerrainActiveEffectDataClass()
   };
 }
 
