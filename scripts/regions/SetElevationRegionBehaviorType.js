@@ -1,13 +1,16 @@
 /* globals
 canvas,
+CONFIG,
 CONST,
-foundry
+foundry,
+Region
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
 import { MODULE_ID, FLAGS } from "../const.js";
 import { log, isFirstGM } from "../util.js";
+import { Point3d } from "../geometry/3d/Point3d.js";
 
 export const PATCHES = {};
 PATCHES.REGIONS = {};
@@ -80,6 +83,111 @@ export class SetElevationRegionBehaviorType extends foundry.data.regionBehaviors
     if ( tokenD.elevation > this.elevation ) return;
     return tokenD.update({ elevation: canvas.scene.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0 });
   }
+
+  /**
+   * Calculate the elevation for an array of segments for this region.
+   * Assumes, without checking, that the segments represent this region.
+   * @param {RegionMovementSegment[]} segments    Result of region.segmentizeMovement
+   * @returns {RegionMovementSegment[]} The segments with elevation modified
+   */
+  estimateSegmentElevation(segments) {
+    const backgroundElevation = canvas.scene.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0;
+    let currElevation = segments[0].from.elevation;
+    for ( const segment of segments ) {
+      currElevation = this._estimateSegmentElevation(segment, currElevation, backgroundElevation);
+    }
+    return segments;
+  }
+
+  /**
+   * Calculate the elevation for a single segment for this region.
+   * Assumes, without checking, that the segment represents this region.
+   * @param {RegionMovementSegment} segment    Single segment from region.segmentizeMovement
+   * @returns {number} The current elevation after this segment. `segment` is modified in place
+   */
+  _estimateSegmentElevation(segment, currElevation, backgroundElevation) {
+    backgroundElevation ??= canvas.scene.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0;
+    currElevation ??= backgroundElevation;
+    const region = this.parent?.parent?.object;
+    switch ( segment.type ) {
+      case Region.MOVEMENT_SEGMENT_TYPES.ENTER: {
+        segment.from.elevation = currElevation;
+        segment.to.elevation = currElevation;
+
+        // Test if still in this region.
+        if ( region?.testPoint(segment.to, segment.to.elevation) ) {
+          segment.to.elevation = this.elevation;
+          currElevation = this.elevation;
+        }
+        break;
+      }
+
+      case Region.MOVEMENT_SEGMENT_TYPES.EXIT: {
+        segment.from.elevation = currElevation;
+        segment.to.elevation = currElevation;
+
+        // Test if still in this region.
+        if ( this.reset
+          && currElevation <= this.elevation
+          && region?.testPoint(segment.from, segment.from.elevation) ) {
+          segment.to.elevation = backgroundElevation;
+          currElevation = backgroundElevation;
+        }
+        break;
+      }
+
+      case Region.MOVEMENT_SEGMENT_TYPES.MOVE: {
+        segment.from.elevation = currElevation;
+        segment.to.elevation = currElevation;
+        break;
+      }
+    }
+    return currElevation;
+  }
+
+  /**
+   * Estimate the elevation of a line through 0+ setElevation regions.
+   * @param {Point} start             Starting location
+   * @param {Point} end               Ending location
+   * @param {object} [opts]           Options that affect the path measurement
+   * @param {number} [opts.startElevation]   Elevation in grid units
+   * @returns {RegionMovementSegment}
+   */
+  static estimateElevationForSegment(start, end, { startElevation } = {}) {
+    const backgroundElevation = canvas.scene.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0;
+    startElevation ??= backgroundElevation;
+    const samples = [{x: 0, y: 0}];
+    const teleport = false;
+    const orig = { x: start.x, y: start.y, elevation: startElevation }
+    const dest = { x: end.x, y: end.y, elevation: startElevation }
+
+    // Segmentize all regions with setElevation behavior.
+    const regionSegments = segmentizeElevationRegions([orig, dest], samples, teleport);
+    if ( !regionSegments.length ) return [orig, dest];
+
+    // Run through each segment in turn, processing the behavior(s)
+    // Treat segments as a priority queue
+    let path = processSegments(regionSegments, orig);
+
+    // Check subsegment of the path for elevation change.
+    // Elevation change may indicate other regions become part of the region segments.
+    const finalPath = [orig];
+    const MAX_ITER = 1000; // Avoid infinite loops due to errors or looped regions.
+    let iter = 0;
+    while ( path.length && iter < MAX_ITER ) {
+      iter += 1;
+      const currPosition = path.shift();
+      finalPath.push(currPosition)
+      if ( path.length && currPosition.elevation !== path[0].elevation ) {
+        dest.elevation = path[0].elevation
+        const newSegments = segmentizeElevationRegions([currPosition, path[0], dest], samples, teleport)
+        path = processSegments(newSegments, currPosition.elevation);
+        path.shift(); // Remove the currPosition from the path.
+        // path = processSegments
+      }
+    }
+    return finalPath;
+  }
 }
 
 
@@ -92,7 +200,7 @@ export class SetElevationRegionBehaviorType extends foundry.data.regionBehaviors
  * @param {string} userId                         The ID of the requesting user, always game.user.id
  * @returns {boolean|void}                        Explicitly return false to prevent creation of this Document
  */
-function preCreateRegionBehavior(document, data, options, userId) {
+function preCreateRegionBehavior(document, data, _options, _userId) {
   log("preCreateRegionBehavior");
   if ( data.type !== `${MODULE_ID}.setElevation` ) return;
   const topE = document.region.elevation.top;
@@ -113,7 +221,7 @@ function getAllElevationTerrainsForToken(token) {
   const terrains = new Set();
   for ( const region of token.document.regions.values() ) {
     for ( const behavior of region.behaviors.values() ) {
-      if ( behavior.type !== `${MODULE_ID}.setElevation` ) continue;
+      if ( behavior.type !== `${MODULE_ID}.setElevation` || behavior.disabled ) continue;
       behavior.system.terrains.forEach(id => {
         const terrain = Terrain._instances.get(id);
         if ( terrain ) terrains.add(terrain);
@@ -122,3 +230,104 @@ function getAllElevationTerrainsForToken(token) {
   }
   return terrains;
 }
+
+/**
+ * Segmentize all regions with setElevation behavior.
+ * @param {RegionMovementWaypoint[]} waypoints    Path points to segmentize
+ * @param {Point[]} samples                       The points relative to the waypoints that are tested.
+ *                                                Whenever one of them is inside the region, the moved object
+ *                                                is considered to be inside the region.
+ * @param {boolean} [teleport=false]              Is it teleportation?
+ * @returns {RegionMovementSegment[]} Sorted segments at distance from origin.
+ */
+function segmentizeElevationRegions(waypoints, samples, teleport = false) {
+  // Segmentize all regions with setElevation behavior.
+  // No quadtree for regions
+  const regionSegments = [];
+  for ( const region of canvas.regions.placeables ) {
+    const behaviors = region.document.behaviors.filter(b => !b.disabled && b.type === "terrainmapper.setElevation");
+    if ( !behaviors.length ) continue;
+    const segments = region.segmentizeMovement(waypoints, samples, { teleport});
+    if ( !segments.length ) continue;
+    segments.forEach(segment => segment.behaviors = behaviors);
+    regionSegments.push(...segments);
+  }
+
+  // Sort by 3d distance from origin.
+  const orig3d = Point3d._tmp.copyFrom(waypoints[0]);
+  orig3d.z = CONFIG.GeometryLib.utils.gridUnitsToPixels(orig3d.elevation);
+  regionSegments.forEach(segment => {
+    const dest3d = Point3d._tmp2.copyFrom(segment.from);
+    dest3d.z = CONFIG.GeometryLib.utils.gridUnitsToPixels(segment.from.elevation);
+    segment._dist2 = Point3d.distanceSquaredBetween(orig3d, dest3d);
+  });
+  regionSegments.sort((a, b) => a._dist2 - b._dist2)
+  return regionSegments;
+}
+
+/**
+ * Estimate the elevation for an array of sorted segments.
+ * @param {RegionMovementSegment[]} regionSegments
+ * @param {RegionMovementWaypoint} orig             Starting point
+ * @returns {RegionMovementWaypoint[]}
+ */
+function processSegments(regionSegments, orig) {
+  const backgroundElevation = canvas.scene.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0;
+  const path = [];
+  let currElevation = orig.elevation;
+  for ( const segment of regionSegments ) {
+    for ( const behavior of segment.behaviors ) {
+      const pathSegment = { from: foundry.utils.duplicate(segment.from), to: foundry.utils.duplicate(segment.to), type: segment.type };
+      pathSegment.from.elevation = currElevation;
+      currElevation = behavior.system._estimateSegmentElevation(pathSegment, currElevation, backgroundElevation);
+      path.push(pathSegment.from, pathSegment.to);
+    }
+  }
+
+  // Sort by 3d distance from origin.
+  const orig3d = Point3d._tmp.copyFrom(orig);
+  orig3d.z = CONFIG.GeometryLib.utils.gridUnitsToPixels(orig3d.elevation);
+  path.forEach(pt => {
+    const dest3d = Point3d._tmp2.copyFrom(pt);
+    dest3d.z = CONFIG.GeometryLib.utils.gridUnitsToPixels(pt.elevation);
+    pt._dist2 =  Point3d.distanceSquaredBetween(orig3d, dest3d);
+  });
+  path.sort((a, b) => a._dist2 - b._dist2);
+  return trimDuplicates(path);
+}
+
+/**
+ * Trim duplicates in path.
+ * @param {RegionMovementWaypoint[]}  arr
+ * @returns {RegionMovementWaypoint[]}  New array
+ */
+function trimDuplicates(arr) {
+  const numPts = arr.length;
+  if ( !numPts ) return [];
+  let prevPt = arr[0];
+  const trimmedArr = [prevPt];
+  for ( let i = 1; i < numPts; i += 1 ) {
+    const currPt = arr[i];
+    if ( prevPt.x === currPt.x && prevPt.y === currPt.y && prevPt.elevation === currPt.elevation ) continue;
+    trimmedArr.push(currPt);
+    prevPt = currPt;
+  }
+  return trimmedArr;
+}
+
+/**
+ * Debugging
+ */
+function drawPath(path) {
+  const Draw = CONFIG.GeometryLib.Draw;
+  const draw = new Draw();
+  for ( let i = 1; i < path.length; i += 1 ) {
+    const A = path[i - 1];
+    const B = path[i];
+    draw.point(A, { color: Draw.COLORS.blue });
+    draw.point(B, { color: Draw.COLORS.blue });
+    draw.segment({A, B}, { color: Draw.COLORS.blue });
+    draw.labelPoint(B, path[i].elevation)
+  }
+}
+
