@@ -1,4 +1,5 @@
 /* globals
+canvas,
 CONFIG,
 Hooks,
 game,
@@ -103,7 +104,19 @@ function initializeAPI() {
     SCENE_GRAPH,
     TerrainActiveEffect,
     TerrainItemEffect,
-    TerrainFlagEffect
+    TerrainFlagEffect,
+    regionElevationAtPoint,
+
+    /**
+     * API to determine the elevation of a line through 0+ setElevation regions.
+     * @param {Point} start             Starting location
+     * @param {Point} end               Ending location
+     * @param {object} [opts]           Options that affect the path measurement
+     * @param {number} [opts.startElevation]   Elevation in grid units
+     * @param {number} [opts.endElevation]   Elevation in grid units
+     * @returns {RegionMovementSegment}
+     */
+    estimateElevationForSegment: SetElevationRegionBehaviorType.estimateElevationForSegment
   };
 }
 
@@ -143,4 +156,56 @@ function initializeConfig() {
     default:
       CONFIG[MODULE_ID].Terrain = TerrainActiveEffect;
   }
+}
+
+/**
+ * API function to determine the elevation at a given point.
+ * Tests for regions between a minimum and maximum elevation, from top-down.
+ * So if two regions at the location, the highest region counts first.
+ * @param {Point} location    {x,y} location to test
+ * @param {object} [opts]     Options that limit the regions to test
+ * @param {number} [opts.fixedElevation]      Any region that contains this elevation counts
+ * @param {number} [opts.maxElevation]        Any region below or equal to this grid elevation counts
+ * @param {number} [opts.minElevation]        Any region above or equal to this grid elevation counts
+ * @returns {number|undefined} Undefined if no region present; value of Set Elevation otherwise.
+ */
+function regionElevationAtPoint(location, {
+  fixedElevation = undefined,
+  maxElevation = Number.POSITIVE_INFINITY,
+  minElevation = Number.NEGATIVE_INFINITY } = {}) {
+
+  let elevationRegions = canvas.regions.placeables
+    .filter(region => region.document.behaviors
+      .some(behavior => behavior.type === `${MODULE_ID}.setElevation`));
+  if ( !elevationRegions.length ) return undefined;
+
+  if ( isFinite(maxElevation) ) elevationRegions = elevationRegions.filter(region => {
+    const top = region.document?.elevation?.top;
+    return top == null || top <= maxElevation;
+  });
+  if ( isFinite(maxElevation) ) elevationRegions = elevationRegions.filter(region => {
+    const bottom = region.document?.elevation?.bottom;
+    bottom == null || bottom >= minElevation;
+  });
+  elevationRegions = elevationRegions.filter(region => region.testPoint(location, fixedElevation));
+  if ( !elevationRegions.length ) return undefined;
+
+  // Locate the highest remaining region. This sets the elevation.
+  let maxE = Number.NEGATIVE_INFINITY;
+  let highestRegion;
+  elevationRegions.forEach(region => {
+    const top = region.elevation?.document?.top;
+    if ( !top || top > maxE ) {
+      maxE = top ?? Number.POSITIVE_INFINITY;
+      highestRegion = region;
+    }
+  });
+  if ( !highestRegion ) return;
+
+  // Get the corresponding elevation behavior.
+  for ( const behavior of highestRegion.document.behaviors ) {
+    if ( behavior.type !== `${MODULE_ID}.setElevation` ) continue;
+    return behavior.system.elevation;
+  }
+  return undefined;
 }
