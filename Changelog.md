@@ -1,3 +1,6 @@
+## 0.3.2
+Address compatibility with Elevation Ruler. Requires Elevation Ruler v0.9.5.
+
 ## 0.3.1
 Remove the dependency on `socketslib`. Instead use `firstGM` test for setting terrain. Fixes duplicative terrain getting set when users enter region.
 
