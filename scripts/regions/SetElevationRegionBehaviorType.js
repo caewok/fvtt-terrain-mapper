@@ -38,21 +38,43 @@ Because that is how you get infinitely looping teleportation.
  * Region behavior to add terrain to token.
  * @property {number} elevation       The elevation at which to set the token
  * @property {boolean} reset          When enabled, elevation will be reset to scene background on exit.
+ * @property {FLAGS.REGION.CHOICES} algorithm       How elevation change should be handled. plateau, ramp, stairs
  */
 export class SetElevationRegionBehaviorType extends foundry.data.regionBehaviors.RegionBehaviorType {
   static defineSchema() {
     return {
+      algorithm: new foundry.data.fields.StringField({
+        label: `${MODULE_ID}.behavior.types.set-elevation.fields.algorithm.name`,
+        hint: `${MODULE_ID}.behavior.types.set-elevation.fields.algorithm.hint`,
+        initial: FLAGS.REGION.CHOICES.PLATEAU,
+        choices: FLAGS.REGION.LABELS
+      }),
+
       elevation: new foundry.data.fields.NumberField({
         label: `${MODULE_ID}.behavior.types.set-elevation.fields.elevation.name`,
         hint: `${MODULE_ID}.behavior.types.set-elevation.fields.elevation.hint`,
         initial: 0
       }),
 
+      floor: new foundry.data.fields.NumberField({
+        label: `${MODULE_ID}.behavior.types.set-elevation.fields.floor.name`,
+        hint: `${MODULE_ID}.behavior.types.set-elevation.fields.floor.hint`,
+        initial: () => {
+          return canvas.scene?.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0;
+        }
+      }),
+
       reset: new foundry.data.fields.BooleanField({
         label: `${MODULE_ID}.behavior.types.set-elevation.fields.reset.name`,
         hint: `${MODULE_ID}.behavior.types.set-elevation.fields.reset.hint`,
         initial: true
-      })
+      }),
+
+      teleport: new foundry.data.fields.BooleanField({
+        label: `${MODULE_ID}.behavior.types.set-elevation.fields.teleport.name`,
+        hint: `${MODULE_ID}.behavior.types.set-elevation.fields.teleport.hint`,
+        initial: true
+      }),
     };
   }
 
@@ -190,7 +212,6 @@ export class SetElevationRegionBehaviorType extends foundry.data.regionBehaviors
   }
 }
 
-
 /**
  * Hook preCreateRegionBehavior
  * Set the default elevation to the region top elevation if defined.
@@ -205,7 +226,8 @@ function preCreateRegionBehavior(document, data, _options, _userId) {
   if ( data.type !== `${MODULE_ID}.setElevation` ) return;
   const topE = document.region.elevation.top;
   const elevation = topE ?? canvas.scene.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0;
-  document.updateSource({ ["system.elevation"]: elevation });
+  const floor = canvas.scene.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0;
+  document.updateSource({ ["system.elevation"]: elevation, ["system.floor"]: floor });
 }
 
 PATCHES.REGIONS.HOOKS = { preCreateRegionBehavior };

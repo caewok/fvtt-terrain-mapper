@@ -31,11 +31,34 @@
   "terrainmapper.behavior.types.remove-terrain.fields.keepSelected.name": "Keep selected",
   "terrainmapper.behavior.types.remove-terrain.fields.keepSelected.hint": "Enable to keep the selected terrains and remove all the rest from the token.",
 
-    "terrainmapper.behavior.types.set-elevation.fields.elevation.name": "Elevation",
+  "terrainmapper.behavior.types.set-elevation.fields.elevation.name": "Elevation",
   "terrainmapper.behavior.types.set-elevation.fields.elevation.hint": "When moving into the region, the token will be set to this elevation. For a typical scene, you should set the region top to this elevation and the region bottom to negative infinity.",
 
     "terrainmapper.behavior.types.set-elevation.fields.reset.name": "Reset on exit",
   "terrainmapper.behavior.types.set-elevation.fields.reset.hint": "When enabled, the token's elevation will be reset to the scene's background elevation when the token exits the region.",
+
+  "terrainmapper.behavior.types.set-elevation.fields.algorithm.name": "Elevation Method",
+  "terrainmapper.behavior.types.set-elevation.fields.algorithm.hint": "Plateau: Token moves to designated max height; Ramp: Token moves gradually from min to max elevation along a specified direction; Stairs: Token moves up/down to set max/min elevations.",
+
+  "terrainmapper.elevationAlgorithm.labels.none": "None",
+  "terrainmapper.elevationAlgorithm.labels.plateau": "Plateau / Mesa",
+  "terrainmapper.elevationAlgorithm.labels.ramp": "Ramp / Steps",
+  "terrainmapper.elevationAlgorithm.labels.stairs": "Stairs",
+
+  "terrainmapper.behavior.types.set-elevation.fields.floor.name": "Elevation Floor",
+  "terrainmapper.behavior.types.set-elevation.fields.floor.hint": "The elevation to set when the token leaves the region. For stairs, this serves as the bottom elevation of the stairs.",
+
+  "terrainmapper.behavior.types.set-elevation.fields.rampDirection.name": "Ramp Direction",
+  "terrainmapper.behavior.types.set-elevation.fields.rampDirection.hint": "0 is due east; 90 is due south; 180 is due west; 270 is due north. Does nothing unless method chosen is 'Ramp'.",
+
+  "terrainmapper.behavior.types.set-elevation.fields.rampStepSize.name": "Ramp Step Size",
+  "terrainmapper.behavior.types.set-elevation.fields.rampStepSize.hint": "How tall, in grid units, to make each step. The number of steps will be automatically determined based on this value. If set to 0, the ramp will approximate a smooth incline.",
+
+  "terrainmapper.behavior.types.set-elevation.fields.teleport.name": "Teleport",
+  "terrainmapper.behavior.types.set-elevation.fields.teleport.hint": "If enabled, automatic elevation movement in this region will act as a teleport move. Intervening regions will not be triggered.",
+
+  "terrainmapper.behavior.types.set-elevation.fields.ignoreOtherElevations.name": "Ignore Other Elevations",
+  "terrainmapper.behavior.types.set-elevation.fields.ignoreOtherElevations.hint": "If enabled, tokens entering the region will be ignored unless at the designated minimum elevation (or maximum, for stairs).",
 
   "TYPES.RegionBehavior.terrainmapper.addTerrain": "Add Terrains",
   "TYPES.RegionBehavior.terrainmapper.removeTerrain": "Remove Terrains",
