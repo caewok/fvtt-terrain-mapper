@@ -20,6 +20,9 @@ PATCHES.REGIONS = {};
 
 1. Plateau
 --> Move token from any elevation w/in region to defined elevation.
+- If token enters the region, redo waypoints.
+- If token exits the region, redo waypoints if reset is true.
+
 
 2. Ramp / Steps
 --> In a user-defined direction, the region increases elevation from a defined min to a defined max.
@@ -53,11 +56,9 @@ When exiting, moves back to the scene elevation
  *                                                is considered to be inside the region.
  * @param {object} [options]                      Additional options
  * @param {boolean} [options.teleport=false]      Is it teleportation?
- * @param {number} [options.levelIncrement=0]     Override the level increment to move this number of levels and direction
- * @param {boolean} [options.skipDialog=false]    Ignore the user/gm dialog. Instead, use automatic
  * @returns {RegionMovementSegment[]}             The movement split into its segments.
  */
-function segmentizeMovement(wrapper, waypoints, samples, { levelIncrement = 0, skipDialog = false, ...opts } = {}) {
+function segmentizeMovement(wrapper, waypoints, samples, opts) {
   const segments = wrapper(waypoints, samples, opts);
   const numSegments = segments.length;
   if ( !numSegments ) return segments;
@@ -76,6 +77,26 @@ PATCHES.REGIONS.WRAPS = { segmentizeMovement };
 
 // ----- NOTE: Helper functions ----- //
 
+/* Plateau
+Treat the plateau as mostly a hard obstacle.
+Entry from top: stay at the plateau elevation.
+Entry from side: stay at the plateau elevation.
+
+Only way to be "inside" the plateau is to enter from the bottom or do a move once on top.
+
+Track whether we are outside or inside the region.
+Every time we move from outside --> in,
+  - Add vertical move up.
+  - change all subsequent inside ("move") points to the elevation.
+Every time we move inside --> out
+  - If reset, add drop to ground unless the segment has elevation; do not adjust subsequent points.
+  - If not reset and at plateau elevation, adjust subsequent points.
+
+Technically, it may be possible for a change in plateau to require a re-do of the segmentized path.
+But not practically at the moment b/c all region shapes have the same shape as they move up in elevation.
+*/
+
+
 /**
  * Adjust region movement segments for the setElevation plateau behavior.
  * @param {RegionMovementSegment[]} segments
@@ -83,75 +104,81 @@ PATCHES.REGIONS.WRAPS = { segmentizeMovement };
  */
 function modifySegmentsForPlateau(segments, behavior) {
   if ( behavior.type !== `${MODULE_ID}.setElevation` || behavior.disabled || behavior.system.algorithm !== FLAGS.REGION.CHOICES.PLATEAU ) return segments;
-
-  // Entry: increase elevation.
-  // Exit: restore elevation to floor.
-  // Move: keep the elevation we set.
-  // Affects elevation at future segments until there is a distinct elevation move.
-
-  const duplicate = foundry.utils.duplicate;
   const { elevation, floor, reset } = behavior.system;
   const { ENTER, MOVE, EXIT } = Region.MOVEMENT_SEGMENT_TYPES;
-  let currE = null;
+
+  let enteredPlateau = false;
+  let exitDelta = 0;
   for ( let i = 0, n = segments.length; i < n; i += 1 ) {
     const segment = segments[i];
     switch ( segment.type ) {
       case ENTER: {
-        if ( currE !== null ) {
-          segment.from.elevation = currE;
-          segment.to.elevation = currE;
-        }
-        currE = elevation;
-        if ( segment.to.elevation !== elevation ) {
-          // Add a vertical move up after the enter.
-          const from = duplicate(segment.to)
-          const to = duplicate(segment.to);
-          to.elevation = elevation;
-          const vSegment = { type: MOVE, from, to };
-          segments.splice(i + 1, 0, vSegment);
-          i += 1;
-          n += 1;
-        }
+        enteredPlateau = true;
+        segment.from.elevation += exitDelta;
+        segment.to.elevation += exitDelta;
+
+        // If already at elevation, we are finished.
+        if ( elevation === segment.to.elevation ) break;
+
+        // Add a vertical move up after the enter.
+        const vSegment = constructVerticalMoveSegment(segment.to, elevation);
+        segments.splice(i + 1, 0, vSegment);
+        i += 1;
+        n += 1;
         break;
       }
       case MOVE: {
-        if ( currE === null ) break;
-        // If elevation changes with this move, no longer lock to max elevation.
-        if ( segment.from.elevation !== segment.to.elevation ) {
-          segment.from.elevation = currE;
-          currE = undefined;
-          break;
-        }
-        segment.from.elevation = currE;
-        segment.to.elevation = currE;
+        if ( !enteredPlateau ) break;
+        segment.from.elevation = Math.max(elevation, segment.from.elevation);
+        segment.to.elevation = Math.max(elevation, segment.to.elevation);
         break;
       }
       case EXIT: {
-        const prevSegment = segments[i - 1];
-        if ( reset && prevSegment && prevSegment.to.elevation !== floor ) {
-          // Insert a vertical move down before the exit.
-          const from = duplicate(prevSegment.to)
-          const to = duplicate(segment.from);
-          from.elevation = prevSegment.to.elevation;
-          to.elevation = floor;
-          const vSegment = { type: MOVE, from, to };
-          segments.splice(i, 0, vSegment);
-          i += 1;
-          n += 1;
-        }
-
-        if ( reset ) currE = floor;
-        if ( currE === null ) break;
-        if ( segment.from.elevation !== segment.to.elevation ) {
-          segment.from.elevation = currE;
-          currE = undefined;
+        enteredPlateau = false;
+        if ( reset ) {
+          // If the previous segment is not at reset elevation, add vertical move (down)
+          const prevSegment = segments[i - 1] ?? { to: segment.from }; // Use this segment's from if no previous segment.
+          if ( prevSegment.to.elevation !== floor ) {
+            const vSegment = constructVerticalMoveSegment(prevSegment.to, floor);
+            segments.splice(i, 0, vSegment);
+            i += 1;
+            n += 1;
+          }
+          segment.from.elevation = floor;
+          segment.to.elevation = floor;
+          exitDelta = 0;
           break;
         }
-        segment.from.elevation = currE;
-        segment.to.elevation = currE;
+
+        // Subsequent points shifted by the plateau delta from this exit location.
+        exitDelta = elevation - segment.to.elevation;
+        segment.from.elevation += exitDelta;
+        segment.to.elevation += exitDelta;
         break;
       }
     }
   }
   return segments;
+}
+
+/**
+ * Construct a vertical move segment.
+ * @param {RegionWaypoint} waypoint
+ * @param {number} targetElevation
+ * @returns {RegionMoveSegment}
+ */
+function constructVerticalMoveSegment(waypoint, targetElevation) {
+  return {
+    from: {
+      x: waypoint.x,
+      y: waypoint.y,
+      elevation: waypoint.elevation
+    },
+    to: {
+      x: waypoint.x,
+      y: waypoint.y,
+      elevation: targetElevation
+    },
+    type: Region.MOVEMENT_SEGMENT_TYPES.MOVE
+  };
 }
