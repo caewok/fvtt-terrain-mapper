@@ -91,8 +91,12 @@ function refreshToken(token, flags) {
       origin.elevation = token._original.elevationE;
       const destination = token.center;
       destination.elevation = origin.elevation;
-      const path = constructRegionsPath(origin, destination); // Returns minimum [start, end]
-      if ( path.length > 2 ) token.document.elevation = path.at(-1).elevation;
+      const path = constructRegionsPath(origin, destination); // Returns minimum [start, end]. End might be changed.
+      const elevationChanged = token.document.elevation !== path.at(-1).elevation;
+      if ( elevationChanged ) {
+         token.document.elevation = path.at(-1).elevation;
+         token.renderFlags.set({ refreshVisibility: true });
+      }
 
       // if ( path.length > 2 ) token.document.updateSource({ elevation: path.at(-1).elevation });
     }
@@ -102,8 +106,26 @@ function refreshToken(token, flags) {
   }
 }
 
-export function preUpdateToken(tokenD, _data, _options, _userId) {
+/**
+ * Hook preUpdateToken
+ * If the token moves, calculate its new elevation across setElevation regions.
+ * @param {Document} document                       The Document instance being updated
+ * @param {object} changed                          Differential data that will be used to update the document
+ * @param {Partial<DatabaseUpdateOperation>} options Additional options which modify the update request
+ * @param {string} userId                           The ID of the requesting user, always game.user.id
+ * @returns {boolean|void}                          Explicitly return false to prevent update of this Document
+ */
+export function preUpdateToken(tokenD, changed, options, _userId) {
   log(`preUpdateToken ${tokenD.name}`);
+  if ( options.RidingMovement ) return; // See EV issue #83—compatibility with Rideables.
+  if ( Object.hasOwn(changed, "elevation") ) return; // Do not override existing elevation changes.
+  if ( !(Object.hasOwn(changed, "x") || Object.hasOwn(changed, "y")) ) return;
+
+  const token = tokenD.object;
+  if ( !token ) return;
+  token[MODULE_ID] ??= {};
+
+
 }
 
 PATCHES.BASIC.HOOKS = {
