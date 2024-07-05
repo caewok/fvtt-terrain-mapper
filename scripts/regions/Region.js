@@ -59,7 +59,7 @@ When exiting, moves back to the scene elevation
  */
 export function canvasReady(canvas) {
   for ( const region of canvas.regions.placeables ) {
-    for ( const behavior of region.behaviors ) {
+    for ( const behavior of region.document.behaviors ) {
       if ( behavior.type !== `${MODULE_ID}.setElevation` ) continue;
       if ( behavior.getFlag(MODULE_ID, FLAGS.REGION.MIN_MAX) ) continue;
       const minMax = minMaxRegionPointsAlongAxis(region, behavior.system.rampDirection);
@@ -97,8 +97,8 @@ function updateRegion(regionDoc, changed, _options, _userId) {
  */
 function preUpdateRegionBehavior(regionBehaviorDoc, changed, _options, _userId) {
   if ( regionBehaviorDoc.type !== `${MODULE_ID}.setElevation` ) return;
-  if ( Object.hasOwn(changed, "system") ) return;
-  if ( Object.hasOwn(changed.system, "algorithm") || Object.hasOwn(changed.system, "rampDirection") ) return;
+  if ( !Object.hasOwn(changed, "system") ) return;
+  if ( !(Object.hasOwn(changed.system, "algorithm") || Object.hasOwn(changed.system, "rampDirection")) ) return;
   const algorithm = changed.system.algorithm || regionBehaviorDoc.system.algorithm;
   if ( algorithm !== FLAGS.REGION.CHOICES.RAMP ) return;
   const region = regionBehaviorDoc.parent?.object;
@@ -109,7 +109,7 @@ function preUpdateRegionBehavior(regionBehaviorDoc, changed, _options, _userId) 
 }
 
 
-PATCHES.REGIONS.HOOKS = { updateRegion, preUpdateRegionBehavior };
+PATCHES.REGIONS.HOOKS = { canvasReady, updateRegion, preUpdateRegionBehavior };
 
 
 
@@ -320,8 +320,8 @@ function modifySegmentsForRamp(segments, behavior) {
       }
       case MOVE: {
         if ( !entered ) break;
-        segment.from.elevation = Math.max(behavior.rampElevation(segment.from), segment.from.elevation);
-        segment.to.elevation = Math.max(behavior.rampElevation(segment.to), segment.to.elevation);
+        segment.from.elevation = Math.max(behavior.system.rampElevation(segment.from), segment.from.elevation);
+        segment.to.elevation = Math.max(behavior.system.rampElevation(segment.to), segment.to.elevation);
         break;
       }
       case EXIT: {
@@ -342,7 +342,7 @@ function modifySegmentsForRamp(segments, behavior) {
         }
 
         // Subsequent points shifted by the plateau delta from this exit location.
-        const elevation = behavior.rampElevation(segment.from);
+        const elevation = behavior.system.rampElevation(segment.from);
         exitDelta = elevation - segment.from.elevation;
         segment.from.elevation += exitDelta;
         segment.to.elevation += exitDelta;
