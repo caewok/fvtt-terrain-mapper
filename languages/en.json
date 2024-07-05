@@ -49,13 +49,10 @@
   "terrainmapper.behavior.types.set-elevation.fields.floor.hint": "The elevation to set when the token leaves the region. For stairs, this serves as the bottom elevation of the stairs.",
 
   "terrainmapper.behavior.types.set-elevation.fields.rampDirection.name": "Ramp Direction",
-  "terrainmapper.behavior.types.set-elevation.fields.rampDirection.hint": "0 is due east; 90 is due south; 180 is due west; 270 is due north. Does nothing unless method chosen is 'Ramp'.",
+  "terrainmapper.behavior.types.set-elevation.fields.rampDirection.hint": "0 is due south; 90 is due west. Does nothing unless method chosen is 'Ramp'.",
 
-  "terrainmapper.behavior.types.set-elevation.fields.rampStepSize.name": "Ramp Step Size",
-  "terrainmapper.behavior.types.set-elevation.fields.rampStepSize.hint": "How tall, in grid units, to make each step. The number of steps will be automatically determined based on this value. If set to 0, the ramp will approximate a smooth incline.",
-
-  "terrainmapper.behavior.types.set-elevation.fields.teleport.name": "Teleport",
-  "terrainmapper.behavior.types.set-elevation.fields.teleport.hint": "If enabled, automatic elevation movement in this region will act as a teleport move. Intervening regions will not be triggered.",
+  "terrainmapper.behavior.types.set-elevation.fields.rampStepHeight.name": "Ramp Step Size",
+  "terrainmapper.behavior.types.set-elevation.fields.rampStepHeight.hint": "How tall, in grid units, to make each step of the ramp. The number of steps will be automatically determined based on this value. If set to 0, the ramp will approximate a smooth incline. Does nothing unless method chosen is 'Ramp'.",
 
   "terrainmapper.behavior.types.set-elevation.fields.ignoreOtherElevations.name": "Ignore Other Elevations",
   "terrainmapper.behavior.types.set-elevation.fields.ignoreOtherElevations.hint": "If enabled, tokens entering the region will be ignored unless at the designated minimum elevation (or maximum, for stairs).",

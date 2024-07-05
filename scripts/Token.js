@@ -16,6 +16,7 @@ Hook token movement to add/remove terrain effects and pause tokens dependent on 
 */
 
 import { MODULE_ID, FLAGS } from "./const.js";
+import { log } from "./util.js";
 
 export const PATCHES = {};
 PATCHES.BASIC = {};
@@ -85,23 +86,19 @@ function refreshToken(token, flags) {
       token.tooltip.text = text;
     }
     return;
+  } else if ( token.animationContexts.size ) {
+    log(`${token.name} is animating`);
   }
 }
 
-/**
- * Function to update token data as a specific user.
- * This allows the GM to continue token movement but as that user.
- * By doing so, this allows the pause-for-user to work as expected.
- */
-export async function updateTokenDocument(tokenUUID, data) {
-  const token = fromUuidSync(tokenUUID)?.object;
-  if ( !token ) return;
-  token.document.update(data);
+export function preUpdateToken(tokenD, data, _options, _userId) {
+  log(`preUpdateToken ${tokenD.name}`);
 }
 
 PATCHES.BASIC.HOOKS = {
   preCreateToken,
   refreshToken,
+  preUpdateToken,
   updateToken
 };
 

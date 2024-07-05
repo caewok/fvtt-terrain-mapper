@@ -18,6 +18,7 @@ import { PATCHES as PATCHES_SceneConfig } from "./SceneConfig.js";
 import { PATCHES as PATCHES_SetElevationRegionBehaviorType } from "./regions/SetElevationRegionBehaviorType.js";
 import { PATCHES as PATCHES_ModuleSettingsAbstract } from "./ModuleSettingsAbstract.js";
 import { PATCHES as PATCHES_ItemSheet } from "./ItemSheet.js";
+import { PATCHES as PATCHES_Region } from "./regions/Region.js";
 
 export const PATCHES = {
   ActiveEffect: PATCHES_ActiveEffect,
@@ -26,6 +27,7 @@ export const PATCHES = {
   ClientSettings: PATCHES_ModuleSettingsAbstract,
   ItemDirectory: PATCHES_ItemDirectory,
   ItemSheet: PATCHES_ItemSheet,
+  Region: PATCHES_Region,
   RegionLayer: PATCHES_RegionLayer,
   SceneConfig: PATCHES_SceneConfig,
   SidebarTab: PATCHES_SidebarTab,

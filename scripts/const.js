@@ -59,7 +59,8 @@ export const FLAGS = {
     IGNORE_OTHER_ELEVATIONS: "ignoreOtherElevations",
     FLOOR: "elevationFloor",
     DIRECTION: "rampDirection",
-    STEP_SIZE: "rampStepSize"
+    STEP_SIZE: "rampStepSize",
+    MIN_MAX: "minMax"
   },
 
   VERSION: "version"
