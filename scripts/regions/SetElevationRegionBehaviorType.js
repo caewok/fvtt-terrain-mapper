@@ -780,6 +780,7 @@ export function constructRegionsPath(start, end, samples, teleport = false) {
     minDist = segment.from.dist2;
     currRegion = region;
   }
+  if ( !currRegion ) return [start, end]; // Regions present but none had segments present.
 
   // Construct waypoints from the chosen region's segments.
   let currSegments = regionSegments.get(currRegion);
@@ -830,8 +831,8 @@ export function constructRegionsPath(start, end, samples, teleport = false) {
     finalWaypoints.push(currSegment.to);
   }
 
-  // Add the endpoint.
-  finalWaypoints.push(end);
+  // Add the endpoint, if it differs in x,y
+  if ( !regionWaypointsXYEqual(finalWaypoints.at(-1), end) ) finalWaypoints.push(end);
 
   // Trim intervening points.
   // As the path is a straight line in 2d, can trim any point between two points that share an elevation.
@@ -846,7 +847,7 @@ export function constructRegionsPath(start, end, samples, teleport = false) {
 
 function regionWaypointsEqual(a, b) { return a.x === b.x && a.y === b.y && a.elevation === b.elevation; }
 
-// function regionWaypointsXYEqual(a, b) { return a.x === b.x && a.y === b.y; }
+function regionWaypointsXYEqual(a, b) { return a.x === b.x && a.y === b.y; }
 
 
 /**
