@@ -91,8 +91,10 @@ function refreshToken(token, flags) {
       origin.elevation = token._original.elevationE;
       const destination = token.center;
       destination.elevation = origin.elevation;
-      const path = constructRegionsPath(origin, destination);
-      if ( path.length ) token.document.updateSource({ elevation: path.at(-1).elevation });
+      const path = constructRegionsPath(origin, destination); // Returns minimum [start, end]
+      if ( path.length > 2 ) token.document.elevation = path.at(-1).elevation;
+
+      // if ( path.length > 2 ) token.document.updateSource({ elevation: path.at(-1).elevation });
     }
     return;
   } else if ( token.animationContexts.size ) {
