@@ -831,8 +831,9 @@ export function constructRegionsPath(start, end, samples, teleport = false) {
     finalWaypoints.push(currSegment.to);
   }
 
-  // Add the endpoint, if it differs in x,y
-  if ( !regionWaypointsXYEqual(finalWaypoints.at(-1), end) ) finalWaypoints.push(end);
+  // Add the endpoint but set the elevation to the final waypoint.
+  // As such, will not be added if already present.
+  finalWaypoints.push({ x: end.x, y: end.y, elevation: finalWaypoints.at(-1).elevation });
 
   // Trim intervening points.
   // As the path is a straight line in 2d, can trim any point between two points that share an elevation.
