@@ -2,7 +2,6 @@
 canvas,
 CONFIG,
 CONST,
-fromUuidSync,
 game,
 PIXI
 */
@@ -17,6 +16,7 @@ Hook token movement to add/remove terrain effects and pause tokens dependent on 
 
 import { MODULE_ID, FLAGS } from "./const.js";
 import { log } from "./util.js";
+import { constructRegionsPath } from "./regions/SetElevationRegionBehaviorType.js";
 
 export const PATCHES = {};
 PATCHES.BASIC = {};
@@ -84,6 +84,15 @@ function refreshToken(token, flags) {
         text = `${names.join("\n")}\n${text}`;
       }
       token.tooltip.text = text;
+
+
+      // Adjust the token preview's elevation based on regions.
+      const origin = token._original.center;
+      origin.elevation = token._original.elevationE;
+      const destination = token.center;
+      destination.elevation = origin.elevation;
+      const path = constructRegionsPath(origin, destination);
+      if ( path.length ) token.document.updateSource({ elevation: path.at(-1).elevation });
     }
     return;
   } else if ( token.animationContexts.size ) {
@@ -91,7 +100,7 @@ function refreshToken(token, flags) {
   }
 }
 
-export function preUpdateToken(tokenD, data, _options, _userId) {
+export function preUpdateToken(tokenD, _data, _options, _userId) {
   log(`preUpdateToken ${tokenD.name}`);
 }
 
