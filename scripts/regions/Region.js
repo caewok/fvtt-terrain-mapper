@@ -182,6 +182,7 @@ function modifySegmentsForPlateau(segments, behavior) {
   let exitDelta = 0;
   for ( let i = 0, n = segments.length; i < n; i += 1 ) {
     const segment = segments[i];
+    if ( !segment ) { console.warn("segment not defined!"); continue; }
     switch ( segment.type ) {
       case ENTER: {
         entered = true;
@@ -209,7 +210,8 @@ function modifySegmentsForPlateau(segments, behavior) {
         if ( reset ) {
           // If the previous segment is not at reset elevation, add vertical move (down)
           const prevSegment = segments[i - 1] ?? { to: segment.from }; // Use this segment's from if no previous segment.
-          if ( prevSegment.to.elevation !== floor ) {
+          if ( !prevSegment ) console.warn(`prevSegment not defined for ${i}`, segments, segment);
+          if ( prevSegment && prevSegment.to.elevation !== floor ) {
             const vSegment = constructVerticalMoveSegment(prevSegment.to, floor);
             segments.splice(i, 0, vSegment);
             i += 1;
@@ -253,6 +255,7 @@ function modifySegmentsForStairs(segments, behavior) {
   let targetElevation = elevation;
   for ( let i = 0, n = segments.length; i < n; i += 1 ) {
     const segment = segments[i];
+    if ( !segment ) continue;
     switch ( segment.type ) {
       case ENTER: {
         entered = true;
@@ -301,6 +304,8 @@ function modifySegmentsForRamp(segments, behavior) {
   let exitDelta = 0;
   for ( let i = 0, n = segments.length; i < n; i += 1 ) {
     const segment = segments[i];
+    if ( !segment ) continue;
+
     switch ( segment.type ) {
       case ENTER: {
         entered = true;
@@ -329,7 +334,7 @@ function modifySegmentsForRamp(segments, behavior) {
         if ( reset ) {
           // If the previous segment is not at reset elevation, add vertical move (down)
           const prevSegment = segments[i - 1] ?? { to: segment.from }; // Use this segment's from if no previous segment.
-          if ( prevSegment.to.elevation !== floor ) {
+          if ( prevSegment && prevSegment.to.elevation !== floor ) {
             const vSegment = constructVerticalMoveSegment(prevSegment.to, floor);
             segments.splice(i, 0, vSegment);
             i += 1;
