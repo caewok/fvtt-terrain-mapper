@@ -193,13 +193,14 @@ export class SetElevationRegionBehaviorType extends foundry.data.regionBehaviors
    * @returns {number} The elevation of the ramp at this location
    */
   rampElevation(waypoint) {
-    if ( this.system.algorithm !== FLAGS.REGION.CHOICES.RAMP ) return waypoint.elevation;
-    const minMax = this.getFlags(MODULE_ID, FLAGS.REGIONS.MIN_MAX);
+    if ( this.algorithm !== FLAGS.REGION.CHOICES.RAMP ) return waypoint.elevation;
+    let minMax = this.parent.getFlag(MODULE_ID, FLAGS.REGION.MIN_MAX);
+    if ( !minMax ) return waypoint.elevation;
     const closestPt = foundry.utils.closestPointToSegment(waypoint, minMax.min, minMax.max);
 
     // Floor (min) --> pt --> elevation (max)
     // If no stepsize, elevation is simply proportional
-    const { floor, elevation, rampStepHeight } = this.system;
+    const { floor, elevation, rampStepHeight } = this;
     const t0 = Math.clamp(PIXI.Point.distanceBetween(minMax.min, closestPt) / PIXI.Point.distanceBetween(minMax.min, minMax.max), 0, 1);
     if ( t0.almostEqual(0) ) return floor;
     if ( t0.almostEqual(1) ) return elevation;
