@@ -334,7 +334,7 @@ export class SetElevationRegionBehaviorType extends foundry.data.regionBehaviors
 
     // Add ending waypoint if not present
     if ( !regionWaypointsEqual(finalPath.at(-1), end) ) {
-      end.dist2 = PIXI.Point.distanceSquaredBetween(start, end);
+      end.dist2 = Math.round(PIXI.Point.distanceSquaredBetween(start, end));
       end.regions = { enter: new Set(), exit: new Set(), move: new Set() };
       end.start = start;
       end.idx = finalPath.length;
@@ -643,14 +643,14 @@ class PathArray extends Array {
  * - @param {RegionMovementSegment} segment
  */
 function findClosestSegmentIntersection(a, b, currRegion, regionSegments, start) {
-  a.dist2 ??= PIXI.Point.distanceSquaredBetween(start, a);
-  b.dist2 ??= PIXI.Point.distanceSquaredBetween(start, b);
+  a.dist2 ??= Math.round(PIXI.Point.distanceSquaredBetween(start, a));
+  b.dist2 ??= Math.round(PIXI.Point.distanceSquaredBetween(start, b));
   const intersections = [];
   for ( const [region, segments] of regionSegments.entries() ) {
     if ( region === currRegion ) continue;
     for ( const segment of segments ) {
       // This is sweep along low dist2 to high dist2 direction
-      segment.from.dist2 ??= PIXI.Point.distanceSquaredBetween(start, segment.from);
+      segment.from.dist2 ??= Math.round(PIXI.Point.distanceSquaredBetween(start, segment.from));
       if ( segment.from.dist2 > b.dist2 ) break; // Fully past a|b in dist2 direction.
 
       // If the segment does not move us higher, skip.
@@ -660,12 +660,12 @@ function findClosestSegmentIntersection(a, b, currRegion, regionSegments, start)
       if ( segment.type !== Region.MOVEMENT_SEGMENT_TYPES.MOVE ) continue;
 
       // Test if we have reached the a|b segment.
-      segment.to.dist2 ??= PIXI.Point.distanceSquaredBetween(start, segment.to);
+      segment.to.dist2 ??= Math.round(PIXI.Point.distanceSquaredBetween(start, segment.to));
       if ( segment.to.dist2 < a.dist2 ) continue;
 
       // If the segment does not cross the start or end distance, skip.
-      segment.from.dist2 ??= PIXI.Point.distanceSquaredBetween(start, segment.from);
-      segment.to.dist2 ??= PIXI.Point.distanceSquaredBetween(start, segment.to);
+      segment.from.dist2 ??= Math.round(PIXI.Point.distanceSquaredBetween(start, segment.from));
+      segment.to.dist2 ??= Math.round(PIXI.Point.distanceSquaredBetween(start, segment.to));
 
       // Confirm intersection, using x: dist2 and y: elevation as the coordinate system.
       const ix = foundry.utils.lineSegmentIntersection(
@@ -691,7 +691,7 @@ function findClosestSegmentIntersection(a, b, currRegion, regionSegments, start)
  * @returns {PIXI.Point}
  */
 function convertRegionWaypointTo2d(waypoint, start) {
-  waypoint.dist2 ??= PIXI.Point.distanceSquaredBetween(start, waypoint);
+  waypoint.dist2 ??= Math.round(PIXI.Point.distanceSquaredBetween(start, waypoint));
   return new PIXI.Point(waypoint.dist2, waypoint.elevation);
 }
 
@@ -733,15 +733,15 @@ function updateRegionSegments(currRegion, regionSegments, newWaypoints, { sample
 function closestSegmentIndexToPosition(segments, waypoint, start) {
   // Use distance-squared to determine where along the line we are at.
   start ??= segments[0].from;
-  const targetDist2 = waypoint.dist2d ??= PIXI.Point.distanceSquaredBetween(start, waypoint);
+  const targetDist2 = waypoint.dist2d ??= Math.round(PIXI.Point.distanceSquaredBetween(start, waypoint));
   for ( let i = 0, n = segments.length; i < n; i += 1 ) {
     const segment = segments[i];
 
     // Test if target is within the segment.
     // from <= targetDist2 <= to
-    const toDist2 = segment.to.dist2 ?? PIXI.Point.distanceSquaredBetween(start, segment.to);
+    const toDist2 = segment.to.dist2 ?? Math.round(PIXI.Point.distanceSquaredBetween(start, segment.to));
     if ( toDist2 < targetDist2 ) continue;
-    const fromDist2 = segment.from.dist2 ?? PIXI.Point.distanceSquaredBetween(start, segment.from);
+    const fromDist2 = segment.from.dist2 ?? Math.round(PIXI.Point.distanceSquaredBetween(start, segment.from));
     if ( fromDist2 > targetDist2 ) break;
     return i;
   }
@@ -775,7 +775,7 @@ export function constructRegionsPath(start, end, samples, teleport = false) {
   for ( const [region, segments] of regionSegments.entries() ) {
     if ( !segments.length ) continue;
     const segment = segments[0];
-    segment.from.dist2 ??= PIXI.Point.distanceSquaredBetween(start, segment.from);
+    segment.from.dist2 ??= Math.round(PIXI.Point.distanceSquaredBetween(start, segment.from));
     if ( segment.from.dist2 >= minDist ) continue;
     minDist = segment.from.dist2;
     currRegion = region;
@@ -823,7 +823,8 @@ export function constructRegionsPath(start, end, samples, teleport = false) {
       // Update all other region paths to follow this combined path.
       const remainingPath = PathArray.fromSegments(currSegments.slice(idx + 1), { end });
       const currSegment = currSegments[idx];
-      updateRegionSegments(currRegion, regionSegments, [...finalWaypoints, currSegment.to, ...remainingPath], { samples, teleport });
+      if ( !currSegment ) console.debug(`currSegment not defined for ${idx}`, currSegments, currPosition);
+      if ( currSegment ) updateRegionSegments(currRegion, regionSegments, [...finalWaypoints, currSegment.to, ...remainingPath], { samples, teleport });
       continue;
     }
 
