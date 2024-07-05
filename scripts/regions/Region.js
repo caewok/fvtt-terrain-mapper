@@ -53,6 +53,22 @@ When exiting, moves back to the scene elevation
 // ----- NOTE: Hooks ----- //
 
 /**
+ * Hook canvasReady
+ * Check if region behaviors have defined min/max and update
+ * @param {Canvas} canvas The Canvas which is now ready for use
+ */
+export function canvasReady(canvas) {
+  for ( const region of canvas.regions.placeables ) {
+    for ( const behavior of region.behaviors ) {
+      if ( behavior.type !== `${MODULE_ID}.setElevation` ) continue;
+      if ( behavior.getFlag(MODULE_ID, FLAGS.REGION.MIN_MAX) ) continue;
+      const minMax = minMaxRegionPointsAlongAxis(region, behavior.system.rampDirection);
+      behavior.setFlag(MODULE_ID, FLAGS.REGION.MIN_MAX, minMax); // Async.
+    }
+  }
+}
+
+/**
  * Hook updateRegion
  * If the region changes, update any ramp elevation behaviors with the new shape.
  * @param {Document} document                       The existing Document which was updated
@@ -292,7 +308,7 @@ function modifySegmentsForRamp(segments, behavior) {
         segment.to.elevation += exitDelta;
 
         // If already at elevation, we are finished.
-        const elevation = behavior.rampElevation(segment.to);
+        const elevation = behavior.system.rampElevation(segment.to);
         if ( elevation === segment.to.elevation ) break;
 
         // Add a vertical move up after the enter.
