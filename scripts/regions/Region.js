@@ -115,7 +115,7 @@ function preUpdateRegionBehavior(regionBehaviorDoc, changed, _options, _userId) 
   if ( algorithm !== FLAGS.REGION.CHOICES.RAMP ) return;
   const region = regionBehaviorDoc.parent?.object;
   if ( !region ) return;
-  const direction = changed.system.direction ?? regionBehaviorDoc.system.direction ?? 0;
+  const direction = changed.system.rampDirection ?? regionBehaviorDoc.system.rampDirection ?? 0;
   const minMax = minMaxRegionPointsAlongAxis(region, direction);
   regionBehaviorDoc.updateSource({ [`flags.${MODULE_ID}.${FLAGS.REGION.MIN_MAX}`]: minMax });
 }
