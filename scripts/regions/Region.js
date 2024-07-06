@@ -403,15 +403,12 @@ function modifySegmentsForPlateau(segments, behavior) {
   const terrainFloor = canvas.scene?.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0;
 
   let entered = false;
-  let exitDelta = 0;
   for ( let i = 0, n = segments.length; i < n; i += 1 ) {
     const segment = segments[i];
     if ( !segment ) { console.warn("segment not defined!"); continue; }
     switch ( segment.type ) {
       case ENTER: {
         entered = true;
-        segment.from.elevation += exitDelta;
-        segment.to.elevation += exitDelta;
 
         // If already at elevation, we are finished.
         if ( elevation === segment.to.elevation ) break;
@@ -431,19 +428,11 @@ function modifySegmentsForPlateau(segments, behavior) {
       }
       case EXIT: {
         entered = false;
-        if ( reset ) {
-          // Add vertical move down to terrain elevation if not already there.
-          const numAdded = insertVerticalMoveToTerrainFloor(i, segments, terrainFloor);
-          i += numAdded;
-          n += numAdded;
-          exitDelta = 0;
-          break;
-        }
-
-        // Subsequent points shifted by the plateau delta from this exit location.
-        exitDelta = elevation - segment.from.elevation;
-        segment.from.elevation += exitDelta;
-        segment.to.elevation += exitDelta;
+        if ( !reset ) break;
+        // Add vertical move down to terrain elevation if not already there.
+        const numAdded = insertVerticalMoveToTerrainFloor(i, segments, terrainFloor);
+        i += numAdded;
+        n += numAdded;
         break;
       }
     }
@@ -517,7 +506,6 @@ function modifySegmentsForRamp(segments, behavior) {
   const terrainFloor = canvas.scene?.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0;
 
   let entered = false;
-  let exitDelta = 0;
   for ( let i = 0, n = segments.length; i < n; i += 1 ) {
     const segment = segments[i];
     if ( !segment ) continue;
@@ -525,8 +513,6 @@ function modifySegmentsForRamp(segments, behavior) {
     switch ( segment.type ) {
       case ENTER: {
         entered = true;
-        segment.from.elevation += exitDelta;
-        segment.to.elevation += exitDelta;
 
         // If already at elevation, we are finished.
         const elevation = behavior.system.rampElevation(segment.to);
@@ -547,20 +533,11 @@ function modifySegmentsForRamp(segments, behavior) {
       }
       case EXIT: {
         entered = false;
-        if ( reset ) {
-          // Add vertical move down to terrain elevation if not already there.
-          const numAdded = insertVerticalMoveToTerrainFloor(i, segments, terrainFloor);
-          i += numAdded;
-          n += numAdded;
-          exitDelta = 0;
-          break;
-        }
-
-        // Subsequent points shifted by the plateau delta from this exit location.
-        const elevation = behavior.system.rampElevation(segment.from);
-        exitDelta = elevation - segment.from.elevation;
-        segment.from.elevation += exitDelta;
-        segment.to.elevation += exitDelta;
+        if ( !reset ) break;
+        // Add vertical move down to terrain elevation if not already there.
+        const numAdded = insertVerticalMoveToTerrainFloor(i, segments, terrainFloor);
+        i += numAdded;
+        n += numAdded;
         break;
       }
     }
