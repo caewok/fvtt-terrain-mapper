@@ -400,7 +400,7 @@ function modifySegmentsForPlateau(segments, behavior) {
   if ( behavior.type !== `${MODULE_ID}.setElevation` || behavior.disabled || behavior.system.algorithm !== FLAGS.REGION.CHOICES.PLATEAU ) return segments;
   const { elevation, reset } = behavior.system;
   const { ENTER, MOVE, EXIT } = Region.MOVEMENT_SEGMENT_TYPES;
-  const floor = canvas.scene?.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0;
+  const terrainFloor = canvas.scene?.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0;
 
   let entered = false;
   let exitDelta = 0;
@@ -432,17 +432,10 @@ function modifySegmentsForPlateau(segments, behavior) {
       case EXIT: {
         entered = false;
         if ( reset ) {
-          // If the previous segment is not at reset elevation, add vertical move (down)
-          const prevSegment = segments[i - 1] ?? { to: segment.from }; // Use this segment's from if no previous segment.
-          if ( !prevSegment ) console.warn(`prevSegment not defined for ${i}`, segments, segment);
-          if ( prevSegment && prevSegment.to.elevation !== floor ) {
-            const vSegment = constructVerticalMoveSegment(prevSegment.to, floor);
-            segments.splice(i, 0, vSegment);
-            i += 1;
-            n += 1;
-          }
-          segment.from.elevation = floor;
-          segment.to.elevation = floor;
+          // Add vertical move down to terrain elevation if not already there.
+          const numAdded = insertVerticalMoveToTerrainFloor(i, segments, terrainFloor);
+          i += numAdded;
+          n += numAdded;
           exitDelta = 0;
           break;
         }
@@ -469,9 +462,10 @@ function modifySegmentsForPlateau(segments, behavior) {
  */
 function modifySegmentsForStairs(segments, behavior) {
   if ( behavior.type !== `${MODULE_ID}.setElevation` || behavior.disabled || behavior.system.algorithm !== FLAGS.REGION.CHOICES.STAIRS ) return segments;
-  const { elevation, floor  } = behavior.system;
+  const { elevation, floor, reset } = behavior.system;
   const { ENTER, MOVE, EXIT } = Region.MOVEMENT_SEGMENT_TYPES;
   const midE = Math.round((elevation - floor) * 0.5); // ≤ midE: go up; > midE: go down.
+  const terrainFloor = canvas.scene?.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0;
 
   let entered = false;
   let exitDelta = 0;
@@ -499,6 +493,16 @@ function modifySegmentsForStairs(segments, behavior) {
       case EXIT: {
         entered = false;
 
+        if ( reset ) {
+          // Add vertical move down to terrain elevation if not already there.
+          const numAdded = insertVerticalMoveToTerrainFloor(i, segments, terrainFloor);
+          i += numAdded;
+          n += numAdded;
+          // exitDelta = 0;
+          break;
+        }
+
+
         // Subsequent points shifted by the plateau delta from this exit location.
         exitDelta = targetElevation - segment.from.elevation;
         segment.from.elevation += exitDelta;
@@ -522,7 +526,7 @@ function modifySegmentsForRamp(segments, behavior) {
   if ( behavior.type !== `${MODULE_ID}.setElevation` || behavior.disabled || behavior.system.algorithm !== FLAGS.REGION.CHOICES.RAMP ) return segments;
   const { reset } = behavior.system;
   const { ENTER, MOVE, EXIT } = Region.MOVEMENT_SEGMENT_TYPES;
-  const floor = canvas.scene?.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0;
+  const terrainFloor = canvas.scene?.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0;
 
   let entered = false;
   let exitDelta = 0;
@@ -556,16 +560,10 @@ function modifySegmentsForRamp(segments, behavior) {
       case EXIT: {
         entered = false;
         if ( reset ) {
-          // If the previous segment is not at reset elevation, add vertical move (down)
-          const prevSegment = segments[i - 1] ?? { to: segment.from }; // Use this segment's from if no previous segment.
-          if ( prevSegment && prevSegment.to.elevation !== floor ) {
-            const vSegment = constructVerticalMoveSegment(prevSegment.to, floor);
-            segments.splice(i, 0, vSegment);
-            i += 1;
-            n += 1;
-          }
-          segment.from.elevation = floor;
-          segment.to.elevation = floor;
+          // Add vertical move down to terrain elevation if not already there.
+          const numAdded = insertVerticalMoveToTerrainFloor(i, segments, terrainFloor);
+          i += numAdded;
+          n += numAdded;
           exitDelta = 0;
           break;
         }
@@ -581,6 +579,28 @@ function modifySegmentsForRamp(segments, behavior) {
   }
   return segments;
 }
+
+/**
+ * Insert a vertical move down to the terrain floor
+ * @param {number} i                            The index of the current segment
+ * @param {RegionMovementSegment[]} segments    Segments for this path
+ * @param {number} floor                        Elevation we are moving to
+ */
+function insertVerticalMoveToTerrainFloor(i, segments, floor) {
+  const segment = segments[i];
+  segment.from.elevation = floor;
+  segment.to.elevation = floor;
+
+  // If the previous segment is not at reset elevation, add vertical move (down)
+  const prevSegment = segments[i - 1] ?? { to: segment.from }; // Use this segment's from if no previous segment.
+  if ( prevSegment && prevSegment.to.elevation !== floor ) {
+    const vSegment = constructVerticalMoveSegment(prevSegment.to, floor);
+    segments.splice(i, 0, vSegment);
+    return 1;
+  }
+  return 0;
+}
+
 
 /**
  * Construct a vertical move segment.
