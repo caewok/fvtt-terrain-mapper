@@ -1,6 +1,7 @@
 /* globals
 canvas,
 foundry,
+Hooks,
 PIXI,
 Region
 */
@@ -54,6 +55,15 @@ When exiting, moves back to the scene elevation
 // ----- NOTE: Hooks ----- //
 
 /**
+ * On init, add the terrain mapper refresh flag.
+ */
+Hooks.on("init", function() {
+  Region.RENDER_FLAGS.refreshTerrainMapperMesh = {};
+  Region.RENDER_FLAGS.refreshBorder.propagate ??= [];
+  Region.RENDER_FLAGS.refreshBorder.propagate.push("refreshTerrainMapperMesh");
+});
+
+/**
  * Hook canvasReady
  * Check if region behaviors have defined min/max and update
  * @param {Canvas} canvas The Canvas which is now ready for use
@@ -90,7 +100,8 @@ function updateRegion(regionDoc, changed, _options, _userId) {
 }
 
 /**
- * Hook preUpdate region behavior and change the ramp min/max points for the current settings.
+ * Hook preUpdate region behavior
+ * Change the ramp min/max points for the current settings.
  * @param {Document} document                       The existing Document which was updated
  * @param {object} changed                          Differential data that was used to update the document
  * @param {Partial<DatabaseUpdateOperation>} options Additional options which modified the update request
@@ -109,8 +120,37 @@ function preUpdateRegionBehavior(regionBehaviorDoc, changed, _options, _userId) 
   regionBehaviorDoc.updateSource({ [`flags.${MODULE_ID}.${FLAGS.REGION.MIN_MAX}`]: minMax });
 }
 
+/**
+ * Hook updateRegionBehavior
+ * Update the region's mesh shader if the setElevation behavior changes.
+ * @param {Document} document                       The existing Document which was updated
+ * @param {object} changed                          Differential data that was used to update the document
+ * @param {Partial<DatabaseUpdateOperation>} options Additional options which modified the update request
+ * @param {string} userId                           The ID of the User who triggered the update workflow
+ */
+function updateRegionBehavior(regionBehaviorDoc, _changed, _options, _userId) {
+  if ( regionBehaviorDoc.type !== `${MODULE_ID}.setElevation` ) return;
+  const region = regionBehaviorDoc.parent?.object;
+  if ( !region ) return;
+  region.renderFlags.set({ "refreshTerrainMapperMesh": true });
+}
 
-PATCHES.REGIONS.HOOKS = { canvasReady, updateRegion, preUpdateRegionBehavior };
+/**
+ * Hook deleteRegionBehavior
+ * Update the region's mesh shader
+ * @param {Document} document                       The existing Document which was deleted
+ * @param {Partial<DatabaseDeleteOperation>} options Additional options which modified the deletion request
+ * @param {string} userId                           The ID of the User who triggered the deletion workflow
+ */
+function deleteRegionBehavior(regionBehaviorDoc, _options, _userId) {
+  if ( regionBehaviorDoc.type !== `${MODULE_ID}.setElevation` ) return;
+  const region = regionBehaviorDoc.parent?.object;
+  if ( !region ) return;
+  region.renderFlags.set({ "refreshTerrainMapperMesh": true });
+}
+
+
+PATCHES.REGIONS.HOOKS = { canvasReady, updateRegion, preUpdateRegionBehavior, updateRegionBehavior, deleteRegionBehavior };
 
 
 
@@ -151,57 +191,9 @@ async function _draw(wrapped, options) {
   const mesh = this.children.find(c => c instanceof foundry.canvas.regions.RegionMesh);
   if ( !mesh ) return;
 
-  let hatchThickness = canvas.dimensions.size / 10;
-  mesh.shader.uniforms.hatchThickness = hatchThickness; // Must be defined for all region meshes.
-
-  // Get the first setElevation behavior.
-  const behavior = this.document.behaviors.find(b => b.type === `${MODULE_ID}.setElevation` && !b.disabled);
-  if ( !behavior ) return;
-
-  // insetPercentage: Rectangular edge portion. 0.5 covers the entire space (inset from region border on each side).
-  // hatchX, hatchY: Controls direction of the hatching except for the inset border.
-  // insetBorderThickness: Separate control over the inset border hatching.
-
-  const { PLATEAU, STAIRS, RAMP } = FLAGS.REGION.CHOICES;
-  let hatchX = 1;
-  let hatchY = 1;
-  let insetPercentage = 0;
-  let insetBorderThickness = hatchThickness;
-  switch ( behavior.system.algorithm ) {
-    case PLATEAU: {
-      // Set a striped inset border.
-      // Inside the border is solid.
-      insetPercentage = 0.1;
-      hatchThickness = 0;
-      break;
-    }
-
-    case STAIRS: {
-      // Horizontal stripes along the entirety
-      hatchX = 0;
-      hatchY = 1;
-      break;
-    }
-
-    case RAMP: {
-      // Set a striped inset border.
-      // Direction stripes within the border.
-      insetPercentage = 0.1;
-      const res = calculateHatchXY(behavior.system.rampDirection);
-      hatchX = res.hatchX;
-      hatchY = res.hatchY;
-      break;
-    }
-  }
-
-  const { left, top, right, bottom } = this.bounds;
-  mesh.shader.uniforms.border = [left, top, right, bottom];
-  mesh.shader.uniforms.hatchX = hatchX;
-  mesh.shader.uniforms.hatchY = hatchY;
-  mesh.shader.uniforms.hatchThickness = hatchThickness;
-  mesh.shader.uniforms.insetPercentage = insetPercentage;
-  mesh.shader.uniforms.insetBorderThickness = insetBorderThickness
-
+  // Must be defined for all region meshes.
+  mesh.shader.uniforms.hatchThickness = canvas.dimensions.size / 10;
+  this._refreshTerrainMapperMesh();
 }
 
 
@@ -298,8 +290,82 @@ function calculateHatchXY(direction) {
 
 }
 
+/**
+ * Wrap Region._applyRenderFlags
+ * Apply the terrain mapper mesh modifications.
+ */
+function _applyRenderFlags(wrapper, flags) {
+  wrapper(flags);
+  if ( flags.refreshTerrainMapperMesh ) this._refreshTerrainMapperMesh();
+}
 
-PATCHES.REGIONS.WRAPS = { segmentizeMovement, _draw};
+
+PATCHES.REGIONS.WRAPS = { segmentizeMovement, _draw, _applyRenderFlags};
+
+
+// ----- NOTE: Methods ----- //
+
+/**
+ * Region._refreshTerrainMapperMesh
+ * Update the mesh uniforms for setElevation behavior
+ */
+function _refreshTerrainMapperMesh() {
+  const mesh = this.children.find(c => c instanceof foundry.canvas.regions.RegionMesh);
+  if ( !mesh ) return;
+
+  let hatchThickness = canvas.dimensions.size / 10;
+  mesh.shader.uniforms.hatchThickness = hatchThickness; // Must be defined for all region meshes.
+
+  // Get the first setElevation behavior.
+  const behavior = this.document.behaviors.find(b => b.type === `${MODULE_ID}.setElevation` && !b.disabled);
+  if ( !behavior ) return;
+
+  // insetPercentage: Rectangular edge portion. 0.5 covers the entire space (inset from region border on each side).
+  // hatchX, hatchY: Controls direction of the hatching except for the inset border.
+  // insetBorderThickness: Separate control over the inset border hatching.
+
+  const { PLATEAU, STAIRS, RAMP } = FLAGS.REGION.CHOICES;
+  let hatchX = 1;
+  let hatchY = 1;
+  let insetPercentage = 0;
+  let insetBorderThickness = hatchThickness;
+  switch ( behavior.system.algorithm ) {
+    case PLATEAU: {
+      // Set a striped inset border.
+      // Inside the border is solid.
+      insetPercentage = 0.1;
+      hatchThickness = 0;
+      break;
+    }
+
+    case STAIRS: {
+      // Horizontal stripes along the entirety
+      hatchX = 0;
+      hatchY = 1;
+      break;
+    }
+
+    case RAMP: {
+      // Set a striped inset border.
+      // Direction stripes within the border.
+      insetPercentage = 0.1;
+      const res = calculateHatchXY(behavior.system.rampDirection);
+      hatchX = res.hatchX;
+      hatchY = res.hatchY;
+      break;
+    }
+  }
+
+  const { left, top, right, bottom } = this.bounds;
+  mesh.shader.uniforms.border = [left, top, right, bottom];
+  mesh.shader.uniforms.hatchX = hatchX;
+  mesh.shader.uniforms.hatchY = hatchY;
+  mesh.shader.uniforms.hatchThickness = hatchThickness;
+  mesh.shader.uniforms.insetPercentage = insetPercentage;
+  mesh.shader.uniforms.insetBorderThickness = insetBorderThickness
+}
+
+PATCHES.REGIONS.METHODS = { _refreshTerrainMapperMesh };
 
 
 // ----- NOTE: Helper functions ----- //
