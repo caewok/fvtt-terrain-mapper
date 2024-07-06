@@ -468,7 +468,6 @@ function modifySegmentsForStairs(segments, behavior) {
   const terrainFloor = canvas.scene?.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0;
 
   let entered = false;
-  let exitDelta = 0;
   let up = true;
   let targetElevation = elevation;
   for ( let i = 0, n = segments.length; i < n; i += 1 ) {
@@ -477,8 +476,6 @@ function modifySegmentsForStairs(segments, behavior) {
     switch ( segment.type ) {
       case ENTER: {
         entered = true;
-        segment.from.elevation += exitDelta;
-        segment.to.elevation += exitDelta;
         up = segment.from.elevation <= midE;
         targetElevation = up ? elevation : floor;
         break;
@@ -492,21 +489,12 @@ function modifySegmentsForStairs(segments, behavior) {
       }
       case EXIT: {
         entered = false;
+        if ( !reset ) break;
 
-        if ( reset ) {
-          // Add vertical move down to terrain elevation if not already there.
-          const numAdded = insertVerticalMoveToTerrainFloor(i, segments, terrainFloor);
-          i += numAdded;
-          n += numAdded;
-          // exitDelta = 0;
-          break;
-        }
-
-
-        // Subsequent points shifted by the plateau delta from this exit location.
-        exitDelta = targetElevation - segment.from.elevation;
-        segment.from.elevation += exitDelta;
-        segment.to.elevation += exitDelta;
+        // Add vertical move down to terrain elevation if not already there.
+        const numAdded = insertVerticalMoveToTerrainFloor(i, segments, terrainFloor);
+        i += numAdded;
+        n += numAdded;
         break;
       }
     }
