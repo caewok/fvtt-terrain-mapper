@@ -652,11 +652,22 @@ function minMaxPolygonPointsAlongAxis(poly, direction = 0, centroid) {
   const bounds = poly.getBounds();
   switch ( direction ) {
     case 0: return { min: { x: centroid.x, y: bounds.top }, max: { x: centroid.x, y: bounds.bottom } }; // Due south
-    case 90: return { min: { x: bounds.right, y: centroid.y }, max: { x: bounds.left, y: centroid.x } }; // Due west
+    case 90: return { min: { x: bounds.right, y: centroid.y }, max: { x: bounds.left, y: centroid.y } }; // Due west
     case 180: return { min: { x: centroid.x, y: bounds.bottom }, max: { x: centroid.x, y: bounds.top } }; // Due north
-    case 270: return { min: { x: bounds.left, y: centroid.y }, max: { x: bounds.right, y: centroid.x } }; // Due east
+    case 270: return { min: { x: bounds.left, y: centroid.y }, max: { x: bounds.right, y: centroid.y } }; // Due east
   }
 }
+
+/*
+Draw = CONFIG.GeometryLib.Draw
+api = game.modules.get("terrainmapper").api
+minMaxRegionPointsAlongAxis = api.minMaxRegionPointsAlongAxis
+
+region = canvas.regions.placeables[0]
+pts = minMaxRegionPointsAlongAxis(region, 0)
+Draw.segment({ A: pts.min, B: pts.max});
+Draw.point(pts.max)
+*/
 
 /**
  * Determine the minimum/maximum points of a region along a give axis.
@@ -666,7 +677,7 @@ function minMaxPolygonPointsAlongAxis(poly, direction = 0, centroid) {
  * - @prop {Point} min    Where region first intersects the line orthogonal to direction, moving in direction
  * - @prop {Point} max    Where region last intersects the line orthogonal to direction, moving in direction
  */
-function minMaxRegionPointsAlongAxis(region, direction = 0) {
+export function minMaxRegionPointsAlongAxis(region, direction = 0) {
   // By definition, holes cannot be the minimum/maximum points.
   const polys = region.polygons.filter(poly => poly._isPositive);
   const nPolys = polys.length;
