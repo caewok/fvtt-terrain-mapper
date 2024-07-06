@@ -795,7 +795,14 @@ export function constructRegionsPath(start, end, samples, teleport = false) {
   // At each move segment, determine if there is an intersection with another region.
   // If the intersection takes the path higher, use that intersection and switch to the new region.
   // Update the other region paths based on the new path.
+  const MAX_ITER = 1e06;
+  let iter = 0;
   for ( let i = 0, n = currSegments.length; i < n; i += 1 ) {
+    iter += 1;
+    if ( iter > MAX_ITER ) {
+      console.error(`constructRegionsPath|Hit max iterations for ${start.x},${start.y},${start.elevation} -> ${end.x},${end.y},${end.elevation} at i ${i}, regionSegments, currSegments`);
+      break;
+    }
     const currSegment = currSegments[i];
     switch ( currSegment.type ) {
       case ENTER: finalWaypoints.push(currSegment.to); continue;
