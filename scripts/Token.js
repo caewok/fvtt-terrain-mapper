@@ -137,13 +137,15 @@ function refreshToken(token, flags) {
  */
 export function preUpdateToken(tokenD, changed, options, _userId) {
   log(`preUpdateToken ${tokenD.name}`);
+  const token = tokenD.object;
+  if ( !token ) return;
+  token[MODULE_ID] ??= {};
+  token[MODULE_ID].path = undefined;
+
   if ( options.RidingMovement ) return; // See EV issue #83—compatibility with Rideables.
   if ( Object.hasOwn(changed, "elevation") ) return; // Do not override existing elevation changes.
   if ( !(Object.hasOwn(changed, "x") || Object.hasOwn(changed, "y")) ) return;
 
-  const token = tokenD.object;
-  if ( !token ) return;
-  token[MODULE_ID] ??= {};
   const destination = token.getCenterPoint({ x: changed.x ?? token.x, y: changed.y ?? token.y });
   const origin = token.center;
   origin.elevation = token.elevationE
