@@ -1,5 +1,6 @@
 /* globals
 canvas,
+foundry,
 PIXI,
 Region
 */
@@ -141,7 +142,164 @@ function segmentizeMovement(wrapper, waypoints, samples, opts) {
   return segments;
 }
 
-PATCHES.REGIONS.WRAPS = { segmentizeMovement };
+/**
+ * Wrap Region#_draw
+ * Modify hatch direction to match setElevation.
+ */
+async function _draw(wrapped, options) {
+  wrapped(options);
+  const mesh = this.children.find(c => c instanceof foundry.canvas.regions.RegionMesh);
+  if ( !mesh ) return;
+
+  let hatchThickness = canvas.dimensions.size / 10;
+  mesh.shader.uniforms.hatchThickness = hatchThickness; // Must be defined for all region meshes.
+
+  // Get the first setElevation behavior.
+  const behavior = this.document.behaviors.find(b => b.type === `${MODULE_ID}.setElevation` && !b.disabled);
+  if ( !behavior ) return;
+
+  // insetPercentage: Rectangular edge portion. 0.5 covers the entire space (inset from region border on each side).
+  // hatchX, hatchY: Controls direction of the hatching except for the inset border.
+  // insetBorderThickness: Separate control over the inset border hatching.
+
+  const { PLATEAU, STAIRS, RAMP } = FLAGS.REGION.CHOICES;
+  let hatchX = 1;
+  let hatchY = 1;
+  let insetPercentage = 0;
+  let insetBorderThickness = hatchThickness;
+  switch ( behavior.system.algorithm ) {
+    case PLATEAU: {
+      // Set a striped inset border.
+      // Inside the border is solid.
+      insetPercentage = 0.1;
+      hatchThickness = 0;
+      break;
+    }
+
+    case STAIRS: {
+      // Horizontal stripes along the entirety
+      hatchX = 0;
+      hatchY = 1;
+      break;
+    }
+
+    case RAMP: {
+      // Set a striped inset border.
+      // Direction stripes within the border.
+      insetPercentage = 0.1;
+      const res = calculateHatchXY(behavior.system.rampDirection);
+      hatchX = res.hatchX;
+      hatchY = res.hatchY;
+      break;
+    }
+  }
+
+  const { left, top, right, bottom } = this.bounds;
+  mesh.shader.uniforms.border = [left, top, right, bottom];
+  mesh.shader.uniforms.hatchX = hatchX;
+  mesh.shader.uniforms.hatchY = hatchY;
+  mesh.shader.uniforms.hatchThickness = hatchThickness;
+  mesh.shader.uniforms.insetPercentage = insetPercentage;
+  mesh.shader.uniforms.insetBorderThickness = insetBorderThickness
+
+}
+
+
+/*
+
+      if ( insetPercentage != 0.0 ) {
+        if ( percentFromBorder.x < insetPercentage || percentFromBorder.x > insetPercentage ) hatchOffset = vHatchVertical;
+        if ( percentFromBorder.y < insetPercentage || percentFromBorder.y > insetPercentage ) hatchOffset = vHatchHorizontal;
+
+        if ( percentFromBorder.x < insetPercentage && percentFromBorder.y < insetPercentage ) {
+          if ( percentFromBorder.x < percentFromBorder.y ) hatchOffset = vHatchVertical;
+          else hatchOffset = vHatchHorizontal;
+        }
+
+        if ( percentFromBorder.x > insetPercentage && percentFromBorder.y > insetPercentage ) {
+          if ( percentFromBorder.x < percentFromBorder.y ) hatchOffset = vHatchVertical;
+          else hatchOffset = vHatchHorizontal;
+        }
+      }
+
+region = canvas.regions.placeables[0]
+mesh = region.children.find(c => c instanceof foundry.canvas.regions.RegionMesh);
+thicknessMultiplier = 2
+hatchThickness = canvas.dimensions.size / 10
+border = region.getBounds()
+border.s = border.left
+border.t = border.top
+border.p = border.right
+border.q = border.bottom
+
+
+xPercent = .5
+yPercent = 0
+
+pixelCoord = { x: border.right + (border.left - border.right) * xPercent, y: border.top + (border.bottom = border.top) * yPercent }
+hatchX = 1
+hatchY = 0
+percentR = ((pixelCoord.x - border.s) / (border.p - border.s));
+percentT = ((pixelCoord.y - border.t) / (border.q - border.t));
+stripeThickness = hatchThickness * Math.pow(thicknessMultiplier, (percentR * hatchX) + (percentT * hatchY));
+console.log(`R: ${percentR} * ${hatchX} = ${percentR * hatchX}\tT: ${percentT} * ${hatchY} = ${percentT * hatchY}\tthickness: ${stripeThickness}`)
+*/
+
+
+
+/**
+ * Calculate the hatch X and Y based on the direction of the ramp.'
+ * Stripe represents where elevation is equal across the shape.
+ * @param {number} direction  Direction, in degrees, between 0º and 359º
+ * @returns {object}
+ * - @prop {number} hatchX
+ * - @prop {number} hatchY
+ */
+function calculateHatchXY(direction) {
+  // hatchX = 1, hatchY = 0: vertical stripes.
+  // hatchX = 0, hatchY = 1: horizontal stripes.
+  // hatchX === hatchY: 45º stripes, running SW to NE
+  // hatchX = -1, hatchY = 1: 45º stripes, running NW to SE
+  // hatchX = .3, hatchY = .7: ~ 30º, SW to NE
+  // hatchX = .7, hatchY = .3: ~ 60º, SW to NE
+  // Going larger than 1 shrinks the stripe width
+  // 0º direction should be due south, so horizontal stripes.
+  // 0º: hatchX = 0, hatchY = 1  // Due south; horizontal stripes
+  //
+  // 45º: hatchX = -.5, hatchY = .5
+  //
+  // 90º: hatchX = -1, hatchY = 0 // Due west; vertical stripes
+  // 45º: hatchX = .5, hatchY = .5
+
+  if ( direction <= 90 ) {
+    const t0 = direction / 90;
+    return { hatchX: -t0, hatchY: 1 - t0 };
+  } else if ( direction <= 180 ) {
+    const t0 = (direction - 90) / 90;
+    return { hatchX: 1 - t0, hatchY: t0 };
+  } else if ( direction <= 270 ) {
+    const t0 = (direction - 180) / 90;
+    return { hatchX: t0, hatchY: t0 - 1 };
+  } else if ( direction <= 360 ) {
+    const t0 = (direction - 270) / 90;
+    return { hatchX: t0 - 1, hatchY: -t0 };
+  }
+
+  /* Test with
+  0, 30, 45, 60, 90,
+   120, 135, 150, 180
+   210, 225, 240, 270
+   300, 315, 330, 360
+
+  res = calculateHatchXY(0)
+  mesh.shader.uniforms.hatchX = res.hatchX;
+  mesh.shader.uniforms.hatchY = res.hatchY;
+  */
+
+}
+
+
+PATCHES.REGIONS.WRAPS = { segmentizeMovement, _draw};
 
 
 // ----- NOTE: Helper functions ----- //

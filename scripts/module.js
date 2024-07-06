@@ -32,6 +32,7 @@ import { defaultTerrains } from "./default_terrains.js";
 
 // Self-executing hooks.
 import "./changelog.js";
+import "./regions/HighlightRegionShader.js";
 
 /**
  * A hook event that fires as Foundry is initializing, right before any
