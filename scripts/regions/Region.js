@@ -117,7 +117,7 @@ function preUpdateRegionBehavior(regionBehaviorDoc, changed, _options, _userId) 
   if ( !region ) return;
   const direction = changed.system.rampDirection ?? regionBehaviorDoc.system.rampDirection ?? 0;
   const minMax = minMaxRegionPointsAlongAxis(region, direction);
-  regionBehaviorDoc.updateSource({ [`flags.${MODULE_ID}.${FLAGS.REGION.MIN_MAX}`]: minMax });
+  foundry.utils.setProperty(changed, `flags.${MODULE_ID}.${FLAGS.REGION.MIN_MAX}`, minMax);
 }
 
 /**
@@ -429,6 +429,8 @@ function modifySegmentsForPlateau(segments, behavior) {
       case EXIT: {
         entered = false;
         if ( !reset ) break;
+        if ( !(entered || elevation === segment.from.elevation) ) break;
+
         // Add vertical move down to terrain elevation if not already there.
         const numAdded = insertVerticalMoveToTerrainFloor(i, segments, terrainFloor);
         i += numAdded;
@@ -479,6 +481,7 @@ function modifySegmentsForStairs(segments, behavior) {
       case EXIT: {
         entered = false;
         if ( !reset ) break;
+        if ( !(entered || elevation === segment.from.elevation || floor === segment.from.elevation) ) break;
 
         // Add vertical move down to terrain elevation if not already there.
         const numAdded = insertVerticalMoveToTerrainFloor(i, segments, terrainFloor);
@@ -526,14 +529,18 @@ function modifySegmentsForRamp(segments, behavior) {
         break;
       }
       case MOVE: {
-        if ( !entered ) break;
-        segment.from.elevation = Math.max(behavior.system.rampElevation(segment.from), segment.from.elevation);
+        // If at the current elevation, adjust to next elevation.
+        const currRampElevation = behavior.system.rampElevation(segment.from);
+        if ( !(entered || segment.from.elevation.almostEqual(currRampElevation)) ) break;
+        segment.from.elevation = Math.max(currRampElevation, segment.from.elevation);
         segment.to.elevation = Math.max(behavior.system.rampElevation(segment.to), segment.to.elevation);
         break;
       }
       case EXIT: {
         entered = false;
         if ( !reset ) break;
+        if ( !(entered || behavior.system.rampElevation(segment.from) === segment.from.elevation) ) break;
+
         // Add vertical move down to terrain elevation if not already there.
         const numAdded = insertVerticalMoveToTerrainFloor(i, segments, terrainFloor);
         i += numAdded;
@@ -664,9 +671,12 @@ api = game.modules.get("terrainmapper").api
 minMaxRegionPointsAlongAxis = api.minMaxRegionPointsAlongAxis
 
 region = canvas.regions.placeables[0]
-pts = minMaxRegionPointsAlongAxis(region, 0)
-Draw.segment({ A: pts.min, B: pts.max});
-Draw.point(pts.max)
+minMax = minMaxRegionPointsAlongAxis(region, 0)
+Draw.segment({ A: minMax.min, B: minMax.max});
+Draw.point(minMax.max)
+
+[behavior] = region.document.behaviors
+minMax = behavior.flags.terrainmapper.minMax
 */
 
 /**

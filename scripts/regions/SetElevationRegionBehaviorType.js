@@ -110,7 +110,7 @@ export class SetElevationRegionBehaviorType extends foundry.data.regionBehaviors
         label: `${MODULE_ID}.behavior.types.set-elevation.fields.rampDirection.name`,
         hint: `${MODULE_ID}.behavior.types.set-elevation.fields.rampDirection.hint`,
         min: 0,
-        max: 259,
+        max: 359,
         initial: 0
       }),
 
