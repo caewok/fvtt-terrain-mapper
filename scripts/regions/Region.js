@@ -532,8 +532,8 @@ function modifySegmentsForRamp(segments, behavior) {
         // If at the current elevation, adjust to next elevation.
         const currRampElevation = behavior.system.rampElevation(segment.from);
         if ( !(entered || segment.from.elevation.almostEqual(currRampElevation)) ) break;
-        segment.from.elevation = Math.max(currRampElevation, segment.from.elevation);
-        segment.to.elevation = Math.max(behavior.system.rampElevation(segment.to), segment.to.elevation);
+        segment.from.elevation = currRampElevation;
+        segment.to.elevation = behavior.system.rampElevation(segment.to);
         break;
       }
       case EXIT: {
