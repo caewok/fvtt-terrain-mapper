@@ -186,6 +186,51 @@ export class SetElevationRegionBehaviorType extends foundry.data.regionBehaviors
     log(`Token ${tokenD.name} move out of ${event.region.name}!`);
   }
 
+  /**
+   * Determine the elevation after an enter move into this behavior's region.
+   * @param {RegionMovementWaypoint} waypoint   Position and elevation immediately upon entry;
+   *                                            Position required only for ramps
+   * @returns {number} The elevation after accounting for any triggering move.
+   */
+  elevationUponEntry(waypoint) {
+    const { PLATEAU, RAMP, STAIRS } = FLAGS.REGION.CHOICES;
+    switch ( this.algorithm ) {
+      case PLATEAU: return this.elevation;
+      case RAMP: return this.rampElevation(waypoint);
+      case STAIRS: {
+        const midE = Math.round((this.elevation - this.floor) * 0.5);
+        return waypoint.elevation <= midE ? this.elevation : this.floor;
+      }
+    }
+    return canvas.scene?.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0;
+  }
+
+  /**
+   * Determine the elevation at a given point.
+   * Assumes, without testing, that the point is within this behavior's region.
+   * Treats points above the behavior's plateau elevation as falling to the plateau.
+   * @param {RegionMovementWaypoint} waypoint   Position and elevation to test;
+   *                                            Position required only for ramps
+   * @param {boolean} [useStairs=false]         If true, adjust for stairs
+   * @returns {number} The elevation after accounting for any triggering move
+   */
+  groundElevationAtPoint(waypoint, useStairs = false) {
+    const { PLATEAU, RAMP, STAIRS } = FLAGS.REGION.CHOICES;
+    switch ( this.algorithm ) {
+      case PLATEAU: return waypoint.elevation > this.elevation ? this.elevation : waypoint.elevation;
+      case RAMP: {
+        const elevation = this.rampElevation(waypoint);
+        return waypoint.elevation > elevation ? elevation : waypoint.elevation;
+      }
+      case STAIRS: {
+        if ( !useStairs ) return waypoint.elevation;
+        const midE = Math.round((this.elevation - this.floor) * 0.5);
+        return waypoint.elevation <= midE ? this.elevation : this.floor;
+      }
+    }
+    return canvas.scene?.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0;
+  }
+
 
   /**
    * Determine the elevation at a given region point for a ramp behavior.
@@ -633,6 +678,262 @@ class PathArray extends Array {
 }
 
 /**
+ * For a given elevation change, check for an intersection point with another region.
+ * If another region either is already present or entered into, determine if the change
+ * triggers a move to that region.
+ * 1. Move down: will we drop onto another region's elevation or stairs floor.
+ * 2. Move up: will we enter a region or move into a plateau.
+ */
+function findRegionShift(a, b, currRegion) {}
+
+function findRegionVerticalUp(a, b, currRegion, regionSegments, start) {
+  const teleport = false;
+  const samples = [{x: 0, y: 0}];
+  const { ENTER, EXIT, MOVE } = Region.MOVEMENT_SEGMENT_TYPES;
+
+  // Determine if we hit another region on the way up.
+  // Keep that region if it is the minimum elevation
+  let region;
+  let ix = {...b};
+  for ( const testRegion of regionSegments.keys() ) {
+    if ( testRegion === currRegion ) continue;
+    const setElevationB = findSetElevation(testRegion);
+    if ( !setElevationB ) continue;
+
+    // Find the segments for the a|b move.
+    const abSegments = testRegion.segmentizeMovement([a, b], samples, { teleport });
+    if ( !abSegments.length) continue;
+
+    const testSegment = abSegments[0];
+    switch ( testSegment.type ) {
+      case EXIT: break;
+      case ENTER: {
+        if ( testSegment.to.elevation > ix.elevation ) break;
+        region = testRegion;
+        ix = { x: a.x, y: a.y, elevation: testSegment.to.elevation };
+        break;
+      }
+      case MOVE: {
+        if ( setElevationB.system.algorithm === FLAGS.REGION.CHOICES.STAIRS ) break;
+
+        // Determine the elevation at which the move is encountered.
+        const e = setElevationB.system.groundElevationAtPoint(a);
+        if ( e > ix.elevation ) break;
+        region = testRegion;
+        ix = { x: a.x, y: a.y, elevation: e };
+        break;
+      }
+    }
+  }
+  if ( !region ) return null;
+
+  // Determine the next move segment.
+  const segments = regionSegments.get(region);
+  let idx = closestSegmentIndexToPosition(segments, ix, start);
+  if ( !~idx ) return null;
+  let segment = segments[idx];
+  if ( segment.type === ENTER ) segment = segments[++idx];
+  if ( segment.type === EXIT ) return null;
+
+  return { idx, region, segment, ix };
+
+
+}
+
+function findRegionHorizontalUp(a, b, currRegion, regionSegments, start) {}
+
+function findRegionHorizontal(a, b, currRegion, regionSegments, start) {
+  const teleport = false;
+  const samples = [{x: 0, y: 0}];
+  const { ENTER, EXIT, MOVE } = Region.MOVEMENT_SEGMENT_TYPES;
+
+  // Determine if we hit another region on the way down.
+  // Keep that region if it is the maximum elevation or is stairs trigger
+  let region;
+  let ix = {...b};
+  for ( const testRegion of regionSegments.keys() ) {
+    if ( testRegion === currRegion ) continue;
+    const setElevationB = findSetElevation(testRegion);
+    if ( !setElevationB ) continue;
+
+    // Find the segments for the a|b move.
+    const abSegments = testRegion.segmentizeMovement([a, b], samples, { teleport });
+    if ( !abSegments.length) continue;
+
+    const testSegment = abSegments[0];
+    switch ( testSegment.type ) {
+      case EXIT: break;
+      case ENTER: {
+        if ( testSegment.to.elevation < ix.elevation ) break;
+        region = testRegion;
+        ix = { x: a.x, y: a.y, elevation: testSegment.to.elevation };
+        break;
+      }
+      case MOVE: {
+        if ( setElevationB.system.algorithm === FLAGS.REGION.CHOICES.STAIRS ) break;
+
+        // Determine the elevation at which the move is encountered.
+        const e = setElevationB.system.groundElevationAtPoint(a);
+        if ( e < ix.elevation ) break;
+        region = testRegion;
+        ix = { x: a.x, y: a.y, elevation: e };
+        break;
+      }
+    }
+  }
+  if ( !region ) return null;
+
+  // Determine the next move segment.
+  const segments = regionSegments.get(region);
+  let idx = closestSegmentIndexToPosition(segments, ix, start);
+  if ( !~idx ) return null;
+  let segment = segments[idx];
+  if ( segment.type === ENTER ) segment = segments[++idx];
+  if ( segment.type === EXIT ) return null;
+  return { idx, region, segment, ix };
+
+}
+
+/* Intersections
+Vertical down: a.x, a.y, e
+Vertical up: a.x, a.y, e
+Horizontal: a.x, a.y, e
+
+a----••--•--b
+
+        •
+       /
+      /
+a----•---b
+
+      •
+a----/----b
+    /
+   /
+  •
+*/
+
+function findRegionShift(a, b, currRegion, regionSegments, start) {
+  const teleport = false;
+  const samples = [{x: 0, y: 0}];
+  const { ENTER, EXIT, MOVE } = Region.MOVEMENT_SEGMENT_TYPES;
+
+  // Determine if we hit another region on the way down.
+  // Keep that region if it is the maximum elevation or is stairs trigger
+  let region;
+  let ix = {...b};
+  let dist2 = PIXI.Point.distanceSquaredBetween(a, b);
+  for ( const testRegion of regionSegments.keys() ) {
+    if ( testRegion === currRegion ) continue;
+    const setElevationB = findSetElevation(testRegion);
+    if ( !setElevationB ) continue;
+
+    // Find the segments for the a|b move.
+    const abSegments = testRegion.segmentizeMovement([a, b], samples, { teleport });
+    if ( !abSegments.length) continue;
+
+    const testSegment = abSegments[0];
+    let testIx;
+    switch ( testSegment.type ) {
+      case EXIT: break;
+      case ENTER: testIx = { x: a.x, y: a.y, elevation: testSegment.to.elevation }; break;
+      case MOVE: {
+        if ( setElevationB.system.algorithm === FLAGS.REGION.CHOICES.STAIRS ) break;
+
+        // Determine the elevation at which the move is encountered.
+        const e = setElevationB.system.groundElevationAtPoint(a);
+        testIx = { x: a.x, y: a.y, elevation: e };
+        break;
+      }
+    }
+    if ( !testIx ) continue;
+    const testDist2 = PIXI.Point.distanceSquaredBetween(a, testIx);
+    if ( testDist2 > dist2 ) continue;
+    region = testRegion;
+    ix = testIx;
+    dist2 = testDist2;
+  }
+
+  if ( !region ) return null;
+
+  // Determine the next move segment.
+  const segments = regionSegments.get(region);
+  let idx = closestSegmentIndexToPosition(segments, ix, start);
+  if ( !~idx ) return null;
+  let segment = segments[idx];
+  if ( segment.type === ENTER ) segment = segments[++idx];
+  if ( segment.type === EXIT ) return null;
+  return { idx, region, segment, ix };
+}
+
+/**
+ * Determine the next region encountered in a vertical down move.
+ * If entering a stairs region, take the stairs.
+ * Otherwise, if falling onto a plateau, take the plateau region.
+ * @param {RegionMovementWaypoint} a
+ * @param {RegionMovementWaypoint} b
+ * @param {Map<Region, RegionMovementSegment[]} regionSegments
+ * @returns {object|null}
+ * - @param {Region} region
+ * - @param {Intersection} ix
+ * - @param {RegionMovementSegment} segment
+ */
+function findRegionVerticalDown(a, b, currRegion, regionSegments, start) {
+  const teleport = false;
+  const samples = [{x: 0, y: 0}];
+  const { ENTER, EXIT, MOVE } = Region.MOVEMENT_SEGMENT_TYPES;
+
+  // Determine if we hit another region on the way down.
+  // Keep that region if it is the maximum elevation or is stairs trigger
+  let region;
+  let ix = {...b};
+  for ( const testRegion of regionSegments.keys() ) {
+    if ( testRegion === currRegion ) continue;
+    const setElevationB = findSetElevation(testRegion);
+    if ( !setElevationB ) continue;
+
+    // Find the segments for the a|b move.
+    const abSegments = testRegion.segmentizeMovement([a, b], samples, { teleport });
+    if ( !abSegments.length) continue;
+
+    const testSegment = abSegments[0];
+    switch ( testSegment.type ) {
+      case EXIT: break;
+      case ENTER: {
+        if ( testSegment.to.elevation < ix.elevation ) break;
+        region = testRegion;
+        ix = { x: a.x, y: a.y, elevation: testSegment.to.elevation };
+        break;
+      }
+      case MOVE: {
+        if ( setElevationB.system.algorithm === FLAGS.REGION.CHOICES.STAIRS ) break;
+
+        // Determine the elevation at which the move is encountered.
+        const e = setElevationB.system.groundElevationAtPoint(a);
+        if ( e < ix.elevation ) break;
+        region = testRegion;
+        ix = { x: a.x, y: a.y, elevation: e };
+        break;
+      }
+    }
+  }
+  if ( !region ) return null;
+
+  // Determine the next move segment.
+  const segments = regionSegments.get(region);
+  let idx = closestSegmentIndexToPosition(segments, ix, start);
+  if ( !~idx ) return null;
+  let segment = segments[idx];
+  if ( segment.type === ENTER ) segment = segments[++idx];
+  if ( segment.type === EXIT ) return null;
+  return { idx, region, segment, ix };
+}
+
+
+
+
+
+/**
  * Locate all intersections with this segment and return the closest that moves the elevation higher.
  * @param {RegionMovementWaypoint} a
  * @param {RegionMovementWaypoint} b
@@ -656,7 +957,7 @@ function findClosestSegmentIntersection(a, b, currRegion, regionSegments, start)
       // If the segment does not move us higher, skip.
       if ( segment.to.elevation <= b.elevation ) continue;
 
-      // Ignore move segments b/c they are really points.
+      // Ignore enter/exit segments b/c they are really points.
       if ( segment.type !== Region.MOVEMENT_SEGMENT_TYPES.MOVE ) continue;
 
       // Test if we have reached the a|b segment.
@@ -715,7 +1016,11 @@ function convert2dPointToRegionWaypoint(pt, start, end) {
  * @param {Set<Region, RegionMovementSegment[]> } regionSegments
  * @param {RegionWaypoint[]} newWaypoints
  */
-function updateRegionSegments(currRegion, regionSegments, newWaypoints, { samples, teleport } = {}) {
+function updateRegionSegments(regionSegments, newWaypoints, { samples, teleport } = {}) {
+  regionSegments.keys().forEach(region => {
+    regionSegments.set(region, region.segmentizeMovement(newWaypoints, samples, { teleport}))
+  })
+
   canvas.regions.placeables.forEach(region => {
     if ( region === currRegion ) return;
     regionSegments.set(region, region.segmentizeMovement(newWaypoints, samples, { teleport}))
@@ -748,29 +1053,59 @@ function closestSegmentIndexToPosition(segments, waypoint, start) {
   return -1;
 }
 
+/**
+ * Does this region have a valid, enabled setElevation behavior?
+ * @param {Region} region
+ * @returns {boolean}
+ */
+function hasSetElevation(region) {
+  return region.document.behaviors.some(b => !b.disabled && b.type === `${MODULE_ID}.setElevation`)
+}
+
+/**
+ * Retrieve this region's setElevation behavior, if any.
+ * @param {Region} region
+ * @returns {RegionBehavior}
+ */
+function findSetElevation(region) {
+  return region.document.behaviors.find(b => !b.disabled && b.type === `${MODULE_ID}.setElevation`)
+}
+
+/**
+ * Retrieve all regions with a valid setElevation behavior
+ * @param {Region[]} [regions]    Regions to use, if not all regions on the canvas
+ * @returns {Region[]}
+ */
+function regionsWithSetElevation(regions) {
+  regions ??= canvas.regions?.placeables;
+  if ( !regions ) return [];
+  return regions.filter(region => hasSetElevation(region));
+}
+
 
 /**
  * Create path for a given straight line segment that may move through regions.
- * Each waypoint along the path is a change in 1+ regions encountered.
+ * Waypoints are added if passing through the region changes the path (currently, changes in elevation only).
+ * Only unique waypoints are kept.
  * @param {RegionMovementWaypoint} start          Start of the path
  * @param {RegionMovementWaypoint} end            End of the path
  * @param {Point[]} [samples]                     The points relative to the waypoint that are tested.
  *                                                Whenever one of them is inside the region, the moved object
  *                                                is considered to be inside the region.
  * @param {boolean} [teleport=false]              Is it teleportation?
- * @returns {RegionPathWaypoint[]} Sorted points by distance from start.
+ * @returns {PathArray<RegionMovementWaypoint>}   Sorted points by distance from start.
  */
 export function constructRegionsPath(start, end, samples, teleport = false) {
   if ( !canvas.regions?.placeables || !canvas.regions.placeables.length ) return [start, end];
   samples ??= [{x: 0, y: 0}];
-  const { ENTER, EXIT } = Region.MOVEMENT_SEGMENT_TYPES;
+  const { ENTER, EXIT, MOVE } = Region.MOVEMENT_SEGMENT_TYPES;
   const finalWaypoints = new PathArray();
   finalWaypoints.push(start);
   const regionSegments = new Map();
   let currRegion;
 
   // Determine the paths for each region and locate the path first encountered.
-  canvas.regions.placeables.forEach(region => regionSegments.set(region, region.segmentizeMovement([start, end], samples, { teleport})));
+  regionsWithSetElevation().forEach(region => regionSegments.set(region, region.segmentizeMovement([start, end], samples, { teleport})));
   let minDist = Number.POSITIVE_INFINITY;
   for ( const [region, segments] of regionSegments.entries() ) {
     if ( !segments.length ) continue;
@@ -791,16 +1126,24 @@ export function constructRegionsPath(start, end, samples, teleport = false) {
   updateRegionSegments(currRegion, regionSegments, pathWaypoints, { samples, teleport });
   if ( regionSegments.size < 2 ) return pathWaypoints;
 
+
+  /*
+    Elevation change up: will we enter another region and will it cause an elevation increase or a stairs down?
+    Elevation change down: will we enter another region and will it cause an elevation increase or a stairs down?
+      - Get the top elevation of each region; will be placed there
+  */
+
+
   // Walk along the current path.
   // At each move segment, determine if there is an intersection with another region.
   // If the intersection takes the path higher, use that intersection and switch to the new region.
   // Update the other region paths based on the new path.
-  const MAX_ITER = 1e06;
+  const MAX_ITER = 1e04;
   let iter = 0;
   for ( let i = 0, n = currSegments.length; i < n; i += 1 ) {
     iter += 1;
     if ( iter > MAX_ITER ) {
-      console.error(`constructRegionsPath|Hit max iterations for ${start.x},${start.y},${start.elevation} -> ${end.x},${end.y},${end.elevation} at i ${i}, regionSegments, currSegments`);
+      console.error(`constructRegionsPath|Hit max iterations for ${start.x},${start.y},${start.elevation} -> ${end.x},${end.y},${end.elevation} at i ${i}`, regionSegments, currSegments);
       break;
     }
     const currSegment = currSegments[i];
@@ -810,28 +1153,36 @@ export function constructRegionsPath(start, end, samples, teleport = false) {
     }
 
     // Test for intersections with this segment.
+    // 1. New region entered.
+    //    - plateau: moves to elevation
+    //    - ramp: moves to elevation
+    //    - stairs: moves up/down
+    // 2. Existing region. Circumstance where existing region overrides current path?
+    //    - start point is the trigger
+    //    - Existing region is ramp or plateau and we are starting at its elevation
+
+    // Use finalWaypoints.at(-1) in case we already processed an intersection along this segment.
     const intersection = findClosestSegmentIntersection(finalWaypoints.at(-1), currSegment.to, currRegion, regionSegments, start);
 
-    // Take the closest intersection found.
+    // Take the closest intersection found (what entered first).
     if ( intersection ) {
+      // Push the intersection point as a waypoint.
+      finalWaypoints.push(intersection.ix);
+
+      // Update all regions to follow this combined path, including the intersection.
+      const newWaypoints = [...finalWaypoints, end];
+      regionSegments.keys().forEach(r => regionSegments.set(r, r.segmentizeMovement(newWaypoints, samples, { teleport})));
+
+      // Fast forward to the current index.
+      const ixSegments = regionSegments.get(intersection.region);
       currRegion = intersection.region;
       currSegments = regionSegments.get(currRegion);
-
-      // Determine the actual intersection.
-      const currPosition = convert2dPointToRegionWaypoint(intersection.ix, start, end);
-      finalWaypoints.push(currPosition);
-
-      // Fast forward new segments to the current position in the next iteration of this loop.
       n = currSegments.length;
-      const idx = closestSegmentIndexToPosition(currSegments, currPosition, start); // Where in the new segment path are we?
-      i = idx - 1;
-
-      // Now the tricky part. Combine waypoints thus far with the path past this point.
-      // Update all other region paths to follow this combined path.
-      const remainingPath = PathArray.fromSegments(currSegments.slice(idx + 1), { end });
-      const currSegment = currSegments[idx];
-      if ( !currSegment ) console.debug(`currSegment not defined for ${idx}`, currSegments, currPosition);
-      if ( currSegment ) updateRegionSegments(currRegion, regionSegments, [...finalWaypoints, currSegment.to, ...remainingPath], { samples, teleport });
+      let idx = closestSegmentIndexToPosition(currSegments, ix, start); // Where in the new segment path are we?
+      const ixSegment = currSegments[idx];
+      if ( !ixSegment ) console.debug(`currSegment not defined for at ${intersection.ix.x},${intersection.ix.y},${intersection.ix.elevation}`, currSegments);
+      if ( ixSegment.type !== MOVE ) idx += 1;
+      i = idx - 1; // Subtract one b/c of the for loop increment.
       continue;
     }
 
