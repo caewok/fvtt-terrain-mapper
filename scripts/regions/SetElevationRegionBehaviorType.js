@@ -853,10 +853,13 @@ function closestSegmentIndexToPosition(segments, waypoint) {
   // In case of tie, take the later segment
   let minDist2 = Number.POSITIVE_INFINITY;
   let idx = -1;
+  waypoint.z = CONFIG.GeometryLib.utils.gridUnitsToPixels(waypoint.elevation);
   for ( let i = 0, n = segments.length; i < n; i += 1 ) {
     const segment = segments[i];
+    segment.from.z = CONFIG.GeometryLib.utils.gridUnitsToPixels(segment.from.elevation);
     const fromDist2 = Math.round(Point3d.distanceSquaredBetween(segment.from, waypoint));
     if ( fromDist2 > minDist2 ) break;
+    segment.to.z = CONFIG.GeometryLib.utils.gridUnitsToPixels(segment.to.elevation);
     const toDist2 = Math.round(Point3d.distanceSquaredBetween(segment.to, waypoint));
     if ( fromDist2 <= minDist2 ) { idx = i; minDist2 = fromDist2; }
     if ( toDist2 <= minDist2 ) { idx = i; minDist2 = toDist2; }
