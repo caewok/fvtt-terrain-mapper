@@ -732,6 +732,7 @@ function findRegionShift(a, b, currRegion, regionSegments, start) {
       }
     }
     if ( testIx === null ) continue;
+    if ( regionWaypointsEqual(a, testIx) ) continue; // Intersections at "a" will cause infinite loop.
     const testDist2 = PIXI.Point.distanceSquaredBetween(a, testIx);
     if ( testDist2 > dist2 ) continue;
     region = testRegion;
@@ -842,27 +843,42 @@ function updateRegionSegments(currRegion, regionSegments, newWaypoints, { sample
 
 /**
  * For a given array of region segments, locate the segment closest to a given point.
- * Assume the segments represent a straight 2d line, with possible elevation changes
+ * Assumes the segments represent a straight 2d line, with possible elevation changes.
  * @param {RegionMovementSegment[]} segments
  * @param {RegionWaypoint} waypoint           Point along the segments path.
  * @param {RegionWaypoint} [start]       Starting waypoint for the segment path. Used to determine distance.
  * @returns {number} Index of the closest segment.
  */
-function closestSegmentIndexToPosition(segments, waypoint) {
-  // Find the endpoint that is closest to the waypoint.
-  // In case of tie, take the later segment
-  let minDist2 = Number.POSITIVE_INFINITY;
+function closestSegmentIndexToPosition(segments, waypoint, start) {
+  // E.g.
+  // 0----20-----50-----80---100
+  //               60
+  waypoint.dist2 ??= PIXI.Point.distanceSquaredBetween(start, waypoint);
   let idx = -1;
-  waypoint.z = CONFIG.GeometryLib.utils.gridUnitsToPixels(waypoint.elevation);
   for ( let i = 0, n = segments.length; i < n; i += 1 ) {
     const segment = segments[i];
-    segment.from.z = CONFIG.GeometryLib.utils.gridUnitsToPixels(segment.from.elevation);
-    const fromDist2 = Math.round(Point3d.distanceSquaredBetween(segment.from, waypoint));
-    if ( fromDist2 > minDist2 ) break;
-    segment.to.z = CONFIG.GeometryLib.utils.gridUnitsToPixels(segment.to.elevation);
-    const toDist2 = Math.round(Point3d.distanceSquaredBetween(segment.to, waypoint));
-    if ( fromDist2 <= minDist2 ) { idx = i; minDist2 = fromDist2; }
-    if ( toDist2 <= minDist2 ) { idx = i; minDist2 = toDist2; }
+
+    // Skip segments until we get one where the to endpoint is greater than the waypoint
+    segment.to.dist2d ??= PIXI.Point.distanceSquaredBetween(start, segment.to);
+    if ( segment.to.dist2d < waypoint.dist2 ) continue;
+
+    // If the from waypoint is greater, we have gone too far.
+    segment.from.dist2d ??= PIXI.Point.distanceSquaredBetween(start, segment.from);
+    if ( segment.from.dist2d > waypoint.dist2 ) break;
+
+    // At this point, the segment encompasses the waypoint in the dist2 direction.
+    // Waypoint could equal the from endpoint, the to endpoint, or be somewhere in-between.
+    idx = i;
+
+    // Is this a vertical move?
+    // Could be more than one b/c moving vertically. Take the one that contains the waypoint elevation.
+    // E.g., vertically moving up: 10---20---30. Waypoint is 12. Check for between from/to elevation
+    if ( regionWaypointsXYEqual(segment.from, segment.to) ) {
+      // Could be more than one b/c moving vertically. Take the one that contains the waypoint elevation.
+      // E.g., vertically moving up: 10---20---30. Waypoint is 12. Check for between from/to elevation
+      if ( waypoint.elevation.between(segment.from.elevation, segment.to.elevation, false)
+        || waypoint.elevation === segment.from.elevation ) return i;
+    } else if ( regionWaypointsEqual(segment.to, waypoint) ) continue;  // Likely the next statement from equals the waypoint.
   }
   return idx;
 }
@@ -989,7 +1005,7 @@ export function constructRegionsPath(start, end, samples, teleport = false) {
 
       // Fast forward to the current index.
       const ixSegments = regionSegments.get(intersection.region);
-      let idx = closestSegmentIndexToPosition(ixSegments, intersection.ix); // Where in the new segment path are we?
+      let idx = closestSegmentIndexToPosition(ixSegments, intersection.ix, start); // Where in the new segment path are we?
       const ixSegment = ixSegments[idx];
       if ( !ixSegment ) console.debug(`currSegment not defined for at ${intersection.ix.x},${intersection.ix.y},${intersection.ix.elevation}`, ixSegments);
       if ( ixSegment.type !== MOVE ) idx += 1;
