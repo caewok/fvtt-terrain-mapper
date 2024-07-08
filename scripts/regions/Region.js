@@ -427,9 +427,9 @@ function modifySegmentsForPlateau(segments, behavior) {
         break;
       }
       case EXIT: {
+        if ( !(entered || elevation === segment.from.elevation) ) break;
         entered = false;
         if ( !reset ) break;
-        if ( !(entered || elevation === segment.from.elevation) ) break;
 
         // Add vertical move down to terrain elevation if not already there.
         const numAdded = insertVerticalMoveToTerrainFloor(i, segments, terrainFloor);
@@ -479,9 +479,9 @@ function modifySegmentsForStairs(segments, behavior) {
         break;
       }
       case EXIT: {
+        if ( !(entered || elevation === segment.from.elevation || floor === segment.from.elevation) ) break;
         entered = false;
         if ( !reset ) break;
-        if ( !(entered || elevation === segment.from.elevation || floor === segment.from.elevation) ) break;
 
         // Add vertical move down to terrain elevation if not already there.
         const numAdded = insertVerticalMoveToTerrainFloor(i, segments, terrainFloor);
@@ -537,9 +537,9 @@ function modifySegmentsForRamp(segments, behavior) {
         break;
       }
       case EXIT: {
+        if ( !(entered || behavior.system.rampElevation(segment.from) === segment.from.elevation) ) break;
         entered = false;
         if ( !reset ) break;
-        if ( !(entered || behavior.system.rampElevation(segment.from) === segment.from.elevation) ) break;
 
         // Add vertical move down to terrain elevation if not already there.
         const numAdded = insertVerticalMoveToTerrainFloor(i, segments, terrainFloor);
