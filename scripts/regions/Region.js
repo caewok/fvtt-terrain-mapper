@@ -16,6 +16,7 @@ Hook token movement to add/remove terrain effects and pause tokens dependent on 
 
 import { MODULE_ID, FLAGS } from "../const.js";
 import { Matrix } from "../geometry/Matrix.js";
+import { regionWaypointsXYEqual, regionWaypointsEqual } from "../util.js";
 
 export const PATCHES = {};
 PATCHES.REGIONS = {};
@@ -163,10 +164,10 @@ PATCHES.REGIONS.HOOKS = { canvasReady, updateRegion, preUpdateRegionBehavior, up
  *                                                Whenever one of them is inside the region, the moved object
  *                                                is considered to be inside the region.
  * @param {object} [options]                      Additional options
- * @param {boolean} [options.teleport=false]      Is it teleportation?
+ * @param {boolean} [options.freefall=false]      Should elevation changes follow the ramp/plateau when moving down?
  * @returns {RegionMovementSegment[]}             The movement split into its segments.
  */
-function segmentizeMovement(wrapper, waypoints, samples, opts) {
+function segmentizeMovement(wrapper, waypoints, samples, { freefall = false, ...opts } = {}) {
   const segments = wrapper(waypoints, samples, opts);
   const numSegments = segments.length;
   if ( !numSegments ) return segments;
@@ -175,9 +176,9 @@ function segmentizeMovement(wrapper, waypoints, samples, opts) {
   // For each behavior, adjust the segments to reflect the behavior.
   // TODO: Better handling if multiple behaviors found.
   for ( const behavior of this.document.behaviors ) {
-    modifySegmentsForPlateau(segments, behavior);
-    modifySegmentsForStairs(segments, behavior);
-    modifySegmentsForRamp(segments, behavior);
+    modifySegmentsForPlateau(segments, behavior, freefall);
+    modifySegmentsForStairs(segments, behavior, freefall);
+    modifySegmentsForRamp(segments, behavior, freefall);
   }
   return segments;
 }
@@ -396,7 +397,7 @@ But not practically at the moment b/c all region shapes have the same shape as t
  * @param {RegionMovementSegment[]} segments
  * @param {RegionBehavior} behavior
  */
-function modifySegmentsForPlateau(segments, behavior) {
+function modifySegmentsForPlateau(segments, behavior, freefall = false) {
   if ( behavior.type !== `${MODULE_ID}.setElevation` || behavior.disabled || behavior.system.algorithm !== FLAGS.REGION.CHOICES.PLATEAU ) return segments;
   const { elevation, reset } = behavior.system;
   const { ENTER, MOVE, EXIT } = Region.MOVEMENT_SEGMENT_TYPES;
@@ -421,15 +422,40 @@ function modifySegmentsForPlateau(segments, behavior) {
         break;
       }
       case MOVE: {
-        if ( !entered ) break;
-        segment.from.elevation = Math.max(elevation, segment.from.elevation);
-        segment.to.elevation = Math.max(elevation, segment.to.elevation);
+        // If we entered, subsequent move should be set to the elevation.
+        if ( entered ) {
+          segment.from.elevation = Math.max(elevation, segment.from.elevation);
+          segment.to.elevation = Math.max(elevation, segment.to.elevation);
+          break;
+        }
+
+        // Did not enter.
+        // If freefalling and moving down through the plateau and freefalling, add the intersect point to the segments.
+        // This will cause a downward movement to stop at the plateau and then move horizontally.
+        if ( freefall && segment.from.elevation > elevation && segment.to.elevation < elevation ) {
+          const ix = regionWaypointsXYEqual(segment.from, segment.to)
+            ? { ...segment.from, elevation }
+              : behavior.system.plateauSegmentIntersection(segment.from, segment.to);
+          if ( ix ) {
+            if ( regionWaypointsEqual(ix, segment.from) || regionWaypointsEqual(ix, segment.to) ) break;
+
+            // Replace this segment with from --> ix --> to
+            const toIx = { type: MOVE, from: segment.from, to: ix };
+            const fromIx = { type: MOVE, from: ix, to: segment.to };
+            segments.splice(i, 1, toIx, fromIx);
+            n += 1;
+            break;
+          }
+        }
         break;
       }
       case EXIT: {
-        if ( !(entered || elevation === segment.from.elevation) ) break;
+        if ( !reset ) { entered = false; break; }
+
+        // If entered and on the plateau elevation, reset to terrain elevation.
+        // If freefall, reset to the terrain elevation.
+        if ( !(freefall || (entered && elevation !== segment.from.elevation)) ) { entered = false; break; }
         entered = false;
-        if ( !reset ) break;
 
         // Add vertical move down to terrain elevation if not already there.
         const numAdded = insertVerticalMoveToTerrainFloor(i, segments, terrainFloor);
@@ -502,7 +528,7 @@ function modifySegmentsForStairs(segments, behavior) {
  * @param {RegionMovementSegment[]} segments
  * @param {RegionBehavior} behavior
  */
-function modifySegmentsForRamp(segments, behavior) {
+function modifySegmentsForRamp(segments, behavior, freefall) {
   if ( behavior.type !== `${MODULE_ID}.setElevation` || behavior.disabled || behavior.system.algorithm !== FLAGS.REGION.CHOICES.RAMP ) return segments;
   const { reset } = behavior.system;
   const { ENTER, MOVE, EXIT } = Region.MOVEMENT_SEGMENT_TYPES;
@@ -518,7 +544,7 @@ function modifySegmentsForRamp(segments, behavior) {
         entered = true;
 
         // If already at elevation, we are finished.
-        const elevation = behavior.system.rampElevation(segment.to);
+        const elevation = behavior.system.plateauElevation(segment.to);
         if ( elevation === segment.to.elevation ) break;
 
         // Add a vertical move up after the enter.
@@ -529,17 +555,40 @@ function modifySegmentsForRamp(segments, behavior) {
         break;
       }
       case MOVE: {
-        // If at the current elevation, adjust to next elevation.
-        const currRampElevation = behavior.system.rampElevation(segment.from);
-        if ( !(entered || segment.from.elevation.almostEqual(currRampElevation)) ) break;
-        segment.from.elevation = currRampElevation;
-        segment.to.elevation = behavior.system.rampElevation(segment.to);
+        const currRampElevation = behavior.system.plateauElevation(segment.from);
+
+        // Entered or currently at the ramp elevation; adjust the subsequent ramp elevation.
+        if ( entered || segment.from.elevation.almostEqual(currRampElevation) ) {
+          segment.from.elevation = currRampElevation;
+          segment.to.elevation = behavior.system.plateauElevation(segment.to);
+          break;
+        }
+
+        // Did not enter.
+        // Adjust moves that intersect the ramp.
+        // Unless using freefall, only horizontal moves count.
+        if ( !(freefall || segment.from.elevation === segment.to.elevation) ) break;
+
+        // Determine where the segment intersects the ramp.
+        const ix = behavior.system.plateauSegmentIntersection(segment.from, segment.to);
+        if ( !ix ) break;
+        if ( regionWaypointsEqual(ix, segment.from) || regionWaypointsEqual(ix, segment.to) ) break;
+        // if ( !this.testPoint(ix) ) break; // Skip because by definition, an intersection with the move segment will be within the region?
+
+        // Replace this segment with from --> ix --> to
+        const toIx = { type: MOVE, from: segment.from, to: ix };
+        const fromIx = { type: MOVE, from: ix, to: segment.to };
+        segments.splice(i, 1, toIx, fromIx);
+        n += 1;
         break;
       }
       case EXIT: {
-        if ( !(entered || behavior.system.rampElevation(segment.from) === segment.from.elevation) ) break;
+        if ( !reset ) { entered = false; break; }
+
+        // If entered and on the ramp elevation, reset to terrain elevation.
+        // If freefall, reset to the terrain elevation.
+        if ( !(freefall || (entered && behavior.system.plateauElevation(segment.from) !== segment.from.elevation)) ) { entered = false; break; }
         entered = false;
-        if ( !reset ) break;
 
         // Add vertical move down to terrain elevation if not already there.
         const numAdded = insertVerticalMoveToTerrainFloor(i, segments, terrainFloor);

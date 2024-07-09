@@ -153,3 +153,19 @@ export function firstGM() { return game.users?.find((u) => u.isGM && u.active); 
  * @returns {boolean}
  */
 export function isFirstGM() { return game.user && game.user.id === firstGM()?.id; }
+
+/**
+ * Are two region waypoints equal in all coordinates?
+ * @param {RegionMovementWaypoint} a
+ * @param {RegionMovementWaypoint} b
+ * @returns {boolean}
+ */
+export function regionWaypointsEqual(a, b) { return a.x === b.x && a.y === b.y && a.elevation === b.elevation; }
+
+/**
+ * Are two region waypoints equal in x,y coordinates?
+ * @param {RegionMovementWaypoint} a
+ * @param {RegionMovementWaypoint} b
+ * @returns {boolean}
+ */
+export function regionWaypointsXYEqual(a, b) { return a.x === b.x && a.y === b.y; }
