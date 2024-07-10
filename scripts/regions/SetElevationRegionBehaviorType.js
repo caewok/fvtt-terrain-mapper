@@ -278,13 +278,14 @@ export class SetElevationRegionBehaviorType extends foundry.data.regionBehaviors
     const min = new Point3d(minMax.min.x, minMax.min.y, gridUnitsToPixels(floor));
     const max = new Point3d(minMax.max.x, minMax.max.y, gridUnitsToPixels(elevation));
 
-    // Use the cross product to get the orthogonal direction.
+    // Find an orthogonal point.
+    // Because ramps are not skewed to the canvas, can use the 2d normal.
     const dir = max.subtract(min);
-    const c = dir.cross(Point3d._tmp.set(0, 0, 1));
+    const cDir = new Point3d(dir.y, -dir.x); // https://gamedev.stackexchange.com/questions/70075/how-can-i-find-the-perpendicular-to-a-2d-vector
+    const c = min.add(cDir);
 
     // Get a point at the same elevation as min in the given direction.
-    const other = min.add(c);
-    return Plane.fromPoints(min, max, other);
+    return Plane.fromPoints(min, max, c);
   }
 
 
@@ -1260,7 +1261,7 @@ export function constructRegionsPath(start, end, samples, teleport = false) {
 
 
 
-function drawRegionMovement(segments) {
+export function drawRegionMovement(segments) {
  for ( const segment of segments ) drawRegionSegment(segment);
 }
 
@@ -1280,7 +1281,7 @@ function drawRegionSegment(segment) {
 /**
  * Draw cutaway of the region segments.
  */
-function drawRegionMovementCutaway(segments) {
+export function drawRegionMovementCutaway(segments) {
   const pathWaypoints = PathArray.fromSegments(segments);
   drawRegionPathCutaway(pathWaypoints)
 }
@@ -1290,7 +1291,7 @@ function drawRegionMovementCutaway(segments) {
  * Draw line segments on the 2d canvas connecting the 2d parts of the path.
  * @param {PathArray<RegionMoveWaypoint>} path
  */
-function drawRegionPath(path, { color } = {}) {
+export function drawRegionPath(path, { color } = {}) {
   const Draw = CONFIG.GeometryLib.Draw
   color ??= Draw.COLORS.blue;
   for ( let i = 1; i < path.length; i += 1 ) {
@@ -1308,7 +1309,7 @@ function drawRegionPath(path, { color } = {}) {
  * 2d distance is along the x and elevation is y. Starts at path origin.
  * @param {PathArray<RegionMoveWaypoint>} path
  */
-function drawRegionPathCutaway(path) {
+export function drawRegionPathCutaway(path) {
   const color = CONFIG.GeometryLib.Draw.COLORS.red;
   const start = path[0];
   const gridUnitsToPixels = CONFIG.GeometryLib.utils.gridUnitsToPixels;

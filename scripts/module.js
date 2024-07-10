@@ -21,7 +21,13 @@ import { WallTracerEdge, WallTracerVertex, WallTracer, SCENE_GRAPH } from "./Wal
 // import { AddTerrainRegionBehaviorType } from "./regions/AddTerrainRegionBehaviorType.js";
 // import { RemoveTerrainRegionBehaviorType } from "./regions/RemoveTerrainRegionBehaviorType.js";
 import { SetTerrainRegionBehaviorType } from "./regions/SetTerrainRegionBehaviorType.js";
-import { SetElevationRegionBehaviorType, constructRegionsPath } from "./regions/SetElevationRegionBehaviorType.js";
+import {
+  SetElevationRegionBehaviorType,
+  constructRegionsPath,
+  drawRegionMovement,
+  drawRegionMovementCutaway,
+  drawRegionPath,
+  drawRegionPathCutaway } from "./regions/SetElevationRegionBehaviorType.js";
 import { minMaxRegionPointsAlongAxis } from "./regions/Region.js";
 
 // Unique Terrain Effects
@@ -120,7 +126,14 @@ function initializeAPI() {
      * @param {number} [opts.endElevation]   Elevation in grid units
      * @returns {RegionMovementSegment}
      */
-    estimateElevationForSegment: SetElevationRegionBehaviorType.estimateElevationForSegment
+    estimateElevationForSegment: SetElevationRegionBehaviorType.estimateElevationForSegment,
+
+    debug: {
+      drawRegionMovement,
+      drawRegionMovementCutaway,
+      drawRegionPath,
+      drawRegionPathCutaway
+    }
   };
 }
 
