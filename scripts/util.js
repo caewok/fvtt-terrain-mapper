@@ -7,7 +7,7 @@ renderTemplate
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { MODULE_ID } from "./const.js";
+import { MODULE_ID, MOVEMENT_TYPES_INV } from "./const.js";
 
 export function log(...args) {
   try {
@@ -169,3 +169,57 @@ export function regionWaypointsEqual(a, b) { return a.x === b.x && a.y === b.y &
  * @returns {boolean}
  */
 export function regionWaypointsXYEqual(a, b) { return a.x === b.x && a.y === b.y; }
+
+/**
+ * Does this region have a valid, enabled setElevation behavior?
+ * @param {Region} region
+ * @returns {boolean}
+ */
+export function hasSetElevation(region) {
+  return region.document.behaviors.some(b => !b.disabled && b.type === `${MODULE_ID}.setElevation`)
+}
+
+/**
+ * Retrieve this region's setElevation behavior, if any.
+ * @param {Region} region
+ * @returns {RegionBehavior}
+ */
+export function findSetElevation(region) {
+  return region.document.behaviors.find(b => !b.disabled && b.type === `${MODULE_ID}.setElevation`)
+}
+
+/**
+ * Retrieve all regions with a valid setElevation behavior
+ * @param {Region[]} [regions]    Regions to use, if not all regions on the canvas
+ * @returns {Region[]}
+ */
+export function regionsWithSetElevation(regions) {
+  regions ??= canvas.regions?.placeables;
+  if ( !regions ) return [];
+  return regions.filter(region => hasSetElevation(region));
+}
+
+/**
+ * Is the token flying, on the ground, or below ground for this terrain?
+ * @param {Token} token
+ * @param {Region} [region]   Is this relative to a specific region?
+ * @returns {MOVEMENT_TYPES}
+ */
+export function tokenMovementType(token, region) {
+  return terrainMovementType({ ...token.center, elevation: token.elevationE }, region);
+}
+
+/**
+ * Is this location considered to be flying, ground, or below ground?
+ * @param {RegionMovementWaypoint} waypoint
+ * @param {Region} [region]    Is this relative to a specific region? Does not test if point is within region
+ * @returns {MOVEMENT_TYPES}
+ */
+export function terrainMovementType(waypoint, region) {
+  let groundE = 0;
+  const b = findSetElevation(region);
+  if ( b && b.system.type !== FLAGS.REGION.CHOICES.STAIRS ) groundE = b.system.plateauElevation(waypoint);
+  else groundE = canvas.scene?.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0;
+  return Math.sign(waypoint.elevation - groundE) + 1; // 0, 1, or 2.
+}
+

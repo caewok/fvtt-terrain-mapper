@@ -10,7 +10,7 @@ Region
 "use strict";
 
 import { MODULE_ID, FLAGS } from "../const.js";
-import { log, isFirstGM, regionWaypointsXYEqual, regionWaypointsEqual } from "../util.js";
+import { log, isFirstGM, regionWaypointsXYEqual, regionWaypointsEqual, findSetElevation } from "../util.js";
 import { Point3d } from "../geometry/3d/Point3d.js";
 import { Plane } from "../geometry/3d/Plane.js";
 
@@ -253,8 +253,10 @@ export class SetElevationRegionBehaviorType extends foundry.data.regionBehaviors
     a.z = CONFIG.GeometryLib.utils.gridUnitsToPixels(a.elevation);
     b.z = CONFIG.GeometryLib.utils.gridUnitsToPixels(b.elevation);
     const p = this.plateauPlane();
-    const ix = p.lineSegmentIntersection(Point3d._tmp.copyFrom(a), Point3d._tmp2.copyFrom(b));
-    if ( !ix ) return null;
+    a = Point3d._tmp.copyFrom(a);
+    b = Point3d._tmp2.copyFrom(b);
+    if ( !p.lineSegmentIntersects(a, b) ) return null;
+    const ix = p.lineIntersection(a, b);
 
     // Then get the actual location for the step size.
     ix.elevation = CONFIG.GeometryLib.utils.pixelsToGridUnits(ix.z);
@@ -922,8 +924,8 @@ function updateRegionSegments(currRegion, regionSegments, newWaypoints, { sample
  * For a given array of region segments, locate the segment closest to a given point.
  * Assumes the segments represent a straight 2d line, with possible elevation changes.
  * @param {RegionMovementSegment[]} segments
- * @param {RegionWaypoint} waypoint           Point along the segments path.
- * @param {RegionWaypoint} [start]       Starting waypoint for the segment path. Used to determine distance.
+ * @param {RegionMovementWaypoint} waypoint           Point along the segments path.
+ * @param {RegionMovementWaypoint} [start]       Starting waypoint for the segment path. Used to determine distance.
  * @returns {number} Index of the closest segment.
  */
 function closestSegmentIndexToPosition(segments, waypoint, start) {
@@ -960,34 +962,7 @@ function closestSegmentIndexToPosition(segments, waypoint, start) {
   return idx;
 }
 
-/**
- * Does this region have a valid, enabled setElevation behavior?
- * @param {Region} region
- * @returns {boolean}
- */
-function hasSetElevation(region) {
-  return region.document.behaviors.some(b => !b.disabled && b.type === `${MODULE_ID}.setElevation`)
-}
 
-/**
- * Retrieve this region's setElevation behavior, if any.
- * @param {Region} region
- * @returns {RegionBehavior}
- */
-function findSetElevation(region) {
-  return region.document.behaviors.find(b => !b.disabled && b.type === `${MODULE_ID}.setElevation`)
-}
-
-/**
- * Retrieve all regions with a valid setElevation behavior
- * @param {Region[]} [regions]    Regions to use, if not all regions on the canvas
- * @returns {Region[]}
- */
-function regionsWithSetElevation(regions) {
-  regions ??= canvas.regions?.placeables;
-  if ( !regions ) return [];
-  return regions.filter(region => hasSetElevation(region));
-}
 
 
 /**
@@ -1051,7 +1026,7 @@ export function constructRegionsPath(start, end, samples, teleport = false) {
   // At each move segment, determine if there is an intersection with another region.
   // If the intersection takes the path higher, use that intersection and switch to the new region.
   // Update the other region paths based on the new path.
-  const MAX_ITER = 1e04;
+  const MAX_ITER = 1e03;
   let iter = 0;
   for ( let i = 0, n = currSegments.length; i < n; i += 1 ) {
     iter += 1;
@@ -1078,7 +1053,7 @@ export function constructRegionsPath(start, end, samples, teleport = false) {
     const intersection = findRegionShift(finalWaypoints.at(-1), currSegment.to, currRegion, regionSegments);
 
     // Take the closest intersection found (what entered first).
-    if ( intersection ) {
+    if ( intersection && !regionWaypointsEqual(currSegment.to, intersection.ix) ) {
       // Push the intersection point as a waypoint.
       finalWaypoints.push(intersection.ix);
 

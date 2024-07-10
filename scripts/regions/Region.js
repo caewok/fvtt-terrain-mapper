@@ -14,9 +14,9 @@ Methods and hooks related to tokens.
 Hook token movement to add/remove terrain effects and pause tokens dependent on settings.
 */
 
-import { MODULE_ID, FLAGS } from "../const.js";
+import { MODULE_ID, FLAGS, MOVEMENT_TYPES } from "../const.js";
 import { Matrix } from "../geometry/Matrix.js";
-import { regionWaypointsXYEqual, regionWaypointsEqual } from "../util.js";
+import { regionWaypointsXYEqual, regionWaypointsEqual, findSetElevation } from "../util.js";
 
 export const PATCHES = {};
 PATCHES.REGIONS = {};

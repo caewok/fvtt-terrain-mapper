@@ -66,6 +66,14 @@ export const FLAGS = {
   VERSION: "version"
 };
 
+export const MOVEMENT_TYPES = {
+  BURROW: 0,
+  WALK: 1,
+  FLY: 2
+};
+
+export const MOVEMENT_TYPES_INV = foundry.utils.invertObject(MOVEMENT_TYPES);
+
 // Icons used in this module in controls or tabs
 export const FA_ICONS = {
   MODULE: "fa-solid fa-mountain-sun",
