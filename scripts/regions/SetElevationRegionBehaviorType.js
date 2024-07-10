@@ -256,7 +256,7 @@ export class SetElevationRegionBehaviorType extends foundry.data.regionBehaviors
     a = Point3d._tmp.copyFrom(a);
     b = Point3d._tmp2.copyFrom(b);
     if ( !p.lineSegmentIntersects(a, b) ) return null;
-    const ix = p.lineIntersection(a, b);
+    const ix = p.lineSegmentIntersection(a, b);
 
     // Then get the actual location for the step size.
     ix.elevation = CONFIG.GeometryLib.utils.pixelsToGridUnits(ix.z);
@@ -550,7 +550,7 @@ function segmentizeElevationRegions(waypoints, samples, teleport = false) {
   for ( const region of canvas.regions.placeables ) {
     const behaviors = region.document.behaviors.filter(b => !b.disabled && b.type === "terrainmapper.setElevation");
     if ( !behaviors.length ) continue;
-    const segments = region.segmentizeMovement(waypoints, samples, { teleport, freefall: true });
+    const segments = region.segmentizeMovement(waypoints, samples, { teleport });
     if ( !segments.length ) continue;
     segments.forEach(segment => segment.behaviors = behaviors);
     regionSegments.push(...segments);
@@ -752,7 +752,7 @@ class PathArray extends Array {
  * - @prop {RegionMovementSegment} segment    Current segment for the path after the intersection
  * - @prop {RegionMovementWaypoint} ix        Intersection point
  */
-function findRegionShift(a, b, currRegion, regionSegments) {
+function findRegionShift(a, b, currRegion, regionSegments, start) {
   const teleport = false;
   const samples = [{x: 0, y: 0}];
   const { ENTER, EXIT, MOVE } = Region.MOVEMENT_SEGMENT_TYPES;
@@ -769,10 +769,10 @@ function findRegionShift(a, b, currRegion, regionSegments) {
     if ( !setElevationB ) continue;
 
     // Find the segments for the a|b move.
-    const abSegments = testRegion.segmentizeMovement([a, b], samples, { teleport, freefall: true });
+    const abSegments = testRegion.segmentizeMovement([a, b], samples, { teleport });
     if ( !abSegments.length) continue;
 
-    const testSegment = abSegments[0];
+    let testSegment = abSegments[0];
     let testIx = null;
     switch ( testSegment.type ) {
       case EXIT: break;
@@ -786,6 +786,17 @@ function findRegionShift(a, b, currRegion, regionSegments) {
 
         // Switch if moving down (slope -∞) or if the test slope exceeds the current slope.
         if ( !(currSlope === Number.NEGATIVE_INFINITY || zSlope2(testSegment.from, testSegment.to) > currSlope) ) break;
+
+        // TODO: Simplify this. Do we need all the tests or is abSegments[1] always the right choice?
+        // Determine if the segment was split at the intersection by segmentizeMovement.
+        const nextTestSegment = abSegments[1]
+        if ( nextTestSegment ) {
+          testSegment.from.dist2 ??= PIXI.Point.distanceSquaredBetween(start, testSegment.from);
+          testSegment.to.dist2 ??= PIXI.Point.distanceSquaredBetween(start, testSegment.to);
+          a.dist2 ??= PIXI.Point.distanceSquaredBetween(start, a);
+          b.dist2 ??= PIXI.Point.distanceSquaredBetween(start, b);
+          if ( testSegment.to.dist2.between(a.dist2, b.dist2) ) { testIx = nextTestSegment.from; break; }
+        }
 
         // Determine the elevation at which the move is encountered along the a|b segment.
         // First possibility: the move starts at the a point.
@@ -916,7 +927,7 @@ function convert2dPointToRegionWaypoint(pt, start, end) {
 function updateRegionSegments(currRegion, regionSegments, newWaypoints, { samples, teleport } = {}) {
   canvas.regions.placeables.forEach(region => {
     if ( region === currRegion ) return;
-    regionSegments.set(region, region.segmentizeMovement(newWaypoints, samples, { teleport, freefall: true }));
+    regionSegments.set(region, region.segmentizeMovement(newWaypoints, samples, { teleport }));
   });
 }
 
@@ -938,12 +949,12 @@ function closestSegmentIndexToPosition(segments, waypoint, start) {
     const segment = segments[i];
 
     // Skip segments until we get one where the to endpoint is greater than the waypoint
-    segment.to.dist2d ??= PIXI.Point.distanceSquaredBetween(start, segment.to);
-    if ( segment.to.dist2d < waypoint.dist2 ) continue;
+    segment.to.dist2 ??= PIXI.Point.distanceSquaredBetween(start, segment.to);
+    if ( segment.to.dist2 < waypoint.dist2 ) continue;
 
     // If the from waypoint is greater, we have gone too far.
-    segment.from.dist2d ??= PIXI.Point.distanceSquaredBetween(start, segment.from);
-    if ( segment.from.dist2d > waypoint.dist2 ) break;
+    segment.from.dist2 ??= PIXI.Point.distanceSquaredBetween(start, segment.from);
+    if ( segment.from.dist2 > waypoint.dist2 ) break;
 
     // At this point, the segment encompasses the waypoint in the dist2 direction.
     // Waypoint could equal the from endpoint, the to endpoint, or be somewhere in-between.
@@ -1000,10 +1011,10 @@ export function constructRegionsPath(start, end, samples, teleport = false) {
   if ( !currRegion ) return [start, end]; // Regions present but none had segments present.
 
   // Are we starting in a region?
-  end = {...end};
-  const startingRegion = currRegion;
-  if ( startingRegion.testPoint(start)
-    || start.elevation === findSetElevation(startingRegion).system.plateauElevation(start) ) end.elevation = Number.MIN_SAFE_INTEGER;
+//   end = {...end};
+//   const startingRegion = currRegion;
+//   if ( startingRegion.testPoint(start, start.elevation)
+//     || start.elevation === findSetElevation(startingRegion).system.plateauElevation(start) ) end.elevation = Number.MIN_SAFE_INTEGER;
 
   // Construct waypoints from the chosen region's segments.
   let currSegments = regionSegments.get(currRegion);
@@ -1050,7 +1061,7 @@ export function constructRegionsPath(start, end, samples, teleport = false) {
     //    - Existing region is ramp or plateau and we are starting at its elevation
 
     // Use finalWaypoints.at(-1) in case we already processed an intersection along this segment.
-    const intersection = findRegionShift(finalWaypoints.at(-1), currSegment.to, currRegion, regionSegments);
+    const intersection = findRegionShift(finalWaypoints.at(-1), currSegment.to, currRegion, regionSegments, start);
 
     // Take the closest intersection found (what entered first).
     if ( intersection && !regionWaypointsEqual(currSegment.to, intersection.ix) ) {
@@ -1082,19 +1093,19 @@ export function constructRegionsPath(start, end, samples, teleport = false) {
   }
 
   // If the last waypoint has negative infinity elevation, remove.
-  if ( finalWaypoints.at(-1).elevation === Number.MIN_SAFE_INTEGER ) {
-    console.warn("constructRegionsPath|final waypoint not finite.", finalWaypoints, start, end);
-    finalWaypoints.at(-1).elevation = canvas.scene?.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0;
-  }
+//   if ( finalWaypoints.at(-1).elevation === Number.MIN_SAFE_INTEGER ) {
+//     console.warn("constructRegionsPath|final waypoint not finite.", finalWaypoints, start, end);
+//     finalWaypoints.at(-1).elevation = canvas.scene?.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0;
+//   }
 
   // Trim intervening points.
   // As the path is a straight line in 2d, can trim any point between two points that share an elevation.
-  for ( let i = finalWaypoints.length - 2; i > 0; i -= 1 ) { // skip first and last point
-    const b = finalWaypoints[i];
-    const a = finalWaypoints[i - 1];
-    const c = finalWaypoints[i + 1];
-    if ( a.elevation === b.elevation && b.elevation === c.elevation ) finalWaypoints.splice(i, 1);
-  }
+//   for ( let i = finalWaypoints.length - 2; i > 0; i -= 1 ) { // skip first and last point
+//     const b = finalWaypoints[i];
+//     const a = finalWaypoints[i - 1];
+//     const c = finalWaypoints[i + 1];
+//     if ( a.elevation === b.elevation && b.elevation === c.elevation ) finalWaypoints.splice(i, 1);
+//   }
   return finalWaypoints;
 }
 
@@ -1248,23 +1259,31 @@ export function constructRegionsPath(start, end, samples, teleport = false) {
 // }
 
 
-//
-// function drawRegionMovement(segments) {
-//  for ( const segment of segments ) drawRegionSegment(segment);
-// }
 
-// function drawRegionSegment(segment) {
-//   const Draw = CONFIG.GeometryLib.Draw
-//   const color = segment.type === Region.MOVEMENT_SEGMENT_TYPES.ENTER
-//     ?  Draw.COLORS.green
-//       : segment.type === Region.MOVEMENT_SEGMENT_TYPES.MOVE ? Draw.COLORS.orange
-//         : Draw.COLORS.red;
-//   const A = segment.from;
-//   const B = segment.to;
-//   Draw.point(A, { color });
-//   Draw.point(B, { color });
-//   Draw.segment({ A, B }, { color })
-// }
+function drawRegionMovement(segments) {
+ for ( const segment of segments ) drawRegionSegment(segment);
+}
+
+function drawRegionSegment(segment) {
+  const Draw = CONFIG.GeometryLib.Draw
+  const color = segment.type === Region.MOVEMENT_SEGMENT_TYPES.ENTER
+    ?  Draw.COLORS.green
+      : segment.type === Region.MOVEMENT_SEGMENT_TYPES.MOVE ? Draw.COLORS.orange
+        : Draw.COLORS.red;
+  const A = segment.from;
+  const B = segment.to;
+  Draw.point(A, { color });
+  Draw.point(B, { color });
+  Draw.segment({ A, B }, { color })
+}
+
+/**
+ * Draw cutaway of the region segments.
+ */
+function drawRegionMovementCutaway(segments) {
+  const pathWaypoints = PathArray.fromSegments(segments);
+  drawRegionPathCutaway(pathWaypoints)
+}
 
 /**
  * For debugging.

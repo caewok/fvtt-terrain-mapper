@@ -7,7 +7,7 @@ renderTemplate
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { MODULE_ID, MOVEMENT_TYPES_INV } from "./const.js";
+import { MODULE_ID, MOVEMENT_TYPES_INV, FLAGS } from "./const.js";
 
 export function log(...args) {
   try {
@@ -216,10 +216,11 @@ export function tokenMovementType(token, region) {
  * @returns {MOVEMENT_TYPES}
  */
 export function terrainMovementType(waypoint, region) {
-  let groundE = 0;
+  let groundE = canvas.scene?.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0;
   const b = findSetElevation(region);
-  if ( b && b.system.type !== FLAGS.REGION.CHOICES.STAIRS ) groundE = b.system.plateauElevation(waypoint);
-  else groundE = canvas.scene?.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0;
+  if ( b
+    && b.system.type !== FLAGS.REGION.CHOICES.STAIRS
+    && region.testPoint(waypoint, undefined) ) groundE = b.system.plateauElevation(waypoint);
   return Math.sign(waypoint.elevation - groundE) + 1; // 0, 1, or 2.
 }
 
