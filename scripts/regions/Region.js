@@ -456,6 +456,11 @@ function modifySegmentsForPlateau(segments, behavior) {
         const numAdded = insertVerticalMoveToTerrainFloor(i, segments, terrainFloor);
         i += numAdded;
         n += numAdded;
+
+        // Primarily used if there are holes in the region.
+        // Ensure the next entry is at the current elevation.
+        const nextSegment = segments[i + 1];
+        if ( nextSegment ) nextSegment.from.elevation = terrainFloor;
         break;
       }
     }
@@ -493,19 +498,33 @@ function modifySegmentsForStairs(segments, behavior) {
         break;
       }
       case MOVE: {
-        if ( !entered ) break;
-        const cmpFn = up ? Math.max : Math.min;
-        segment.from.elevation = cmpFn(targetElevation, segment.from.elevation);
-        segment.to.elevation = cmpFn(targetElevation, segment.to.elevation);
+        // Treat as entered if at the elevation or floor
+        if ( !entered
+          && (segment.from.elevation === floor
+          || segment.from.elevation === elevation) ) entered = true;
+
+        if ( entered ) {
+          const cmpFn = up ? Math.max : Math.min;
+          segment.from.elevation = cmpFn(targetElevation, segment.from.elevation);
+          segment.to.elevation = cmpFn(targetElevation, segment.to.elevation);
+        } else if ( segment.to.elevation === elevation
+                 || segment.to.elevation === floor ) entered = true; // Do after entered test so from is not changed.
+
         break;
       }
       case EXIT: {
+        entered = false;
         if ( !reset ) break;
 
         // Add vertical move down to terrain elevation if not already there.
         const numAdded = insertVerticalMoveToTerrainFloor(i, segments, terrainFloor);
         i += numAdded;
         n += numAdded;
+
+        // Primarily used if there are holes in the region.
+        // Ensure the next entry is at the current elevation.
+        const nextSegment = segments[i + 1];
+        if ( nextSegment ) nextSegment.from.elevation = terrainFloor;
         break;
       }
     }
@@ -573,12 +592,18 @@ function modifySegmentsForRamp(segments, behavior) {
         break;
       }
       case EXIT: {
-        if ( !reset ) { entered = false; break; }
+        entered = false;
+        if ( !reset ) break;
 
         // Add vertical move down to terrain elevation if not already there.
         const numAdded = insertVerticalMoveToTerrainFloor(i, segments, terrainFloor);
         i += numAdded;
         n += numAdded;
+
+        // Primarily used if there are holes in the region.
+        // Ensure the next entry is at the current elevation.
+        const nextSegment = segments[i + 1];
+        if ( nextSegment ) nextSegment.from.elevation = terrainFloor;
         break;
       }
     }
