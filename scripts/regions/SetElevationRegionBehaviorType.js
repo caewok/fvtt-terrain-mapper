@@ -1032,6 +1032,7 @@ export function constructRegionsPath(start, end, samples, teleport = false) {
   // Update the other region paths based on the new path.
   const MAX_ITER = 1e03;
   let iter = 0;
+  let tmpEnd = {...end};
   for ( let i = 0, n = currSegments.length; i < n; i += 1 ) {
     iter += 1;
     if ( iter > MAX_ITER ) {
@@ -1047,6 +1048,11 @@ export function constructRegionsPath(start, end, samples, teleport = false) {
         // If finished this region's path, check for other paths.
         // TODO: Can we simplify this? Combine with other tests to find region segments?
         if ( ( i + 1 ) === n ) {
+          // Refresh the other regions.
+          tmpEnd.elevation = currSegment.to.elevation;
+          const newWaypoints = [...finalWaypoints, tmpEnd];
+          updateRegionSegments(currRegion, regionSegments, newWaypoints, { samples, teleport });
+
           // Next closest region path that is at least currSegment.to.dist2 away
           currSegment.to.dist2 ??= PIXI.Point.distanceBetween(start, currSegment.to);
           const res = closestRegionSegmentToDistance(currRegion, regionSegments, currSegment.to.dist2, start);
@@ -1079,10 +1085,10 @@ export function constructRegionsPath(start, end, samples, teleport = false) {
       finalWaypoints.push(intersection.ix);
 
       // Switching regions, so invalidate the end elevation.
-      end.elevation = Number.MIN_SAFE_INTEGER;
+      tmpEnd.elevation = intersection.ix.elevation;
 
       // Update all regions to follow this combined path, including the intersection.
-      const newWaypoints = [...finalWaypoints, end];
+      const newWaypoints = [...finalWaypoints, tmpEnd];
       updateRegionSegments(undefined, regionSegments, newWaypoints, { samples, teleport });
 
       // Fast forward to the current index.
