@@ -204,49 +204,6 @@ async function _draw(wrapped, options) {
   this._refreshTerrainMapperMesh();
 }
 
-
-/*
-
-      if ( insetPercentage != 0.0 ) {
-        if ( percentFromBorder.x < insetPercentage || percentFromBorder.x > insetPercentage ) hatchOffset = vHatchVertical;
-        if ( percentFromBorder.y < insetPercentage || percentFromBorder.y > insetPercentage ) hatchOffset = vHatchHorizontal;
-
-        if ( percentFromBorder.x < insetPercentage && percentFromBorder.y < insetPercentage ) {
-          if ( percentFromBorder.x < percentFromBorder.y ) hatchOffset = vHatchVertical;
-          else hatchOffset = vHatchHorizontal;
-        }
-
-        if ( percentFromBorder.x > insetPercentage && percentFromBorder.y > insetPercentage ) {
-          if ( percentFromBorder.x < percentFromBorder.y ) hatchOffset = vHatchVertical;
-          else hatchOffset = vHatchHorizontal;
-        }
-      }
-
-region = canvas.regions.placeables[0]
-mesh = region.children.find(c => c instanceof foundry.canvas.regions.RegionMesh);
-thicknessMultiplier = 2
-hatchThickness = canvas.dimensions.size / 10
-border = region.getBounds()
-border.s = border.left
-border.t = border.top
-border.p = border.right
-border.q = border.bottom
-
-
-xPercent = .5
-yPercent = 0
-
-pixelCoord = { x: border.right + (border.left - border.right) * xPercent, y: border.top + (border.bottom = border.top) * yPercent }
-hatchX = 1
-hatchY = 0
-percentR = ((pixelCoord.x - border.s) / (border.p - border.s));
-percentT = ((pixelCoord.y - border.t) / (border.q - border.t));
-stripeThickness = hatchThickness * Math.pow(thicknessMultiplier, (percentR * hatchX) + (percentT * hatchY));
-console.log(`R: ${percentR} * ${hatchX} = ${percentR * hatchX}\tT: ${percentT} * ${hatchY} = ${percentT * hatchY}\tthickness: ${stripeThickness}`)
-*/
-
-
-
 /**
  * Calculate the hatch X and Y based on the direction of the ramp.'
  * Stripe represents where elevation is equal across the shape.
@@ -723,20 +680,6 @@ function minMaxPolygonPointsAlongAxis(poly, direction = 0, centroid) {
     case 270: return { min: { x: bounds.left, y: centroid.y }, max: { x: bounds.right, y: centroid.y } }; // Due east
   }
 }
-
-/*
-Draw = CONFIG.GeometryLib.Draw
-api = game.modules.get("terrainmapper").api
-minMaxRegionPointsAlongAxis = api.minMaxRegionPointsAlongAxis
-
-region = canvas.regions.placeables[0]
-minMax = minMaxRegionPointsAlongAxis(region, 0)
-Draw.segment({ A: minMax.min, B: minMax.max});
-Draw.point(minMax.max)
-
-[behavior] = region.document.behaviors
-minMax = behavior.flags.terrainmapper.minMax
-*/
 
 /**
  * Determine the minimum/maximum points of a region along a give axis.
