@@ -1011,12 +1011,6 @@ export function constructRegionsPath(start, end, samples, teleport = false) {
   }
   if ( !currRegion ) return [start, end]; // Regions present but none had segments present.
 
-  // Are we starting in a region?
-//   end = {...end};
-//   const startingRegion = currRegion;
-//   if ( startingRegion.testPoint(start, start.elevation)
-//     || start.elevation === findSetElevation(startingRegion).system.plateauElevation(start) ) end.elevation = Number.MIN_SAFE_INTEGER;
-
   // Construct waypoints from the chosen region's segments.
   let currSegments = regionSegments.get(currRegion);
   if ( !currSegments.length ) return [start, end]
@@ -1025,13 +1019,6 @@ export function constructRegionsPath(start, end, samples, teleport = false) {
   // Update all the other region paths.
   updateRegionSegments(currRegion, regionSegments, pathWaypoints, { samples, teleport });
   if ( regionSegments.size < 2 ) return pathWaypoints;
-
-
-  /*
-    Elevation change up: will we enter another region and will it cause an elevation increase or a stairs down?
-    Elevation change down: will we enter another region and will it cause an elevation increase or a stairs down?
-      - Get the top elevation of each region; will be placed there
-  */
 
 
   // Walk along the current path.
@@ -1049,7 +1036,24 @@ export function constructRegionsPath(start, end, samples, teleport = false) {
     const currSegment = currSegments[i];
     switch ( currSegment.type ) {
       case ENTER: finalWaypoints.push(currSegment.to); continue;
-      case EXIT: finalWaypoints.push(currSegment.from); continue;
+      case EXIT: {
+        finalWaypoints.push(currSegment.from);
+
+        // If finished this region's path, check for other paths.
+        // TODO: Can we simplify this? Combine with other tests to find region segments?
+        if ( ( i + 1 ) === n ) {
+          // Next closest region path that is at least currSegment.to.dist2 away
+          currSegment.to.dist2 ??= PIXI.Point.distanceBetween(start, currSegment.to);
+          const res = closestRegionSegmentToDistance(currRegion, regionSegments, currSegment.to.dist2, start);
+          if ( res.region ) {
+            currRegion = res.region;
+            currSegments = regionSegments.get(currRegion);
+            i = res.idx;
+            n = currSegments.length;
+          }
+        }
+        continue;
+      }
     }
 
     // Test for intersections with this segment.
@@ -1093,12 +1097,6 @@ export function constructRegionsPath(start, end, samples, teleport = false) {
     finalWaypoints.push(currSegment.to);
   }
 
-  // If the last waypoint has negative infinity elevation, remove.
-//   if ( finalWaypoints.at(-1).elevation === Number.MIN_SAFE_INTEGER ) {
-//     console.warn("constructRegionsPath|final waypoint not finite.", finalWaypoints, start, end);
-//     finalWaypoints.at(-1).elevation = canvas.scene?.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0;
-//   }
-
   // Trim intervening points.
   // As the path is a straight line in 2d, can trim any point between two points that share an elevation.
 //   for ( let i = finalWaypoints.length - 2; i > 0; i -= 1 ) { // skip first and last point
@@ -1108,6 +1106,33 @@ export function constructRegionsPath(start, end, samples, teleport = false) {
 //     if ( a.elevation === b.elevation && b.elevation === c.elevation ) finalWaypoints.splice(i, 1);
 //   }
   return finalWaypoints;
+}
+
+/**
+ * Select the region closest by distance but at least x distance away.
+ * @param {Region} currRegion
+ * @param {Map<Region, RegionMovementSegment[]>} regionSegments
+ * @param {number} minDist2
+ */
+function closestRegionSegmentToDistance(currRegion, regionSegments, minDist2, start) {
+  let foundMin = Number.POSITIVE_INFINITY;
+  let foundRegion;
+  let foundIdx = -1;
+  for ( const [region, segments] of regionSegments.entries() ) {
+    if ( region === currRegion ) continue;
+    for ( let i = 0, n = segments.length; i < n; i += 1 ) {
+      const segment = segments[i];
+      segment.from.dist2 ??= PIXI.Point.distanceBetween(start, segment.from);
+      if ( segment.from.dist2 < minDist2 ) continue;
+      if ( segment.from.dist2 < foundMin ) {
+        foundMin = segment.from.dist2;
+        foundRegion = region;
+        foundIdx = i;
+      }
+      break;
+    }
+  }
+  return { region: foundRegion, idx: foundIdx };
 }
 
 
