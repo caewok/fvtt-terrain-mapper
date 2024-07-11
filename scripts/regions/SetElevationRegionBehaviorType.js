@@ -778,7 +778,12 @@ function findRegionShift(a, b, currRegion, regionSegments, start) {
     switch ( testSegment.type ) {
       case EXIT: break;
       case ENTER: {
-        // Always switch on an entry.
+        // Confirm if we hit the plateau, if at all.
+        if ( (setElevationB.system.algorithm === FLAGS.REGION.CHOICES.PLATEAU
+          || setElevationB.system.algorithm === FLAGS.REGION.CHOICES.RAMP)
+          && testSegment.to.elevation > setElevationB.system.plateauElevation(testSegment.to) ) break;
+
+        // Otherwise switch on th entry.
         testIx = testSegment.to;
         break;
       }
