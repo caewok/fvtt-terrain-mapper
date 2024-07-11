@@ -21,7 +21,14 @@ import { WallTracerEdge, WallTracerVertex, WallTracer, SCENE_GRAPH } from "./Wal
 // import { AddTerrainRegionBehaviorType } from "./regions/AddTerrainRegionBehaviorType.js";
 // import { RemoveTerrainRegionBehaviorType } from "./regions/RemoveTerrainRegionBehaviorType.js";
 import { SetTerrainRegionBehaviorType } from "./regions/SetTerrainRegionBehaviorType.js";
-import { SetElevationRegionBehaviorType } from "./regions/SetElevationRegionBehaviorType.js";
+import {
+  SetElevationRegionBehaviorType,
+  constructRegionsPath,
+  drawRegionMovement,
+  drawRegionMovementCutaway,
+  drawRegionPath,
+  drawRegionPathCutaway } from "./regions/SetElevationRegionBehaviorType.js";
+import { minMaxRegionPointsAlongAxis } from "./regions/Region.js";
 
 // Unique Terrain Effects
 import { TerrainActiveEffect, TerrainItemEffect, TerrainFlagEffect, TerrainPF2E } from "./terrain_unique_effects.js";
@@ -32,6 +39,7 @@ import { defaultTerrains } from "./default_terrains.js";
 
 // Self-executing hooks.
 import "./changelog.js";
+import "./regions/HighlightRegionShader.js";
 
 /**
  * A hook event that fires as Foundry is initializing, right before any
@@ -106,6 +114,8 @@ function initializeAPI() {
     TerrainItemEffect,
     TerrainFlagEffect,
     regionElevationAtPoint,
+    constructRegionsPath,
+    minMaxRegionPointsAlongAxis,
 
     /**
      * API to determine the elevation of a line through 0+ setElevation regions.
@@ -116,7 +126,14 @@ function initializeAPI() {
      * @param {number} [opts.endElevation]   Elevation in grid units
      * @returns {RegionMovementSegment}
      */
-    estimateElevationForSegment: SetElevationRegionBehaviorType.estimateElevationForSegment
+    estimateElevationForSegment: SetElevationRegionBehaviorType.estimateElevationForSegment,
+
+    debug: {
+      drawRegionMovement,
+      drawRegionMovementCutaway,
+      drawRegionPath,
+      drawRegionPathCutaway
+    }
   };
 }
 

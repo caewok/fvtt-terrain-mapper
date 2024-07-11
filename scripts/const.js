@@ -28,7 +28,7 @@ Hooks.once("init", function() {
 
 // Flags set on various documents.
 export const FLAGS = {
-  // Active Effects
+  // ActiveEffect
   UNIQUE_EFFECT: {
     ID: "uniqueEffectId",
     TYPE: "uniqueEffectType",
@@ -42,8 +42,37 @@ export const FLAGS = {
     BACKGROUND_ELEVATION: "backgroundElevation"
   },
 
+  // RegionDocument
+  REGION: {
+    ELEVATION_ALGORITHM: "elevationAlgorithm",
+    CHOICES: {
+      PLATEAU: "plateau",
+      RAMP: "ramp",
+      STAIRS: "stairs"
+    },
+    LABELS: {
+      plateau: `${MODULE_ID}.elevationAlgorithm.labels.plateau`,
+      ramp: `${MODULE_ID}.elevationAlgorithm.labels.ramp`,
+      stairs: `${MODULE_ID}.elevationAlgorithm.labels.stairs`,
+    },
+    TELEPORT: "teleport",
+    IGNORE_OTHER_ELEVATIONS: "ignoreOtherElevations",
+    FLOOR: "elevationFloor",
+    DIRECTION: "rampDirection",
+    STEP_SIZE: "rampStepSize",
+    MIN_MAX: "minMax"
+  },
+
   VERSION: "version"
 };
+
+export const MOVEMENT_TYPES = {
+  BURROW: 0,
+  WALK: 1,
+  FLY: 2
+};
+
+export const MOVEMENT_TYPES_INV = foundry.utils.invertObject(MOVEMENT_TYPES);
 
 // Icons used in this module in controls or tabs
 export const FA_ICONS = {

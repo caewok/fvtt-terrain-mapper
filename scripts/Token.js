@@ -2,7 +2,6 @@
 canvas,
 CONFIG,
 CONST,
-fromUuidSync,
 game,
 PIXI
 */
@@ -16,6 +15,8 @@ Hook token movement to add/remove terrain effects and pause tokens dependent on 
 */
 
 import { MODULE_ID, FLAGS } from "./const.js";
+import { log } from "./util.js";
+import { constructRegionsPath } from "./regions/SetElevationRegionBehaviorType.js";
 
 export const PATCHES = {};
 PATCHES.BASIC = {};
@@ -83,27 +84,124 @@ function refreshToken(token, flags) {
         text = `${names.join("\n")}\n${text}`;
       }
       token.tooltip.text = text;
+
+
+      // Adjust the token preview's elevation based on regions.
+      const origin = token._original.center;
+      origin.elevation = token._original.elevationE;
+      const destination = token.center;
+      destination.elevation = origin.elevation;
+      const path = constructRegionsPath(origin, destination); // Returns minimum [start, end]. End might be changed.
+      const elevationChanged = token.document.elevation !== path.at(-1).elevation;
+      if ( elevationChanged ) {
+        log(`refreshToken|Setting preview token ${token.name} elevation to ${path.at(-1).elevation} at ${destination.x},${destination.y}`);
+        token.document.elevation = path.at(-1).elevation;
+        //token.renderFlags.set({ refreshElevation: true, refreshVisibility: true });
+      }
+
+      // if ( path.length > 2 ) token.document.updateSource({ elevation: path.at(-1).elevation });
     }
     return;
+  } else if ( token.animationContexts.size ) {
+    log(`${token.name} is animating`);
+    // TODO: Is there a way to calculate the path only once? The issue is with ramps mostly---how to store step elevation?
+    //       Also, how to easily locate position along the path?
+    // Maybe take a page from Elevated Vision TER approach: Use a class for the path that can determine elevation.
+    // This could track current region and adjust as necessary.
+    const path = token[MODULE_ID]?.path;
+    if ( !path ) return;
+    const origin = path[0];
+    const destination = token.getCenterPoint(token.position);
+    destination.elevation = origin.elevation;
+    const currPath = constructRegionsPath(origin, destination);
+    const currElevation = currPath.at(-1).elevation
+    const elevationChanged = token.document.elevation !== currElevation;
+    if ( elevationChanged ) {
+       // token.document.elevation = path.at(-1).elevation;
+       log(`refreshToken|Setting animating token ${token.name} elevation to ${currElevation} at ${destination.x},${destination.y}`);
+       // token.document.updateSource({ elevation: currPath.at(-1).elevation });
+       token.document.elevation = currElevation;
+       token.renderFlags.set({refreshElevation: true, refreshVisibility: true, refreshTooltip: true });
+    }
   }
 }
 
 /**
- * Function to update token data as a specific user.
- * This allows the GM to continue token movement but as that user.
- * By doing so, this allows the pause-for-user to work as expected.
+ * Hook preUpdateToken
+ * If the token moves, calculate its new elevation across setElevation regions.
+ * @param {Document} document                       The Document instance being updated
+ * @param {object} changed                          Differential data that will be used to update the document
+ * @param {Partial<DatabaseUpdateOperation>} options Additional options which modify the update request
+ * @param {string} userId                           The ID of the requesting user, always game.user.id
+ * @returns {boolean|void}                          Explicitly return false to prevent update of this Document
  */
-export async function updateTokenDocument(tokenUUID, data) {
-  const token = fromUuidSync(tokenUUID)?.object;
+export function preUpdateToken(tokenD, changed, options, _userId) {
+  log(`preUpdateToken ${tokenD.name}`);
+  const token = tokenD.object;
   if ( !token ) return;
-  token.document.update(data);
+  token[MODULE_ID] ??= {};
+  token[MODULE_ID].path = undefined;
+
+  if ( options.RidingMovement ) return; // See EV issue #83—compatibility with Rideables.
+  if ( Object.hasOwn(changed, "elevation") ) return; // Do not override existing elevation changes.
+  if ( !(Object.hasOwn(changed, "x") || Object.hasOwn(changed, "y")) ) return;
+
+  const destination = token.getCenterPoint({ x: changed.x ?? token.x, y: changed.y ?? token.y });
+  const origin = token.center;
+  origin.elevation = token.elevationE
+  destination.elevation = changed.elevation ?? origin.elevation;
+  token[MODULE_ID].path = constructRegionsPath(origin, destination);
+
+  // Set the destination elevation.
+  log(`preUpdateToken|Setting destination elevation to ${token[MODULE_ID].path.at(-1).elevation}`);
+
+  changed.elevation = token[MODULE_ID].path.at(-1).elevation;
 }
 
 PATCHES.BASIC.HOOKS = {
   preCreateToken,
   refreshToken,
+  preUpdateToken,
   updateToken
 };
+
+// ----- NOTE: Wraps ----- //
+
+/**
+ * Wrap Token.prototype._onAnimationUpdate
+ * Called each animation frame.
+ * @param {Partial<TokenAnimationData>} changed    The animation data that changed
+ * @param {TokenAnimationContext} context          The animation context
+ * @protected
+ */
+function _onAnimationUpdate(wrapped, changed, context) {
+  // TODO: Is there a way to calculate the path only once? The issue is with ramps mostly---how to store step elevation?
+  //       Also, how to easily locate position along the path?
+  // Maybe take a page from Elevated Vision TER approach: Use a class for the path that can determine elevation.
+  // This could track current region and adjust as necessary.
+  const positionChanged = ("x" in changed) || ("y" in changed);
+  if ( !positionChanged ) return wrapped(changed, context);
+
+  // Determine the elevation change, if any.
+  const path = this[MODULE_ID]?.path;
+  if ( !path ) return wrapped(changed, context);;
+  const origin = path[0];
+  const destination = this.getCenterPoint(this.document);
+  destination.elevation = origin.elevation;
+  const currPath = constructRegionsPath(origin, destination);
+  const currElevation = currPath.at(-1).elevation
+  const elevationChanged = this.document.elevation !== currElevation;
+  if ( !elevationChanged ) return wrapped(changed, context);
+
+  log(`_onAnimationUpdate|Setting animating token ${this.name} elevation to ${currPath.at(-1).elevation} at ${destination.x},${destination.y}`);
+  this.document.elevation = currElevation;
+  this.renderFlags.set({refreshElevation: true, refreshTooltip: true }); // Because position changed, rest will be set in the original function.
+
+  wrapped(changed, context);
+}
+
+// PATCHES.BASIC.WRAPS = { _onAnimationUpdate };
+
 
 // ----- NOTE: Methods ----- //
 
