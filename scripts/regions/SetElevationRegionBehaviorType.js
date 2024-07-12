@@ -10,9 +10,16 @@ Region
 "use strict";
 
 import { MODULE_ID, FLAGS } from "../const.js";
-import { log, isFirstGM, regionWaypointsXYEqual, regionWaypointsEqual, findSetElevation } from "../util.js";
+import {
+  log,
+  isFirstGM,
+  regionWaypointsXYEqual,
+  regionWaypointsEqual,
+  findSetElevation,
+  regionsWithSetElevation } from "../util.js";
 import { Point3d } from "../geometry/3d/Point3d.js";
 import { Plane } from "../geometry/3d/Plane.js";
+import { ClipperPaths } from "../geometry/ClipperPaths.js";
 
 export const PATCHES = {};
 PATCHES.REGIONS = {};
@@ -799,6 +806,242 @@ function closestSegmentIndexToPosition(segments, waypoint, start) {
   }
   return idx;
 }
+
+/**
+ * Create path for a given straight line segment that may move through regions.
+ * Constructs a 2d model of the regions that intersect the line.
+ * x-axis: dist2, y-axis: elevation.
+ * Then uses clipper to combine the polygons.
+ * Finally, constructs the path using the polygons(s) plus changes for stairs.
+ * Stairs determined by intersecting the polygons(s) with elevation lines for stairs.
+ * @param {RegionMovementWaypoint} start          Start of the path
+ * @param {RegionMovementWaypoint} end            End of the path
+ * @returns {PathArray<RegionMovementWaypoint>}   Sorted points by distance from start.
+ */
+export function constructRegionPath2(start, end) {
+  if ( regionWaypointsEqual(start, end) ) return [start, end];
+  const setElevationRegions = regionsWithSetElevation(canvas.regions.placeables);
+  if ( !setElevationRegions.length ) return [start, end];
+  const terrainFloor = canvas.scene?.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0;
+
+  // TODO: Simple case: Elevation-only change?
+
+  // Identify stair regions that have at least one polygon that intersects the line.
+  const stairRegions = intersectingStairRegions(start, end, setElevationRegions);
+
+  // Locate all polygons within each region that are intersected.
+  // Construct a polygon representing the cutaway.
+  const combinedPolys = regions2dCutaway(start, end, setElevationRegions)
+  if ( !combinedPolys.length ) return [start, end];
+
+  // Convert start and end to 2d-cutaway coordinates.
+  const start2d = new PIXI.Point(0, start.elevation);
+  const end2d = new PIXI.Point(PIXI.Point.distanceBetween(start, end), end.elevation);
+
+  // Add some properties to the polygons that will be repeatedly used.
+  // Orient the polygons so that iterating the points or edges will move in the direction we want to go.
+  // Each polygon has a min and max x position, which we can use to avoid testing the polygon for intersections.
+  // Also construct the closed edges and points for each polygon, to avoid repeating this in intersection tests.
+  const walkDir = end2d.x > start2d.x ? "ccw" : "cw"; // Reversed b/c y-axis is flipped for purposes of Foundry.
+  combinedPolys.forEach(poly => {
+    if ( poly.isClockwise ^ (walkDir === "cw") ) poly.reverseOrientation();
+    poly._pts = [...poly.iteratePoints({close: false})];
+    poly._edges = [...poly.iterateEdges({ close: true })];
+    poly._minMax = Math.minMax(...poly._pts.map(pt => pt.x));
+  });
+
+  // Walk the path, locating the closest intersection to the combined polygons.
+  const MAX_ITER = 1e04;
+  const destPoly = combinedPolys.find(poly => poly.contains(end2d.x, end2d.y));
+  const waypoints = [start2d]
+  let atDestination = false;
+  let currPosition = start2d;
+  let currPoly = null;
+  let iterA = 0;
+  while ( !atDestination && iterA < MAX_ITER ) {
+    iterA += 1;
+    const ixs = [];
+    combinedPolys.forEach(poly => {
+      if ( poly === currPoly ) return;
+      if ( poly._minMax.max <= currPosition.x ) return;
+      if ( !poly.lineSegmentIntersects(currPosition, end2d, { edges: poly._edges }) ) return;
+
+      // Retrieve the indices so that the edge can be linked to the intersection, for traversing the poly.
+      const ixIndices = poly.segmentIntersections(currPosition, end2d, { edges: poly._edges, indices: true });
+      ixIndices.forEach(i => {
+        const edge = poly._edges[i];
+        const ix = foundry.utils.lineLineIntersection(currPosition, end2d, edge.A, edge.B);
+        ix.edge = edge;
+        ix.poly = poly;
+        ixs.push(ix);
+      });
+    });
+
+    ixs.sort((a, b) => a.t0 - b.t0);
+    if ( !ixs.length ) {
+      waypoints.push(end2d);
+      atDestination = true;
+      break;
+    }
+
+    const ix = ixs[0];
+    const poly = ix.poly;
+    waypoints.push(ix);
+    currPosition = ix;
+
+    // If the endpoint is inside this polygon, we are done.
+    // (Only if burrowing to the endpoint is permitted, which would define the destPoly.)
+    if ( ix.poly === destPoly ) {
+      waypoints.push(end2d);
+      atDestination = true;
+      break;
+    }
+
+    /* Walk around the polygon until one of the following occurs:
+    1. Move would take us toward start in the x direction.
+    2. Move would take us under the terrain floor.
+    3. Flying is permitted and we would move down.
+    4. Flying is permitted and the end point is above the polygon and we have a straight shot.
+    5. Stair is encountered.
+    */
+    let nextPt = ix.edge.B;
+    let iterB = 0;
+    let currIndex = poly._pts.findIndex(pt => pt.almostEqual(nextPt));
+    while ( nextPt && iterB < MAX_ITER ) {
+      iterB += 1;
+      if ( nextPt.x < currPosition.x ) break; // 1. Would move backward.
+      const willHitFloor = nextPt.y < currPosition.y && nextPt.y <= terrainFloor // 2. Would move under terrain floor
+      if (  willHitFloor && nextPt.y !== terrainFloor ) {
+        nextPt = foundry.utils.lineLineIntersection(currPosition, nextPt,
+          { x: start2d.x, y: terrainFloor }, { x: end2d.x, y: terrainFloor });
+      }
+
+      // TODO: Flying.
+
+      currPosition = nextPt;
+      waypoints.push(nextPt);
+      if ( willHitFloor ) break;
+
+      // Look ahead to the next point along the polygon edge.
+      currIndex += 1;
+      if ( currIndex >= poly._pts.length ) currIndex = 0;
+      nextPt = poly._pts[currIndex];
+    }
+  }
+
+  // Convert back to regular coordinates.
+  const startPt = PIXI.Point.fromObject(start);
+  const endPt = PIXI.Point.fromObject(end);
+  return waypoints.map(waypoint => {
+    const pt = startPt.towardsPoint(endPt, waypoint.x); // or towardsPointSquared
+    return {
+      x: pt.x,
+      y: pt.y,
+      elevation: waypoint.y
+    }
+  });
+}
+
+/**
+ * Identify stair regions with at least one non-hole polygon that intersects a given line.
+ * @param {RegionMovementWaypoint} start          Start of the path
+ * @param {RegionMovementWaypoint} end            End of the path
+ * @param {Region[]} regions
+ * @returns {Region[]} Any stair regions that qualify.
+ */
+function intersectingStairRegions(start, end, regions) {
+  const stairRegions = [];
+  regions.forEach(region => {
+    const behavior = findSetElevation(region);
+    if ( behavior.system.algorithm !== FLAGS.REGION.CHOICES.STAIRS ) return;
+    for ( const poly of region.polygons ) {
+      if ( !poly.isPositive ) continue; // This polygon is a hole.
+      if ( !poly.lineSegmentIntersects(start, end, { inside: true}) ) continue;
+      stairRegions.push(region);
+      return;
+    }
+  });
+  return stairRegions;
+}
+
+/**
+ * Construct a 2d cutaway of the regions along a given line.
+ * X-axis is the distance from the start point.
+ * Y-axis is elevation. Note y increases as moving up, which is opposite of Foundry.
+ * Only handles plateaus and ramps; ignores stairs.
+ * @param {RegionMovementWaypoint} start          Start of the path
+ * @param {RegionMovementWaypoint} end            End of the path
+ * @param {Region[]} regions                      Regions to test
+ * @returns {PIXI.Polygon[]} An array of polygons representing the cutaway.
+ */
+function regions2dCutaway(start, end, regions) {
+  const terrainFloor = canvas.scene?.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0;
+  const paths = [];
+  for ( const region of regions ) {
+    const behavior = findSetElevation(region);
+    if ( behavior.system.algorithm === FLAGS.REGION.CHOICES.STAIRS ) continue;
+    const bottomE = region.document.elevation.bottom ?? terrainFloor - 10; // MIN_SAFE_INTEGER is much too high.
+    const regionPolys = [];
+    for ( const poly of region.polygons ) {
+      if ( !poly.lineSegmentIntersects(start, end, { inside: true}) ) continue;
+
+      // For plateau and ramp, construct the cutaway polygon.
+      const ix = poly.segmentIntersections(start, end);
+
+      // Determine the appropriate endpoints.
+      let a;
+      let b;
+      switch ( ix.length ) {
+        case 0: { a = start; b = end; break; }
+        case 1: {
+          [a, b] = poly.contains(start.x, start.y) ? [start, ix[0]] : [ix[0], end];
+          break;
+        }
+        case 2: {
+          [a, b] = ix[0].t0 < ix[1].t0 ? [ix[0], ix[1]] : [ix[1], ix[0]];
+          break;
+        }
+      }
+
+
+      // Build the quadrangle
+      // For testing, use distance instead of distanceSqaured
+      const TL = { x: PIXI.Point.distanceBetween(start, a), y: behavior.system.plateauElevation(a) };
+      const TR = { x: PIXI.Point.distanceBetween(start, b), y: behavior.system.plateauElevation(b) };
+      const BL = { x: TL.x, y: bottomE };
+      const BR = { x: TR.x, y: bottomE };
+      // _isPositive is y-down clockwise. For Foundry canvas, this is CCW.
+      const cutPointPoly = poly.isPositive ? new PIXI.Polygon(TL, BL, BR, TR) : new PIXI.Polygon(TL, TR, BR, BL);
+      regionPolys.push(cutPointPoly);
+    }
+
+    // If all holes or no polygons, we are done.
+    if ( !regionPolys.length || regionPolys.every(poly => !poly.isPositive) ) continue;
+
+    //
+    // Draw.shape(regionPolys[0], { color: Draw.COLORS.blue })
+    // Draw.shape(regionPolys[1], { color: Draw.COLORS.red })
+
+    // Combine the polygons if more than one.
+    const regionPath = ClipperPaths.fromPolygons(regionPolys);
+    const combined = regionPath.combine().clean(); // After this, should not be any holes.
+    paths.push(combined);
+  }
+
+  // Union the paths.
+  const combinedPaths = ClipperPaths.combinePaths(paths);
+  const combinedPolys = combinedPaths.clean().toPolygons();
+
+  // If all holes or no polygons, we are done.
+  if ( !combinedPolys.length || combinedPolys.every(poly => !poly.isPositive) ) return [];
+
+  // At this point, there should not be any holes.
+  // Holes go top-to-bottom, so any hole cuts the polygon in two from a cutaway perspective.
+  if ( combinedPolys.some(poly => !poly.isPositive) ) console.error("Combined cutaway polygons still have holes.");
+  // combinedPolys.forEach(poly => Draw.shape(poly, { color: Draw.COLORS.blue, fill: Draw.COLORS.blue, fillAlpha: 0.5 }))
+  return combinedPolys;
+}
+
 
 /**
  * Create path for a given straight line segment that may move through regions.
