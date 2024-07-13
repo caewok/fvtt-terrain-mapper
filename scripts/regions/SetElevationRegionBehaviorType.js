@@ -879,6 +879,9 @@ export function constructRegionsPath2(start, end, { flying = false } = {}) {
     iterA += 1;
     waypoints.push(currPosition);
 
+    // If the current position is not on the ground, add a move vertically down.
+    if ( currEnd.equals(end2d) && currPosition.y !== terrainFloor ) currEnd = new PIXI.Point(currPosition.x, terrainFloor);
+
     // Stairs can change the current end position.
     if ( currPosition.almostEqual(currEnd) ) {
       if ( currEnd.equals(end2d) ) break; // At destination.
@@ -889,6 +892,7 @@ export function constructRegionsPath2(start, end, { flying = false } = {}) {
       .filter(ix => !ix.poly.behavior.system.isStairs || !ix.poly.contains(currPosition.x, currPosition.y)); // Confirm that we are entering, not exiting, stairs.
     if ( !ixs.length ) {
       currPosition = currEnd;
+      currEnd = end2d; // Reset the end from stairs or vertical move to terrain floor.
       continue;
     }
     const ix = ixs[0];
@@ -920,6 +924,7 @@ export function constructRegionsPath2(start, end, { flying = false } = {}) {
     4. Flying is permitted and the end point is above the polygon and we have a straight shot.
     5. Stair is encountered.
     */
+    currEnd = end2d; // Reset the end from stairs or vertical move to terrain floor.
     currPosition = PIXI.Point.fromObject(ix);
     let nextPt = ix.edge.B;
     let iterB = 0;
@@ -960,7 +965,11 @@ export function constructRegionsPath2(start, end, { flying = false } = {}) {
       if ( currIndex >= poly._pts.length ) currIndex = 0;
       nextPt = poly._pts[currIndex];
     }
+    if ( iterB >= MAX_ITER ) console.error("constructRegionsPath2|Iteration B exceeded max iterations!", start, end);
   }
+
+  if ( iterA >= MAX_ITER ) console.error("constructRegionsPath2|Iteration A exceeded max iterations!", start, end);
+
 
   // Convert back to regular coordinates.
   const startPt = PIXI.Point.fromObject(start);
