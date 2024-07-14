@@ -13,7 +13,8 @@ export const TEMPLATES = {
   ACTIVE_EFFECT: `modules/${MODULE_ID}/templates/active-effect-config.html`,
   TERRAIN_BOOK: `modules/${MODULE_ID}/templates/terrain-effects-menu-app.html`,
   SETTINGS: `modules/${MODULE_ID}/templates/settings-menu-tab-partial.html`,
-  ITEM_PF2e: `modules/${MODULE_ID}/templates/item-config-pf2e.html`
+  ITEM_PF2e: `modules/${MODULE_ID}/templates/item-config-pf2e.html`,
+  REGION: `modules/${MODULE_ID}/templates/region-config.html`
 }
 
 // Track certain modules that complement features of this module.
@@ -46,6 +47,7 @@ export const FLAGS = {
   REGION: {
     ELEVATION_ALGORITHM: "elevationAlgorithm",
     CHOICES: {
+      NONE: "none",
       PLATEAU: "plateau",
       RAMP: "ramp",
       STAIRS: "stairs"

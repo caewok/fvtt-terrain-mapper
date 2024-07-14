@@ -1,0 +1,46 @@
+<section class="tab region-{{tab.id}} flexcol {{tab.cssClass}}" data-tab="terrainmapper" data-group="{{tab.group}}">
+  <!-- Select type of elevation -->
+  <div class="form-group">
+    <label for="terrainmapper.shapes">{{ localize "terrainmapper.region-config.algorithm.name" }}</label>
+    <div class="form-fields">
+      <select id="terrainmapperalgorithm" name="flags.terrainmapper.elevationAlgorithm" class="terrainmapper">
+        {{ selectOptions terrainmapper.algorithmChoices selected=source.flags.terrainmapper.elevationAlgorithm localize=true }}
+      </select>
+    </div>
+    <p class="hint">{{ localize "terrainmapper.region-config.algorithm.hint" }}</p>
+  </div>
+
+  <!-- Determine maximum elevation -->
+  <div class="form-group">
+    <label>{{ localize "terrainmapper.region-config.plateauElevation.name" }}</label>
+    <div class="form-fields">
+      <input type="number" id="terrainmapperplateauelevation" name="flags.terrainmapper.plateauElevation" class="terrainmapper" step="1" value={{ source.flags.terrainmapper.elevationMax }}>
+    </div>
+  </div>
+
+  <!-- Determine minimum elevation -->
+  <div class="form-group">
+    <label>{{ localize "terrainmapper.region-config.rampFloor.name" }}</label>
+    <div class="form-fields">
+      <input type="number" id="terrainmapperrampfloor" name="flags.terrainmapper.rampFloor" class="terrainmapper" step="1" value={{ source.flags.terrainmapper.elevationMin }}>
+    </div>
+  </div>
+
+  <!-- Determine ramp direction -->
+  <div class="form-group">
+    <label>{{ localize "terrainmapper.region-config.rampDirection.name" }}</label>
+    <div class="form-fields">
+      <input type="number" id="terrainmapperrampdir" name="flags.terrainmapper.rampDirection" class="terrainmapper" step="1" min="0" max="359" value={{ source.flags.terrainmapper.rampDirection }}>
+    </div>
+    <p class="hint">{{ localize "terrainmapper.region-config.rampDirection.hint" }}</p>
+  </div>
+
+  <!-- Determine ramp step size -->
+  <div class="form-group">
+    <label>{{ localize "terrainmapper.region-config.rampStepSize.name" }}</label>
+    <div class="form-fields">
+      <input type="number" id="terrainmapperrampsize" name="flags.terrainmapper.rampStepSize" class="terrainmapper" step="1" min="0" value={{ source.flags.terrainmapper.rampStepSize }}>
+    </div>
+    <p class="hint">{{ localize "terrainmapper.region-config.rampStepSize.hint" }}</p>
+  </div>
+</section>

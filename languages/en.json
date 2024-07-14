@@ -16,6 +16,21 @@
   "terrainmapper.active-effect-config.displayStatusIcon.name": "Status Icon",
   "terrainmapper.active-effect-config.displayStatusIcon.hint": "When disabled, the terrain status icon will not display on affected tokens.",
 
+  "terrainmapper.region-config.algorithm.name": "Region Elevation Shape",
+  "terrainmapper.region-config.algorithm.hint": "Apply a physical shape to the region's elevation. 'None' keeps the Foundry default. 'Plateau' treats the region like a plateau or mesa. Tokens entering the region will move to the plateau elevation and will be considered 'burrowing' if under that elevation. 'Ramp' is similar to 'Plateau' but applies a slope starting at the floor elevation and moving up to the plateau elevation in the given direction. Tokens that leave the region will 'fall' back to the ground unless flying.",
+
+  "terrainmapper.region-config.plateauElevation.name": "Plateau Elevation",
+  "terrainmapper.region-config.plateauElevation.hint": "When moving into the region, the token will be set to this elevation. For ramps, this is the topmost elevation of the ramp. For a typical scene, try setting the region top to this elevation and the region bottom to negative infinity.",
+
+  "terrainmapper.region-config.rampFloor.name": "Lowest Ramp Elevation",
+  "terrainmapper.region-config.rampFloor.hint": "For ramps only. Ramp elevation starts here and goes up to the Plateau Elevation. To create a wedge shape, set this value to the scene elevation.",
+
+  "terrainmapper.region-config.rampDirection.name": "Ramp Direction",
+  "terrainmapper.region-config.rampDirection.hint": "0º is due south; 90º is due west. For ramps only.",
+
+  "terrainmapper.region-config.rampStepSize.name": "Step Size",
+  "terrainmapper.region-config.rampStepSize.hint": "How tall, in grid units, to make each step of the ramp. The number of steps will be automatically determined based on this value. If set to 0, the ramp will approximate a smooth incline. For ramps only.",
+
   "terrainmapper.behavior.types.add-terrain.fields.terrain.hint": "Select terrain that will be added to the token as an active effect.",
 
   "terrainmapper.behavior.types.set-terrain.fields.terrain.hint": "Select terrain that will be added to the token as an active effect. When the token exits the region, the terrain will be automatically removed.",
