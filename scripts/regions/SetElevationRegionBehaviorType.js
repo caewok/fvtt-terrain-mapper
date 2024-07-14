@@ -10,9 +10,16 @@ Region
 "use strict";
 
 import { MODULE_ID, FLAGS } from "../const.js";
-import { log, isFirstGM, regionWaypointsXYEqual, regionWaypointsEqual, findSetElevation } from "../util.js";
+import {
+  log,
+  isFirstGM,
+  regionWaypointsXYEqual,
+  regionWaypointsEqual,
+  findSetElevation,
+  regionsWithSetElevation } from "../util.js";
 import { Point3d } from "../geometry/3d/Point3d.js";
 import { Plane } from "../geometry/3d/Plane.js";
+import { ClipperPaths } from "../geometry/ClipperPaths.js";
 
 export const PATCHES = {};
 PATCHES.REGIONS = {};
@@ -187,6 +194,9 @@ export class SetElevationRegionBehaviorType extends foundry.data.regionBehaviors
     log(`Token ${tokenD.name} move out of ${event.region.name}!`);
   }
 
+  /** @type {boolean} */
+  get isStairs() { return this.algorithm === FLAGS.REGION.CHOICES.STAIRS; }
+
   /**
    * Determine the elevation after an enter move into this behavior's region.
    * @param {RegionMovementWaypoint} waypoint   Position and elevation immediately upon entry;
@@ -198,12 +208,20 @@ export class SetElevationRegionBehaviorType extends foundry.data.regionBehaviors
     switch ( this.algorithm ) {
       case PLATEAU:
       case RAMP: return this.plateauElevation(waypoint);
-      case STAIRS: {
-        const midE = Math.round((this.elevation - this.floor) * 0.5);
-        return waypoint.elevation <= midE ? this.elevation : this.floor;
-      }
+      case STAIRS: return this._stairsElevationUponEntry(waypoint.elevation);
     }
     return canvas.scene?.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0;
+  }
+
+  /**
+   * Determine stairs elevation from a given staring elevation.
+   * Does not consider the point location or whether the elevation is within the region.
+   * @param {number} startingElevation
+   * @returns {number} Elevation after entry
+   */
+  _stairsElevationUponEntry(startingElevation) {
+    const midE = Math.round((this.elevation - this.floor) * 0.5);
+    return startingElevation <= midE ? this.elevation : this.floor;
   }
 
   /**
@@ -227,8 +245,7 @@ export class SetElevationRegionBehaviorType extends foundry.data.regionBehaviors
       }
       case STAIRS: {
         if ( !useStairs ) return terrainFloor;
-        const midE = Math.round((this.elevation - this.floor) * 0.5);
-        return waypoint.elevation <= midE ? this.elevation : this.floor;
+        return this._stairsElevationUponEntry(waypoint.elevation);
       }
     }
     return terrainFloor;
@@ -492,6 +509,78 @@ export class SetElevationRegionBehaviorType extends foundry.data.regionBehaviors
     }
     return finalPath;
   }
+
+  /**
+   * From the provided position, if not in a region, move down to the lowest elevation region
+   * or the terrain floor. If in a region, move up to the first spot outside all regions.
+   * This is the closest ground position from here.
+   * Used to determine likely position for region paths.
+   * @param {RegionMovementWaypoint} waypoint     The location to test
+   * @param {Region[]} regions                    Regions to consider
+   * @returns {number} The elevation for the nearest ground.
+   */
+  static nearestGroundElevation(waypoint, { regions, samples, burrowing = false } = {}) {
+    const teleport = false;
+    samples ??= [{x: 0, y: 0}];
+    regions ??= regionsWithSetElevation();
+    regions = regions.filter(region => {
+      const behavior = findSetElevation(region);
+      return behavior && !behavior.system.isStairs;
+    });
+    const terrainFloor = canvas.scene?.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0;
+    let currElevation = waypoint.elevation;
+
+    // Option 1: Waypoint is currently in a region.
+    const currRegions = regions.filter(region => region.testPoint(waypoint, currElevation));
+    if ( burrowing && currRegions.length ) return currElevation;
+
+    // Option 2: Fall to ground and locate intersecting region(s). If below ground, move up to ground.
+    if ( !currRegions.length ) {
+      if ( waypoint.elevation === terrainFloor ) return terrainFloor;
+      const regionsIxs = [];
+      const waypoints = [waypoint, { ...waypoint, elevation: terrainFloor }];
+      for ( const region of regions ) {
+        // Given the previous test, it would have to be an entry at this point.
+        const segments = region.segmentizeMovement(waypoints, samples, { teleport });
+        if ( !segments.length ) continue;
+        const segment = segments[0];
+        if ( segment.type !== Region.MOVEMENT_SEGMENT_TYPES.ENTER ) continue;
+        segment.to.region = region;
+        segment.to.dist = currElevation - segment.to.elevation;
+        regionsIxs.push(segment.to);
+      }
+      // If no regions intersected, the terrain floor is the default.
+      if ( !regionsIxs.length ) return terrainFloor;
+
+      // Move to the first intersection and then to the top of the plateau.
+      regionsIxs.sort((a, b) => a.dist - b.dist);
+      const firstIx = regionsIxs[0]
+      const behavior = findSetElevation(firstIx.region);
+      const newE = behavior.system.elevationUponEntry({ ...waypoint, elevation: firstIx.elevation });
+      currElevation = newE;
+    }
+    if ( burrowing ) return currElevation;
+
+    // Get the entry elevation for each region in turn. Take the highest.
+    // If the entry elevation changes the current elevation, repeat.
+    const MAX_ITER = 1e04;
+    let iter = 0;
+    let maxElevation = currElevation;
+    do {
+      iter += 1;
+      currElevation = maxElevation;
+      maxElevation = Number.NEGATIVE_INFINITY;
+      for ( const region of regions ) {
+        if ( !region.testPoint(waypoint, currElevation) ) continue;
+        const behavior = findSetElevation(region);
+        const newE = behavior.system.elevationUponEntry({...waypoint, elevation: currElevation});
+        maxElevation = Math.max(maxElevation, newE);
+      }
+    } while ( maxElevation !== currElevation && iter < MAX_ITER )
+
+    if ( iter >= MAX_ITER ) console.error("nearestGroundElevation|Max iterations reached!", waypoint);
+    return currElevation;
+  }
 }
 
 /**
@@ -676,8 +765,7 @@ function findRegionShift(a, b, currRegion, regionSegments, start) {
       case EXIT: break;
       case ENTER: {
         // Confirm if we hit the plateau, if at all.
-        if ( (setElevationB.system.algorithm === FLAGS.REGION.CHOICES.PLATEAU
-          || setElevationB.system.algorithm === FLAGS.REGION.CHOICES.RAMP)
+        if ( !setElevationB.system.isStairs
           && testSegment.to.elevation > setElevationB.system.plateauElevation(testSegment.to) ) break;
 
         // Otherwise switch on th entry.
@@ -685,7 +773,7 @@ function findRegionShift(a, b, currRegion, regionSegments, start) {
         break;
       }
       case MOVE: {
-        if ( setElevationB.system.algorithm === FLAGS.REGION.CHOICES.STAIRS ) break;
+        if ( setElevationB.system.isStairs ) break;
 
         // Switch if moving down (slope -∞) or if the test slope exceeds the current slope.
         if ( !(currSlope === Number.NEGATIVE_INFINITY || zSlope2(testSegment.from, testSegment.to) > currSlope) ) break;
@@ -798,6 +886,492 @@ function closestSegmentIndexToPosition(segments, waypoint, start) {
     } else if ( regionWaypointsEqual(segment.to, waypoint) ) continue;  // Likely the next statement from equals the waypoint.
   }
   return idx;
+}
+
+/**
+ * Create path for a given straight line segment that may move through regions.
+ * Constructs a 2d model of the regions that intersect the line.
+ * x-axis: dist2, y-axis: elevation.
+ * Then uses clipper to combine the polygons.
+ * Finally, constructs the path using the polygons(s) plus changes for stairs.
+ * Stairs determined by intersecting the polygons(s) with elevation lines for stairs.
+ * @param {RegionMovementWaypoint} start          Start of the path
+ * @param {RegionMovementWaypoint} end            End of the path
+ * @returns {PathArray<RegionMovementWaypoint>}   Sorted points by distance from start.
+ */
+export function constructRegionsPath2(start, end, { flying = false, burrowing = false } = {}) {
+  if ( regionWaypointsEqual(start, end) ) return [start, end];
+  const setElevationRegions = regionsWithSetElevation(canvas.regions.placeables);
+  if ( !setElevationRegions.length ) return [start, end];
+  const terrainFloor = canvas.scene?.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0;
+
+  // Simple case: Elevation-only change. Currently ignores stairs.
+  if ( regionWaypointsXYEqual(start, end) ) {
+    if ( flying ) return [start, end];
+    const groundE = SetElevationRegionBehaviorType.nearestGroundElevation(end);
+    return [start, { ...end, elevation: groundE }];
+  }
+
+  // If flying and burrowing, essentially a straight shot would work (ignoring, ftm, stairs).
+  if ( flying && burrowing ) return [start, end];
+
+  // If not flying or burrowing, the end point should be on the ground.
+  // Start is handled below, in the loop.
+  else if ( !flying && !burrowing ) {
+    const endE = SetElevationRegionBehaviorType.nearestGroundElevation(end);
+    end = { ...end, elevation: endE };
+  }
+
+  // If not flying but burrowing, needs to be handled below.
+  // Can only burrow within regions, so could still fall to ground.
+  else if ( !flying && burrowing ) {
+    const endE = SetElevationRegionBehaviorType.nearestGroundElevation(start, { burrowing: true });
+    end = { ...end, elevation: endE };
+  }
+
+  // If not burrowing but flying, handled below.
+
+
+  // Identify stair regions that have at least one polygon that intersects the line.
+  // Stairs in the cutaway are a 2d segment for the entrance point and a similar exit segment.
+  const stairRegions = intersectingStairRegions(start, end, setElevationRegions);
+  const stairCutaways = [];
+  stairRegions.forEach(region => {
+    const polys = stairsRegionCutaway(start, end, region);
+    if ( polys.length ) stairCutaways.push(...polys);
+  });
+
+  // Locate all polygons within each region that are intersected.
+  // Construct a polygon representing the cutaway.
+  const combinedPolys = regions2dCutaway(start, end, setElevationRegions);
+  combinedPolys.push(...stairCutaways);
+  if ( !combinedPolys.length ) return [start, end];
+
+  // Convert start and end to 2d-cutaway coordinates.
+  const start2d = new PIXI.Point(0, start.elevation);
+  const end2d = new PIXI.Point(PIXI.Point.distanceBetween(start, end), end.elevation);
+
+  // Add some properties to the polygons that will be repeatedly used.
+  // Orient the polygons so that iterating the points or edges will move in the direction we want to go.
+  // Each polygon has a min and max x position, which we can use to avoid testing the polygon for intersections.
+  // Also construct the closed edges and points for each polygon, to avoid repeating this in intersection tests.
+  const walkDir = end2d.x > start2d.x ? "ccw" : "cw"; // Reversed b/c y-axis is flipped for purposes of Foundry.
+  combinedPolys.forEach(poly => {
+    if ( poly.isClockwise ^ (walkDir === "cw") ) poly.reverseOrientation();
+    poly._pts = [...poly.iteratePoints({close: false})];
+    poly._edges = [...poly.iterateEdges({ close: true })];
+    poly._minMax = Math.minMax(...poly._pts.map(pt => pt.x));
+  });
+
+  // Walk the path, locating the closest intersection to the combined polygons.
+  const MAX_ITER = 1e04;
+  const destPoly = combinedPolys.find(poly => poly.contains(end2d.x, end2d.y));
+  const waypoints = [];
+  let atDestination = false;
+  let currPosition = start2d;
+  let currEnd = end2d;
+  let currPoly = null;
+  let iterA = 0;
+  while ( !atDestination && iterA < MAX_ITER ) {
+    iterA += 1;
+    waypoints.push(currPosition);
+
+    // Stairs can change the current end position.
+    if ( currPosition.almostEqual(currEnd) ) {
+      if ( currEnd.equals(end2d) ) break; // At destination.
+      currEnd = end2d;
+    }
+
+    // If the current position is not on the ground, add a move vertically down.
+    // TODO: Burrowing
+    if ( !flying && currEnd.equals(end2d) && currPosition.y !== terrainFloor ) currEnd = new PIXI.Point(currPosition.x, terrainFloor);
+
+    const ixs = polygonsIntersections(currPosition, currEnd, combinedPolys, currPoly)
+      .filter(ix => !ix.poly.behavior.system.isStairs || !ix.poly.contains(currPosition.x, currPosition.y)); // Confirm that we are entering, not exiting, stairs.
+    if ( !ixs.length ) {
+      currPosition = currEnd;
+      currEnd = end2d; // Reset the end from stairs or vertical move to terrain floor.
+      continue;
+    }
+    const ix = ixs[0];
+    let poly = ix.poly;
+
+    // If this polygon is stairs, change the current and end positions to top/bottom of stairs.
+    if ( poly.behavior.system.isStairs ) {
+      waypoints.push(ix);
+      const newE = poly.behavior.system._stairsElevationUponEntry(ix.y);
+      const maxX = Math.max(...poly.points.filter((_pt, idx) => (idx % 2) === 0));
+      currPosition = new PIXI.Point(ix.x, newE);
+      currEnd = new PIXI.Point(maxX, newE);
+      continue;
+    }
+
+    // If the endpoint is inside this polygon, we are done.
+    // (Only if burrowing to the endpoint is permitted, which would define the destPoly.)
+    if ( poly === destPoly ) {
+      waypoints.push(ix);
+      waypoints.push(end2d);
+      atDestination = true;
+      break;
+    }
+
+    /* Walk around the polygon until one of the following occurs:
+    1. Move would take us toward start in the x direction.
+    2. Move would take us under the terrain floor.
+    3. Flying is permitted and we would move down.
+    4. Flying is permitted and the end point is above the polygon and we have a straight shot.
+    5. Stair is encountered.
+    */
+    currEnd = end2d; // Reset the end from stairs or vertical move to terrain floor.
+    currPosition = PIXI.Point.fromObject(ix);
+    let nextPt = ix.edge.B;
+    let iterB = 0;
+    let currIndex = poly._pts.findIndex(pt => pt.almostEqual(nextPt));
+    while ( nextPt && iterB < MAX_ITER ) {
+      iterB += 1;
+
+      // Check for stairs intersection.
+      const ixs = polygonsIntersections(currPosition, currEnd, stairCutaways)
+        .filter(ix => !ix.poly.contains(currPosition.x, currPosition.y)); // Confirm that we are entering, not exiting, stairs.
+      if ( ixs.length ) {
+        // Change current and end positions to top/bottom of stairs.
+        const stairsPoly = ixs.poly;
+        waypoints.push(currPosition);
+        waypoints.push(ix);
+        const newE = stairsPoly.behavior.system._stairsElevationUponEntry(ix.y);
+        const maxX = Math.max(...stairsPoly.points.filter((_pt, idx) => (idx % 2) === 0));
+        currPosition = new PIXI.Point(ix.x, newE);
+        currEnd = new PIXI.Point(maxX, newE);
+        break;
+      }
+
+      if ( nextPt.x < currPosition.x ) break; // 1. Would move backward.
+      const willHitFloor = nextPt.y < currPosition.y && nextPt.y <= terrainFloor // 2. Would move under terrain floor
+      if (  willHitFloor && nextPt.y !== terrainFloor ) {
+        nextPt = foundry.utils.lineLineIntersection(currPosition, nextPt,
+          { x: start2d.x, y: terrainFloor }, { x: end2d.x, y: terrainFloor });
+      }
+
+      // TODO: Flying.
+      waypoints.push(currPosition);
+      currPosition = nextPt;
+
+      if ( willHitFloor ) break;
+
+      // Look ahead to the next point along the polygon edge.
+      currIndex += 1;
+      if ( currIndex >= poly._pts.length ) currIndex = 0;
+      nextPt = poly._pts[currIndex];
+    }
+    if ( iterB >= MAX_ITER ) console.error("constructRegionsPath2|Iteration B exceeded max iterations!", start, end);
+  }
+
+  if ( iterA >= MAX_ITER ) console.error("constructRegionsPath2|Iteration A exceeded max iterations!", start, end);
+
+
+  // Convert back to regular coordinates.
+  const startPt = PIXI.Point.fromObject(start);
+  const endPt = PIXI.Point.fromObject(end);
+  return waypoints.map(waypoint => {
+    const pt = startPt.towardsPoint(endPt, waypoint.x); // or towardsPointSquared
+    return {
+      x: pt.x,
+      y: pt.y,
+      elevation: waypoint.y
+    }
+  });
+}
+
+
+
+/**
+ * For a set of stair segments over a 2d line, locate the closest entrance intersection.
+ * @param {Point} a                 The starting endpoint of the segment
+ * @param {Point} b                 The ending endpoint of the segment
+ * @param {object[]}} stairSegments
+ */
+function closestStairIntersection(a, b, stairSegments) {
+  let stairIx;
+  for ( const stairSegment of stairSegments ) {
+    if ( !stairSegment.entry ) continue;
+    if ( !stairSegment.A.x.between(a.x, b.x) ) continue; // Stair segments are vertical, so easy test first.
+    const testIx = foundry.lineSegmentIntersection(a, b, stairSegment.A, stairSegment.B);
+    if ( !testIx ) continue;
+    stairIx = testIx;
+    stairIx.behavior = stairSegment.behavior;
+    break;
+  }
+  return stairIx;
+}
+
+/**
+ * Construct all stair segments over a given a|b line segment.
+ * Stairs in the cutaway are a 2d segment for the entrance point and a similar exit segment.
+ * It is assumed, without testing, that these are stair regions.
+ * @param {Point} start             The starting endpoint of the segment
+ * @param {Point} end               The ending endpoint of the segment
+ * @param {Region[]} stairRegions   Regions with the stair setElevation behavior
+ * @returns {object[]} The segments
+ *   - @param {Point} A
+ *   - @param {Point} B
+ *   - @param {RegionBehavior} behavior
+ */
+function constructStairSegments(start, end, stairRegions) {
+  const stairSegments = [];
+  stairRegions.forEach(region => {
+    const behavior = findSetElevation(region);
+    const topE = region.elevation.top ?? 1e06;
+    const bottomE  = region.elevation.bottom ?? -1e06;
+    for ( const poly of region.polygons ) {
+      const ix = poly.segmentIntersections(a, b);
+      if ( !ix.length ) continue;
+      let a;
+      let b;
+      switch ( ix.length ) {
+        case 0: { a = start; b = end; break; }
+        case 1: {
+          [a, b] = poly.contains(start.x, start.y) ? [start, ix[0]] : [ix[0], end];
+          break;
+        }
+        case 2: {
+          [a, b] = ix[0].t0 < ix[1].t0 ? [ix[0], ix[1]] : [ix[1], ix[0]];
+          break;
+        }
+      }
+      const isHole = !poly.isPositive;
+      const startDist = PIXI.Point.distanceBetween(start, a);
+      const endDist = PIXI.Point.distanceBetween(end, b);
+      const startSegment = { A: { x: startDist, y: topE }, B: { x: startDist, y: bottomE }, behavior };
+      const endSegment = { A: { x: endDist, y: topE }, B: { x: endDist, y: bottomE }, behavior };
+      const isEntry = !poly.contains(start.x, start.y);
+      startSegment.entry = isEntry ^ isHole;
+      endSegment.entry = !isEntry ^ isHole;
+      stairSegments.push(startSegment, endSegment);
+    }
+  });
+  stairSegments.sort((a, b) => a.A.x - b.A.x);
+  return stairSegments;
+}
+
+/**
+ * Locate all intersections in an array of polygons.
+ * @param {Point} a                 The starting endpoint of the segment
+ * @param {Point} b                 The ending endpoint of the segment
+ * @param {PIXI.Polygon[]} polys    The polygons to test. Must have _minMax property.
+ * @returns {object[]} The intersections
+ *   - @prop {number} x       X-coordinate of the intersection
+ *   - @prop {number} y       Y-coordinate of the intersection
+ *   - @prop {number} t0      Percent of a|b where the intersection occurred
+ *   - @prop {Segment} edge   Polygon edge where the intersection occurred
+ *   - @prop {Segment} poly   Polygon where the intersection occurred
+ */
+function polygonsIntersections(a, b, combinedPolys, skipPoly) {
+  const ixs = [];
+  combinedPolys.forEach(poly => {
+    if ( poly === skipPoly ) return;
+    if ( poly._minMax.max <= a.x ) return;
+    if ( !poly.lineSegmentIntersects(a, b, { edges: poly._edges }) ) return;
+
+    // Retrieve the indices so that the edge can be linked to the intersection, for traversing the poly.
+    const ixIndices = poly.segmentIntersections(a, b, { edges: poly._edges, indices: true });
+    ixIndices.forEach(i => {
+      const edge = poly._edges[i];
+      const ix = foundry.utils.lineLineIntersection(a, b, edge.A, edge.B);
+      if ( !ix.t0 ) return; // Skip intersections that are at the a point.
+      ix.edge = edge;
+      ix.poly = poly;
+      ixs.push(ix);
+    });
+  });
+  ixs.sort((a, b) => a.t0 - b.t0);
+  return ixs;
+}
+
+
+/**
+ * Identify stair regions with at least one non-hole polygon that intersects a given line.
+ * @param {RegionMovementWaypoint} start          Start of the path
+ * @param {RegionMovementWaypoint} end            End of the path
+ * @param {Region[]} regions
+ * @returns {Region[]} Any stair regions that qualify.
+ */
+function intersectingStairRegions(start, end, regions) {
+  const stairRegions = [];
+  regions.forEach(region => {
+    const behavior = findSetElevation(region);
+    if ( !behavior.system.isStairs ) return;
+    for ( const poly of region.polygons ) {
+      if ( !poly.isPositive ) continue; // This polygon is a hole.
+      if ( !poly.lineSegmentIntersects(start, end, { inside: true}) ) continue;
+      stairRegions.push(region);
+      return;
+    }
+  });
+  return stairRegions;
+}
+
+/**
+ * For a given stairs region, construct a 2d cutaway of that region.
+ * X-axis is the distance from the start point.
+ * Y-axis is elevation. Note y increases as moving up, which is opposite of Foundry.
+ * @param {RegionMovementWaypoint} start          Start of the path
+ * @param {RegionMovementWaypoint} end            End of the path
+ * @param {Region} stairsRegion                   Stair region to use
+ * @returns {PIXI.Polygon[]} Array of polygons representing the cutaway.
+ */
+function stairsRegionCutaway(start, end, stairsRegion) {
+  const behavior = findSetElevation(stairsRegion);
+  if ( !behavior || !behavior.system.isStairs ) return [];
+  const paths = regionCutaway(start, end, stairsRegion);
+  const polys = paths.clean().toPolygons()
+  if ( polys.length ) polys.forEach(poly => poly.behavior = behavior);
+  return polys;
+}
+
+/**
+ * For a given entry to stairs, determine the resulting cutaway location and the cutaway polygon.
+ * @param {Point} currPosition                    The current position in the cutaway dimensions
+ * @param {PIXI.Polygon} stairsPoly               The current stairs polygon, created by stairsRegionCutaway
+ * @returns {object}
+ * - @prop {Point} newPosition        Position after taking the stairs
+ * - @prop {PIXI.Polygon} poly        The polygon representing the stairs
+ */
+function stairsApplicationCutaway(currPosition, stairsPoly) {
+  // Are we going up or down?
+  const newE = stairsPoly.behavior.system._stairsElevationUponEntry(currPosition.y);
+  const terrainFloor = canvas.scene?.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0;
+  const floorE = newE > terrainFloor ? terrainFloor : terrainFloor - 10;
+
+  // The stairsPoly y values are all high/low. Replace with newE and floorE.
+  const yMin = Math.min(...stairsPoly.points.filter((_pt, idx) => idx % 2)); // Pull all the odd (y) coordinates.
+  const nCoords = stairsPoly.points.length;
+  const pts = new Array(nCoords);
+  for ( let i = 0; i < nCoords; i += 2 ) {
+    const x = stairsPoly.points[i];
+    const y = stairsPoly.points[i + 1];
+    const newY = y === yMin ? floorE : newE;
+    pts[i] = x;
+    pts[i + 1] = newY;
+  }
+  return {
+    newPosition: new PIXI.Point(currPosition.x, newE),
+    poly: new PIXI.Polygon(pts)
+  };
+}
+
+/**
+ * Construct a 2d cutaway of the regions along a given line.
+ * X-axis is the distance from the start point.
+ * Y-axis is elevation. Note y increases as moving up, which is opposite of Foundry.
+ * Only handles plateaus and ramps; ignores stairs.
+ * @param {RegionMovementWaypoint} start          Start of the path
+ * @param {RegionMovementWaypoint} end            End of the path
+ * @param {Region[]} regions                      Regions to test
+ * @returns {PIXI.Polygon[]} Array of polygons representing the cutaway.
+ */
+function regions2dCutaway(start, end, regions) {
+  const paths = [];
+  for ( const region of regions ) {
+    const behavior = findSetElevation(region);
+    if ( behavior.system.isStairs ) continue;
+    const combined = regionCutaway(start, end, region)
+    if ( combined.length ) paths.push(combined);
+  }
+  if ( !paths.length ) return [];
+
+  // Union the paths.
+  const combinedPaths = ClipperPaths.combinePaths(paths);
+  const combinedPolys = combinedPaths.clean().toPolygons();
+
+  // If all holes or no polygons, we are done.
+  if ( !combinedPolys.length || combinedPolys.every(poly => !poly.isPositive) ) return [];
+
+  // At this point, there should not be any holes.
+  // Holes go top-to-bottom, so any hole cuts the polygon in two from a cutaway perspective.
+  if ( combinedPolys.some(poly => !poly.isPositive) ) console.error("Combined cutaway polygons still have holes.");
+  // combinedPolys.forEach(poly => Draw.shape(poly, { color: Draw.COLORS.blue, fill: Draw.COLORS.blue, fillAlpha: 0.5 }))
+  return combinedPolys;
+}
+
+/**
+ * Construct the cutaway shapes for a segment that traverses a region.
+ * @param {RegionMovementWaypoint} start          Start of the segment
+ * @param {RegionMovementWaypoint} end            End of the segment
+ * @param {Region} region
+ * @returns {PIXI.Polygon[]} The combined polygons for the region cutaway.
+ */
+function regionCutaway(start, end, region) {
+  const behavior = findSetElevation(region);
+  if ( !behavior ) return [];
+  const regionPolys = [];
+  for ( const regionPoly of region.polygons ) {
+    const quad = quadrangleCutaway(start, end, regionPoly, region);
+    if ( quad ) regionPolys.push(quad);
+  }
+
+  // If all holes or no polygons, we are done.
+  if ( !regionPolys.length || regionPolys.every(poly => !poly.isPositive) ) return [];
+
+  //
+  // Draw.shape(regionPolys[0], { color: Draw.COLORS.blue })
+  // Draw.shape(regionPolys[1], { color: Draw.COLORS.red })
+
+  // Combine the polygons if more than one.
+  const regionPath = ClipperPaths.fromPolygons(regionPolys);
+  const combined = regionPath.combine().clean(); // After this, should not be any holes.
+  return combined;
+}
+
+
+/**
+ * Construct a quadrangle for a cutaway along a line segment
+ * @param {RegionMovementWaypoint} start          Start of the segment
+ * @param {RegionMovementWaypoint} end            End of the segment
+ * @param {PIXI.Polygon} regionPoly               A polygon from the region
+ * @param {object[]} ixs                          Intersection points with the polyogn
+ * @returns {PIXI.Polygon|null}
+ */
+function quadrangleCutaway(start, end, regionPoly, region) {
+  if ( !regionPoly.lineSegmentIntersects(start, end, { inside: true}) ) return null;
+
+  // For plateau and ramp, construct the cutaway polygon.
+  const ix = regionPoly.segmentIntersections(start, end);
+
+  // Determine the appropriate endpoints.
+  let a;
+  let b;
+  switch ( ix.length ) {
+    case 0: { a = start; b = end; break; }
+    case 1: {
+      [a, b] = regionPoly.contains(start.x, start.y) ? [start, ix[0]] : [ix[0], end];
+      break;
+    }
+    case 2: {
+      [a, b] = ix[0].t0 < ix[1].t0 ? [ix[0], ix[1]] : [ix[1], ix[0]];
+      break;
+    }
+  }
+
+  // Build the quadrangle
+  // For testing, use distance instead of distanceSquared
+  const MAX_ELEV = 1e06;
+  const MIN_ELEV = -1e06; // MIN_SAFE_INTEGER is much too high.
+  let topA = region.document.elevation.top ?? MAX_ELEV;
+  let topB = topA;
+  let bottomE = region.document.elevation.bottom ?? MIN_ELEV;
+  const behavior = findSetElevation(region);
+  if ( behavior
+    && !behavior.system.isStairs ) {
+    topA = behavior.system.plateauElevation(a);
+    topB = behavior.system.plateauElevation(b);
+  }
+  const TL = { x: PIXI.Point.distanceBetween(start, a), y: topA };
+  const TR = { x: PIXI.Point.distanceBetween(start, b), y: topB };
+  const BL = { x: TL.x, y: bottomE };
+  const BR = { x: TR.x, y: bottomE };
+  // _isPositive is y-down clockwise. For Foundry canvas, this is CCW.
+  const cutPointPoly = regionPoly.isPositive ? new PIXI.Polygon(TL, BL, BR, TR) : new PIXI.Polygon(TL, TR, BR, BL);
+  return cutPointPoly;
 }
 
 /**

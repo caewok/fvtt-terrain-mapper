@@ -24,6 +24,7 @@ import { SetTerrainRegionBehaviorType } from "./regions/SetTerrainRegionBehavior
 import {
   SetElevationRegionBehaviorType,
   constructRegionsPath,
+  constructRegionsPath2,
   drawRegionMovement,
   drawRegionMovementCutaway,
   drawRegionPath,
@@ -115,7 +116,9 @@ function initializeAPI() {
     TerrainFlagEffect,
     regionElevationAtPoint,
     constructRegionsPath,
+    constructRegionsPath2,
     minMaxRegionPointsAlongAxis,
+    SetElevationRegionBehaviorType,
 
     /**
      * API to determine the elevation of a line through 0+ setElevation regions.
