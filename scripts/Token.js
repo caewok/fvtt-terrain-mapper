@@ -16,7 +16,7 @@ Hook token movement to add/remove terrain effects and pause tokens dependent on 
 
 import { MODULE_ID, FLAGS } from "./const.js";
 import { log } from "./util.js";
-import { constructRegionsPath } from "./regions/SetElevationRegionBehaviorType.js";
+import { constructRegionsPath, constructRegionsPath2 } from "./regions/SetElevationRegionBehaviorType.js";
 
 export const PATCHES = {};
 PATCHES.BASIC = {};
@@ -91,7 +91,7 @@ function refreshToken(token, flags) {
       origin.elevation = token._original.elevationE;
       const destination = token.center;
       destination.elevation = origin.elevation;
-      const path = constructRegionsPath(origin, destination); // Returns minimum [start, end]. End might be changed.
+      const path = constructRegionsPath2(origin, destination); // Returns minimum [start, end]. End might be changed.
       const elevationChanged = token.document.elevation !== path.at(-1).elevation;
       if ( elevationChanged ) {
         log(`refreshToken|Setting preview token ${token.name} elevation to ${path.at(-1).elevation} at ${destination.x},${destination.y}`);

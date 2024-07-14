@@ -519,7 +519,7 @@ export class SetElevationRegionBehaviorType extends foundry.data.regionBehaviors
    * @param {Region[]} regions                    Regions to consider
    * @returns {number} The elevation for the nearest ground.
    */
-  static nearestGroundElevation(waypoint, regions, samples) {
+  static nearestGroundElevation(waypoint, { regions, samples, burrowing = false } = {}) {
     const teleport = false;
     samples ??= [{x: 0, y: 0}];
     regions ??= regionsWithSetElevation();
@@ -532,6 +532,7 @@ export class SetElevationRegionBehaviorType extends foundry.data.regionBehaviors
 
     // Option 1: Waypoint is currently in a region.
     const currRegions = regions.filter(region => region.testPoint(waypoint, currElevation));
+    if ( burrowing && currRegions.length ) return currElevation;
 
     // Option 2: Fall to ground and locate intersecting region(s). If below ground, move up to ground.
     if ( !currRegions.length ) {
@@ -558,12 +559,12 @@ export class SetElevationRegionBehaviorType extends foundry.data.regionBehaviors
       const newE = behavior.system.elevationUponEntry({ ...waypoint, elevation: firstIx.elevation });
       currElevation = newE;
     }
+    if ( burrowing ) return currElevation;
 
     // Get the entry elevation for each region in turn. Take the highest.
     // If the entry elevation changes the current elevation, repeat.
     const MAX_ITER = 1e04;
     let iter = 0;
-    const currLocation = {...waypoint};
     let maxElevation = currElevation;
     do {
       iter += 1;
@@ -898,13 +899,38 @@ function closestSegmentIndexToPosition(segments, waypoint, start) {
  * @param {RegionMovementWaypoint} end            End of the path
  * @returns {PathArray<RegionMovementWaypoint>}   Sorted points by distance from start.
  */
-export function constructRegionsPath2(start, end, { flying = false } = {}) {
+export function constructRegionsPath2(start, end, { flying = false, burrowing = false } = {}) {
   if ( regionWaypointsEqual(start, end) ) return [start, end];
   const setElevationRegions = regionsWithSetElevation(canvas.regions.placeables);
   if ( !setElevationRegions.length ) return [start, end];
   const terrainFloor = canvas.scene?.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0;
 
-  // TODO: Simple case: Elevation-only change?
+  // Simple case: Elevation-only change. Currently ignores stairs.
+  if ( regionWaypointsXYEqual(start, end) ) {
+    if ( flying ) return [start, end];
+    const groundE = SetElevationRegionBehaviorType.nearestGroundElevation(end);
+    return [start, { ...end, elevation: groundE }];
+  }
+
+  // If flying and burrowing, essentially a straight shot would work (ignoring, ftm, stairs).
+  if ( flying && burrowing ) return [start, end];
+
+  // If not flying or burrowing, the end point should be on the ground.
+  // Start is handled below, in the loop.
+  else if ( !flying && !burrowing ) {
+    const endE = SetElevationRegionBehaviorType.nearestGroundElevation(end);
+    end = { ...end, elevation: endE };
+  }
+
+  // If not flying but burrowing, needs to be handled below.
+  // Can only burrow within regions, so could still fall to ground.
+  else if ( !flying && burrowing ) {
+    const endE = SetElevationRegionBehaviorType.nearestGroundElevation(start, { burrowing: true });
+    end = { ...end, elevation: endE };
+  }
+
+  // If not burrowing but flying, handled below.
+
 
   // Identify stair regions that have at least one polygon that intersects the line.
   // Stairs in the cutaway are a 2d segment for the entrance point and a similar exit segment.
@@ -957,7 +983,8 @@ export function constructRegionsPath2(start, end, { flying = false } = {}) {
     }
 
     // If the current position is not on the ground, add a move vertically down.
-    if ( currEnd.equals(end2d) && currPosition.y !== terrainFloor ) currEnd = new PIXI.Point(currPosition.x, terrainFloor);
+    // TODO: Burrowing
+    if ( !flying && currEnd.equals(end2d) && currPosition.y !== terrainFloor ) currEnd = new PIXI.Point(currPosition.x, terrainFloor);
 
     const ixs = polygonsIntersections(currPosition, currEnd, combinedPolys, currPoly)
       .filter(ix => !ix.poly.behavior.system.isStairs || !ix.poly.contains(currPosition.x, currPosition.y)); // Confirm that we are entering, not exiting, stairs.
@@ -1009,7 +1036,7 @@ export function constructRegionsPath2(start, end, { flying = false } = {}) {
       if ( ixs.length ) {
         // Change current and end positions to top/bottom of stairs.
         const stairsPoly = ixs.poly;
-        waypoints.push(currentPosition);
+        waypoints.push(currPosition);
         waypoints.push(ix);
         const newE = stairsPoly.behavior.system._stairsElevationUponEntry(ix.y);
         const maxX = Math.max(...stairsPoly.points.filter((_pt, idx) => (idx % 2) === 0));
