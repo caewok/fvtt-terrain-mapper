@@ -509,6 +509,77 @@ export class SetElevationRegionBehaviorType extends foundry.data.regionBehaviors
     }
     return finalPath;
   }
+
+  /**
+   * From the provided position, if not in a region, move down to the lowest elevation region
+   * or the terrain floor. If in a region, move up to the first spot outside all regions.
+   * This is the closest ground position from here.
+   * Used to determine likely position for region paths.
+   * @param {RegionMovementWaypoint} waypoint     The location to test
+   * @param {Region[]} regions                    Regions to consider
+   * @returns {number} The elevation for the nearest ground.
+   */
+  static nearestGroundElevation(waypoint, regions, samples) {
+    const teleport = false;
+    samples ??= [{x: 0, y: 0}];
+    regions ??= regionsWithSetElevation();
+    regions = regions.filter(region => {
+      const behavior = findSetElevation(region);
+      return behavior && !behavior.system.isStairs;
+    });
+    const terrainFloor = canvas.scene?.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0;
+    let currElevation = waypoint.elevation;
+
+    // Option 1: Waypoint is currently in a region.
+    const currRegions = regions.filter(region => region.testPoint(waypoint, currElevation));
+
+    // Option 2: Fall to ground and locate intersecting region(s). If below ground, move up to ground.
+    if ( !currRegions.length ) {
+      if ( waypoint.elevation === terrainFloor ) return terrainFloor;
+      const regionsIxs = [];
+      const waypoints = [waypoint, { ...waypoint, elevation: terrainFloor }];
+      for ( const region of regions ) {
+        // Given the previous test, it would have to be an entry at this point.
+        const segments = region.segmentizeMovement(waypoints, samples, { teleport });
+        if ( !segments.length ) continue;
+        const segment = segments[0];
+        if ( segment.type !== Region.MOVEMENT_SEGMENT_TYPES.ENTER ) continue;
+        segment.to.region = region;
+        segment.to.dist = currElevation - segment.to.elevation;
+        regionsIxs.push(segment.to);
+      }
+      // If no regions intersected, the terrain floor is the default.
+      if ( !regionsIxs.length ) return terrainFloor;
+
+      // Move to the first intersection and then to the top of the plateau.
+      regionsIxs.sort((a, b) => a.dist - b.dist);
+      const firstIx = regionsIxs[0]
+      const behavior = findSetElevation(firstIx.region);
+      const newE = behavior.system.elevationUponEntry({ ...waypoint, elevation: firstIx.elevation });
+      currElevation = newE;
+    }
+
+    // Get the entry elevation for each region in turn. Take the highest.
+    // If the entry elevation changes the current elevation, repeat.
+    const MAX_ITER = 1e04;
+    let iter = 0;
+    const currLocation = {...waypoint};
+    let maxElevation = currElevation;
+    do {
+      iter += 1;
+      currElevation = maxElevation;
+      maxElevation = Number.NEGATIVE_INFINITY;
+      for ( const region of regions ) {
+        if ( !region.testPoint(waypoint, currElevation) ) continue;
+        const behavior = findSetElevation(region);
+        const newE = behavior.system.elevationUponEntry({...waypoint, elevation: currElevation});
+        maxElevation = Math.max(maxElevation, newE);
+      }
+    } while ( maxElevation !== currElevation && iter < MAX_ITER )
+
+    if ( iter >= MAX_ITER ) console.error("nearestGroundElevation|Max iterations reached!", waypoint);
+    return currElevation;
+  }
 }
 
 /**
@@ -879,14 +950,14 @@ export function constructRegionsPath2(start, end, { flying = false } = {}) {
     iterA += 1;
     waypoints.push(currPosition);
 
-    // If the current position is not on the ground, add a move vertically down.
-    if ( currEnd.equals(end2d) && currPosition.y !== terrainFloor ) currEnd = new PIXI.Point(currPosition.x, terrainFloor);
-
     // Stairs can change the current end position.
     if ( currPosition.almostEqual(currEnd) ) {
       if ( currEnd.equals(end2d) ) break; // At destination.
       currEnd = end2d;
     }
+
+    // If the current position is not on the ground, add a move vertically down.
+    if ( currEnd.equals(end2d) && currPosition.y !== terrainFloor ) currEnd = new PIXI.Point(currPosition.x, terrainFloor);
 
     const ixs = polygonsIntersections(currPosition, currEnd, combinedPolys, currPoly)
       .filter(ix => !ix.poly.behavior.system.isStairs || !ix.poly.contains(currPosition.x, currPosition.y)); // Confirm that we are entering, not exiting, stairs.
@@ -983,6 +1054,8 @@ export function constructRegionsPath2(start, end, { flying = false } = {}) {
     }
   });
 }
+
+
 
 /**
  * For a set of stair segments over a 2d line, locate the closest entrance intersection.

@@ -118,6 +118,7 @@ function initializeAPI() {
     constructRegionsPath,
     constructRegionsPath2,
     minMaxRegionPointsAlongAxis,
+    SetElevationRegionBehaviorType,
 
     /**
      * API to determine the elevation of a line through 0+ setElevation regions.
