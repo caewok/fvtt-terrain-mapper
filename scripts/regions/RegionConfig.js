@@ -62,6 +62,10 @@ async function _preparePartContext(wrapper, partId, context, options) {
   context = await wrapper(partId, context, options);
   if ( partId !== MODULE_ID ) return context;
 
+  // See https://ptb.discord.com/channels/170995199584108546/722559135371231352/1262802116628451359
+  // Needed to set region-{{tab.id}} in the html for region-config
+  context.tab = context.tabs[partId];
+
   // Add default flags.
   if ( typeof context.region.getFlag(MODULE_ID, FLAGS.REGION.TELEPORT) === "undefined" ) {
     await context.region.setFlag(MODULE_ID, FLAGS.REGION.TELEPORT, true);
