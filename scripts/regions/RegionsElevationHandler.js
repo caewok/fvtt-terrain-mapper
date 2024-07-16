@@ -62,15 +62,15 @@ export class RegionsElevationHandler {
    */
   constructRegionsPath(start, end, { regions, flying = false, burrowing = false, samples } = {}) {
     if ( regionWaypointsEqual(start, end) ) return [start, end];
-    const elevatedRegions = elevatedRegions(regions);
-    if ( !elevatedRegions.length ) return [start, end];
+    regions = elevatedRegions(regions);
+    if ( !regions.length ) return [start, end];
     const terrainFloor = this.sceneFloor;
     samples ??= [{x: 0, y: 0}];
 
     // Simple case: Elevation-only change.
     if ( regionWaypointsXYEqual(start, end) ) {
       if ( flying ) return [start, end];
-      const groundE = this.nearestGroundElevation(end, { regions: elevatedRegions, burrowing, samples });
+      const groundE = this.nearestGroundElevation(end, { regions, burrowing, samples });
       return [start, { ...end, elevation: groundE }];
     }
 
@@ -95,7 +95,7 @@ export class RegionsElevationHandler {
 
     // Locate all polygons within each region that are intersected.
     // Construct a polygon representing the cutaway.
-    const combinedPolys = this._regions2dCutaway(start, end, elevatedRegions);
+    const combinedPolys = this._regions2dCutaway(start, end, regions);
     if ( !combinedPolys.length ) return [start, end];
 
     // Convert start and end to 2d-cutaway coordinates.
@@ -124,7 +124,7 @@ export class RegionsElevationHandler {
       // If the current position is not on the ground and we have not adjusted the end location,
       // then move to ground if not flying.
       if ( !flying && currEnd.equals(end2d) ) {
-        const groundE = this.nearestGroundElevation(currPosition, { regions: elevatedRegions, burrowing, samples });
+        const groundE = this.nearestGroundElevation(currPosition, { regions, burrowing, samples });
         if ( groundE !== currPosition.elevation ) currEnd = new PIXI.Point(currPosition.x, groundE);
       }
 
@@ -217,10 +217,10 @@ export class RegionsElevationHandler {
    * @returns {ELEVATION_LOCATIONS}
    */
   elevationType(waypoint, regions) {
-    const elevatedRegions = elevatedRegions(regions);
+    regions = elevatedRegions(regions);
     let inside = false;
     let offPlateau = false;
-    for ( const region of elevatedRegions ) {
+    for ( const region of regions ) {
       if ( !region.testPoint(waypoint, waypoint.elevation) ) continue;
       inside ||= true;
       if ( region[MODULE_ID].elevationUponEntry(waypoint) !== waypoint.elevation ) {
@@ -321,7 +321,7 @@ export class RegionsElevationHandler {
   _regions2dCutaway(start, end, regions) {
     const paths = [];
     for ( const region of regions ) {
-      const combined = region[MODULE_ID].region2dCutaway(start, end);
+      const combined = region[MODULE_ID]._region2dCutaway(start, end);
       if ( combined.length ) paths.push(combined);
     }
     if ( !paths.length ) return [];
