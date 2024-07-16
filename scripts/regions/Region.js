@@ -73,14 +73,14 @@ Hooks.on("init", function() {
  */
 function updateRegion(regionDoc, changed, _options, _userId) {
   // Refresh the hashing display for the region.
-  if ( foundry.utils.hasProperty(`flags.${MODULE_ID}`) ) region.renderFlags.set({ "refreshTerrainMapperMesh": true });
-
-  // Clear the cache used to calculate ramp properties.
-  if ( !(Object.hasOwn(changed, "shapes")
-      || foundry.utils.hasProperty(changed, `flags.${MODULE_ID}.${FLAGS.REGION.DIRECTION}`)) ) return;
   const region = regionDoc.object;
   if ( !region ) return;
-  region[MODULE_ID].clearCache();
+  if ( foundry.utils.hasProperty(changed, `flags.${MODULE_ID}`) ) region.renderFlags.set({ "refreshTerrainMapperMesh": true });
+
+  // Clear the cache used to calculate ramp properties.
+  if ( Object.hasOwn(changed, "shapes")
+      || foundry.utils.hasProperty(changed, `flags.${MODULE_ID}.${FLAGS.REGION.DIRECTION}`) ) region[MODULE_ID].clearCache();;
+
 }
 
 PATCHES.REGIONS.HOOKS = { updateRegion };

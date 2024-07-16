@@ -14,7 +14,7 @@
   <div class="form-group">
     <label>{{ localize "terrainmapper.region-config.plateauElevation.name" }}</label>
     <div class="form-fields">
-      <input type="number" id="terrainmapperplateauelevation" name="flags.terrainmapper.plateauElevation" class="terrainmapper" step="1" value={{ source.flags.terrainmapper.elevationMax }}>
+      <input type="number" id="terrainmapperplateauelevation" name="flags.terrainmapper.plateauElevation" class="terrainmapper" step="1" value={{ source.flags.terrainmapper.plateauElevation }}>
     </div>
   </div>
 
@@ -22,7 +22,7 @@
   <div class="form-group">
     <label>{{ localize "terrainmapper.region-config.rampFloor.name" }}</label>
     <div class="form-fields">
-      <input type="number" id="terrainmapperrampfloor" name="flags.terrainmapper.rampFloor" class="terrainmapper" step="1" value={{ source.flags.terrainmapper.elevationMin }}>
+      <input type="number" id="terrainmapperrampfloor" name="flags.terrainmapper.rampFloor" class="terrainmapper" step="1" value={{ source.flags.terrainmapper.rampFloor }}>
     </div>
   </div>
 
@@ -31,6 +31,10 @@
     <label>{{ localize "terrainmapper.region-config.rampDirection.name" }}</label>
     <div class="form-fields">
       <input type="number" id="terrainmapperrampdir" name="flags.terrainmapper.rampDirection" class="terrainmapper" step="1" min="0" max="359" value={{ source.flags.terrainmapper.rampDirection }}>
+      <!--
+      {{ rangePicker name="flags.terrainmapper.rampDirection" value=source.flags.terrainmapper.rampDirection min=0 max=359 step=1 }}
+      -->
+
     </div>
     <p class="hint">{{ localize "terrainmapper.region-config.rampDirection.hint" }}</p>
   </div>
