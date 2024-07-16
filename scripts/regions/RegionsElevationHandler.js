@@ -266,7 +266,7 @@ export class RegionsElevationHandler {
       const waypoints = [waypoint, { ...waypoint, elevation: terrainFloor }];
       for ( const region of regions ) {
         // Given the previous test, it would have to be an entry at this point.
-        const segments = region.segmentize(waypoints, samples, { teleport });
+        const segments = region.segmentizeMovement(waypoints, samples, { teleport });
         if ( !segments.length ) continue;
         const segment = segments[0];
         if ( segment.type !== Region.MOVEMENT_SEGMENT_TYPES.ENTER ) continue;
