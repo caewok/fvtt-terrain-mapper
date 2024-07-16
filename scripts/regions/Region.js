@@ -2,7 +2,6 @@
 canvas,
 foundry,
 Hooks,
-PIXI,
 Region
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
@@ -14,9 +13,9 @@ Methods and hooks related to tokens.
 Hook token movement to add/remove terrain effects and pause tokens dependent on settings.
 */
 
-import { MODULE_ID, FLAGS, MOVEMENT_TYPES } from "../const.js";
-import { Matrix } from "../geometry/Matrix.js";
-import { regionWaypointsXYEqual, regionWaypointsEqual, findSetElevation, terrainMovementType } from "../util.js";
+import { MODULE_ID, FLAGS } from "../const.js";
+import { RegionElevationHandler } from "./RegionElevationHandler.js";
+import { RegionsElevationHandler } from "./RegionsElevationHandler.js";
 
 export const PATCHES = {};
 PATCHES.REGIONS = {};
@@ -65,93 +64,26 @@ Hooks.on("init", function() {
 });
 
 /**
- * Hook canvasReady
- * Check if region behaviors have defined min/max and update
- * @param {Canvas} canvas The Canvas which is now ready for use
- */
-export function canvasReady(canvas) {
-  for ( const region of canvas.regions.placeables ) {
-    for ( const behavior of region.document.behaviors ) {
-      if ( behavior.type !== `${MODULE_ID}.setElevation` ) continue;
-      if ( behavior.getFlag(MODULE_ID, FLAGS.REGION.MIN_MAX) ) continue;
-      const minMax = minMaxRegionPointsAlongAxis(region, behavior.system.rampDirection);
-      behavior.setFlag(MODULE_ID, FLAGS.REGION.MIN_MAX, minMax); // Async.
-    }
-  }
-}
-
-/**
  * Hook updateRegion
- * If the region changes, update any ramp elevation behaviors with the new shape.
+ * If the region changes, clear the region cache and update the mesh.
  * @param {Document} document                       The existing Document which was updated
  * @param {object} changed                          Differential data that was used to update the document
  * @param {Partial<DatabaseUpdateOperation>} options Additional options which modified the update request
  * @param {string} userId                           The ID of the User who triggered the update workflow
  */
 function updateRegion(regionDoc, changed, _options, _userId) {
-  if ( !Object.hasOwn(changed, "shapes") ) return;
+  // Refresh the hashing display for the region.
+  if ( foundry.utils.hasProperty(`flags.${MODULE_ID}`) ) region.renderFlags.set({ "refreshTerrainMapperMesh": true });
+
+  // Clear the cache used to calculate ramp properties.
+  if ( !(Object.hasOwn(changed, "shapes")
+      || foundry.utils.hasProperty(changed, `flags.${MODULE_ID}.${FLAGS.REGION.DIRECTION}`)) ) return;
   const region = regionDoc.object;
   if ( !region ) return;
-  for ( const behavior of regionDoc.behaviors ) {
-    if ( behavior.type !== `${MODULE_ID}.setElevation` ) continue;
-    if ( behavior.system.algorithm !== FLAGS.REGION.CHOICES.RAMP ) continue;
-    const minMax = minMaxRegionPointsAlongAxis(region, behavior.system.rampDirection);
-    behavior.setFlag(MODULE_ID, FLAGS.REGION.MIN_MAX, minMax); // Async.
-  }
+  region[MODULE_ID].clearCache();
 }
 
-/**
- * Hook preUpdate region behavior
- * Change the ramp min/max points for the current settings.
- * @param {Document} document                       The existing Document which was updated
- * @param {object} changed                          Differential data that was used to update the document
- * @param {Partial<DatabaseUpdateOperation>} options Additional options which modified the update request
- * @param {string} userId                           The ID of the User who triggered the update workflow
- */
-function preUpdateRegionBehavior(regionBehaviorDoc, changed, _options, _userId) {
-  if ( regionBehaviorDoc.type !== `${MODULE_ID}.setElevation` ) return;
-  if ( !Object.hasOwn(changed, "system") ) return;
-  if ( !(Object.hasOwn(changed.system, "algorithm") || Object.hasOwn(changed.system, "rampDirection")) ) return;
-  const algorithm = changed.system.algorithm || regionBehaviorDoc.system.algorithm;
-  if ( algorithm !== FLAGS.REGION.CHOICES.RAMP ) return;
-  const region = regionBehaviorDoc.parent?.object;
-  if ( !region ) return;
-  const direction = changed.system.rampDirection ?? regionBehaviorDoc.system.rampDirection ?? 0;
-  const minMax = minMaxRegionPointsAlongAxis(region, direction);
-  foundry.utils.setProperty(changed, `flags.${MODULE_ID}.${FLAGS.REGION.MIN_MAX}`, minMax);
-}
-
-/**
- * Hook updateRegionBehavior
- * Update the region's mesh shader if the setElevation behavior changes.
- * @param {Document} document                       The existing Document which was updated
- * @param {object} changed                          Differential data that was used to update the document
- * @param {Partial<DatabaseUpdateOperation>} options Additional options which modified the update request
- * @param {string} userId                           The ID of the User who triggered the update workflow
- */
-function updateRegionBehavior(regionBehaviorDoc, _changed, _options, _userId) {
-  if ( regionBehaviorDoc.type !== `${MODULE_ID}.setElevation` ) return;
-  const region = regionBehaviorDoc.parent?.object;
-  if ( !region ) return;
-  region.renderFlags.set({ "refreshTerrainMapperMesh": true });
-}
-
-/**
- * Hook deleteRegionBehavior
- * Update the region's mesh shader
- * @param {Document} document                       The existing Document which was deleted
- * @param {Partial<DatabaseDeleteOperation>} options Additional options which modified the deletion request
- * @param {string} userId                           The ID of the User who triggered the deletion workflow
- */
-function deleteRegionBehavior(regionBehaviorDoc, _options, _userId) {
-  if ( regionBehaviorDoc.type !== `${MODULE_ID}.setElevation` ) return;
-  const region = regionBehaviorDoc.parent?.object;
-  if ( !region ) return;
-  region.renderFlags.set({ "refreshTerrainMapperMesh": true });
-}
-
-
-PATCHES.REGIONS.HOOKS = { canvasReady, updateRegion, preUpdateRegionBehavior, updateRegionBehavior, deleteRegionBehavior };
+PATCHES.REGIONS.HOOKS = { updateRegion };
 
 
 
@@ -168,26 +100,11 @@ PATCHES.REGIONS.HOOKS = { canvasReady, updateRegion, preUpdateRegionBehavior, up
  * @returns {RegionMovementSegment[]}             The movement split into its segments.
  */
 function segmentizeMovement(wrapper, waypoints, samples, opts) {
-  // Determine the movement type for this path, where a is waypoint 0 and b is the last waypoint
-  // Keep in mind that b might end in a region but the region's plateau status may not be known.
-  // So only treat active elevation changes as flying in that instance.
-  // a = ground, b = ground: ground
-  // a = ground, b = fly && b.e > a.e: fly
-  // a = ground, b = burrow && b.e < a.e: burrow
-  // a = fly: fly
-  // a = burrow: burrow
   const segments = wrapper(waypoints, samples, opts);
   if ( !segments.length ) return segments;
 
-  // Determine if the region has a setElevation behavior.
-  // For each behavior, adjust the segments to reflect the behavior.
-  // TODO: Better handling if multiple behaviors found.
-  for ( const behavior of this.document.behaviors ) {
-    modifySegmentsForPlateau(segments, behavior);
-    modifySegmentsForStairs(segments, behavior);
-    modifySegmentsForRamp(segments, behavior);
-  }
-  return segments;
+  // Modify segments if moving through plateau or ramp regions.
+  return this[MODULE_ID]._modifySegments(segments);
 }
 
 /**
@@ -272,7 +189,7 @@ PATCHES.REGIONS.WRAPS = { segmentizeMovement, _draw, _applyRenderFlags};
 
 /**
  * Region._refreshTerrainMapperMesh
- * Update the mesh uniforms for setElevation behavior
+ * Update the mesh uniforms depending on region elevation settings.
  */
 function _refreshTerrainMapperMesh() {
   const mesh = this.children.find(c => c instanceof foundry.canvas.regions.RegionMesh);
@@ -281,46 +198,30 @@ function _refreshTerrainMapperMesh() {
   let hatchThickness = canvas.dimensions.size / 10;
   mesh.shader.uniforms.hatchThickness = hatchThickness; // Must be defined for all region meshes.
 
-  // Get the first setElevation behavior.
-  const behavior = this.document.behaviors.find(b => b.type === `${MODULE_ID}.setElevation` && !b.disabled);
-  if ( !behavior ) return;
+  // Only change the mesh for plateaus and ramps.
+  if ( !this[MODULE_ID].isElevated ) return;
 
   // insetPercentage: Rectangular edge portion. 0.5 covers the entire space (inset from region border on each side).
   // hatchX, hatchY: Controls direction of the hatching except for the inset border.
   // insetBorderThickness: Separate control over the inset border hatching.
 
-  const { PLATEAU, STAIRS, RAMP } = FLAGS.REGION.CHOICES;
   let hatchX = 1;
   let hatchY = 1;
   let insetPercentage = 0;
   let insetBorderThickness = hatchThickness;
-  switch ( behavior.system.algorithm ) {
-    case PLATEAU: {
-      // Set a striped inset border.
-      // Inside the border is solid.
-      insetPercentage = 0.1;
-      hatchThickness = 0;
-      break;
-    }
-
-    case STAIRS: {
-      // Horizontal stripes along the entirety
-      hatchX = 0;
-      hatchY = 1;
-      break;
-    }
-
-    case RAMP: {
-      // Set a striped inset border.
-      // Direction stripes within the border.
-      insetPercentage = 0.1;
-      const res = calculateHatchXY(behavior.system.rampDirection);
-      hatchX = res.hatchX;
-      hatchY = res.hatchY;
-      break;
-    }
+  if ( this[MODULE_ID].isPlateau ) {
+    // Set a striped inset border.
+    // Inside the border is solid.
+    insetPercentage = 0.1;
+    hatchThickness = 0;
+  } else if ( this[MODULE_ID].isRamp ) {
+    // Set a striped inset border.
+    // Direction stripes within the border.
+    insetPercentage = 0.1;
+    const res = calculateHatchXY(this[MODULE_ID].rampDirection);
+    hatchX = res.hatchX;
+    hatchY = res.hatchY;
   }
-
   const { left, top, right, bottom } = this.bounds;
   mesh.shader.uniforms.border = [left, top, right, bottom];
   mesh.shader.uniforms.hatchX = hatchX;
@@ -332,382 +233,21 @@ function _refreshTerrainMapperMesh() {
 
 PATCHES.REGIONS.METHODS = { _refreshTerrainMapperMesh };
 
-
-// ----- NOTE: Helper functions ----- //
-
-/* Plateau
-Treat the plateau as mostly a hard obstacle.
-Entry from top: stay at the plateau elevation.
-Entry from side: stay at the plateau elevation.
-
-Only way to be "inside" the plateau is to enter from the bottom or do a move once on top.
-
-On enter: move to plateau height. If the next point's from is equal to this point's to, adjust that as well
-On exit: move to terrain height if reset is enabled.
-On move within: If above the plateau, move to plateau. If on plateau, stay on plateau.
-                If below plateau, move in desired direction unless plateau plane is intersected.
-
-Technically, it may be possible for a change in plateau to require a re-do of the segmentized path.
-But not practically at the moment b/c all region shapes have the same shape as they move up in elevation.
-*/
+// ----- NOTE: Getters ----- //
 
 /**
- * Adjust region movement segments for the setElevation plateau behavior.
- * A plateau forces segments that cross into the region to be at elevation, along with
- * all segment points within the region. Starting within does not count.
- * @param {RegionMovementSegment[]} segments
- * @param {RegionBehavior} behavior
+ * New getter: Region.terrainmapper
+ * Class that handles elevation changes between regions.
+ * @type {RegionsElevationHandler}
  */
-function modifySegmentsForPlateau(segments, behavior) {
-  if ( behavior.type !== `${MODULE_ID}.setElevation` || behavior.disabled || behavior.system.algorithm !== FLAGS.REGION.CHOICES.PLATEAU ) return segments;
-  const { elevation, reset } = behavior.system;
-  const { ENTER, MOVE, EXIT } = Region.MOVEMENT_SEGMENT_TYPES;
-  const terrainFloor = canvas.scene?.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0;
-
-  let entered = false;
-  for ( let i = 0, n = segments.length; i < n; i += 1 ) {
-    const segment = segments[i];
-    if ( !segment ) { console.warn("segment not defined!"); continue; }
-    switch ( segment.type ) {
-      case ENTER: {
-        entered = true;
-
-        // If already at elevation, we are finished.
-        if ( elevation === segment.to.elevation ) break;
-
-        // Add a vertical move up after the enter.
-        const vSegment = constructVerticalMoveSegment(segment.to, elevation);
-        segments.splice(i + 1, 0, vSegment);
-        i += 1;
-        n += 1;
-        break;
-      }
-      case MOVE: {
-        if ( !entered ) {
-          if ( segment.from.elevation === elevation ) entered = true; // At plateau.
-          else if (  segment.from.elevation > elevation && segment.to.elevation < elevation ) { // Crosses plateau.
-            // Split into two segments.
-            const ix = regionWaypointsXYEqual(segment.from, segment.to)
-              ? { ...segment.from, elevation }
-                : behavior.system.plateauSegmentIntersection(segment.from, segment.to);
-            entered = true;
-            const fromIx = { type: MOVE, from: ix, to: segment.to };
-            segment.to = ix;
-            segments.splice(i + 1, 0, fromIx);
-            n += 1;
-          }
-        }
-
-        // If we entered, subsequent move should be set to the elevation.
-        if ( entered ) {
-          segment.from.elevation = Math.max(elevation, segment.from.elevation);
-          segment.to.elevation = Math.max(elevation, segment.to.elevation);
-        } else if ( segment.to.elevation === elevation ) entered = true; // Do after entered test so from is not changed.
-        break;
-      }
-      case EXIT: {
-        entered = false;
-        if ( !reset ) break;
-
-        // Add vertical move (down) to terrain elevation if not already there.
-        const numAdded = insertVerticalMoveToTerrainFloor(i, segments, terrainFloor);
-        i += numAdded;
-        n += numAdded;
-
-        // Primarily used if there are holes in the region.
-        // Ensure the next entry is at the current elevation.
-        const nextSegment = segments[i + 1];
-        if ( nextSegment ) nextSegment.from.elevation = terrainFloor;
-        break;
-      }
-    }
-  }
-  return segments;
-}
+function staticTerrainMapper() { return (this._terrainmapper ??= new RegionsElevationHandler()); }
 
 /**
- * Adjust region movement segments for the setElevation stairs behavior.
- * On entry, if elevation is ≤ halfway between top/floor, then move to top elevation.
- * Otherwise move to floor.
- * No reset when exiting.
- * Does nothing if already within the region; only on entry.
- * @param {RegionMovementSegment[]} segments
- * @param {RegionBehavior} behavior
+ * New getter: Region.terrainmapper
+ * Class that handles elevation settings and calcs for a region.
+ * @type {RegionElevationHandler}
  */
-function modifySegmentsForStairs(segments, behavior) {
-  if ( behavior.type !== `${MODULE_ID}.setElevation` || behavior.disabled || behavior.system.algorithm !== FLAGS.REGION.CHOICES.STAIRS ) return segments;
-  const { elevation, floor, reset } = behavior.system;
-  const { ENTER, MOVE, EXIT } = Region.MOVEMENT_SEGMENT_TYPES;
-  const midE = Math.round((elevation - floor) * 0.5); // ≤ midE: go up; > midE: go down.
-  const terrainFloor = canvas.scene?.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0;
+function terrainmapper() { return (this._terrainmapper ??= new RegionElevationHandler(this)); }
 
-  let entered = false;
-  let up = true;
-  let targetElevation = elevation;
-  for ( let i = 0, n = segments.length; i < n; i += 1 ) {
-    const segment = segments[i];
-    if ( !segment ) continue;
-    switch ( segment.type ) {
-      case ENTER: {
-        entered = true;
-        up = segment.from.elevation <= midE;
-        targetElevation = up ? elevation : floor;
-        break;
-      }
-      case MOVE: {
-        // Treat as entered if at the elevation or floor
-        if ( !entered
-          && (segment.from.elevation === floor
-          || segment.from.elevation === elevation) ) entered = true;
-
-        if ( entered ) {
-          const cmpFn = up ? Math.max : Math.min;
-          segment.from.elevation = cmpFn(targetElevation, segment.from.elevation);
-          segment.to.elevation = cmpFn(targetElevation, segment.to.elevation);
-        } else if ( segment.to.elevation === elevation
-                 || segment.to.elevation === floor ) entered = true; // Do after entered test so from is not changed.
-
-        break;
-      }
-      case EXIT: {
-        entered = false;
-        if ( !reset ) break;
-
-        // Add vertical move down to terrain elevation if not already there.
-        const numAdded = insertVerticalMoveToTerrainFloor(i, segments, terrainFloor);
-        i += numAdded;
-        n += numAdded;
-
-        // Primarily used if there are holes in the region.
-        // Ensure the next entry is at the current elevation.
-        const nextSegment = segments[i + 1];
-        if ( nextSegment ) nextSegment.from.elevation = terrainFloor;
-        break;
-      }
-    }
-  }
-  return segments;
-}
-
-/**
- * Adjust region movement segments for the setElevation ramp behavior.
- * Just like plateau, except the surface inclines in a given direction.
- * Does nothing if already within the region; only on entry.
- *
- * @param {RegionMovementSegment[]} segments
- * @param {RegionBehavior} behavior
- */
-function modifySegmentsForRamp(segments, behavior) {
-  if ( behavior.type !== `${MODULE_ID}.setElevation` || behavior.disabled || behavior.system.algorithm !== FLAGS.REGION.CHOICES.RAMP ) return segments;
-  const { reset } = behavior.system;
-  const { ENTER, MOVE, EXIT } = Region.MOVEMENT_SEGMENT_TYPES;
-  const terrainFloor = canvas.scene?.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0;
-
-  let entered = false;
-  for ( let i = 0, n = segments.length; i < n; i += 1 ) {
-    const segment = segments[i];
-    if ( !segment ) continue;
-
-    switch ( segment.type ) {
-      case ENTER: {
-        entered = true;
-
-        // If already at elevation, we are finished.
-        const elevation = behavior.system.plateauElevation(segment.to);
-        if ( elevation === segment.to.elevation ) break;
-
-        // Add a vertical move up after the enter.
-        const vSegment = constructVerticalMoveSegment(segment.to, elevation);
-        segments.splice(i + 1, 0, vSegment);
-        i += 1;
-        n += 1;
-        break;
-      }
-      case MOVE: {
-        const elevation = behavior.system.plateauElevation(segment.from);
-        let ix;
-        if ( !entered ) {
-          const atPlateau = segment.from.elevation.almostEqual(elevation);
-          if ( atPlateau ) entered = true;
-          else if ( (ix = behavior.system.plateauSegmentIntersection(segment.from, segment.to)) ) {
-            // Crosses plateau.
-            // Split into two segments.
-            entered = true;
-            const fromIx = { type: MOVE, from: ix, to: segment.to };
-            segment.to = ix;
-            segments.splice(i + 1, 0, fromIx);
-            n += 1;
-          }
-        }
-
-        // Entered or currently at the ramp elevation; adjust the subsequent ramp elevation.
-        const toElevation = behavior.system.plateauElevation(segment.to);
-        if ( entered ) {
-          segment.from.elevation = elevation;
-          segment.to.elevation = toElevation;
-        } else if ( segment.to.elevation === toElevation ) entered = true; // Do after entered test so from is not changed.
-        break;
-      }
-      case EXIT: {
-        entered = false;
-        if ( !reset ) break;
-
-        // Add vertical move down to terrain elevation if not already there.
-        const numAdded = insertVerticalMoveToTerrainFloor(i, segments, terrainFloor);
-        i += numAdded;
-        n += numAdded;
-
-        // Primarily used if there are holes in the region.
-        // Ensure the next entry is at the current elevation.
-        const nextSegment = segments[i + 1];
-        if ( nextSegment ) nextSegment.from.elevation = terrainFloor;
-        break;
-      }
-    }
-  }
-  return segments;
-}
-
-/**
- * Insert a vertical move down to the terrain floor
- * @param {number} i                            The index of the current segment
- * @param {RegionMovementSegment[]} segments    Segments for this path
- * @param {number} floor                        Elevation we are moving to
- */
-function insertVerticalMoveToTerrainFloor(i, segments, floor) {
-  const segment = segments[i];
-  segment.from.elevation = floor;
-  segment.to.elevation = floor;
-
-  // If the previous segment is not at reset elevation, add vertical move (down)
-  const prevSegment = segments[i - 1] ?? { to: segment.from }; // Use this segment's from if no previous segment.
-  if ( prevSegment && prevSegment.to.elevation !== floor ) {
-    const vSegment = constructVerticalMoveSegment(prevSegment.to, floor);
-    segments.splice(i, 0, vSegment);
-    return 1;
-  }
-  return 0;
-}
-
-
-/**
- * Construct a vertical move segment.
- * @param {RegionWaypoint} waypoint
- * @param {number} targetElevation
- * @returns {RegionMoveSegment}
- */
-function constructVerticalMoveSegment(waypoint, targetElevation) {
-  return {
-    from: {
-      x: waypoint.x,
-      y: waypoint.y,
-      elevation: waypoint.elevation
-    },
-    to: {
-      x: waypoint.x,
-      y: waypoint.y,
-      elevation: targetElevation
-    },
-    type: Region.MOVEMENT_SEGMENT_TYPES.MOVE
-  };
-}
-
-
-/**
- * Rotate a polygon a given amount clockwise, in radians.
- * @param {PIXI.Polygon} poly   The polygon
- * @param {number} rotation     The amount to rotate clockwise in radians
- * @param {number} [centroid]   Center of the polygon
- */
-function rotatePolygon(poly, rotation = 0, centroid) {
-  if ( !rotation ) return poly;
-  centroid ??= poly.center;
-
-  // Translate to 0,0, rotate, translate back based on centroid.
-  const rot = Matrix.rotationZ(rotation, false)
-  const trans = Matrix.translation(-centroid.x, -centroid.y);
-  const revTrans = Matrix.translation(centroid.x, centroid.y);
-  const M = trans.multiply3x3(rot).multiply3x3(revTrans);
-
-  // Multiply by the points of the polygon.
-  const nPoints = poly.points.length * 0.5
-  const arr = new Array(nPoints);
-  for ( let i = 0; i < nPoints; i += 1 ) {
-    const j = i * 2;
-    arr[i] = [poly.points[j], poly.points[j+1], 1];
-  }
-  const polyM = new Matrix(arr);
-  const rotatedM = polyM.multiply(M);
-
-  const rotatedPoints = new Array(poly.points.length);
-  for ( let i = 0; i < nPoints; i += 1 ) {
-    const j = i * 2;
-    rotatedPoints[j] = rotatedM.arr[i][0];
-    rotatedPoints[j+1] = rotatedM.arr[i][1];
-  }
-  return new PIXI.Polygon(rotatedPoints)
-}
-
-/**
- * Locate the minimum/maximum points of a polygon along a given axis.
- * E.g., if the axis is from high to low y (due north), the points would be min: maxY, max: minY.
- * @param {PIXI.Polygon} poly         The polygon
- * @param {number} [direction=0]      The axis direction, in degrees. 0º is S, 90º is W
- * @param {number} [centroid]         Center of the polygon
- * @returns {object}
- * - @prop {Point} min    Where polygon first intersects the line orthogonal to direction, moving in direction
- * - @prop {Point} max    Where polygon last intersects the line orthogonal to direction, moving in direction
- */
-function minMaxPolygonPointsAlongAxis(poly, direction = 0, centroid) {
-  centroid ??= poly.center;
-  if ( direction % 90 ) {
-    // Rotate the polygon to direction 0 (due south).
-    const rotatedPoly = rotatePolygon(poly, Math.toRadians(360 - direction), centroid);
-    const bounds = rotatedPoly.getBounds();
-
-    // Rotate back
-    const minMaxRotatedPoly = new PIXI.Polygon(centroid.x, bounds.top, centroid.x, bounds.bottom);
-    const minMaxPoly = rotatePolygon(minMaxRotatedPoly, -Math.toRadians(360 - direction), centroid);
-    return { min: { x: minMaxPoly.points[0], y: minMaxPoly.points[1] }, max: { x: minMaxPoly.points[2], y: minMaxPoly.points[3] } };
-  }
-
-  // Tackle the simple cases.
-  const bounds = poly.getBounds();
-  switch ( direction ) {
-    case 0: return { min: { x: centroid.x, y: bounds.top }, max: { x: centroid.x, y: bounds.bottom } }; // Due south
-    case 90: return { min: { x: bounds.right, y: centroid.y }, max: { x: bounds.left, y: centroid.y } }; // Due west
-    case 180: return { min: { x: centroid.x, y: bounds.bottom }, max: { x: centroid.x, y: bounds.top } }; // Due north
-    case 270: return { min: { x: bounds.left, y: centroid.y }, max: { x: bounds.right, y: centroid.y } }; // Due east
-  }
-}
-
-/**
- * Determine the minimum/maximum points of a region along a give axis.
- * @param {Region} region             The region to measure
- * @param {number} [direction=0]      The axis direction, in degrees. 0º is S, 90º is W
- * @returns {object}
- * - @prop {Point} min    Where region first intersects the line orthogonal to direction, moving in direction
- * - @prop {Point} max    Where region last intersects the line orthogonal to direction, moving in direction
- */
-export function minMaxRegionPointsAlongAxis(region, direction = 0) {
-  // By definition, holes cannot be the minimum/maximum points.
-  const polys = region.polygons.filter(poly => poly._isPositive);
-  const nPolys = polys.length;
-  if ( !nPolys ) return undefined;
-
-  // For consistency (and speed), rotate the bounds of the region.
-  const center = region.bounds.center;
-  const minMax = minMaxPolygonPointsAlongAxis(polys[0], direction, center);
-  minMax.min._dist2 = PIXI.Point.distanceSquaredBetween(minMax.min, center);
-  minMax.max._dist2 = PIXI.Point.distanceSquaredBetween(minMax.max, center);
-  for ( let i = 1; i < nPolys; i += 1 ) {
-    const res = minMaxPolygonPointsAlongAxis(polys[i], direction, center);
-
-    // Find the point that is further from the centroid.
-    res.min._dist2 = PIXI.Point.distanceSquaredBetween(minMax.min, center);
-    res.max._dist2 = PIXI.Point.distanceSquaredBetween(minMax.max, center);
-    if ( res.min._dist2 > minMax.min._dist2 ) minMax.min = res.min;
-    if ( res.max._dist2 > minMax.max._dist2 ) minMax.max = res.max;
-  }
-  return minMax;
-}
+PATCHES.REGIONS.STATIC_GETTERS = { terrainmapper: staticTerrainMapper };
+PATCHES.REGIONS.GETTERS = { terrainmapper };

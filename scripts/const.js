@@ -1,4 +1,5 @@
 /* globals
+foundry,
 game,
 Hooks
 */
@@ -50,19 +51,32 @@ export const FLAGS = {
       NONE: "none",
       PLATEAU: "plateau",
       RAMP: "ramp",
-      STAIRS: "stairs"
     },
     LABELS: {
+      none: `${MODULE_ID}.elevationAlgorithm.labels.none`,
       plateau: `${MODULE_ID}.elevationAlgorithm.labels.plateau`,
       ramp: `${MODULE_ID}.elevationAlgorithm.labels.ramp`,
       stairs: `${MODULE_ID}.elevationAlgorithm.labels.stairs`,
     },
-    TELEPORT: "teleport",
-    IGNORE_OTHER_ELEVATIONS: "ignoreOtherElevations",
-    FLOOR: "elevationFloor",
-    DIRECTION: "rampDirection",
-    STEP_SIZE: "rampStepSize",
-    MIN_MAX: "minMax"
+    PLATEAU_ELEVATION: "plateauElevation",
+    RAMP: {
+      FLOOR: "rampFloor",
+      DIRECTION: "rampDirection",
+      STEP_SIZE: "rampStepSize",
+    }
+
+  },
+
+  // SetElevationRegionBehavior
+  SET_ELEVATION_BEHAVIOR: {
+    CHOICES: {
+      ONE_WAY: "oneWay",
+      STAIRS: "stairs",
+    },
+    LABELS: {
+      oneWay: `${MODULE_ID}.elevationAlgorithm.labels.oneWay`,
+      stairs: `${MODULE_ID}.elevationAlgorithm.labels.stairs`,
+    }
   },
 
   VERSION: "version"
