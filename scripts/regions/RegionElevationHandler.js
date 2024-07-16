@@ -52,6 +52,9 @@ export class RegionElevationHandler {
   /** @type {number} */
   get rampStepSize() { return this.region.document.getFlag(MODULE_ID, FLAGS.REGION.RAMP.STEP_SIZE); }
 
+  /** @type {FLAGS.REGION.CHOICES} */
+  get algorithm() { return this.region.document.getFlag(MODULE_ID, FLAGS.REGION.ELEVATION_ALGORITHM); }
+
   /** @type {object} */
   #minMax;
 
