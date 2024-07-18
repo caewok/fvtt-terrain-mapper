@@ -142,7 +142,7 @@ export class RegionElevationHandler {
    * @param {RegionMovementWaypoint} end            End of the segment
    * @param {object} [opts]                         Options that affect the polygon shape
    * @param {boolean} [opts.usePlateauElevation=true]   Use the plateau or ramp shape instead of the region top elevation
-   * @returns {PIXI.Polygon[]} The combined polygons for the region cutaway.
+   * @returns {ClipperPaths|null} The combined Clipper paths for the region cutaway.
    */
   _region2dCutaway(start, end, { usePlateauElevation = true } = {}) {
     const regionPolys = [];
@@ -152,7 +152,7 @@ export class RegionElevationHandler {
     }
 
     // If all holes or no polygons, we are done.
-    if ( !regionPolys.length || regionPolys.every(poly => !poly.isPositive) ) return [];
+    if ( !regionPolys.length || regionPolys.every(poly => !poly.isPositive) ) return null;
 
     /* Debugging
     Draw.shape(regionPolys[0], { color: Draw.COLORS.blue })
