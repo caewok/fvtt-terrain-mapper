@@ -341,22 +341,39 @@ export class RegionElevationHandler {
   #quadrangle2dCutaway(start, end, regionPoly, { usePlateauElevation = true } = {}) {
     if ( !regionPoly.lineSegmentIntersects(start, end, { inside: true}) ) return null;
 
+    // Build the polygon slightly larger than start and end so that the start and end will
+    // be correctly characterized (float/ground/underground).
+
+    const paddedStart = PIXI.Point._tmp.copyFrom(start).towardsPoint(PIXI.Point._tmp2.copyFrom(end), -2);
+    const paddedEnd = PIXI.Point._tmp.copyFrom(end).towardsPoint(PIXI.Point._tmp2.copyFrom(start), -2);
+    paddedStart.elevation = start.elevation;
+    paddedEnd.elevation = end.elevation;
+
     // For plateau and ramp, construct the cutaway polygon.
-    const ix = regionPoly.segmentIntersections(start, end);
+    const ixs = regionPoly.segmentIntersections(paddedStart, paddedEnd);
 
     // Determine the appropriate endpoints.
     let a;
     let b;
-    switch ( ix.length ) {
-      case 0: { a = start; b = end; break; }
+    switch ( ixs.length ) {
+      case 0: { a = paddedStart; b = paddedEnd; break; }
       case 1: {
-        const ix = ix[0];
-        [a, b] = !(start.x === ix.x && start.y === ix.y) && regionPoly.contains(start.x, start.y) ? [start, ix] : [ix, end];
+        const ix0 = ixs[0];
+        if ( paddedStart.x === ix0.x && paddedStart.y === ix0.y ) {
+          // Intersects only at start point. Infer that end is inside; go from start --> end.
+          a = paddedStart;
+          b = paddedEnd;
+        } else if ( paddedEnd.x === ix0.x && paddedEnd.y === ix0.y ) {
+          // Intersects only at end point.
+          // Expand one pixel past the end location to get a valid polygon.
+          a = paddedEnd;
+          b = PIXI.Point._tmp.copyFrom(paddedEnd).towardsPoint(PIXI.Point._tmp2.copyFrom(paddedStart), -1);
+        } else [a, b] = regionPoly.contains(paddedStart.x, paddedStart.y) ? [paddedStart, ix0] : [ix0, paddedEnd];
         break;
       }
       case 2: {
-        const ix0 = ix0;
-        const ix1 = ix1;
+        const ix0 = ixs[0];
+        const ix1 = ixs[1];
         [a, b] = ix0.t0 < ix1.t0 ? [ix0, ix1] : [ix1, ix0];
         break;
       }
@@ -373,7 +390,7 @@ export class RegionElevationHandler {
       topA = this.elevationUponEntry(a);
       topB = this.elevationUponEntry(b);
     }
-    const TL = { x: PIXI.Point.distanceBetween(start, a), y: topA };
+    const TL = { x: PIXI.Point.distanceBetween(start, a), y: topA }; // Distance measurements still from start
     const TR = { x: PIXI.Point.distanceBetween(start, b), y: topB };
     const BL = { x: TL.x, y: bottomE };
     const BR = { x: TR.x, y: bottomE };

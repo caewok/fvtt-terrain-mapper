@@ -157,7 +157,7 @@ export class RegionsElevationHandler {
       const endE = this.nearestGroundElevation(end, { regions, samples });
       end2d.y = endE;
     }
-    const waypoints = this[fnName](start2d, end2d, combinedPolys);
+    const waypoints = this[fnName](start2d, end2d, combinedPolys, { start, end });
 
     // Undo rounding of the end point.
     const endWaypoint = waypoints.at(-1);
@@ -303,7 +303,7 @@ export class RegionsElevationHandler {
    * @param {PIXI.Polygon[]} combinedPolys      Union of cutaway polygons
    * @returns {PIXI.Point[]} The 2d cutaway path based on concave hull
    */
-  _constructRegionsPathWalking(start2d, end2d, combinedPolys) {
+  _constructRegionsPathWalking(start2d, end2d, combinedPolys, { start, end } = {}) {
     // If starting position is floating or underground, add a move to the terrain floor.
     const startType = cutawayElevationType(start2d, combinedPolys);
     const sceneFloor = this.sceneFloor;
@@ -325,16 +325,28 @@ export class RegionsElevationHandler {
       // 1. Is end moving us backwards? Move to scene floor or end2d.
       // This can happen if the polygon is "floating" above the scene floor.
       if ( currEnd.x < currPosition.x ) {
-        currEnd = { x: currPosition.x, y: sceneFloor };
+        currEnd = new PIXI.Point(currPosition.x,  sceneFloor);
         currPoly = null;
       }
 
       // 2. Are we at the end?
-      if ( regionWaypointsEqual(currPosition, currEnd) ) {
+      if ( currPosition.almostEqual(currEnd) ) {
         currEnd = end2d;
         currPoly = null;
       }
-      if ( currPosition.x >= end2d.x ) break;
+
+      // If this line intersects the end2d vertical, switch to that endpoint so we can finish.
+      // B/c we are only walking, we can only intersect the end2d if it is on this ground level.
+      // We cannot just move end2d at the beginning b/c we cannot be certain what level we are on.
+      if ( currPosition.x === currEnd.x ) { // Vertical move
+        if ( currEnd.x.almostEqual(end2d.x) && currPosition.elevation > currEnd.elevation ) break; // Stop at the top.
+      } else if ( currPosition.x.almostEqual(end2d.x) ) break;
+      else if ( currEnd.x > end2d.x ) {
+        // Non-vertical move. If it intersects the end2d vertical, swap out the endpoint.
+        const ix = foundry.utils.lineLineIntersection(currPosition, currEnd, end2d, { x: end2d.x, y: end2d.y + 1 });
+        currEnd.x = end2d.x;
+        currEnd.y = ix?.y ?? currEnd.y; // Ix should always be defined, but...
+      }
 
       // 3. Check for polygons between position and end.
       if ( !currPoly ) {
@@ -344,9 +356,10 @@ export class RegionsElevationHandler {
           continue;
         }
         // By definition, all ixs have x <= end2d.x and x <= currEnd.x
-        currPosition = ixs[0];
-        currPoly = currPosition.poly;
-        currEnd = currPosition.edge.B;
+        const firstIx = ixs[0];
+        currPosition = PIXI.Point.fromObject(firstIx);
+        currPoly = firstIx.poly;
+        currEnd = firstIx.edge.B;
         currPolyIndex = currPoly._pts.findIndex(pt => pt.almostEqual(currEnd));
         continue;
       }
@@ -357,7 +370,7 @@ export class RegionsElevationHandler {
       currPosition = currEnd;
       currEnd = currPoly._pts[currPolyIndex];
     }
-    if ( iter >= MAX_ITER ) console.error("constructRegionsPath|Iteration exceeded max iterations!", start2d, end2d);
+    if ( iter >= MAX_ITER ) console.error("constructRegionsPath|Iteration exceeded max iterations!", start ?? start2d, end ?? end2d);
     return waypoints;
   }
 
@@ -368,8 +381,8 @@ export class RegionsElevationHandler {
    * X-axis is the distance from the start point.
    * Y-axis is elevation. Note y increases as moving up, which is opposite of Foundry.
    * Only handles plateaus and ramps; ignores stairs.
-   * @param {RegionMovementWaypoint} start          Start of the path
-   * @param {RegionMovementWaypoint} end            End of the path
+   * @param {RegionMovementWaypoint} start          Start of the path; cutaway will be extended 2 pixels before.
+   * @param {RegionMovementWaypoint} end            End of the path; cutaway will be extended 2 pixels after
    * @param {Region[]} regions                      Regions to test
    * @returns {PIXI.Polygon[]} Array of polygons representing the cutaway.
    */
@@ -381,10 +394,12 @@ export class RegionsElevationHandler {
     }
 
     // Add the scene floor.
+    // Build the polygon slightly larger than start and end so that the start and end will
+    // be correctly characterized (float/ground/underground).
     const MIN_ELEV = -1e06;
     const sceneFloor = this.sceneFloor;
     const dist = PIXI.Point.distanceBetween(start, end);
-    const floorPoly = new PIXI.Polygon(0, sceneFloor, 0, MIN_ELEV, dist, MIN_ELEV, dist, sceneFloor);
+    const floorPoly = new PIXI.Polygon(-2, sceneFloor, -2, MIN_ELEV, dist + 2, MIN_ELEV, dist + 2, sceneFloor);
     paths.push(ClipperPaths.fromPolygons([floorPoly]));
 
     // if ( !paths.length ) return [];
@@ -732,20 +747,26 @@ function pointOnPolygonEdge(a, poly) {
  * Above ground: not contained and not on edge. pointOnPolygonEdge
  * On ground: pointOnPolygonEdge
  * Points on the right/bottom of these inverted polygons will be considered underground, not ground
- * @param {Point} a                     The cutaway point to test
+ * @param {Point} pt                    The cutaway point to test
  * @param {PIXI.Polygon[]} polys        The polygons to test
  * @returns {ELEVATION_LOCATIONS}
  */
-function cutawayElevationType(a, polys) {
+function cutawayElevationType(pt, polys) {
   const locs = Region[MODULE_ID].constructor.ELEVATION_LOCATIONS;
   for ( const poly of polys ) {
-    if ( poly.contains(a.x, a.y) ) return locs.UNDERGROUND;
+    const edge = pointOnPolygonEdge(pt, poly);
+    if ( !edge ) continue;
+
+    // If on a vertical edge, only counts as on the ground if it is at the top or bottom. Otherwise floating.
+    if ( edge.A.x === edge.B.x && !(edge.A.almostEqual(pt) || edge.B.almostEqual(pt))) return locs.FLOATING;
+    return locs.GROUND;
   }
   for ( const poly of polys ) {
-    if ( pointOnPolygonEdge(a, poly) ) return locs.GROUND;
+    if ( poly.contains(pt.x, pt.y) ) return locs.UNDERGROUND;
   }
   return locs.FLOATING;
 }
+
 
 /**
  * Invert one or more polygons by taking the bounds of the group and XOR using Clipper
