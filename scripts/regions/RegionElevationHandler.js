@@ -390,6 +390,14 @@ export class RegionElevationHandler {
       topA = this.elevationUponEntry(a);
       topB = this.elevationUponEntry(b);
     }
+
+    // If this poly is a hole, use the max/min elevations so it creates a hole regardless of ramp.
+    if ( !regionPoly.isPositive ) {
+      topA = MAX_ELEV;
+      topB = MAX_ELEV;
+      bottomE = MIN_ELEV;
+    }
+
     const TL = { x: PIXI.Point.distanceBetween(start, a), y: topA }; // Distance measurements still from start
     const TR = { x: PIXI.Point.distanceBetween(start, b), y: topB };
     const BL = { x: TL.x, y: bottomE };

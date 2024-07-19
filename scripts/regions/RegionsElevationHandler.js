@@ -338,8 +338,8 @@ export class RegionsElevationHandler {
       // If this line intersects the end2d vertical, switch to that endpoint so we can finish.
       // B/c we are only walking, we can only intersect the end2d if it is on this ground level.
       // We cannot just move end2d at the beginning b/c we cannot be certain what level we are on.
-      if ( currPosition.x === currEnd.x ) { // Vertical move
-        if ( currEnd.x.almostEqual(end2d.x) && currPosition.elevation > currEnd.elevation ) break; // Stop at the top.
+      if ( currPosition.x === currEnd.x ) { // Vertical move or currPosition === currEnd
+        if ( currEnd.x.almostEqual(end2d.x) && currPosition.y >= currEnd.y ) break; // Stop at the top.
       } else if ( currPosition.x.almostEqual(end2d.x) ) break;
       else if ( currEnd.x > end2d.x ) {
         // Non-vertical move. If it intersects the end2d vertical, swap out the endpoint.
