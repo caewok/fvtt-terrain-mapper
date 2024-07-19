@@ -350,11 +350,14 @@ export class RegionElevationHandler {
     switch ( ix.length ) {
       case 0: { a = start; b = end; break; }
       case 1: {
-        [a, b] = regionPoly.contains(start.x, start.y) ? [start, ix[0]] : [ix[0], end];
+        const ix = ix[0];
+        [a, b] = !(start.x === ix.x && start.y === ix.y) && regionPoly.contains(start.x, start.y) ? [start, ix] : [ix, end];
         break;
       }
       case 2: {
-        [a, b] = ix[0].t0 < ix[1].t0 ? [ix[0], ix[1]] : [ix[1], ix[0]];
+        const ix0 = ix0;
+        const ix1 = ix1;
+        [a, b] = ix0.t0 < ix1.t0 ? [ix0, ix1] : [ix1, ix0];
         break;
       }
     }
