@@ -9,7 +9,7 @@ renderTemplate
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { MODULE_ID, FLAGS } from "./const.js";
+import { MODULE_ID, FLAGS, MOVEMENT_TYPES } from "./const.js";
 
 export function log(...args) {
   try {
@@ -200,4 +200,36 @@ export function elevatedRegions(regions) {
   if ( !regions ) return [];
   const { CHOICES, ELEVATION_ALGORITHM } = FLAGS.REGION;
   return regions.filter(region => region.document.getFlag(MODULE_ID, ELEVATION_ALGORITHM) !== CHOICES.NONE);
+}
+
+/**
+ * Determine the token movement types.
+ * @param {Token} token                     Token doing the movement
+ * @param {RegionMovementWaypoint} start    Starting location
+ * @param {RegionMovementWaypoint} end      Ending location
+ * @returns {boolean} True if token has flying status or implicitly is flying
+ */
+export function tokenIsFlying(token, start, end) {
+  const actor = token.actor;
+  const types = new Set();
+  if ( game.system.id === "dnd5e" && actor ) return actor.statuses.has("flying") || actor.statuses.has("hovering");
+
+  const tm = Region[MODULE_ID];
+  return tm.elevationType(start) === tm.constructor.ELEVATION_LOCATIONS.FLOATING;
+}
+
+/**
+ * Determine the token movement types.
+ * @param {Token} token                     Token doing the movement
+ * @param {RegionMovementWaypoint} start    Starting location
+ * @param {RegionMovementWaypoint} end      Ending location
+ * @returns {boolean} True if token has flying status or implicitly is flying
+ */
+export function tokenIsBurrowing(token, start, end) {
+  const actor = token.actor;
+  const types = new Set();
+  if ( game.system.id === "dnd5e" && actor ) return actor.statuses.has("burrowing");
+
+  const tm = Region[MODULE_ID];
+  return tm.elevationType(start) === tm.constructor.ELEVATION_LOCATIONS.BURROWING;
 }

@@ -96,7 +96,6 @@ export class RegionsElevationHandler {
 
     // Locate all polygons within each region that are intersected.
     // Construct a polygon representing the cutaway.
-    const sceneFloor = this.sceneFloor;
     samples ??= [{x: 0, y: 0}];
     const combinedPolys = this._regions2dCutaway(start, end, regions);
     if ( !combinedPolys.length ) return [start, end];
@@ -143,123 +142,19 @@ export class RegionsElevationHandler {
       - If the end is higher, go there.
       - If the end is lower, go there unless end is backwards or flying.
 
-
-
-
     */
 
-    // If starting position is floating or underground, and not flying/burrowing respectively,
-    // add a move to the terrain floor.
-    let currPosition = start2d;
-    let currEnd = end2d;
-    const startType = cutawayElevationType(start2d, combinedPolys);
-    if ( (burrowing === false && startType === UNDERGROUND )
-      || (flying === false && startType === FLOATING) ) currEnd = { x: start2d.x, y: sceneFloor };
-
-    // For each segment move, either circle around the current polygon or move in straight line toward end.
-    const MAX_ITER = 1e04;
-    const destPoly = endType === UNDERGROUND ? combinedPolys.find(poly => poly.contains(end2d.x, end2d.y)
-      || pointOnPolygonEdge(end2d, poly)) : undefined;
-    let iter = 0;
-    let currPoly = null;
-    let currPolyIndex = -1;
-    const waypoints = [];
-    while ( iter < MAX_ITER ) {
-      iter += 1;
-      waypoints.push(currPosition);
-      // 1.
-      // Is the end moving us backwards?
-      // This can happen if the polygon is "floating" above the scene floor.
-      // If not flying, add vertical to canvas floor (from floating polygon)
-      // If flying, switch to end2d.
-
-      // 2.
-      // If flying and the end is below end2d and below current position, switch to end2d.
-
-      // 3.
-      // Are we at the end?
-
-      // 4.
-      // Is the end floating or underground?
-        // Do we have to cross a polygon to get to the end?
-          // No:
-            // Can we get to the end by burrowing?
-
-            // Can we get to the end by flying?
-
-      // 5.
-      // Are there polygons between the end and us?
-      // Yes: move to polygon
-
-      // 6.
-      // Progress to next polygon point.
-
-      // 1. Is end moving us backwards? Move to scene floor or end2d.
-      if ( currEnd.x < currPosition.x ) {
-        if ( flying ) currEnd = end2d;
-        else currEnd = { x: currPosition.x, y: sceneFloor };
-        currPoly = null;
-      }
-
-      // 2. Flying and end would take us lower.
-      if ( flying
-        && currEnd.y < end2d.y
-        && currEnd.y < currPosition.y ) {
-        currEnd = end2d;
-        currPoly = null;
-      }
-
-      // 3. Are we at the end?
-      if ( regionWaypointsEqual(currPosition, currEnd) ) {
-        currEnd = end2d;
-        currPoly = null;
-      }
-      if ( currPosition.x >= end2d.x ) break;
-
-      // 4. Is the end floating or underground? If we don't cross a polygon, move to it.
-      const hasLOSToEnd = (flying || burrowing)
-        && !combinedPolys.some(poly => poly.linesCross([{ A: currPosition, B: end2d }]));
-      if ( hasLOSToEnd
-        && ((flying && endType === FLOATING)
-          || (burrowing && destPoly === currPoly)) ) {
-        currPosition = currEnd;
-        currPoly = null;
-        continue;
-      }
-
-      // 5. Check for polygons between position and end.
-      if ( !currPoly ) {
-        const ixs = polygonsIntersections(currPosition, currEnd, combinedPolys, currPoly);
-        if ( !ixs.length ) {
-          currPosition = currEnd;
-          continue;
-        }
-        // By definition, all ixs have x <= end2d.x and x <= currEnd.x
-        currPosition = ixs[0];
-        currPoly = currPosition.poly;
-        waypoints.push(currPosition);
-
-        // If burrowing, just move straight through. Get the other intersection for this polygon.
-        if ( burrowing ) {
-          const otherIx = ixs.find(thisIx => this.ix !== thisIx && thisIx.poly === currPoly);
-          if ( otherIx ) {
-            currPosition = otherIx;
-            currEnd = end2d;
-            currPoly = null;
-            continue;
-          }
-        }
-        currEnd = currPosition.edge.B;
-        currPolyIndex = currPoly._pts.findIndex(pt => pt.almostEqual(currEnd));
-      }
-
-      // 6. Cycle to the next point along the polygon edge.
-      currPolyIndex += 1;
-      if ( currPolyIndex >= currPoly._pts.length ) currPolyIndex = 0;
-      currPosition = currEnd;
-      currEnd = currPoly._pts[currPolyIndex];
+    // Walk around the polygons or convex version of polygons for burrowing/flying.
+    const fnName = flying ? "_constructRegionsPathFlying" : burrowing ? "_constructRegionsPathBurrowing" : "_constructRegionsPathWalking";
+    if ( flying && endType === UNDERGROUND ) {
+      const endE = this.nearestGroundElevation(end, { regions, samples });
+      end2d.y = endE;
     }
-    if ( iter >= MAX_ITER ) console.error("constructRegionsPath|Iteration exceeded max iterations!", start, end);
+    if ( burrowing && endType === FLOATING ) {
+      const endE = this.nearestGroundElevation(end, { regions, samples });
+      end2d.y = endE;
+    }
+    const waypoints = this[fnName](start2d, end2d, combinedPolys);
 
     // Undo rounding of the end point.
     const endWaypoint = waypoints.at(-1);
@@ -376,6 +271,96 @@ export class RegionsElevationHandler {
   // ----- NOTE: Secondary methods ----- //
 
   /**
+   * Construct the 2d cutaway path if flying.
+   * @param {PIXI.Point} start2d                Cutaway start position
+   * @param {PIXI.Point} end2d                  Cutaway end position
+   * @param {PIXI.Polygon[]} combinedPolys      Union of cutaway polygons
+   * @returns {PIXI.Point[]} The 2d cutaway path based on concave hull
+   */
+  _constructRegionsPathFlying(start2d, end2d, combinedPolys) {
+    return this._convexPath(start2d, end2d, combinedPolys);
+  }
+
+  /**
+   * Construct the 2d cutaway path if burrowing.
+   * @param {PIXI.Point} start2d                Cutaway start position
+   * @param {PIXI.Point} end2d                  Cutaway end position
+   * @param {PIXI.Polygon[]} combinedPolys      Union of cutaway polygons
+   * @returns {PIXI.Point[]} The 2d cutaway path based on concave hull
+   */
+  _constructRegionsPathBurrowing(start2d, end2d, combinedPolys) {
+    const invertedPolys = invertPolygons(combinedPolys);
+    return this._convexPath(start2d, end2d, invertedPolys, true);
+  }
+
+  /**
+   * Construct the 2d cutaway path if walking.
+   * @param {PIXI.Point} start2d                Cutaway start position
+   * @param {PIXI.Point} end2d                  Cutaway end position
+   * @param {PIXI.Polygon[]} combinedPolys      Union of cutaway polygons
+   * @returns {PIXI.Point[]} The 2d cutaway path based on concave hull
+   */
+  _constructRegionsPathWalking(start2d, end2d, combinedPolys) {
+    // If starting position is floating or underground, add a move to the terrain floor.
+    const startType = cutawayElevationType(start2d, combinedPolys);
+    const sceneFloor = this.sceneFloor;
+    let currPosition = start2d;
+    let currEnd = end2d;
+    const { FLOATING, UNDERGROUND } = this.constructor.ELEVATION_LOCATIONS;
+    if ( startType === UNDERGROUND || startType === FLOATING ) currEnd = { x: start2d.x, y: sceneFloor };
+
+    // For each segment move, either circle around the current polygon or move in straight line toward end.
+    const MAX_ITER = 1e04;
+    let iter = 0;
+    let currPoly = null;
+    let currPolyIndex = -1;
+    const waypoints = [];
+    while ( iter < MAX_ITER ) {
+      iter += 1;
+      waypoints.push(currPosition);
+
+      // 1. Is end moving us backwards? Move to scene floor or end2d.
+      // This can happen if the polygon is "floating" above the scene floor.
+      if ( currEnd.x < currPosition.x ) {
+        currEnd = { x: currPosition.x, y: sceneFloor };
+        currPoly = null;
+      }
+
+      // 2. Are we at the end?
+      if ( regionWaypointsEqual(currPosition, currEnd) ) {
+        currEnd = end2d;
+        currPoly = null;
+      }
+      if ( currPosition.x >= end2d.x ) break;
+
+      // 3. Check for polygons between position and end.
+      if ( !currPoly ) {
+        const ixs = polygonsIntersections(currPosition, currEnd, combinedPolys, currPoly);
+        if ( !ixs.length ) {
+          currPosition = currEnd;
+          continue;
+        }
+        // By definition, all ixs have x <= end2d.x and x <= currEnd.x
+        currPosition = ixs[0];
+        currPoly = currPosition.poly;
+        currEnd = currPosition.edge.B;
+        currPolyIndex = currPoly._pts.findIndex(pt => pt.almostEqual(currEnd));
+        continue;
+      }
+
+      // 4. Cycle to the next point along the polygon edge.
+      currPolyIndex += 1;
+      if ( currPolyIndex >= currPoly._pts.length ) currPolyIndex = 0;
+      currPosition = currEnd;
+      currEnd = currPoly._pts[currPolyIndex];
+    }
+    if ( iter >= MAX_ITER ) console.error("constructRegionsPath|Iteration exceeded max iterations!", start2d, end2d);
+    return waypoints;
+  }
+
+
+
+  /**
    * Construct a 2d cutaway of the regions along a given line.
    * X-axis is the distance from the start point.
    * Y-axis is elevation. Note y increases as moving up, which is opposite of Foundry.
@@ -443,12 +428,87 @@ export class RegionsElevationHandler {
     return canvasPt;
   }
 
+  /**
+   * For a path, determine if it intersects 1+ polygons in the array.
+   * Construct the convex hull and walk the path.
+   * If it intersects with another polygon, build that convex hull and redo.
+   * Until a clear path emerges to the goal.
+   * TODO: Could also use pathfinding to get a direct flight path.
+   * TODO: Could pathfind the inverted polygon shapes (pathfind inside the shapes) for burrowing.
+   * TODO: Could invert the shapes for burrowing. Would the y index need to be inverted?
+   * @param {PIXI.Point} start2d
+   * @param {PIXI.Point} end2d
+   * @param {PIXI.Polygon[]} polys
+   * @returns {PIXI.Point[]} The found path
+   */
+  _convexPath(start2d, end2d, polys, inverted = false, iter = 0) {
+    const ixs = polygonsIntersections(start2d, end2d, polys);
+    if ( !ixs.length ) return [start2d, end2d];
+
+    // Replace the polygon with a convex hull version.
+    const ixPoly = ixs[0].poly;
+    ixPoly._pts ??= [...ixPoly.iteratePoints({ close: false })];
+    const hull = PIXI.Polygon.convexHull([start2d, ...ixPoly._pts, end2d]);
+
+    // Walk the convex hull.
+    // Orient the hull so that iterating the points or edges will move in the direction we want to go.
+    let walkDir = end2d.x > start2d.x ? "ccw" : "cw"; // Reversed b/c y-axis is flipped for purposes of Foundry.
+    if ( inverted ) walkDir = walkDir === "ccw" ? "cw" : "ccw";
+    if ( hull.isClockwise ^ (walkDir === "cw") ) hull.reverseOrientation();
+    hull._pts = [...hull.iteratePoints({ close: false })];
+    let currPolyIndex = hull._pts.findIndex(pt => pt.almostEqual(start2d));
+    if ( !~currPolyIndex ) {
+      console.warn("convexPath|Start point not found in the convex polygon.");
+      return [start2d, end2d];
+    }
+    polys = polys.filter(poly => poly !== ixPoly);
+
+    let currPosition = start2d;
+    currPolyIndex += 1;
+    if ( currPolyIndex >= hull._pts.length ) currPolyIndex = 0;
+    let nextPosition = hull._pts[currPolyIndex];
+    const waypoints = [];
+    const MAX_ITER = 1e04;
+    while ( currPosition.x < end2d.x && iter < MAX_ITER ) {
+      iter += 1;
+      if ( polys.length ) {
+        const ixs = polygonsIntersections(currPosition, nextPosition, polys, hull);
+        if ( ixs.length ) {
+          // Create a convex hull for this new polygon.
+          const ixPoly = ixs[0].poly;
+          ixPoly._pts ??= [...ixPoly.iteratePoints({ close: false })];
+          const ixHull = PIXI.Polygon.convexHull([currPosition, ...ixPoly._pts, end2d]);
+          if ( ixHull.isClockwise ^ (walkDir === "cw") ) ixHull.reverseOrientation();
+          ixHull._pts = [...ixHull.iteratePoints({ close: false })];
+
+          // Combine and redo.
+          polys = polys.filter(poly => poly !== ixPoly);
+          const clipperPaths = ClipperPaths.fromPolygons([...polys, hull, ixHull]);
+          const combinedPolys = ClipperPaths.combinePaths(clipperPaths).clean().toPolygons();
+          return this._convexPath(start2d, end2d, combinedPolys, inverted, iter);
+        }
+      }
+      waypoints.push(currPosition);
+      currPosition = nextPosition;
+      currPolyIndex += 1;
+      if ( currPolyIndex >= hull._pts.length ) currPolyIndex = 0;
+      nextPosition = hull._pts[currPolyIndex];
+    }
+    waypoints.push(end2d);
+    if ( iter >= MAX_ITER ) console.error("convexPath|Iteration exceeded max iterations!", start2d, end2d);
+    return waypoints;
+  }
+
+
   // ----- NOTE: Private methods ----- //
 
 
 
 
   // ----- NOTE: Basic Helper methods ----- //
+
+
+
 
   // ----- NOTE: Debugging ----- //
 
@@ -683,3 +743,22 @@ function cutawayElevationType(a, polys) {
   }
   return locs.FLOATING;
 }
+
+/**
+ * Invert one or more polygons by taking the bounds of the group and XOR using Clipper
+ * @param {PIXI.Polygon[]} polys
+ * @returns {PIXI.Polygon[]} The inverted polygon(s)
+ */
+function invertPolygons(polys) {
+  let combinedBounds = polys[0].getBounds();
+  for ( let i = 1, n = polys.length; i < n; i += 1 ) combinedBounds = combinedBounds.union(polys[i].getBounds());
+
+  // Pad the bounds to limit unconnected polygons.
+  combinedBounds.pad(0, 2)
+
+  const polyPaths = ClipperPaths.fromPolygons(polys);
+  const boundsPath = ClipperPaths.fromPolygons([combinedBounds.toPolygon()]);
+  const invertedPath = polyPaths.diffPaths(boundsPath);
+  return invertedPath.toPolygons();
+}
+

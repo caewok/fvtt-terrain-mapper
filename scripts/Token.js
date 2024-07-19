@@ -16,7 +16,7 @@ Hook token movement to add/remove terrain effects and pause tokens dependent on 
 */
 
 import { MODULE_ID, FLAGS } from "./const.js";
-import { log } from "./util.js";
+import { log, tokenIsFlying, tokenIsBurrowing } from "./util.js";
 
 export const PATCHES = {};
 PATCHES.BASIC = {};
@@ -91,7 +91,10 @@ function refreshToken(token, flags) {
       origin.elevation = token._original.elevationE;
       const destination = token.center;
       destination.elevation = origin.elevation;
-      const path = Region[MODULE_ID].constructRegionsPath(origin, destination, { burrowing: false, flying: false }); // Returns minimum [start, end]. End might be changed.
+
+      const flying = tokenIsFlying(token, origin, destination);
+      const burrowing = tokenIsBurrowing(token, origin, destination);
+      const path = Region[MODULE_ID].constructRegionsPath(origin, destination, { burrowing, flying }); // Returns minimum [start, end]. End might be changed.
       const elevationChanged = token.document.elevation !== path.at(-1).elevation;
       if ( elevationChanged ) {
         log(`refreshToken|Setting preview token ${token.name} elevation to ${path.at(-1).elevation} at ${destination.x},${destination.y}`);
@@ -113,7 +116,10 @@ function refreshToken(token, flags) {
     const origin = path[0];
     const destination = token.getCenterPoint(token.position);
     destination.elevation = origin.elevation;
-    const currPath = Region[MODULE_ID].constructRegionsPath(origin, destination);
+
+    const flying = tokenIsFlying(token, origin, destination);
+    const burrowing = tokenIsBurrowing(token, origin, destination);
+    const currPath = Region[MODULE_ID].constructRegionsPath(origin, destination, { burrowing, flying });
     const currElevation = currPath.at(-1).elevation
     const elevationChanged = token.document.elevation !== currElevation;
     if ( elevationChanged ) {
