@@ -79,6 +79,9 @@ export class RegionsElevationHandler {
     regions = elevatedRegions(regions);
     if ( !regions.length ) return [start, end];
 
+    // Trim to regions whose bounds are intersected by the path.
+    regions = regions.filter(region => region.bounds.lineSegmentIntersects(start, end, { inside: true }));
+
     // Check if the end point should be moved.
     const { FLOATING, UNDERGROUND } = this.constructor.ELEVATION_LOCATIONS;
     const endType = this.elevationType(end, regions);
