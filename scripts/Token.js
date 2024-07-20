@@ -113,18 +113,12 @@ function refreshToken(token, flags) {
     // This could track current region and adjust as necessary.
     const path = token[MODULE_ID]?.path;
     if ( !path ) return;
-    const origin = path[0];
-    const destination = token.getCenterPoint(token.position);
-    destination.elevation = origin.elevation;
-
-    const flying = tokenIsFlying(token, origin, destination);
-    const burrowing = tokenIsBurrowing(token, origin, destination);
-    const currPath = Region[MODULE_ID].constructRegionsPath(origin, destination, { burrowing, flying });
-    const currElevation = currPath.at(-1).elevation
+    const currPosition = token.getCenterPoint(token.position);
+    const currElevation = Math.round(path.elevationAt(currPosition));
     const elevationChanged = token.document.elevation !== currElevation;
     if ( elevationChanged ) {
        // token.document.elevation = path.at(-1).elevation;
-       log(`refreshToken|Setting animating token ${token.name} elevation to ${currElevation} at ${destination.x},${destination.y}`);
+       log(`refreshToken|Setting animating token ${token.name} elevation to ${currElevation} at ${currPosition.x},${currPosition.y}`);
        // token.document.updateSource({ elevation: currPath.at(-1).elevation });
        token.document.elevation = currElevation;
        token.renderFlags.set({refreshElevation: true, refreshVisibility: true, refreshTooltip: true });
@@ -156,7 +150,9 @@ export function preUpdateToken(tokenD, changed, options, _userId) {
   const origin = token.center;
   origin.elevation = token.elevationE
   destination.elevation = changed.elevation ?? origin.elevation;
-  token[MODULE_ID].path = Region[MODULE_ID].constructRegionsPath(origin, destination);
+  const flying = tokenIsFlying(token, origin, destination);
+  const burrowing = tokenIsBurrowing(token, origin, destination);
+  token[MODULE_ID].path = Region[MODULE_ID].constructRegionsPath(origin, destination, { burrowing, flying });
 
   // Set the destination elevation.
   log(`preUpdateToken|Setting destination elevation to ${token[MODULE_ID].path.at(-1).elevation}`);
