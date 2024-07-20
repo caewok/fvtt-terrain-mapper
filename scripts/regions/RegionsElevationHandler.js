@@ -322,7 +322,7 @@ export class RegionsElevationHandler {
 
       // 1. Is end moving us backwards? Move to scene floor or end2d.
       // This can happen if the polygon is "floating" above the scene floor.
-      if ( currEnd.x < currPosition.x ) {
+      if ( !currEnd.x.almostEqual(currPosition.x) && currEnd.x < currPosition.x ) {
         currEnd = new PIXI.Point(currPosition.x,  sceneFloor);
         currPoly = null;
       }
@@ -369,6 +369,7 @@ export class RegionsElevationHandler {
       currEnd = currPoly._pts[currPolyIndex];
     }
     if ( iter >= MAX_ITER ) console.error("constructRegionsPath|Iteration exceeded max iterations!", start ?? start2d, end ?? end2d);
+    waypoints.at(-1).y = Math.round(waypoints.at(-1).y);
     return waypoints;
   }
 
