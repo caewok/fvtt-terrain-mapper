@@ -82,12 +82,10 @@ export class RegionsElevationHandler {
     // Trim to regions whose bounds are intersected by the path.
     regions = regions.filter(region => region.bounds.lineSegmentIntersects(start, end, { inside: true }));
 
-    // Check if the end point should be moved.
-    const { FLOATING, UNDERGROUND } = this.constructor.ELEVATION_LOCATIONS;
-    const endType = this.elevationType(end, regions);
-
     // Simple case: Elevation-only change.
     // Only question is whether the end will be reset to ground.
+    const { FLOATING, UNDERGROUND } = this.constructor.ELEVATION_LOCATIONS;
+    const endType = this.elevationType(end, regions);
     if ( regionWaypointsXYEqual(start, end) ) {
       if ( (flying === false && endType === FLOATING)
         || (burrowing === false && endType === UNDERGROUND) ) {
@@ -470,25 +468,54 @@ export class RegionsElevationHandler {
 
     // Walk the convex hull.
     // Orient the hull so that iterating the points or edges will move in the direction we want to go.
+    const waypoints = [];
     let walkDir = end2d.x > start2d.x ? "ccw" : "cw"; // Reversed b/c y-axis is flipped for purposes of Foundry.
     if ( inverted ) walkDir = walkDir === "ccw" ? "cw" : "ccw";
     if ( hull.isClockwise ^ (walkDir === "cw") ) hull.reverseOrientation();
     hull._pts = [...hull.iteratePoints({ close: false })];
     let currPolyIndex = hull._pts.findIndex(pt => pt.almostEqual(start2d));
-    if ( !~currPolyIndex ) {
-      console.warn("convexPath|Start point not found in the convex polygon.");
-      return [start2d, end2d];
-    }
-    polys = polys.filter(poly => poly !== ixPoly);
-
     let currPosition = start2d;
     currPolyIndex += 1;
-    if ( currPolyIndex >= hull._pts.length ) currPolyIndex = 0;
-    let nextPosition = hull._pts[currPolyIndex];
-    const waypoints = [];
+    if ( !~currPolyIndex ) {
+      // Start is between two points on the hull. Locate the one closest to start.
+      let minDist2 = Number.POSITIVE_INFINITY;
+      let minIndex = -1;
+      let closestPoint;
+      for ( let i = 1, n = hull._pts.length; i < n; i += 1 ) {
+        const a = hull._pts[i - 1];
+        const b = hull._pts[i];
+        const closest = foundry.utils.closestPointToSegment(start2d, a, b);
+        const dist2 = PIXI.Point.distanceSquaredBetween(start2d, closest);
+        if ( dist2 < minDist2 ) {
+          minDist2 = dist2;
+          minIndex = i;
+          closestPoint = closest;
+        }
+      }
+
+      closestPoint = PIXI.Point.fromObject(closestPoint);
+      if ( !start2d.almostEqual(closestPoint) ) waypoints.push(start2d);
+      currPosition = closestPoint;
+      currPolyIndex = minIndex;
+      if ( !~minIndex ) {
+        console.error("convexPath|Start point not found in the convex polygon.");
+        return [start2d, end2d];
+      }
+    }
+    polys = polys.filter(poly => poly !== ixPoly);
     const MAX_ITER = 1e04;
     while ( currPosition.x < end2d.x && iter < MAX_ITER ) {
       iter += 1;
+      if ( currPolyIndex >= hull._pts.length ) currPolyIndex = 0;
+      const nextPosition = hull._pts[currPolyIndex];
+
+      // Locate where the end vertical line hits our path.
+      if ( nextPosition.x > end2d.x ) {
+        const ix = foundry.utils.lineLineIntersection(currPosition, nextPosition, end2d, { x: end2d.x, y: end2d.y + 1 });
+        nextPosition.x = end2d.x;
+        nextPosition.y = ix.y;
+      }
+
       if ( polys.length ) {
         const ixs = polygonsIntersections(currPosition, nextPosition, polys, hull);
         if ( ixs.length ) {
@@ -506,11 +533,10 @@ export class RegionsElevationHandler {
           return this._convexPath(start2d, end2d, combinedPolys, inverted, iter);
         }
       }
+
       waypoints.push(currPosition);
       currPosition = nextPosition;
       currPolyIndex += 1;
-      if ( currPolyIndex >= hull._pts.length ) currPolyIndex = 0;
-      nextPosition = hull._pts[currPolyIndex];
     }
     waypoints.push(end2d);
     if ( iter >= MAX_ITER ) console.error("convexPath|Iteration exceeded max iterations!", start2d, end2d);
