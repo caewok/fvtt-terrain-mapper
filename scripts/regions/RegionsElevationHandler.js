@@ -14,6 +14,7 @@ import {
   regionWaypointsXYEqual } from "../util.js";
 import { ClipperPaths } from "../geometry/ClipperPaths.js";
 import { RegionElevationHandler } from "./RegionElevationHandler.js";
+import { StraightLinePath } from "../StraightLinePath.js";
 
 /**
  * Regions elevation handler
@@ -68,7 +69,7 @@ export class RegionsElevationHandler {
    * @param {boolean} [opts.flying]                 If true, token is assumed to fly, not fall, between regions
    * @param {boolean} [opts.burrowing]              If true, token is assumed to burrow straight through regions
    * @param {Point[]} [opts.samples]                Passed to Region#segmentizeMovement
-   * @returns {PathArray<RegionMovementWaypoint>}   Sorted points by distance from start.
+   * @returns {StraightLinePath<RegionMovementWaypoint>}   Sorted points by distance from start.
    */
   constructRegionsPath(start, end, { regions, flying, burrowing, samples } = {}) {
     // If the start and end are equal, we are done.
@@ -276,7 +277,7 @@ export class RegionsElevationHandler {
    * @param {PIXI.Point} start2d                Cutaway start position
    * @param {PIXI.Point} end2d                  Cutaway end position
    * @param {PIXI.Polygon[]} combinedPolys      Union of cutaway polygons
-   * @returns {PIXI.Point[]} The 2d cutaway path based on concave hull
+   * @returns {StraightLinePath[]} The 2d cutaway path based on concave hull
    */
   _constructRegionsPathFlying(start2d, end2d, combinedPolys) {
     return this._convexPath(start2d, end2d, combinedPolys);
@@ -287,7 +288,7 @@ export class RegionsElevationHandler {
    * @param {PIXI.Point} start2d                Cutaway start position
    * @param {PIXI.Point} end2d                  Cutaway end position
    * @param {PIXI.Polygon[]} combinedPolys      Union of cutaway polygons
-   * @returns {PIXI.Point[]} The 2d cutaway path based on concave hull
+   * @returns {StraightLinePath[]} The 2d cutaway path based on concave hull
    */
   _constructRegionsPathBurrowing(start2d, end2d, combinedPolys) {
     const invertedPolys = invertPolygons(combinedPolys);
@@ -299,7 +300,7 @@ export class RegionsElevationHandler {
    * @param {PIXI.Point} start2d                Cutaway start position
    * @param {PIXI.Point} end2d                  Cutaway end position
    * @param {PIXI.Polygon[]} combinedPolys      Union of cutaway polygons
-   * @returns {PIXI.Point[]} The 2d cutaway path based on concave hull
+   * @returns {StraightLinePath[]} The 2d cutaway path based on concave hull
    */
   _constructRegionsPathWalking(start2d, end2d, combinedPolys, { start, end } = {}) {
     // If starting position is floating or underground, add a move to the terrain floor.
@@ -315,7 +316,7 @@ export class RegionsElevationHandler {
     let iter = 0;
     let currPoly = null;
     let currPolyIndex = -1;
-    const waypoints = [];
+    const waypoints = new StraightLinePath();
     while ( iter < MAX_ITER ) {
       iter += 1;
       waypoints.push(currPosition);
@@ -469,7 +470,7 @@ export class RegionsElevationHandler {
 
     // Walk the convex hull.
     // Orient the hull so that iterating the points or edges will move in the direction we want to go.
-    const waypoints = [];
+    const waypoints = new StraightLinePath();
     let walkDir = end2d.x > start2d.x ? "ccw" : "cw"; // Reversed b/c y-axis is flipped for purposes of Foundry.
     if ( inverted ) walkDir = walkDir === "ccw" ? "cw" : "ccw";
     if ( hull.isClockwise ^ (walkDir === "cw") ) hull.reverseOrientation();
@@ -683,32 +684,6 @@ export class RegionsElevationHandler {
 
 
 // ----- NOTE: Helper functions ----- //
-
-/**
- * Does this segment intersect any of an array of polygons
- * @param {Point} a                 The starting endpoint of the segment
- * @param {Point} b                 The ending endpoint of the segment
- * @param {PIXI.Polygon[]} polys    The polygons to test; May have cached properties:
- *   - _xMinMax: minimum and maximum x values
- *   - _edges: Array of edges for the polygon
- * @param {PIXI.Polygon} skipPoly   Ignore this polygon
- * Note: If not already present, these properties will be cached.
- * @returns {boolean} True if any intersection occurs
- */
-function lineSegmentIntersectsPolygons(a, b, combinedPolys, skipPoly) {
-  return combinedPolys.some(poly => {
-    if ( poly === skipPoly ) return;
-    poly._pts ??= [...poly.iteratePoints({close: false})];
-    poly._minMax ??= Math.minMax(...poly._pts.map(pt => pt.x));
-    if ( poly._xMinMax && poly._xMinMax.max <= a.x ) return false;
-    poly._edges ??= [...poly.iterateEdges({ close: true })];
-    if ( !foundry.utils.lineSegmentIntersects(a, b, { edges: poly._edges }) ) return false;
-    return poly.lineSegmentIntersects(a, b, { edges: poly._edges });
-  });
-}
-
-
-
 
 /**
  * Locate all intersections of a segment in an array of polygons.
