@@ -21,15 +21,7 @@ import { WallTracerEdge, WallTracerVertex, WallTracer, SCENE_GRAPH } from "./Wal
 // import { AddTerrainRegionBehaviorType } from "./regions/AddTerrainRegionBehaviorType.js";
 // import { RemoveTerrainRegionBehaviorType } from "./regions/RemoveTerrainRegionBehaviorType.js";
 import { SetTerrainRegionBehaviorType } from "./regions/SetTerrainRegionBehaviorType.js";
-import {
-  SetElevationRegionBehaviorType,
-  constructRegionsPath,
-  constructRegionsPath2,
-  drawRegionMovement,
-  drawRegionMovementCutaway,
-  drawRegionPath,
-  drawRegionPathCutaway } from "./regions/SetElevationRegionBehaviorType.js";
-import { minMaxRegionPointsAlongAxis } from "./regions/Region.js";
+import { SetElevationRegionBehaviorType } from "./regions/SetElevationRegionBehaviorType.js";
 
 // Unique Terrain Effects
 import { TerrainActiveEffect, TerrainItemEffect, TerrainFlagEffect, TerrainPF2E } from "./terrain_unique_effects.js";
@@ -115,10 +107,7 @@ function initializeAPI() {
     TerrainItemEffect,
     TerrainFlagEffect,
     regionElevationAtPoint,
-    constructRegionsPath,
-    constructRegionsPath2,
-    minMaxRegionPointsAlongAxis,
-    SetElevationRegionBehaviorType,
+
 
     /**
      * API to determine the elevation of a line through 0+ setElevation regions.
@@ -130,13 +119,6 @@ function initializeAPI() {
      * @returns {RegionMovementSegment}
      */
     estimateElevationForSegment: SetElevationRegionBehaviorType.estimateElevationForSegment,
-
-    debug: {
-      drawRegionMovement,
-      drawRegionMovementCutaway,
-      drawRegionPath,
-      drawRegionPathCutaway
-    }
   };
 }
 

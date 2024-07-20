@@ -19,6 +19,7 @@ import { PATCHES as PATCHES_SetElevationRegionBehaviorType } from "./regions/Set
 import { PATCHES as PATCHES_ModuleSettingsAbstract } from "./ModuleSettingsAbstract.js";
 import { PATCHES as PATCHES_ItemSheet } from "./ItemSheet.js";
 import { PATCHES as PATCHES_Region } from "./regions/Region.js";
+import { PATCHES as PATCHES_RegionConfig } from "./regions/RegionConfig.js";
 
 export const PATCHES = {
   ActiveEffect: PATCHES_ActiveEffect,
@@ -28,6 +29,7 @@ export const PATCHES = {
   ItemDirectory: PATCHES_ItemDirectory,
   ItemSheet: PATCHES_ItemSheet,
   Region: PATCHES_Region,
+  ["foundry.applications.sheets.RegionConfig"]: PATCHES_RegionConfig,
   RegionLayer: PATCHES_RegionLayer,
   SceneConfig: PATCHES_SceneConfig,
   SidebarTab: PATCHES_SidebarTab,

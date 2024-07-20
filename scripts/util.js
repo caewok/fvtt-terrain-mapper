@@ -1,13 +1,15 @@
 /* globals
 canvas,
 CONFIG,
+game,
+Handlebars,
 PIXI,
 renderTemplate
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { MODULE_ID, MOVEMENT_TYPES_INV, FLAGS } from "./const.js";
+import { MODULE_ID, FLAGS, MOVEMENT_TYPES } from "./const.js";
 
 export function log(...args) {
   try {
@@ -171,56 +173,63 @@ export function regionWaypointsEqual(a, b) { return a.x === b.x && a.y === b.y &
 export function regionWaypointsXYEqual(a, b) { return a.x === b.x && a.y === b.y; }
 
 /**
- * Does this region have a valid, enabled setElevation behavior?
+ * Is this region a plateau?
  * @param {Region} region
  * @returns {boolean}
  */
-export function hasSetElevation(region) {
-  return region.document.behaviors.some(b => !b.disabled && b.type === `${MODULE_ID}.setElevation`)
+export function isPlateau(region) {
+  return region.document.getFlag(MODULE_ID, FLAGS.REGION.ELEVATION_ALGORITHM) === FLAGS.REGION.CHOICES.PLATEAU;
 }
 
 /**
- * Retrieve this region's setElevation behavior, if any.
+ * Is this region a ramp?
  * @param {Region} region
- * @returns {RegionBehavior}
+ * @returns {boolean}
  */
-export function findSetElevation(region) {
-  return region.document.behaviors.find(b => !b.disabled && b.type === `${MODULE_ID}.setElevation`)
+export function isRamp(region) {
+  return region.document.getFlag(MODULE_ID, FLAGS.REGION.ELEVATION_ALGORITHM) === FLAGS.REGION.CHOICES.RAMP;
 }
 
 /**
- * Retrieve all regions with a valid setElevation behavior
+ * Retrieve all plateau and ramp regions.
  * @param {Region[]} [regions]    Regions to use, if not all regions on the canvas
  * @returns {Region[]}
  */
-export function regionsWithSetElevation(regions) {
+export function elevatedRegions(regions) {
   regions ??= canvas.regions?.placeables;
   if ( !regions ) return [];
-  return regions.filter(region => hasSetElevation(region));
+  const { CHOICES, ELEVATION_ALGORITHM } = FLAGS.REGION;
+  return regions.filter(region => region.document.getFlag(MODULE_ID, ELEVATION_ALGORITHM) !== CHOICES.NONE);
 }
 
 /**
- * Is the token flying, on the ground, or below ground for this terrain?
- * @param {Token} token
- * @param {Region} [region]   Is this relative to a specific region?
- * @returns {MOVEMENT_TYPES}
+ * Determine the token movement types.
+ * @param {Token} token                     Token doing the movement
+ * @param {RegionMovementWaypoint} start    Starting location
+ * @param {RegionMovementWaypoint} end      Ending location
+ * @returns {boolean} True if token has flying status or implicitly is flying
  */
-export function tokenMovementType(token, region) {
-  return terrainMovementType({ ...token.center, elevation: token.elevationE }, region);
+export function tokenIsFlying(token, start, end) {
+  const actor = token.actor;
+  const types = new Set();
+  if ( game.system.id === "dnd5e" && actor ) return actor.statuses.has("flying") || actor.statuses.has("hovering");
+
+  const tm = Region[MODULE_ID];
+  return tm.elevationType(start) === tm.constructor.ELEVATION_LOCATIONS.FLOATING;
 }
 
 /**
- * Is this location considered to be flying, ground, or below ground?
- * @param {RegionMovementWaypoint} waypoint
- * @param {Region} [region]    Is this relative to a specific region? Does not test if point is within region
- * @returns {MOVEMENT_TYPES}
+ * Determine the token movement types.
+ * @param {Token} token                     Token doing the movement
+ * @param {RegionMovementWaypoint} start    Starting location
+ * @param {RegionMovementWaypoint} end      Ending location
+ * @returns {boolean} True if token has flying status or implicitly is flying
  */
-export function terrainMovementType(waypoint, region) {
-  let groundE = canvas.scene?.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0;
-  const b = findSetElevation(region);
-  if ( b
-    && b.system.type !== FLAGS.REGION.CHOICES.STAIRS
-    && region.testPoint(waypoint, undefined) ) groundE = b.system.plateauElevation(waypoint);
-  return Math.sign(waypoint.elevation - groundE) + 1; // 0, 1, or 2.
-}
+export function tokenIsBurrowing(token, start, end) {
+  const actor = token.actor;
+  const types = new Set();
+  if ( game.system.id === "dnd5e" && actor ) return actor.statuses.has("burrowing");
 
+  const tm = Region[MODULE_ID];
+  return tm.elevationType(start) === tm.constructor.ELEVATION_LOCATIONS.BURROWING;
+}

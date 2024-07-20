@@ -1,4 +1,5 @@
 /* globals
+foundry,
 game,
 Hooks
 */
@@ -13,7 +14,8 @@ export const TEMPLATES = {
   ACTIVE_EFFECT: `modules/${MODULE_ID}/templates/active-effect-config.html`,
   TERRAIN_BOOK: `modules/${MODULE_ID}/templates/terrain-effects-menu-app.html`,
   SETTINGS: `modules/${MODULE_ID}/templates/settings-menu-tab-partial.html`,
-  ITEM_PF2e: `modules/${MODULE_ID}/templates/item-config-pf2e.html`
+  ITEM_PF2e: `modules/${MODULE_ID}/templates/item-config-pf2e.html`,
+  REGION: `modules/${MODULE_ID}/templates/region-config.html`
 }
 
 // Track certain modules that complement features of this module.
@@ -46,21 +48,35 @@ export const FLAGS = {
   REGION: {
     ELEVATION_ALGORITHM: "elevationAlgorithm",
     CHOICES: {
+      NONE: "none",
       PLATEAU: "plateau",
       RAMP: "ramp",
-      STAIRS: "stairs"
     },
     LABELS: {
+      none: `${MODULE_ID}.elevationAlgorithm.labels.none`,
       plateau: `${MODULE_ID}.elevationAlgorithm.labels.plateau`,
       ramp: `${MODULE_ID}.elevationAlgorithm.labels.ramp`,
       stairs: `${MODULE_ID}.elevationAlgorithm.labels.stairs`,
     },
-    TELEPORT: "teleport",
-    IGNORE_OTHER_ELEVATIONS: "ignoreOtherElevations",
-    FLOOR: "elevationFloor",
-    DIRECTION: "rampDirection",
-    STEP_SIZE: "rampStepSize",
-    MIN_MAX: "minMax"
+    PLATEAU_ELEVATION: "plateauElevation",
+    RAMP: {
+      FLOOR: "rampFloor",
+      DIRECTION: "rampDirection",
+      STEP_SIZE: "rampStepSize",
+    }
+
+  },
+
+  // SetElevationRegionBehavior
+  SET_ELEVATION_BEHAVIOR: {
+    CHOICES: {
+      ONE_WAY: "oneWay",
+      STAIRS: "stairs",
+    },
+    LABELS: {
+      oneWay: `${MODULE_ID}.elevationAlgorithm.labels.oneWay`,
+      stairs: `${MODULE_ID}.elevationAlgorithm.labels.stairs`,
+    }
   },
 
   VERSION: "version"
