@@ -60,7 +60,15 @@ export class RegionElevationHandler {
 
   get minMax() { return this.#minMax || (this.#minMax = this.#minMaxRegionPointsAlongAxis(this.region, this.rampDirection)); }
 
-  clearCache() { this.#minMax = undefined; }
+  /** @type {PIXI.Point[]} */
+  #rampCutpoints = [];
+
+  get rampCutpoints() {
+    if ( !this.#rampCutpoints.length ) this.#rampCutpoints = this.#rampIdealCutpoints();
+    return this.#rampCutpoints;
+  }
+
+  clearCache() { this.#minMax = undefined; this.#rampCutpoints.length = 0; }
 
   // ----- NOTE: Primary methods ----- //
 
@@ -240,6 +248,33 @@ export class RegionElevationHandler {
     return segments;
    }
 
+  /**
+   * Determine the cutpoints of the ramp for a given straight line within the ramp.
+   * Assumes but does not test that start and end are actually within the ramp region.
+   * @param {PIXI.Point} a              Start of the segment
+   * @param {PIXI.Point} b              End of the segment
+   * @returns {PIXI.Point[]} Array of points from start to end at which elevation changes.
+   */
+  _rampCutpointsForSegment(a, b) {
+    // For each ideal cutpoint on the ramp, intersect the line orthogonal to the ideal cutpoint line
+    // at the ideal cutpoint.
+    const minMax = this.minMax;
+    const dir = minMax.max.subtract(minMax.min);
+    const orthoDir = new PIXI.Point(dir.y, -dir.x); // 2d Orthogonal of {x, y} is {y, -x}
+    const cutpoints = [];
+    for ( const idealCutpoint of this.rampCutpoints  ) {
+      const orthoPt = idealCutpoint.add(orthoDir);
+      const ix = foundry.utils.lineLineIntersection(a, b, idealCutpoint, orthoPt);
+      if ( !ix ) break; // If one does not intersect, none will intersect.
+      if ( ix.t0 < 0 || ix.t0 > 1 ) continue;
+      const cutPoint = PIXI.Point.fromObject(ix);
+      cutPoint.elevation = idealCutpoint.elevation;
+      cutPoint.t0 = ix.t0;
+      cutpoints.push(cutPoint);
+    }
+    return cutpoints;
+  }
+
   // ----- NOTE: Static methods ----- //
 
   /**
@@ -314,6 +349,18 @@ export class RegionElevationHandler {
     stepsize 3:
     10 --> 13 --> 16 --> 19 --> 22 --> 25
     (25 - 10) / 3 = 5. 1/6,...
+
+    stepsize 4:
+    10 --> 14 --> 18 --> 22 --> 25
+    (25 - 10) / 4 = 3.75 --> 4 splits. So 1/5, 2/5, 3/5, 4/5
+
+    stepsize 6:
+    10 --> 16 --> 22 --> 25
+    15 / 6 = 2.5. 3 splits.
+
+    stepsize 7:
+    10 --> 17 --> 24 --> 25
+    15 / 7 = ~2.14. 3 splits.
     */
     const minMax = this.minMax;
     if ( !minMax ) return waypoint.elevation;
@@ -329,6 +376,29 @@ export class RegionElevationHandler {
     const delta = plateauElevation - rampFloor;
     if ( !rampStepHeight ) return Math.round(rampFloor + (t0 * delta));
     return Math.round(rampFloor + (Math.floor(t0 * delta / rampStepHeight) * rampStepHeight));
+  }
+
+  /**
+   * Cutpoints for ramp steps, along the directional line for the ramp.
+   * Smallest t follows the ramp floor; largest t is the switch to the plateauElevation.
+   * @returns {PIXI.Point[]} Array of points on the ramp direction line. Additional properties:
+   *   - @prop {number} elevation   New elevation when ≥ t
+   *   - @prop {number} t           Percent distance from minPt
+   */
+  #rampIdealCutpoints() {
+    const { rampFloor, plateauElevation, rampStepSize, minMax } = this;
+    if ( !rampStepSize ) return [];
+    const delta = plateauElevation - rampFloor;
+    const numSplits = Math.ceil(delta / rampStepSize);
+    const minPt = PIXI.Point.fromObject(minMax.min);
+    const maxPt = PIXI.Point.fromObject(minMax.max);
+    const splits = Array.fromRange(numSplits).map(i => (i + 1) / (numSplits + 1))
+    return splits.map((t, idx) => {
+      const pt = minPt.projectToward(maxPt, t);
+      pt.t = t;
+      pt.elevation = rampFloor + (idx + 1) * rampStepSize;
+      return pt;
+    });
   }
 
   /**
@@ -397,11 +467,31 @@ export class RegionElevationHandler {
       topB = MAX_ELEV;
       bottomE = MIN_ELEV;
     }
-
-    const TL = { x: PIXI.Point.distanceBetween(start, a), y: topA }; // Distance measurements still from start
-    const TR = { x: PIXI.Point.distanceBetween(start, b), y: topB };
+    const toCutawayCoord = Region[MODULE_ID]._to2dCutawayCoordinate;
+    a.elevation = topA;
+    b.elevation = topB;
+    const TL = toCutawayCoord(a, start);
+    const TR = toCutawayCoord(b, start);
     const BL = { x: TL.x, y: bottomE };
     const BR = { x: TR.x, y: bottomE };
+    if ( usePlateauElevation && this.isRamp && this.rampStepSize && regionPoly.isPositive ) {
+      // Locate the breaks for the ramp. Move horizontally to each break, stepping up in elevation from low to high.
+      // Move from b --> a
+      const cutPoints = this._rampCutpointsForSegment(a, b);
+      const nCuts = cutPoints.length;
+      if ( nCuts ) {
+        const steps = [];
+        let currElev = TR.y;
+        if ( cutPoints[0].t0 < cutPoints.at(-1).t0 ) cutPoints.reverse();
+        for ( let i = 0; i < nCuts; i += 1 ) {
+          const cutPoint = cutPoints[i];
+          const x = toCutawayCoord(start, cutPoint).x;
+          steps.push({ x, y: currElev}, { x, y: cutPoint.elevation });
+          currElev = cutPoint.elevation;
+        }
+        return new PIXI.Polygon(TL, BL, BR, TR, ...steps);
+      }
+    }
     // _isPositive is y-down clockwise. For Foundry canvas, this is CCW.
     const cutPointPoly = regionPoly.isPositive ? new PIXI.Polygon(TL, BL, BR, TR) : new PIXI.Polygon(TL, TR, BR, BL);
     return cutPointPoly;
@@ -460,8 +550,8 @@ function insertVerticalMoveToTerrainFloor(i, segments, floor) {
  * @param {number} [direction=0]      The axis direction, in degrees. 0º is S, 90º is W
  * @param {number} [centroid]         Center of the polygon
  * @returns {object}
- * - @prop {Point} min    Where polygon first intersects the line orthogonal to direction, moving in direction
- * - @prop {Point} max    Where polygon last intersects the line orthogonal to direction, moving in direction
+ * - @prop {PIXI.Point} min    Where polygon first intersects the line orthogonal to direction, moving in direction
+ * - @prop {PIXI.Point} max    Where polygon last intersects the line orthogonal to direction, moving in direction
  */
 function minMaxPolygonPointsAlongAxis(poly, direction = 0, centroid) {
   centroid ??= poly.center;
@@ -473,16 +563,16 @@ function minMaxPolygonPointsAlongAxis(poly, direction = 0, centroid) {
     // Rotate back
     const minMaxRotatedPoly = new PIXI.Polygon(centroid.x, bounds.top, centroid.x, bounds.bottom);
     const minMaxPoly = rotatePolygon(minMaxRotatedPoly, -Math.toRadians(360 - direction), centroid);
-    return { min: { x: minMaxPoly.points[0], y: minMaxPoly.points[1] }, max: { x: minMaxPoly.points[2], y: minMaxPoly.points[3] } };
+    return { min: new PIXI.Point(minMaxPoly.points[0], minMaxPoly.points[1]), max: new PIXI.Point(minMaxPoly.points[2], minMaxPoly.points[3]) };
   }
 
   // Tackle the simple cases.
   const bounds = poly.getBounds();
   switch ( direction ) {
-    case 0: return { min: { x: centroid.x, y: bounds.top }, max: { x: centroid.x, y: bounds.bottom } }; // Due south
-    case 90: return { min: { x: bounds.right, y: centroid.y }, max: { x: bounds.left, y: centroid.y } }; // Due west
-    case 180: return { min: { x: centroid.x, y: bounds.bottom }, max: { x: centroid.x, y: bounds.top } }; // Due north
-    case 270: return { min: { x: bounds.left, y: centroid.y }, max: { x: bounds.right, y: centroid.y } }; // Due east
+    case 0: return { min: new PIXI.Point(centroid.x, bounds.top), max: new PIXI.Point(centroid.x, bounds.bottom) }; // Due south
+    case 90: return { min: new PIXI.Point(bounds.right, centroid.y), max: new PIXI.Point(bounds.left, centroid.y) }; // Due west
+    case 180: return { min: new PIXI.Point(centroid.x, bounds.bottom), max: new PIXI.Point(centroid.x, bounds.top) }; // Due north
+    case 270: return { min: new PIXI.Point(bounds.left, centroid.y), max: new PIXI.Point(bounds.right, centroid.y) }; // Due east
   }
 }
 
