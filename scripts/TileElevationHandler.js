@@ -86,7 +86,7 @@ export class TileElevationHandler {
    * @param {RegionMovementWaypoint} a
    * @returns {boolean}
    */
-  pointOnTile(a) {
+  waypointOnTile(a) {
     if ( a.elevation !== this.tile.elevation ) return false;
     return this.lineSegmentIntersects({ ...a, elevation: a.elevation + 1 }, { ...a, elevation: a.elevation - 1 });
   }
