@@ -111,3 +111,12 @@ export const FA_ICONS = {
 export const ICONS = {
   MODULE: "icons/svg/mountain.svg"
 }
+
+export const DEFAULT_FLAGS = {
+  TILE: {
+    [FLAGS.TILE.IS_FLOOR]: false,
+    [FLAGS.TILE.TRIM_BORDER]: true,
+    [FLAGS.TILE.HOLE_THRESHOLD]: 0,
+    [FLAGS.TILE.ALPHA_THRESHOLD]: 0.75
+  }
+};

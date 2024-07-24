@@ -8,7 +8,7 @@ loadTemplates
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { MODULE_ID, FA_ICONS, TEMPLATES } from "./const.js";
+import { MODULE_ID, FA_ICONS, TEMPLATES, DEFAULT_FLAGS } from "./const.js";
 import { log } from "./util.js";
 import { Settings } from "./settings.js";
 import { PATCHER, initializePatching } from "./patching.js";
@@ -93,6 +93,7 @@ Hooks.on("ready", async function(_canvas) {
  */
 Hooks.on("canvasReady", async function(_canvas) {
   CONFIG[MODULE_ID].Terrain.transitionTokens(); // Async
+  setDefaultPlaceablesFlags(); // Async.
 });
 
 
@@ -212,4 +213,19 @@ function regionElevationAtPoint(location, {
     return behavior.system.elevation;
   }
   return undefined;
+}
+
+/**
+ * Set default values for placeables flags.
+ */
+async function setDefaultPlaceablesFlags() {
+  const promises = [];
+  for ( const tile of canvas.tiles.placeables ) {
+    for ( const [key, defaultValue] of Object.entries(DEFAULT_FLAGS.TILE) ) {
+      const flag = `flags.${MODULE_ID}.${key}`;
+      if ( typeof tile.document.getFlag(MODULE_ID, key) !== "undefined" ) continue;
+      promises.push(tile.document.setFlag(MODULE_ID, key, defaultValue));
+    }
+  }
+  await Promise.allSettled(promises);
 }
