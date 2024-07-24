@@ -278,29 +278,6 @@ export class RegionElevationHandler {
 
   // ----- NOTE: Static methods ----- //
 
-  /**
-   * Build a path array from an array of region segments
-   * @param {RegionMovementSegment[]} segments
-   * @param {object} [opts]
-   * @param {RegionMovementWaypoint} [opts.start]
-   * @param {RegionMovementWaypoint} [opts.end]
-   * @returns {RegionMovementWaypoint[]}
-   */
-  static pathFromSegments(segments, { start, end } = {}) {
-    const { ENTER, MOVE, EXIT } = Region.MOVEMENT_SEGMENT_TYPES;
-    const path = [];
-    if ( start ) path.push(start);
-    for ( const segment of segments ) {
-      switch ( segment.type ) {
-        case ENTER: path.push(segment.to); break;
-        case MOVE: path.push(segment.from, segment.to); break;
-        case EXIT: path.push(segment.to); break;
-      }
-    }
-    if ( end ) path.push(end);
-    return path;
-  }
-
   // ----- NOTE: Private methods ----- //
 
   /**
