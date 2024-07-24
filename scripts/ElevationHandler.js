@@ -369,7 +369,7 @@ export class ElevationHandler {
       currPosition = currEnd;
       currEnd = currPoly._pts[currPolyIndex];
     }
-    if ( iter >= MAX_ITER ) console.error("constructRegionsPath|Iteration exceeded max iterations!", start ?? start2d, end ?? end2d);
+    if ( iter >= MAX_ITER ) console.error("constructPath|Iteration exceeded max iterations!", start ?? start2d, end ?? end2d);
     waypoints.at(-1).y = Math.round(waypoints.at(-1).y);
     return waypoints;
   }
@@ -582,7 +582,7 @@ export class ElevationHandler {
   }
 
   /**
-   * Draw the path from constructRegionsPath using the cutaway coordinates.
+   * Draw the path from constructPath using the cutaway coordinates.
    * For debugging against the cutaway polygon.
    */
   static drawCutawayPath(path, opts = {}) {

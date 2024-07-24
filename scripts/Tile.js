@@ -5,9 +5,11 @@ Hooks
 "use strict";
 
 import { MODULE_ID, FLAGS, TEMPLATES, DEFAULT_FLAGS } from "./const.js";
+import { TileElevationHandler } from "./TileElevationHandler.js";
 
 export const PATCHES = {};
 PATCHES.BASIC = {};
+PATCHES.ELEVATION = {};
 
 
 // ----- NOTE: Hooks ----- //
@@ -25,3 +27,14 @@ function createTile(document, _options, _userId) {
 }
 
 PATCHES.BASIC.HOOKS = { createTile };
+
+// ----- NOTE: Getters ----- //
+
+/**
+ * New getter: Tile#terrainmapper
+ * Class that handles elevation settings and calcs for a region.
+ * @type {RegionElevationHandler}
+ */
+function terrainmapper() { return (this._terrainmapper ??= new TileElevationHandler(this)); }
+
+PATCHES.ELEVATION.GETTERS = { terrainmapper };
