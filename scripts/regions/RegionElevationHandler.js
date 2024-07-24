@@ -153,7 +153,7 @@ export class RegionElevationHandler {
    * @param {boolean} [opts.usePlateauElevation=true]   Use the plateau or ramp shape instead of the region top elevation
    * @returns {ClipperPaths|null} The combined Clipper paths for the region cutaway.
    */
-  _region2dCutaway(start, end, { usePlateauElevation = true } = {}) {
+  _cutaway(start, end, { usePlateauElevation = true } = {}) {
     const regionPolys = [];
     for ( const regionPoly of this.region.polygons ) {
       const quad = this.#quadrangle2dCutaway(start, end, regionPoly, { usePlateauElevation });
