@@ -1,17 +1,13 @@
 /* globals
 CONFIG,
-foundry,
 PIXI,
-Region
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 
-import { MODULE_ID, FLAGS } from "../const.js";
-import { Point3d } from "../geometry/3d/Point3d.js";
-import { Plane } from "../geometry/3d/Plane.js";
-import { ClipperPaths } from "../geometry/ClipperPaths.js";
-import { Matrix } from "../geometry/Matrix.js";
-import { ElevationHandler } from "../ElevationHandler.js";
+import { MODULE_ID, FLAGS } from "./const.js";
+import { Point3d } from "./geometry/3d/Point3d.js";
+import { Plane } from "./geometry/3d/Plane.js";
+import { ElevationHandler } from "./ElevationHandler.js";
 
 /**
  * Single tile elevation handler
@@ -57,7 +53,7 @@ export class TileElevationHandler {
     // Handle the 2d case.
     if ( start.elevation === start.elevation ) {
       if ( start.elevation !== this.elevation ) return false;
-      return tile.bounds.lineSegmentIntersects(start, end, { inside: true });
+      return this.tile.bounds.lineSegmentIntersects(start, end, { inside: true });
     }
 
     // Handle 3d case.
