@@ -24,6 +24,9 @@ import { SetTerrainRegionBehaviorType } from "./regions/SetTerrainRegionBehavior
 import { SetElevationRegionBehaviorType } from "./regions/SetElevationRegionBehaviorType.js";
 import { StraightLinePath } from "./StraightLinePath.js";
 
+// Elevation
+import { ElevationHandler } from "./ElevationHandler.js";
+
 // Unique Terrain Effects
 import { TerrainActiveEffect, TerrainItemEffect, TerrainFlagEffect, TerrainPF2E } from "./terrain_unique_effects.js";
 import { defaultTerrains } from "./default_terrains.js";
@@ -110,6 +113,7 @@ function initializeAPI() {
     TerrainFlagEffect,
     regionElevationAtPoint,
     StraightLinePath,
+    ElevationHandler,
 
 
     /**

@@ -10,6 +10,7 @@ renderTemplate
 "use strict";
 
 import { MODULE_ID, FLAGS, MOVEMENT_TYPES } from "./const.js";
+import { ElevationHandler } from "./ElevationHandler.js";
 
 export function log(...args) {
   try {
@@ -223,9 +224,7 @@ export function tokenIsFlying(token, start, end) {
   const actor = token.actor;
   const types = new Set();
   if ( game.system.id === "dnd5e" && actor ) return actor.statuses.has("flying") || actor.statuses.has("hovering");
-
-  const tm = Region[MODULE_ID];
-  return tm.elevationType(start) === tm.constructor.ELEVATION_LOCATIONS.FLOATING;
+  return tm.elevationType(start) === ElevationHandler.ELEVATION_LOCATIONS.FLOATING;
 }
 
 /**
@@ -239,7 +238,5 @@ export function tokenIsBurrowing(token, start, end) {
   const actor = token.actor;
   const types = new Set();
   if ( game.system.id === "dnd5e" && actor ) return actor.statuses.has("burrowing");
-
-  const tm = Region[MODULE_ID];
-  return tm.elevationType(start) === tm.constructor.ELEVATION_LOCATIONS.BURROWING;
+  return tm.elevationType(start) === ElevationHandler.ELEVATION_LOCATIONS.BURROWING;
 }

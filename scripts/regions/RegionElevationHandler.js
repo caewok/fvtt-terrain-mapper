@@ -15,6 +15,7 @@ import { Point3d } from "../geometry/3d/Point3d.js";
 import { Plane } from "../geometry/3d/Plane.js";
 import { ClipperPaths } from "../geometry/ClipperPaths.js";
 import { Matrix } from "../geometry/Matrix.js";
+import { ElevationHandler } from "../ElevationHandler.js";
 
 /**
  * Single region elevation handler
@@ -97,7 +98,7 @@ export class RegionElevationHandler {
   plateauSegmentIntersection(a, b) {
     if ( regionWaypointsXYEqual(a, b) ) {
       // a|b is a vertical line in the z direction.
-      const e = Math.max(Region[MODULE_ID].nearestGroundElevation(a), Region[MODULE_ID].nearestGroundElevation(b));
+      const e = Math.max(ElevationHandler.nearestGroundElevation(a), ElevationHandler.nearestGroundElevation(b));
       if ( e.between(a.elevation, b.elevation) ) return { ...a, elevation: e };
       return null;
     }
@@ -184,7 +185,7 @@ export class RegionElevationHandler {
      if ( !this.isElevated ) return segments;
 
     const { ENTER, MOVE, EXIT } = Region.MOVEMENT_SEGMENT_TYPES;
-    const terrainFloor = Region[MODULE_ID].sceneFloor;
+    const terrainFloor = ElevationHandler.sceneFloor;
     let entered = false;
     for ( let i = 0, n = segments.length; i < n; i += 1 ) {
       const segment = segments[i];
@@ -467,7 +468,7 @@ export class RegionElevationHandler {
       topB = MAX_ELEV;
       bottomE = MIN_ELEV;
     }
-    const toCutawayCoord = Region[MODULE_ID]._to2dCutawayCoordinate;
+    const toCutawayCoord = ElevationHandler._to2dCutawayCoordinate;
     a.elevation = topA;
     b.elevation = topB;
     const TL = toCutawayCoord(a, start);

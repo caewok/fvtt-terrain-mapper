@@ -7,21 +7,21 @@ Region
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 
-import { MODULE_ID, FLAGS } from "../const.js";
+import { MODULE_ID, FLAGS } from "./const.js";
 import {
   elevatedRegions,
   regionWaypointsEqual,
-  regionWaypointsXYEqual } from "../util.js";
-import { ClipperPaths } from "../geometry/ClipperPaths.js";
-import { RegionElevationHandler } from "./RegionElevationHandler.js";
-import { StraightLinePath } from "../StraightLinePath.js";
+  regionWaypointsXYEqual } from "./util.js";
+import { ClipperPaths } from "./geometry/ClipperPaths.js";
+import { RegionElevationHandler } from "./regions/RegionElevationHandler.js";
+import { StraightLinePath } from "./StraightLinePath.js";
 
 /**
  * Regions elevation handler
  * Class that handles movement across regions with plateaus or ramps.
- * Encapsulated inside Region.terrainmapper static class
+ * Also handles elevated tile "floors".
  */
-export class RegionsElevationHandler {
+export class ElevationHandler {
 
   // Null constructor.
 
@@ -35,10 +35,10 @@ export class RegionsElevationHandler {
   // ----- NOTE: Getters ----- //
 
   /** @type {Region[]} */
-  get elevatedRegions() { return elevatedRegions(); }
+  static get elevatedRegions() { return elevatedRegions(); }
 
   /** @type {number} */
-  get sceneFloor() { return canvas.scene?.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0 }
+  static get sceneFloor() { return canvas.scene?.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0 }
 
 
   // ----- NOTE: Primary methods ----- //
@@ -71,7 +71,7 @@ export class RegionsElevationHandler {
    * @param {Point[]} [opts.samples]                Passed to Region#segmentizeMovement
    * @returns {StraightLinePath<RegionMovementWaypoint>}   Sorted points by distance from start.
    */
-  constructRegionsPath(start, end, { regions, flying, burrowing, samples } = {}) {
+  static constructRegionsPath(start, end, { regions, flying, burrowing, samples } = {}) {
     // If the start and end are equal, we are done.
     // If flying and burrowing, essentially a straight shot would work.
     if ( regionWaypointsEqual(start, end) || (flying && burrowing) ) return [start, end];
@@ -85,7 +85,7 @@ export class RegionsElevationHandler {
 
     // Simple case: Elevation-only change.
     // Only question is whether the end will be reset to ground.
-    const { FLOATING, UNDERGROUND } = this.constructor.ELEVATION_LOCATIONS;
+    const { FLOATING, UNDERGROUND } = this.ELEVATION_LOCATIONS;
     const endType = this.elevationType(end, regions);
     if ( regionWaypointsXYEqual(start, end) ) {
       if ( (flying === false && endType === FLOATING)
@@ -180,7 +180,7 @@ export class RegionsElevationHandler {
    * @param {Region[]} [regions]                  Regions to consider; otherwise entire canvas
    * @returns {ELEVATION_LOCATIONS}
    */
-  elevationType(waypoint, regions) {
+  static elevationType(waypoint, regions) {
     regions = elevatedRegions(regions);
     let inside = false;
     let offPlateau = false;
@@ -193,7 +193,7 @@ export class RegionsElevationHandler {
       }
     }
 
-    const locs = this.constructor.ELEVATION_LOCATIONS;
+    const locs = this.ELEVATION_LOCATIONS;
     if ( inside && offPlateau ) return locs.UNDERGROUND;
     if ( inside && !offPlateau ) return locs.GROUND;
     if ( !inside && waypoint.elevation === this.sceneFloor ) return locs.GROUND;
@@ -212,7 +212,7 @@ export class RegionsElevationHandler {
    * @param {boolean} [opts.burrowing]            If true, will fall but not move up if already in region
    * @returns {number} The elevation for the nearest ground.
    */
-  nearestGroundElevation(waypoint, { regions, samples, burrowing = false } = {}) {
+  static nearestGroundElevation(waypoint, { regions, samples, burrowing = false } = {}) {
     const teleport = false;
     samples ??= [{x: 0, y: 0}];
     regions = elevatedRegions(regions);
@@ -279,7 +279,7 @@ export class RegionsElevationHandler {
    * @param {PIXI.Polygon[]} combinedPolys      Union of cutaway polygons
    * @returns {StraightLinePath[]} The 2d cutaway path based on concave hull
    */
-  _constructRegionsPathFlying(start2d, end2d, combinedPolys) {
+  static _constructRegionsPathFlying(start2d, end2d, combinedPolys) {
     return this._convexPath(start2d, end2d, combinedPolys);
   }
 
@@ -290,7 +290,7 @@ export class RegionsElevationHandler {
    * @param {PIXI.Polygon[]} combinedPolys      Union of cutaway polygons
    * @returns {StraightLinePath[]} The 2d cutaway path based on concave hull
    */
-  _constructRegionsPathBurrowing(start2d, end2d, combinedPolys) {
+  static _constructRegionsPathBurrowing(start2d, end2d, combinedPolys) {
     const invertedPolys = invertPolygons(combinedPolys);
     return this._convexPath(start2d, end2d, invertedPolys, true);
   }
@@ -302,13 +302,13 @@ export class RegionsElevationHandler {
    * @param {PIXI.Polygon[]} combinedPolys      Union of cutaway polygons
    * @returns {StraightLinePath[]} The 2d cutaway path based on concave hull
    */
-  _constructRegionsPathWalking(start2d, end2d, combinedPolys, { start, end } = {}) {
+  static _constructRegionsPathWalking(start2d, end2d, combinedPolys, { start, end } = {}) {
     // If starting position is floating or underground, add a move to the terrain floor.
     const startType = cutawayElevationType(start2d, combinedPolys);
     const sceneFloor = this.sceneFloor;
     let currPosition = start2d;
     let currEnd = end2d;
-    const { FLOATING, UNDERGROUND } = this.constructor.ELEVATION_LOCATIONS;
+    const { FLOATING, UNDERGROUND } = this.ELEVATION_LOCATIONS;
     if ( startType === UNDERGROUND || startType === FLOATING ) currEnd = { x: start2d.x, y: sceneFloor };
 
     // For each segment move, either circle around the current polygon or move in straight line toward end.
@@ -386,7 +386,7 @@ export class RegionsElevationHandler {
    * @param {Region[]} regions                      Regions to test
    * @returns {PIXI.Polygon[]} Array of polygons representing the cutaway.
    */
-  _regions2dCutaway(start, end, regions) {
+  static _regions2dCutaway(start, end, regions) {
     const paths = [];
     for ( const region of regions ) {
       const combined = region[MODULE_ID]._region2dCutaway(start, end);
@@ -427,7 +427,7 @@ export class RegionsElevationHandler {
    * @param {RegionMovementWaypoint} start      Starting coordinates for the line segment
    * @returns {PIXI.Point} Point where x is the distance from start and y is the elevation
    */
-  _to2dCutawayCoordinate(waypoint, start) {
+  static _to2dCutawayCoordinate(waypoint, start) {
     return new PIXI.Point(PIXI.Point.distanceBetween(start, waypoint), waypoint.elevation);
   }
 
@@ -438,7 +438,7 @@ export class RegionsElevationHandler {
    * @param {RegionMovementWaypoint} end        Ending coordinates for the line segment
    * @returns {PIXI.Point} Point in canvas coordinates, with elevation property
    */
-  _from2dCutawayCoordinate(pt, start, end) {
+  static _from2dCutawayCoordinate(pt, start, end) {
     start = PIXI.Point._tmp.copyFrom(start);
     end = PIXI.Point._tmp2.copyFrom(end);
     const canvasPt = start.towardsPoint(end, pt.x);
@@ -459,7 +459,7 @@ export class RegionsElevationHandler {
    * @param {PIXI.Polygon[]} polys
    * @returns {PIXI.Point[]} The found path
    */
-  _convexPath(start2d, end2d, polys, inverted = false, iter = 0) {
+  static _convexPath(start2d, end2d, polys, inverted = false, iter = 0) {
     const ixs = polygonsIntersections(start2d, end2d, polys);
     if ( !ixs.length ) return [start2d, end2d];
 
@@ -564,14 +564,14 @@ export class RegionsElevationHandler {
    * Change the elevation dimension to match.
    * Set min elevation to one grid unit below the scene.
    */
-  drawCutawayPolygon(poly, opts = {}) {
+  static drawCutawayPolygon(poly, opts = {}) {
     const Draw = CONFIG.GeometryLib.Draw;
     const gridUnitsToPixels = CONFIG.GeometryLib.utils.gridUnitsToPixels;
     opts.color ??= Draw.COLORS.red;
     opts.fill ??= Draw.COLORS.red;
     opts.fillAlpha ??= 0.3;
     const invertedPolyPoints = [];
-    const floor = gridUnitsToPixels(Region[MODULE_ID].sceneFloor - canvas.dimensions.distance);
+    const floor = gridUnitsToPixels(ElevationHandler.sceneFloor - canvas.dimensions.distance);
     for ( let i = 0, n = poly.points.length; i < n; i += 2 ) {
       const x = poly.points[i];
       const y = poly.points[i+1];
@@ -585,7 +585,7 @@ export class RegionsElevationHandler {
    * Draw the path from constructRegionsPath using the cutaway coordinates.
    * For debugging against the cutaway polygon.
    */
-  drawCutawayPath(path, opts = {}) {
+  static drawCutawayPath(path, opts = {}) {
     const Draw = CONFIG.GeometryLib.Draw;
     const gridUnitsToPixels = CONFIG.GeometryLib.utils.gridUnitsToPixels;
     opts.color ??= Draw.COLORS.blue;
@@ -603,11 +603,11 @@ export class RegionsElevationHandler {
   }
 
 
-  drawRegionMovement(segments) {
+  static drawRegionMovement(segments) {
     for ( const segment of segments ) this.#drawRegionSegment(segment);
   }
 
-  #drawRegionSegment(segment) {
+  static #drawRegionSegment(segment) {
     const Draw = CONFIG.GeometryLib.Draw
     const color = segment.type === Region.MOVEMENT_SEGMENT_TYPES.ENTER
       ?  Draw.COLORS.green
@@ -623,7 +623,7 @@ export class RegionsElevationHandler {
   /**
    * Draw cutaway of the region segments.
    */
-  drawRegionMovementCutaway(segments) {
+  static drawRegionMovementCutaway(segments) {
     const pathWaypoints = RegionElevationHandler.fromSegments(segments);
     this.drawRegionPathCutaway(pathWaypoints)
   }
@@ -633,7 +633,7 @@ export class RegionsElevationHandler {
    * Draw line segments on the 2d canvas connecting the 2d parts of the path.
    * @param {PathArray<RegionMoveWaypoint>} path
    */
-  drawRegionPath(path, { color } = {}) {
+  static drawRegionPath(path, { color } = {}) {
     const Draw = CONFIG.GeometryLib.Draw
     color ??= Draw.COLORS.blue;
     for ( let i = 1; i < path.length; i += 1 ) {
@@ -651,7 +651,7 @@ export class RegionsElevationHandler {
    * 2d distance is along the x and elevation is y. Starts at path origin.
    * @param {PathArray<RegionMoveWaypoint>} path
    */
-  drawRegionPathCutaway(path) {
+  static drawRegionPathCutaway(path) {
     const color = CONFIG.GeometryLib.Draw.COLORS.red;
     const start = path[0];
     const gridUnitsToPixels = CONFIG.GeometryLib.utils.gridUnitsToPixels;
@@ -754,7 +754,7 @@ function pointOnPolygonEdge(a, poly) {
  * @returns {ELEVATION_LOCATIONS}
  */
 function cutawayElevationType(pt, polys) {
-  const locs = Region[MODULE_ID].constructor.ELEVATION_LOCATIONS;
+  const locs = ElevationHandler.ELEVATION_LOCATIONS;
   for ( const poly of polys ) {
     const edge = pointOnPolygonEdge(pt, poly);
     if ( !edge ) continue;
