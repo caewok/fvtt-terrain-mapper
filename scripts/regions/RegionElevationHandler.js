@@ -391,7 +391,6 @@ export class RegionElevationHandler {
 
     // Build the polygon slightly larger than start and end so that the start and end will
     // be correctly characterized (float/ground/underground).
-
     const paddedStart = PIXI.Point._tmp.copyFrom(start).towardsPoint(PIXI.Point._tmp2.copyFrom(end), -2);
     const paddedEnd = PIXI.Point._tmp.copyFrom(end).towardsPoint(PIXI.Point._tmp2.copyFrom(start), -2);
     paddedStart.elevation = start.elevation;

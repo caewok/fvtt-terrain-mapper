@@ -71,7 +71,7 @@ export class ElevationHandler {
    * @param {Point[]} [opts.samples]                Passed to Region#segmentizeMovement
    * @returns {StraightLinePath<RegionMovementWaypoint>}   Sorted points by distance from start.
    */
-  static constructRegionsPath(start, end, { regions, flying, burrowing, samples } = {}) {
+  static constructPath(start, end, { regions, flying, burrowing, samples } = {}) {
     // If the start and end are equal, we are done.
     // If flying and burrowing, essentially a straight shot would work.
     if ( regionWaypointsEqual(start, end) || (flying && burrowing) ) return [start, end];
@@ -147,7 +147,7 @@ export class ElevationHandler {
     */
 
     // Walk around the polygons or convex version of polygons for burrowing/flying.
-    const fnName = flying ? "_constructRegionsPathFlying" : burrowing ? "_constructRegionsPathBurrowing" : "_constructRegionsPathWalking";
+    const fnName = flying ? "_constructPathFlying" : burrowing ? "_constructPathBurrowing" : "_constructPathWalking";
     if ( flying && endType === UNDERGROUND ) {
       const endE = this.nearestGroundElevation(end, { regions, samples });
       end2d.y = endE;
@@ -279,7 +279,7 @@ export class ElevationHandler {
    * @param {PIXI.Polygon[]} combinedPolys      Union of cutaway polygons
    * @returns {StraightLinePath[]} The 2d cutaway path based on concave hull
    */
-  static _constructRegionsPathFlying(start2d, end2d, combinedPolys) {
+  static _constructPathFlying(start2d, end2d, combinedPolys) {
     return this._convexPath(start2d, end2d, combinedPolys);
   }
 
@@ -290,7 +290,7 @@ export class ElevationHandler {
    * @param {PIXI.Polygon[]} combinedPolys      Union of cutaway polygons
    * @returns {StraightLinePath[]} The 2d cutaway path based on concave hull
    */
-  static _constructRegionsPathBurrowing(start2d, end2d, combinedPolys) {
+  static _constructPathBurrowing(start2d, end2d, combinedPolys) {
     const invertedPolys = invertPolygons(combinedPolys);
     return this._convexPath(start2d, end2d, invertedPolys, true);
   }
@@ -302,7 +302,7 @@ export class ElevationHandler {
    * @param {PIXI.Polygon[]} combinedPolys      Union of cutaway polygons
    * @returns {StraightLinePath[]} The 2d cutaway path based on concave hull
    */
-  static _constructRegionsPathWalking(start2d, end2d, combinedPolys, { start, end } = {}) {
+  static _constructPathWalking(start2d, end2d, combinedPolys, { start, end } = {}) {
     // If starting position is floating or underground, add a move to the terrain floor.
     const startType = cutawayElevationType(start2d, combinedPolys);
     const sceneFloor = this.sceneFloor;
@@ -389,7 +389,7 @@ export class ElevationHandler {
   static _regions2dCutaway(start, end, regions) {
     const paths = [];
     for ( const region of regions ) {
-      const combined = region[MODULE_ID]._region2dCutaway(start, end);
+      const combined = region[MODULE_ID]._cutaway(start, end);
       if ( combined ) paths.push(combined);
     }
 
