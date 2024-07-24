@@ -15,7 +15,8 @@ export const TEMPLATES = {
   TERRAIN_BOOK: `modules/${MODULE_ID}/templates/terrain-effects-menu-app.html`,
   SETTINGS: `modules/${MODULE_ID}/templates/settings-menu-tab-partial.html`,
   ITEM_PF2e: `modules/${MODULE_ID}/templates/item-config-pf2e.html`,
-  REGION: `modules/${MODULE_ID}/templates/region-config.html`
+  REGION: `modules/${MODULE_ID}/templates/region-config.html`,
+  TILE: `modules/${MODULE_ID}/templates/tile-config.html`
 }
 
 // Track certain modules that complement features of this module.
@@ -65,6 +66,13 @@ export const FLAGS = {
       STEP_SIZE: "rampStepSize",
     }
 
+  },
+
+  TILE: {
+    IS_FLOOR: "isFloor",
+    TRIM_BORDER: "trimAlphaBorder",
+    HOLE_THRESHOLD: "holeThreshold",
+    ALPHA_THRESHOLD: "alphaThreshold"
   },
 
   // SetElevationRegionBehavior

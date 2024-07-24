@@ -23,7 +23,17 @@ export function log(...args) {
  * Helper to inject configuration html into the application config.
  */
 export async function injectConfiguration(app, html, data, template, findString, attachMethod = "append") {
-  const myHTML = await renderTemplate(template, data);
+  const myHTML = await renderTemplateSync(template, data);
+  const form = html.find(findString);
+  form[attachMethod](myHTML);
+  app.setPosition(app.position);
+}
+
+/**
+ * Helper to inject configuration html into the application config.
+ */
+export function injectConfigurationSync(app, html, data, template, findString, attachMethod = "append") {
+  const myHTML = renderTemplateSync(template, data);
   const form = html.find(findString);
   form[attachMethod](myHTML);
   app.setPosition(app.position);

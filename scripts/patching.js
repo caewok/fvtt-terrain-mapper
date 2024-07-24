@@ -20,6 +20,8 @@ import { PATCHES as PATCHES_ModuleSettingsAbstract } from "./ModuleSettingsAbstr
 import { PATCHES as PATCHES_ItemSheet } from "./ItemSheet.js";
 import { PATCHES as PATCHES_Region } from "./regions/Region.js";
 import { PATCHES as PATCHES_RegionConfig } from "./regions/RegionConfig.js";
+import { PATCHES as PATCHES_Tile } from "./Tile.js";
+import { PATCHES as PATCHES_TileConfig } from "./TileConfig.js";
 
 export const PATCHES = {
   ActiveEffect: PATCHES_ActiveEffect,
@@ -33,6 +35,8 @@ export const PATCHES = {
   RegionLayer: PATCHES_RegionLayer,
   SceneConfig: PATCHES_SceneConfig,
   SidebarTab: PATCHES_SidebarTab,
+  Tile: PATCHES_Tile,
+  TileConfig: PATCHES_TileConfig,
   Token: PATCHES_Token,
   Wall: PATCHES_Wall,
 
