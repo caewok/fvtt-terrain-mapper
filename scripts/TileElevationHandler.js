@@ -8,6 +8,7 @@ import { MODULE_ID, FLAGS } from "./const.js";
 import { Point3d } from "./geometry/3d/Point3d.js";
 import { Plane } from "./geometry/3d/Plane.js";
 import { ElevationHandler } from "./ElevationHandler.js";
+import { ClipperPaths } from "./geometry/ClipperPaths.js";
 
 /**
  * Single tile elevation handler
@@ -104,7 +105,11 @@ export class TileElevationHandler {
     // TODO: Handle transparent border
     // TODO: Handle holes
     if ( !this.isElevated ) return null;
-    return this.#quadrangle2dCutaway(start, end, this.tile.bounds);
+    const quad = this.#quadrangle2dCutaway(start, end, this.tile.bounds);
+    if ( !quad ) return null;
+    const regionPath = ClipperPaths.fromPolygons([quad]);
+    const combined = regionPath.combine().clean();
+    return combined;
   }
 
   // ----- NOTE: Private methods ----- //
@@ -160,8 +165,8 @@ export class TileElevationHandler {
     const toCutawayCoord = ElevationHandler._to2dCutawayCoordinate;
     a.elevation = this.elevation;
     b.elevation = this.elevation;
-    const TL = toCutawayCoord(a, start);
-    const TR = toCutawayCoord(b, start);
+    const TL = toCutawayCoord(a, start, end);
+    const TR = toCutawayCoord(b, start, end);
     const BL = { x: TL.x, y: a.elevation - 1 };
     const BR = { x: TR.x, y: b.elevation - 1 };
     return isHole ? new PIXI.Polygon(TL, TR, BR, BL) : new PIXI.Polygon(TL, BL, BR, TR);

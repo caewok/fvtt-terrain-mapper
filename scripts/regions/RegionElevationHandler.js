@@ -447,8 +447,8 @@ export class RegionElevationHandler {
     const toCutawayCoord = ElevationHandler._to2dCutawayCoordinate;
     a.elevation = topA;
     b.elevation = topB;
-    const TL = toCutawayCoord(a, start);
-    const TR = toCutawayCoord(b, start);
+    const TL = toCutawayCoord(a, start, end);
+    const TR = toCutawayCoord(b, start, end);
     const BL = { x: TL.x, y: bottomE };
     const BR = { x: TR.x, y: bottomE };
     if ( usePlateauElevation && this.isRamp && this.rampStepSize && regionPoly.isPositive ) {
@@ -462,7 +462,7 @@ export class RegionElevationHandler {
         if ( cutPoints[0].t0 < cutPoints.at(-1).t0 ) cutPoints.reverse();
         for ( let i = 0; i < nCuts; i += 1 ) {
           const cutPoint = cutPoints[i];
-          const x = toCutawayCoord(start, cutPoint).x;
+          const x = toCutawayCoord(cutPoint, start, end).x;
           steps.push({ x, y: currElev}, { x, y: cutPoint.elevation });
           currElev = cutPoint.elevation;
         }

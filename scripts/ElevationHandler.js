@@ -451,8 +451,10 @@ export class ElevationHandler {
    * @param {RegionMovementWaypoint} start      Starting coordinates for the line segment
    * @returns {PIXI.Point} Point where x is the distance from start and y is the elevation
    */
-  static _to2dCutawayCoordinate(waypoint, start) {
-    return new PIXI.Point(PIXI.Point.distanceBetween(start, waypoint), waypoint.elevation);
+  static _to2dCutawayCoordinate(waypoint, start, end) {
+    const pt = new PIXI.Point(PIXI.Point.distanceBetween(start, waypoint), waypoint.elevation);
+    if ( end && PIXI.Point.distanceBetween(waypoint, end) > PIXI.Point.distanceBetween(start, end) ) pt.x *= -1;
+    return pt;
   }
 
   /**
@@ -617,8 +619,8 @@ export class ElevationHandler {
     for ( let i = 1, n = path.length; i < n; i += 1 ) {
       const a = path[i - 1];
       const b = path[i];
-      const a2d = this._to2dCutawayCoordinate(a, start);
-      const b2d = this._to2dCutawayCoordinate(b, start);
+      const a2d = this._to2dCutawayCoordinate(a, start, end);
+      const b2d = this._to2dCutawayCoordinate(b, start, end);
       // Invert the y value for display.
       a2d.y = -gridUnitsToPixels(a2d.y);
       b2d.y = -gridUnitsToPixels(b2d.y);
