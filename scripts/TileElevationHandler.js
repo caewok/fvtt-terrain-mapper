@@ -49,7 +49,7 @@ export class TileElevationHandler {
    * @param {RegionMovementWaypoint} end            End of the segment
    * @returns {boolean}
    */
-  segmentIntersects(start, end) {
+  lineSegmentIntersects(start, end) {
     // Handle the 2d case.
     if ( start.elevation === start.elevation ) {
       if ( start.elevation !== this.elevation ) return false;
@@ -63,6 +63,32 @@ export class TileElevationHandler {
     const b = Point3d._tmp2.copyFrom(end);
     b.z = gridUnitsToPixels(end.elevation);
     return this.plane.lineSegmentIntersects(a, b);
+  }
+
+  /**
+   * Where does this line intersect the tile?
+   * Must first use lineSegmentIntersects to test for holes, bounds.
+   * @param {RegionMovementWaypoint} start          Start of the segment
+   * @param {RegionMovementWaypoint} end            End of the segment
+   * @returns {Point|null}
+   */
+  lineIntersection(start, end) {
+    const gridUnitsToPixels = CONFIG.GeometryLib.utils.gridUnitsToPixels;
+    const a = Point3d._tmp.copyFrom(start);
+    a.z = gridUnitsToPixels(start.elevation);
+    const b = Point3d._tmp2.copyFrom(end);
+    b.z = gridUnitsToPixels(end.elevation);
+    return this.plane.lineSegmentIntersection(a, b);
+  }
+
+  /**
+   * Does a point lie on the tile?
+   * @param {RegionMovementWaypoint} a
+   * @returns {boolean}
+   */
+  pointOnTile(a) {
+    if ( a.elevation !== this.tile.elevation ) return false;
+    return this.lineSegmentIntersects({ ...a, elevation: a.elevation + 1 }, { ...a, elevation: a.elevation - 1 });
   }
 
   // ----- NOTE: Secondary methods ----- //

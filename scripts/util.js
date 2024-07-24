@@ -209,8 +209,18 @@ export function isRamp(region) {
 export function elevatedRegions(regions) {
   regions ??= canvas.regions?.placeables;
   if ( !regions ) return [];
-  const { CHOICES, ELEVATION_ALGORITHM } = FLAGS.REGION;
-  return regions.filter(region => region.document.getFlag(MODULE_ID, ELEVATION_ALGORITHM) !== CHOICES.NONE);
+  return regions.filter(region => region[MODULE_ID].isElevated);
+}
+
+/**
+ * Retrieve all tiles treated as floors and elevated above scene ground.
+ * @param {Tile[]} [tiles]    Tiles to use, if not all tiles on the canvas
+ * @returns {Tiles[]}
+ */
+export function elevatedTiles(tiles) {
+  tiles ??= canvas.tiles?.placeables;
+  if ( !tiles ) return [];
+  return tiles.filter(tile => tile[MODULE_ID].isElevated);
 }
 
 /**

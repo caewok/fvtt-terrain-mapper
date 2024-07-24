@@ -51,6 +51,7 @@ PATCHER.addPatchesFromRegistrationObject(PATCHES);
 export function initializePatching() {
   PATCHER.registerGroup("BASIC");
   PATCHER.registerGroup("REGIONS");
+  PATCHER.registerGroup("ELEVATION");
   PATCHER.registerGroup(game.system.id);
 
   if ( game.system.id === "sfrpg" || game.system.id === "pf2e" ) PATCHER.registerGroup("COVER_ITEM");

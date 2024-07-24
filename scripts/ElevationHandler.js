@@ -10,6 +10,7 @@ Region
 import { MODULE_ID, FLAGS } from "./const.js";
 import {
   elevatedRegions,
+  elevatedTiles,
   regionWaypointsEqual,
   regionWaypointsXYEqual } from "./util.js";
 import { ClipperPaths } from "./geometry/ClipperPaths.js";
@@ -37,9 +38,11 @@ export class ElevationHandler {
   /** @type {Region[]} */
   static get elevatedRegions() { return elevatedRegions(); }
 
+  /** @type {Tile[]} */
+  static get elevatedTiles() { return elevatedTiles(); }
+
   /** @type {number} */
   static get sceneFloor() { return canvas.scene?.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0 }
-
 
   // ----- NOTE: Primary methods ----- //
 
@@ -66,22 +69,22 @@ export class ElevationHandler {
    * @param {RegionMovementWaypoint} end            End of the path
    * @param {object} [opts]                         Options that affect how movement is treated
    * @param {Region[]} [opts.regions]               Regions to test; if undefined all on canvas will be tested
+   * @param {Region[]} [opts.tiles]               Tiles to test; if undefined all on canvas will be tested
    * @param {boolean} [opts.flying]                 If true, token is assumed to fly, not fall, between regions
    * @param {boolean} [opts.burrowing]              If true, token is assumed to burrow straight through regions
    * @param {Point[]} [opts.samples]                Passed to Region#segmentizeMovement
    * @returns {StraightLinePath<RegionMovementWaypoint>}   Sorted points by distance from start.
    */
-  static constructPath(start, end, { regions, flying, burrowing, samples } = {}) {
+  static constructPath(start, end, { regions, tiles, flying, burrowing, samples } = {}) {
     // If the start and end are equal, we are done.
     // If flying and burrowing, essentially a straight shot would work.
-    if ( regionWaypointsEqual(start, end) || (flying && burrowing) ) return [start, end];
+    if ( regionWaypointsEqual(start, end) || (flying && burrowing) ) return new StraightLinePath(start, end);
 
-    // Only care about elevated regions.
-    regions = elevatedRegions(regions);
-    if ( !regions.length ) return [start, end];
-
-    // Trim to regions whose bounds are intersected by the path.
-    regions = regions.filter(region => region.bounds.lineSegmentIntersects(start, end, { inside: true }));
+    // Only care about elevated regions and elevated tiles.
+    // Trim to regions and tiles whose bounds are intersected by the path.
+    regions = elevatedRegions(regions).filter(region => region.bounds.lineSegmentIntersects(start, end, { inside: true }));
+    tiles = elevatedTiles(tiles).filter(tile => tile[MODULE_ID].lineSegmentIntersects(start, end));
+    if ( !regions.length && !tiles.length ) return new StraightLinePath(start, end);
 
     // Simple case: Elevation-only change.
     // Only question is whether the end will be reset to ground.
@@ -90,17 +93,17 @@ export class ElevationHandler {
     if ( regionWaypointsXYEqual(start, end) ) {
       if ( (flying === false && endType === FLOATING)
         || (burrowing === false && endType === UNDERGROUND) ) {
-        const endE = this.nearestGroundElevation(end, { regions, samples, burrowing });
+        const endE = this.nearestGroundElevation(end, { regions, tiles, samples, burrowing });
         end = { x: end.x, elevation: endE };
       }
-      return [start, end];
+      return new StraightLinePath(start, end)
     }
 
     // Locate all polygons within each region that are intersected.
     // Construct a polygon representing the cutaway.
     samples ??= [{x: 0, y: 0}];
-    const combinedPolys = this._regions2dCutaway(start, end, regions);
-    if ( !combinedPolys.length ) return [start, end];
+    const combinedPolys = this._cutaway(start, end, regions, tiles);
+    if ( !combinedPolys.length ) return new StraightLinePath(start, end);
 
     // Convert start and end to 2d-cutaway coordinates.
     const start2d = this._to2dCutawayCoordinate(start, start);
@@ -208,14 +211,16 @@ export class ElevationHandler {
    * @param {Region[]} regions                    Regions to consider
    * @param {object} [opts]                       Options that affect the movement
    * @param {Region[]} [opts.regions]             Regions to test; if undefined all on canvas will be tested
+   * @param {Tile[]} [opts.tiles]                 Tiles to test; if undefined all on canvas will be tested
    * @param {Point[]} [opts.samples]              Passed to Region#segmentizeMovement
    * @param {boolean} [opts.burrowing]            If true, will fall but not move up if already in region
    * @returns {number} The elevation for the nearest ground.
    */
-  static nearestGroundElevation(waypoint, { regions, samples, burrowing = false } = {}) {
+  static nearestGroundElevation(waypoint, { regions, tiles, samples, burrowing = false } = {}) {
     const teleport = false;
     samples ??= [{x: 0, y: 0}];
     regions = elevatedRegions(regions);
+    tiles = elevatedTiles(tiles);
     const terrainFloor = this.sceneFloor;
     let currElevation = waypoint.elevation;
 
@@ -223,11 +228,16 @@ export class ElevationHandler {
     const currRegions = regions.filter(region => region.testPoint(waypoint, currElevation));
     if ( burrowing && currRegions.length ) return currElevation;
 
-    // Option 2: Fall to ground and locate intersecting region(s). If below ground, move up to ground.
+    // Option 1.1: Waypoint is currently on a tile.
+    if ( tiles.some(tile => tile[MODULE_ID].waypointOnTile(waypoint)) ) return waypoint.elevation;
+
+    // Option 2: Fall to ground and locate intersecting regions and tiles. If below ground, move up to ground.
     if ( !currRegions.length ) {
       if ( waypoint.elevation === terrainFloor ) return terrainFloor;
-      const regionsIxs = [];
-      const waypoints = [waypoint, { ...waypoint, elevation: terrainFloor }];
+      const ixs = [];
+      const start = waypoint;
+      const end = { ...waypoint, elevation: terrainFloor };
+      const waypoints = [start, end];
       for ( const region of regions ) {
         // Given the previous test, it would have to be an entry at this point.
         const segments = region.segmentizeMovement(waypoints, samples, { teleport });
@@ -236,16 +246,26 @@ export class ElevationHandler {
         if ( segment.type !== Region.MOVEMENT_SEGMENT_TYPES.ENTER ) continue;
         segment.to.region = region;
         segment.to.dist = currElevation - segment.to.elevation;
-        regionsIxs.push(segment.to);
+        segment.to.elevation = () => region[MODULE_ID].elevationUponEntry(waypoint); // Don't calculate until we have to.
+        ixs.push(segment.to);
       }
-      // If no regions intersected, the terrain floor is the default.
-      if ( !regionsIxs.length ) return terrainFloor;
+
+      for ( const tile of tiles ) {
+        const tm = tile[MODULE_ID];
+        if ( !tm.lineSegmentIntersects(start, end) ) continue;
+        const ix = tm.lineIntersection(start, end);
+        ix.elevation = () => tile.document.elevation;
+        ix.dist = currElevation - tile.document.elevation;
+        ixs.push(ix);
+      }
+
+      // If no regions or tiles intersected, the terrain floor is the default.
+      if ( !ixs.length ) return terrainFloor;
 
       // Move to the first intersection and then to the top of the plateau.
-      regionsIxs.sort((a, b) => a.dist - b.dist);
-      const firstIx = regionsIxs[0];
-      const newE = firstIx.region[MODULE_ID].elevationUponEntry(waypoint);
-      currElevation = newE;
+      ixs.sort((a, b) => a.dist - b.dist);
+      const firstIx = ixs[0];
+      currElevation = firstIx.elevation();
     }
     if ( burrowing ) return currElevation;
 
@@ -277,7 +297,7 @@ export class ElevationHandler {
    * @param {PIXI.Point} start2d                Cutaway start position
    * @param {PIXI.Point} end2d                  Cutaway end position
    * @param {PIXI.Polygon[]} combinedPolys      Union of cutaway polygons
-   * @returns {StraightLinePath[]} The 2d cutaway path based on concave hull
+   * @returns {StraightLinePath<RegionMovementWaypoint>} The 2d cutaway path based on concave hull
    */
   static _constructPathFlying(start2d, end2d, combinedPolys) {
     return this._convexPath(start2d, end2d, combinedPolys);
@@ -288,7 +308,7 @@ export class ElevationHandler {
    * @param {PIXI.Point} start2d                Cutaway start position
    * @param {PIXI.Point} end2d                  Cutaway end position
    * @param {PIXI.Polygon[]} combinedPolys      Union of cutaway polygons
-   * @returns {StraightLinePath[]} The 2d cutaway path based on concave hull
+   * @returns {StraightLinePath<RegionMovementWaypoint>} The 2d cutaway path based on concave hull
    */
   static _constructPathBurrowing(start2d, end2d, combinedPolys) {
     const invertedPolys = invertPolygons(combinedPolys);
@@ -300,7 +320,7 @@ export class ElevationHandler {
    * @param {PIXI.Point} start2d                Cutaway start position
    * @param {PIXI.Point} end2d                  Cutaway end position
    * @param {PIXI.Polygon[]} combinedPolys      Union of cutaway polygons
-   * @returns {StraightLinePath[]} The 2d cutaway path based on concave hull
+   * @returns {StraightLinePath<RegionMovementWaypoint>} The 2d cutaway path based on concave hull
    */
   static _constructPathWalking(start2d, end2d, combinedPolys, { start, end } = {}) {
     // If starting position is floating or underground, add a move to the terrain floor.
@@ -384,14 +404,20 @@ export class ElevationHandler {
    * @param {RegionMovementWaypoint} start          Start of the path; cutaway will be extended 2 pixels before.
    * @param {RegionMovementWaypoint} end            End of the path; cutaway will be extended 2 pixels after
    * @param {Region[]} regions                      Regions to test
+   * @param {Tile[]} tiles                          Tiles to test
    * @returns {PIXI.Polygon[]} Array of polygons representing the cutaway.
    */
-  static _regions2dCutaway(start, end, regions) {
+  static _cutaway(start, end, regions = [], tiles = []) {
     const paths = [];
     for ( const region of regions ) {
       const combined = region[MODULE_ID]._cutaway(start, end);
       if ( combined ) paths.push(combined);
     }
+    for ( const tile of tiles ) {
+      const combined = tile[MODULE_ID]._cutaway(start, end);
+      if ( combined ) paths.push(combined);
+    }
+    if ( !paths.length ) return [];
 
     // Add the scene floor.
     // Build the polygon slightly larger than start and end so that the start and end will
@@ -411,8 +437,6 @@ export class ElevationHandler {
     // If all holes or no polygons, we are done.
     // TODO: This can never happen if the floor is added first.
     if ( !combinedPolys.length || combinedPolys.every(poly => !poly.isPositive) ) return [];
-
-    // TODO: Add tiles as very thin polygons?
 
     // At this point, there should not be any holes.
     // Holes go top-to-bottom, so any hole cuts the polygon in two from a cutaway perspective.
@@ -457,7 +481,7 @@ export class ElevationHandler {
    * @param {PIXI.Point} start2d
    * @param {PIXI.Point} end2d
    * @param {PIXI.Polygon[]} polys
-   * @returns {PIXI.Point[]} The found path
+   * @returns {StraightLinePath<RegionMovementWaypoint>} The found path
    */
   static _convexPath(start2d, end2d, polys, inverted = false, iter = 0) {
     const ixs = polygonsIntersections(start2d, end2d, polys);
