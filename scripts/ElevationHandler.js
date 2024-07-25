@@ -82,8 +82,9 @@ export class ElevationHandler {
 
     // Only care about elevated regions and elevated tiles.
     // Trim to regions and tiles whose bounds are intersected by the path.
+    // Don't worry about elevation right now.
     regions = elevatedRegions(regions).filter(region => region.bounds.lineSegmentIntersects(start, end, { inside: true }));
-    tiles = elevatedTiles(tiles).filter(tile => tile[MODULE_ID].lineSegmentIntersects(start, end));
+    tiles = elevatedTiles(tiles).filter(tile => tile.bounds.lineSegmentIntersects(start, end, { inside: true }));
     if ( !regions.length && !tiles.length ) return new StraightLinePath(start, end);
 
     // Simple case: Elevation-only change.
@@ -328,15 +329,24 @@ export class ElevationHandler {
     const sceneFloor = this.sceneFloor;
     let currPosition = start2d;
     let currEnd = end2d;
-    const { FLOATING, UNDERGROUND } = this.ELEVATION_LOCATIONS;
-    if ( startType === UNDERGROUND || startType === FLOATING ) currEnd = new PIXI.Point(start2d.x, sceneFloor);
+    let currPoly = null;
+    let currPolyIndex = -1;
+    const waypoints = new StraightLinePath();
+    if ( startType === this.ELEVATION_LOCATIONS.GROUND ) {
+      // Determine what polygon we are on.
+      const ixs = polygonsIntersections({ x: currPosition.x, y: currPosition.y + 1 }, { x: currPosition.x, y: currPosition.y - 1 }, combinedPolys);
+      if ( ixs ) {
+        const firstIx = ixs[0];
+        currPosition = PIXI.Point.fromObject(firstIx);
+        currPoly = firstIx.poly;
+        currEnd = firstIx.edge.B;
+        currPolyIndex = currPoly._pts.findIndex(pt => pt.almostEqual(currEnd));
+      }
+    } else currEnd = new PIXI.Point(start2d.x, sceneFloor); // Floating or underground endpoint; switch to scene floor b/c we are walking.
 
     // For each segment move, either circle around the current polygon or move in straight line toward end.
     const MAX_ITER = 1e04;
     let iter = 0;
-    let currPoly = null;
-    let currPolyIndex = -1;
-    const waypoints = new StraightLinePath();
     while ( iter < MAX_ITER ) {
       iter += 1;
       waypoints.push(currPosition);
