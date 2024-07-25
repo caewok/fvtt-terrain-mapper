@@ -474,7 +474,7 @@ export class RegionElevationHandler {
           steps.push({ x, y: currElev}, { x, y: cutPoint.elevation });
           currElev = cutPoint.elevation;
         }
-        if ( cutPoints[0].t0 < cutPoints.at(-1).t0 ) steps.reverse();
+        if ( TL.y < TR.y ) steps.reverse();
         return new PIXI.Polygon(TL, BL, BR, TR, ...steps);
       }
     }
