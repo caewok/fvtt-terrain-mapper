@@ -461,19 +461,20 @@ export class RegionElevationHandler {
     const BR = { x: TR.x, y: bottomE };
     if ( usePlateauElevation && this.isRamp && this.rampStepSize && regionPoly.isPositive ) {
       // Locate the breaks for the ramp. Move horizontally to each break, stepping up in elevation from low to high.
-      // Move from b --> a
+      // Cutpoints are always returned low --> high.
+      // First point is the transition from lowest elevation to the cutpoint elevation.
       const cutPoints = this._rampCutpointsForSegment(a, b);
       const nCuts = cutPoints.length;
       if ( nCuts ) {
         const steps = [];
-        let currElev = TR.y;
-        if ( cutPoints[0].t0 < cutPoints.at(-1).t0 ) cutPoints.reverse();
+        let currElev = Math.min(TR.y, TL.y)
         for ( let i = 0; i < nCuts; i += 1 ) {
           const cutPoint = cutPoints[i];
           const x = toCutawayCoord(cutPoint, start, end).x;
           steps.push({ x, y: currElev}, { x, y: cutPoint.elevation });
           currElev = cutPoint.elevation;
         }
+        if ( cutPoints[0].t0 < cutPoints.at(-1).t0 ) steps.reverse();
         return new PIXI.Polygon(TL, BL, BR, TR, ...steps);
       }
     }
