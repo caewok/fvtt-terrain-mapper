@@ -329,7 +329,7 @@ export class ElevationHandler {
     let currPosition = start2d;
     let currEnd = end2d;
     const { FLOATING, UNDERGROUND } = this.ELEVATION_LOCATIONS;
-    if ( startType === UNDERGROUND || startType === FLOATING ) currEnd = { x: start2d.x, y: sceneFloor };
+    if ( startType === UNDERGROUND || startType === FLOATING ) currEnd = new PIXI.Point(start2d.x, sceneFloor);
 
     // For each segment move, either circle around the current polygon or move in straight line toward end.
     const MAX_ITER = 1e04;
@@ -616,6 +616,7 @@ export class ElevationHandler {
     const gridUnitsToPixels = CONFIG.GeometryLib.utils.gridUnitsToPixels;
     opts.color ??= Draw.COLORS.blue;
     const start = path[0];
+    const end = path.at(-1);
     for ( let i = 1, n = path.length; i < n; i += 1 ) {
       const a = path[i - 1];
       const b = path[i];
