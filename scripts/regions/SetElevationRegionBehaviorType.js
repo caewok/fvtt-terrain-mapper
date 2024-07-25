@@ -8,7 +8,7 @@ Region
 
 import { MODULE_ID, FLAGS } from "../const.js";
 import { log, isFirstGM } from "../util.js";
-
+import { ElevationHandler } from "../ElevationHandler.js";
 
 export const PATCHES = {};
 PATCHES.REGIONS = {};
@@ -92,7 +92,7 @@ export class SetElevationRegionBehaviorType extends foundry.data.regionBehaviors
         label: `${MODULE_ID}.behavior.types.set-elevation.fields.floor.name`,
         hint: `${MODULE_ID}.behavior.types.set-elevation.fields.floor.hint`,
         initial: () => {
-          return Region[MODULE_ID].sceneFloor;
+          return ElevationHandler.sceneFloor;
         }
       }),
     }
@@ -128,8 +128,8 @@ function preCreateRegionBehavior(document, data, _options, _userId) {
   log("preCreateRegionBehavior");
   if ( data.type !== `${MODULE_ID}.setElevation` ) return;
   const topE = document.region.elevation.top;
-  const elevation = topE ?? Region[MODULE_ID].sceneFloor;
-  const floor = Region[MODULE_ID].sceneFloor;
+  const elevation = topE ?? ElevationHandler.sceneFloor;
+  const floor = ElevationHandler.sceneFloor;
   document.updateSource({ ["system.elevation"]: elevation, ["system.floor"]: floor });
 }
 

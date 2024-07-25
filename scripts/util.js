@@ -10,6 +10,7 @@ renderTemplate
 "use strict";
 
 import { MODULE_ID, FLAGS, MOVEMENT_TYPES } from "./const.js";
+import { ElevationHandler } from "./ElevationHandler.js";
 
 export function log(...args) {
   try {
@@ -23,7 +24,17 @@ export function log(...args) {
  * Helper to inject configuration html into the application config.
  */
 export async function injectConfiguration(app, html, data, template, findString, attachMethod = "append") {
-  const myHTML = await renderTemplate(template, data);
+  const myHTML = await renderTemplateSync(template, data);
+  const form = html.find(findString);
+  form[attachMethod](myHTML);
+  app.setPosition(app.position);
+}
+
+/**
+ * Helper to inject configuration html into the application config.
+ */
+export function injectConfigurationSync(app, html, data, template, findString, attachMethod = "append") {
+  const myHTML = renderTemplateSync(template, data);
   const form = html.find(findString);
   form[attachMethod](myHTML);
   app.setPosition(app.position);
@@ -198,8 +209,18 @@ export function isRamp(region) {
 export function elevatedRegions(regions) {
   regions ??= canvas.regions?.placeables;
   if ( !regions ) return [];
-  const { CHOICES, ELEVATION_ALGORITHM } = FLAGS.REGION;
-  return regions.filter(region => region.document.getFlag(MODULE_ID, ELEVATION_ALGORITHM) !== CHOICES.NONE);
+  return regions.filter(region => region[MODULE_ID].isElevated);
+}
+
+/**
+ * Retrieve all tiles treated as floors and elevated above scene ground.
+ * @param {Tile[]} [tiles]    Tiles to use, if not all tiles on the canvas
+ * @returns {Tiles[]}
+ */
+export function elevatedTiles(tiles) {
+  tiles ??= canvas.tiles?.placeables;
+  if ( !tiles ) return [];
+  return tiles.filter(tile => tile[MODULE_ID].isElevated);
 }
 
 /**
@@ -213,9 +234,7 @@ export function tokenIsFlying(token, start, end) {
   const actor = token.actor;
   const types = new Set();
   if ( game.system.id === "dnd5e" && actor ) return actor.statuses.has("flying") || actor.statuses.has("hovering");
-
-  const tm = Region[MODULE_ID];
-  return tm.elevationType(start) === tm.constructor.ELEVATION_LOCATIONS.FLOATING;
+  return tm.elevationType(start) === ElevationHandler.ELEVATION_LOCATIONS.FLOATING;
 }
 
 /**
@@ -229,7 +248,5 @@ export function tokenIsBurrowing(token, start, end) {
   const actor = token.actor;
   const types = new Set();
   if ( game.system.id === "dnd5e" && actor ) return actor.statuses.has("burrowing");
-
-  const tm = Region[MODULE_ID];
-  return tm.elevationType(start) === tm.constructor.ELEVATION_LOCATIONS.BURROWING;
+  return tm.elevationType(start) === ElevationHandler.ELEVATION_LOCATIONS.BURROWING;
 }

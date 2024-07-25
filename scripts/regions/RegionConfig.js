@@ -5,12 +5,6 @@ Hooks
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-
-/*
-Methods and hooks related to tokens.
-Hook token movement to add/remove terrain effects and pause tokens dependent on settings.
-*/
-
 import { MODULE_ID, FLAGS, TEMPLATES, FA_ICONS } from "../const.js";
 
 // Patches for the RegionConfig class

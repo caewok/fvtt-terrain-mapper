@@ -8,7 +8,7 @@ loadTemplates
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { MODULE_ID, FA_ICONS, TEMPLATES } from "./const.js";
+import { MODULE_ID, FA_ICONS, TEMPLATES, DEFAULT_FLAGS } from "./const.js";
 import { log } from "./util.js";
 import { Settings } from "./settings.js";
 import { PATCHER, initializePatching } from "./patching.js";
@@ -23,6 +23,9 @@ import { WallTracerEdge, WallTracerVertex, WallTracer, SCENE_GRAPH } from "./Wal
 import { SetTerrainRegionBehaviorType } from "./regions/SetTerrainRegionBehaviorType.js";
 import { SetElevationRegionBehaviorType } from "./regions/SetElevationRegionBehaviorType.js";
 import { StraightLinePath } from "./StraightLinePath.js";
+
+// Elevation
+import { ElevationHandler } from "./ElevationHandler.js";
 
 // Unique Terrain Effects
 import { TerrainActiveEffect, TerrainItemEffect, TerrainFlagEffect, TerrainPF2E } from "./terrain_unique_effects.js";
@@ -93,6 +96,7 @@ Hooks.on("ready", async function(_canvas) {
  */
 Hooks.on("canvasReady", async function(_canvas) {
   CONFIG[MODULE_ID].Terrain.transitionTokens(); // Async
+  setDefaultPlaceablesFlags(); // Async.
 });
 
 
@@ -109,6 +113,7 @@ function initializeAPI() {
     TerrainFlagEffect,
     regionElevationAtPoint,
     StraightLinePath,
+    ElevationHandler,
 
 
     /**
@@ -212,4 +217,19 @@ function regionElevationAtPoint(location, {
     return behavior.system.elevation;
   }
   return undefined;
+}
+
+/**
+ * Set default values for placeables flags.
+ */
+async function setDefaultPlaceablesFlags() {
+  const promises = [];
+  for ( const tile of canvas.tiles.placeables ) {
+    for ( const [key, defaultValue] of Object.entries(DEFAULT_FLAGS.TILE) ) {
+      const flag = `flags.${MODULE_ID}.${key}`;
+      if ( typeof tile.document.getFlag(MODULE_ID, key) !== "undefined" ) continue;
+      promises.push(tile.document.setFlag(MODULE_ID, key, defaultValue));
+    }
+  }
+  await Promise.allSettled(promises);
 }

@@ -31,6 +31,18 @@
   "terrainmapper.region-config.rampStepSize.name": "Step Size",
   "terrainmapper.region-config.rampStepSize.hint": "How tall, in grid units, to make each step of the ramp. The number of steps will be automatically determined based on this value. If set to 0, the ramp will approximate a smooth incline. For ramps only.",
 
+  "terrainmapper.tile-config.isFloor.name": "Treat as Floor",
+  "terrainmapper.tile-config.isFloor.hint": "When enabled, will be treated as a solid floor (ground) when moving tokens.",
+
+  "terrainmapper.tile-config.trimAlphaBorder.name": "Trim Boundary",
+  "terrainmapper.tile-config.trimAlphaBorder.hint": "When enabled, the transparent border of the tile will be ignored for purposes of token movement.",
+
+  "terrainmapper.tile-config.holeThreshold.name": "Minimum Hole Size",
+  "terrainmapper.tile-config.holeThreshold.hint": "The minimum radius, in grid units, of transparent pixels to treat any given pixel on the tile as a hole. The width of a normal token is a good default. Set to 0 to ignore holes.",
+
+  "terrainmapper.tile-config.alphaThreshold.name": "Alpha (Transparency) Threshold",
+  "terrainmapper.tile-config.alphaThreshold.hint": "What percentage transparency counts for treating a given pixel as a hole or outer boundary. Default in Foundry is 0.75.",
+
   "terrainmapper.behavior.types.add-terrain.fields.terrain.hint": "Select terrain that will be added to the token as an active effect.",
 
   "terrainmapper.behavior.types.set-terrain.fields.terrain.hint": "Select terrain that will be added to the token as an active effect. When the token exits the region, the terrain will be automatically removed.",

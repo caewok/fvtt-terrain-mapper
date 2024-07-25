@@ -15,6 +15,7 @@ import { Point3d } from "../geometry/3d/Point3d.js";
 import { Plane } from "../geometry/3d/Plane.js";
 import { ClipperPaths } from "../geometry/ClipperPaths.js";
 import { Matrix } from "../geometry/Matrix.js";
+import { ElevationHandler } from "../ElevationHandler.js";
 
 /**
  * Single region elevation handler
@@ -97,7 +98,7 @@ export class RegionElevationHandler {
   plateauSegmentIntersection(a, b) {
     if ( regionWaypointsXYEqual(a, b) ) {
       // a|b is a vertical line in the z direction.
-      const e = Math.max(Region[MODULE_ID].nearestGroundElevation(a), Region[MODULE_ID].nearestGroundElevation(b));
+      const e = Math.max(ElevationHandler.nearestGroundElevation(a), ElevationHandler.nearestGroundElevation(b));
       if ( e.between(a.elevation, b.elevation) ) return { ...a, elevation: e };
       return null;
     }
@@ -152,7 +153,7 @@ export class RegionElevationHandler {
    * @param {boolean} [opts.usePlateauElevation=true]   Use the plateau or ramp shape instead of the region top elevation
    * @returns {ClipperPaths|null} The combined Clipper paths for the region cutaway.
    */
-  _region2dCutaway(start, end, { usePlateauElevation = true } = {}) {
+  _cutaway(start, end, { usePlateauElevation = true } = {}) {
     const regionPolys = [];
     for ( const regionPoly of this.region.polygons ) {
       const quad = this.#quadrangle2dCutaway(start, end, regionPoly, { usePlateauElevation });
@@ -184,7 +185,7 @@ export class RegionElevationHandler {
      if ( !this.isElevated ) return segments;
 
     const { ENTER, MOVE, EXIT } = Region.MOVEMENT_SEGMENT_TYPES;
-    const terrainFloor = Region[MODULE_ID].sceneFloor;
+    const terrainFloor = ElevationHandler.sceneFloor;
     let entered = false;
     for ( let i = 0, n = segments.length; i < n; i += 1 ) {
       const segment = segments[i];
@@ -277,29 +278,6 @@ export class RegionElevationHandler {
 
   // ----- NOTE: Static methods ----- //
 
-  /**
-   * Build a path array from an array of region segments
-   * @param {RegionMovementSegment[]} segments
-   * @param {object} [opts]
-   * @param {RegionMovementWaypoint} [opts.start]
-   * @param {RegionMovementWaypoint} [opts.end]
-   * @returns {RegionMovementWaypoint[]}
-   */
-  static pathFromSegments(segments, { start, end } = {}) {
-    const { ENTER, MOVE, EXIT } = Region.MOVEMENT_SEGMENT_TYPES;
-    const path = [];
-    if ( start ) path.push(start);
-    for ( const segment of segments ) {
-      switch ( segment.type ) {
-        case ENTER: path.push(segment.to); break;
-        case MOVE: path.push(segment.from, segment.to); break;
-        case EXIT: path.push(segment.to); break;
-      }
-    }
-    if ( end ) path.push(end);
-    return path;
-  }
-
   // ----- NOTE: Private methods ----- //
 
   /**
@@ -365,17 +343,25 @@ export class RegionElevationHandler {
     const minMax = this.minMax;
     if ( !minMax ) return waypoint.elevation;
     const closestPt = foundry.utils.closestPointToSegment(waypoint, minMax.min, minMax.max);
+    const t0 = Math.clamp(PIXI.Point.distanceBetween(minMax.min, closestPt) / PIXI.Point.distanceBetween(minMax.min, minMax.max), 0, 1);
 
     // Floor (min) --> pt --> elevation (max)
     // If no stepsize, elevation is simply proportional
-    // Formula will break if t0 = 1. It will go to the next step. E.g., 28 instead of 25.
-    const t0 = Math.clamp(PIXI.Point.distanceBetween(minMax.min, closestPt) / PIXI.Point.distanceBetween(minMax.min, minMax.max), 0, 1);
-    const { rampFloor, plateauElevation, rampStepHeight } = this;
+    // Formula will break if t0 = 1. It will go to the next step. E.g., 28 instead of 25
+    const { rampFloor, plateauElevation } = this;
     if ( t0.almostEqual(0) ) return rampFloor;
     if ( t0.almostEqual(1) ) return plateauElevation;
+    if ( this.rampStepSize ) {
+      const cutPoints = this.rampCutpoints;
+      const nearestPt = cutPoints.findLast(pt => pt.t.almostEqual(t0) || pt.t < t0);
+      if ( !nearestPt ) return rampFloor;
+      return nearestPt.elevation;
+
+    }
+
+    // Ramp is basic incline; no steps.
     const delta = plateauElevation - rampFloor;
-    if ( !rampStepHeight ) return Math.round(rampFloor + (t0 * delta));
-    return Math.round(rampFloor + (Math.floor(t0 * delta / rampStepHeight) * rampStepHeight));
+    return Math.round(rampFloor + (t0 * delta));
   }
 
   /**
@@ -413,7 +399,6 @@ export class RegionElevationHandler {
 
     // Build the polygon slightly larger than start and end so that the start and end will
     // be correctly characterized (float/ground/underground).
-
     const paddedStart = PIXI.Point._tmp.copyFrom(start).towardsPoint(PIXI.Point._tmp2.copyFrom(end), -2);
     const paddedEnd = PIXI.Point._tmp.copyFrom(end).towardsPoint(PIXI.Point._tmp2.copyFrom(start), -2);
     paddedStart.elevation = start.elevation;
@@ -467,28 +452,29 @@ export class RegionElevationHandler {
       topB = MAX_ELEV;
       bottomE = MIN_ELEV;
     }
-    const toCutawayCoord = Region[MODULE_ID]._to2dCutawayCoordinate;
+    const toCutawayCoord = ElevationHandler._to2dCutawayCoordinate;
     a.elevation = topA;
     b.elevation = topB;
-    const TL = toCutawayCoord(a, start);
-    const TR = toCutawayCoord(b, start);
+    const TL = toCutawayCoord(a, start, end);
+    const TR = toCutawayCoord(b, start, end);
     const BL = { x: TL.x, y: bottomE };
     const BR = { x: TR.x, y: bottomE };
     if ( usePlateauElevation && this.isRamp && this.rampStepSize && regionPoly.isPositive ) {
       // Locate the breaks for the ramp. Move horizontally to each break, stepping up in elevation from low to high.
-      // Move from b --> a
+      // Cutpoints are always returned low --> high.
+      // First point is the transition from lowest elevation to the cutpoint elevation.
       const cutPoints = this._rampCutpointsForSegment(a, b);
       const nCuts = cutPoints.length;
       if ( nCuts ) {
         const steps = [];
-        let currElev = TR.y;
-        if ( cutPoints[0].t0 < cutPoints.at(-1).t0 ) cutPoints.reverse();
+        let currElev = Math.min(TR.y, TL.y)
         for ( let i = 0; i < nCuts; i += 1 ) {
           const cutPoint = cutPoints[i];
-          const x = toCutawayCoord(start, cutPoint).x;
+          const x = toCutawayCoord(cutPoint, start, end).x;
           steps.push({ x, y: currElev}, { x, y: cutPoint.elevation });
           currElev = cutPoint.elevation;
         }
+        if ( TL.y < TR.y ) steps.reverse();
         return new PIXI.Polygon(TL, BL, BR, TR, ...steps);
       }
     }

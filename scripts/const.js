@@ -15,7 +15,8 @@ export const TEMPLATES = {
   TERRAIN_BOOK: `modules/${MODULE_ID}/templates/terrain-effects-menu-app.html`,
   SETTINGS: `modules/${MODULE_ID}/templates/settings-menu-tab-partial.html`,
   ITEM_PF2e: `modules/${MODULE_ID}/templates/item-config-pf2e.html`,
-  REGION: `modules/${MODULE_ID}/templates/region-config.html`
+  REGION: `modules/${MODULE_ID}/templates/region-config.html`,
+  TILE: `modules/${MODULE_ID}/templates/tile-config.html`
 }
 
 // Track certain modules that complement features of this module.
@@ -67,6 +68,13 @@ export const FLAGS = {
 
   },
 
+  TILE: {
+    IS_FLOOR: "isFloor",
+    TRIM_BORDER: "trimAlphaBorder",
+    HOLE_THRESHOLD: "holeThreshold",
+    ALPHA_THRESHOLD: "alphaThreshold"
+  },
+
   // SetElevationRegionBehavior
   SET_ELEVATION_BEHAVIOR: {
     CHOICES: {
@@ -103,3 +111,12 @@ export const FA_ICONS = {
 export const ICONS = {
   MODULE: "icons/svg/mountain.svg"
 }
+
+export const DEFAULT_FLAGS = {
+  TILE: {
+    [FLAGS.TILE.IS_FLOOR]: false,
+    [FLAGS.TILE.TRIM_BORDER]: true,
+    [FLAGS.TILE.HOLE_THRESHOLD]: 0,
+    [FLAGS.TILE.ALPHA_THRESHOLD]: 0.75
+  }
+};

@@ -15,7 +15,6 @@ Hook token movement to add/remove terrain effects and pause tokens dependent on 
 
 import { MODULE_ID, FLAGS } from "../const.js";
 import { RegionElevationHandler } from "./RegionElevationHandler.js";
-import { RegionsElevationHandler } from "./RegionsElevationHandler.js";
 
 export const PATCHES = {};
 PATCHES.REGIONS = {};
@@ -237,17 +236,9 @@ PATCHES.REGIONS.METHODS = { _refreshTerrainMapperMesh };
 
 /**
  * New getter: Region.terrainmapper
- * Class that handles elevation changes between regions.
- * @type {RegionsElevationHandler}
- */
-function staticTerrainMapper() { return (this._terrainmapper ??= new RegionsElevationHandler()); }
-
-/**
- * New getter: Region.terrainmapper
  * Class that handles elevation settings and calcs for a region.
  * @type {RegionElevationHandler}
  */
 function terrainmapper() { return (this._terrainmapper ??= new RegionElevationHandler(this)); }
 
-PATCHES.REGIONS.STATIC_GETTERS = { terrainmapper: staticTerrainMapper };
 PATCHES.REGIONS.GETTERS = { terrainmapper };
