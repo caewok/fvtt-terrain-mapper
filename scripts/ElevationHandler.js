@@ -351,18 +351,37 @@ export class ElevationHandler {
       iter += 1;
       waypoints.push(currPosition);
 
-      // 1. Is end moving us backwards? Move to scene floor or end2d.
-      // This can happen if the polygon is "floating" above the scene floor.
-      if ( !currEnd.x.almostEqual(currPosition.x) && currEnd.x < currPosition.x ) {
-        currEnd = new PIXI.Point(currPosition.x,  sceneFloor);
-        currPoly = null;
-      }
-
-      // 2. Are we at the end?
+      // 1. Are we at the end?
       if ( currPosition.almostEqual(currEnd) ) {
         currEnd = end2d;
         currPoly = null;
       }
+
+      // 2. Is end moving us backwards? Move to scene floor or the intersecting polygon if moving up.
+      // This can happen if the polygon is "floating" above the scene floor.
+      if ( !currEnd.x.almostEqual(currPosition.x) && currEnd.x < currPosition.x ) {
+        const prevPosition = waypoints.at(-2);
+        const travelingUp = prevPosition ? prevPosition.y  < currPosition.y : currPosition.y < currEnd.y;
+        if ( travelingUp ) {
+          const ixs = polygonsIntersections(currPosition, { x: currPosition.x, y: 1e06 }, combinedPolys);
+          if ( ixs ) {
+            const firstIx = ixs[0];
+            currPosition = PIXI.Point.fromObject(firstIx);
+            waypoints.push(currPosition);
+            currPoly = firstIx.poly;
+            currEnd = firstIx.edge.B;
+            currPolyIndex = currPoly._pts.findIndex(pt => pt.almostEqual(currEnd));
+          } else {
+            currEnd = new PIXI.Point(currPosition.x,  sceneFloor);
+            currPoly = null;
+          }
+        } else {
+          currEnd = new PIXI.Point(currPosition.x,  sceneFloor);
+          currPoly = null;
+        }
+      }
+
+
 
       // If this line intersects the end2d vertical, switch to that endpoint so we can finish.
       // B/c we are only walking, we can only intersect the end2d if it is on this ground level.
