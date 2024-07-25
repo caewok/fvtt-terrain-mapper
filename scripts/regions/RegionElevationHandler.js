@@ -343,17 +343,25 @@ export class RegionElevationHandler {
     const minMax = this.minMax;
     if ( !minMax ) return waypoint.elevation;
     const closestPt = foundry.utils.closestPointToSegment(waypoint, minMax.min, minMax.max);
+    const t0 = Math.clamp(PIXI.Point.distanceBetween(minMax.min, closestPt) / PIXI.Point.distanceBetween(minMax.min, minMax.max), 0, 1);
 
     // Floor (min) --> pt --> elevation (max)
     // If no stepsize, elevation is simply proportional
-    // Formula will break if t0 = 1. It will go to the next step. E.g., 28 instead of 25.
-    const t0 = Math.clamp(PIXI.Point.distanceBetween(minMax.min, closestPt) / PIXI.Point.distanceBetween(minMax.min, minMax.max), 0, 1);
-    const { rampFloor, plateauElevation, rampStepHeight } = this;
+    // Formula will break if t0 = 1. It will go to the next step. E.g., 28 instead of 25
+    const { rampFloor, plateauElevation } = this;
     if ( t0.almostEqual(0) ) return rampFloor;
     if ( t0.almostEqual(1) ) return plateauElevation;
+    if ( this.rampStepSize ) {
+      const cutPoints = this.rampCutpoints;
+      const nearestPt = cutPoints.findLast(pt => pt.t.almostEqual(t0) || pt.t < t0);
+      if ( !nearestPt ) return rampFloor;
+      return nearestPt.elevation;
+
+    }
+
+    // Ramp is basic incline; no steps.
     const delta = plateauElevation - rampFloor;
-    if ( !rampStepHeight ) return Math.round(rampFloor + (t0 * delta));
-    return Math.round(rampFloor + (Math.floor(t0 * delta / rampStepHeight) * rampStepHeight));
+    return Math.round(rampFloor + (t0 * delta));
   }
 
   /**
