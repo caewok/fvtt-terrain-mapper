@@ -112,6 +112,43 @@ export class TileElevationHandler {
     return this.lineSegmentIntersects({ ...a, elevation: a.elevation + 1 }, { ...a, elevation: a.elevation - 1 });
   }
 
+  /**
+   * For a given 2d line through this tile, return the points at which holes start and stop.
+   * @param {Point} a
+   * @param {Point} b
+   * @param {number} holeThreshold        In pixel coordinates, how large a hole counts?
+   * @returns {object[]} Array of objects, each of which have:
+   *   - {number} x           Canvas coordinates
+   *   - {number} y           Canvas coordinates
+   *   - {number} currPixel   The pixel value (tile pixel value for ending holes; count of hole size for hole starts)
+   *   - {number} prevPixel   The previous pixel value
+   *   - {boolean} holeStart  Is this the start of a hole?
+   *   - {number} dist2       Where on the segment this point falls (for sorting): distance squared from a
+   */
+  holePositions(a, b, holeThreshold = 1) {
+    if ( !this.isElevated || !this.testHoles ) return [];
+    const tileCache = tile.evPixelCache;
+    const holeCache = tile[MODULE_ID].holeCache;
+
+    // Mark every time it moves from solid ground to a hole threshold of a given size.
+    const alphaThreshold = this.alphaThreshold;
+    const markHoleStartFn = (currPixel, prevPixel) => prevPixel < holeThreshold && currPixel >= holeThreshold;
+    const holeStarts = holeCache._extractAllMarkedPixelValuesAlongCanvasRay(a, b, markHoleStartFn, { alphaThreshold });
+
+    // Mark every time it moves from transparent to non-transparent.
+    const threshold = tileCache.maximumPixelValue * alphaThreshold;
+    const markHoleEndFn = (currPixel, prevPixel) => prevPixel <= threshold && currPixel > threshold;
+    const holeEnds = tileCache._extractAllMarkedPixelValuesAlongCanvasRay(a, b, markHoleEndFn, { alphaThreshold });
+
+    // Sort by distance squared from a.
+    holeStarts.forEach(pt => pt.holeStart = true);
+    holeEnds.forEach(pt => pt.holeStart = false);
+    const holes = [...holeStarts, ...holeEnds];
+    holes.forEach(pt => pt.dist2 = PIXI.Point.distanceSquaredBetween(a, pt));
+    return holes;
+  }
+
+
 
 
   // ----- NOTE: Secondary methods ----- //
