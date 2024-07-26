@@ -52,6 +52,14 @@ export class TileElevationHandler {
    */
   get alphaBorder() { return this.tile.evPixelCache.getThresholdCanvasBoundingBox(this.alphaThreshold); }
 
+  /** @type {boolean} */
+  get testHoles() { return this.tile.document.getFlag(MODULE_ID, FLAGS.TILE.TEST_HOLES); }
+
+  /** @type {PixelCache} */
+  #holeCache;
+
+  get holeCache() { return this.#holeCache || (this.#holeCache = this.#constructHoleCache()); }
+
   // ----- NOTE: Methods ----- //
 
   /**
@@ -188,7 +196,152 @@ export class TileElevationHandler {
     return isHole ? new PIXI.Polygon(TL, TR, BR, BL) : new PIXI.Polygon(TL, BL, BR, TR);
   }
 
+  /**
+   * Construct a pixel cache for the local values of the tile, in which every pixel
+   * that is a hole (transparent alpha) has its value set to the smallest number of pixels
+   * between the pixel and the next non-transparent pixel.
+   * So if a pixel has value 3, then you can go 3 pixels in any direction before hitting a
+   * non-transparent pixel.
+   * @returns {PixelArray}
+   */
+  #constructHoleCache() {
+    // First construct a pixel array where 0 = no alpha and 1 = alpha.
+    // Then iterate through each pixel:
+    // If 0, move to next
+    // Check surrounding 8 pixels.
+    // - Take lowest, ignoring pixels outside border. Add 1 and set pixel to this sum.
+    // - If changed, flag because the 8 neighbors must be retested after iteration is finished.
+    // Until no more changes: update the 8 neighbors of each changed pixel.
+    const MAX_VALUE = 65535; // Uint16Array maximum.
+    const { alphaThreshold, tile } = this;
+    const tileCache = tile.evPixelCache;
+    const holeCache = tileCache.constructor.fromOverheadTileAlpha(tile);
+    const nPixels = tileCache.pixels.length;
+    holeCache.pixels = new Uint16Array(nPixels);
+
+    // Set each alpha pixel to the max integer value to start, 0 otherwise.
+    console.group(`${MODULE_ID}|constructHoleCache`);
+    const threshold = tileCache.maximumPixelValue * alphaThreshold;
+    console.time(`${MODULE_ID}|Mark each alpha pixel`);
+    for ( let i = 0; i < nPixels; i += 1 ) holeCache.pixels[i] = tileCache.pixels[i] > threshold ? 0 : MAX_VALUE;
+    console.timeEnd(`${MODULE_ID}|Mark each alpha pixel`); // 6.5 ms.
+    // avgPixels(holeCache.pixels); // 0.66
+    // drawPixels(holeCache)
+    // drawHoles(holeCache)
+    // pixelCounts(holeCache, max = 1) // {0: 616231, 1: 0, > 1: 1408769, numPixels: 2025000}
+
+    const changedIndices = new Set();
+    const updatePixel = (cache, idx) => {
+      const value = cache.pixels[idx];
+      if ( !value ) return;
+      const newValue = Math.min(MAX_VALUE, Math.min(...cache.localNeighbors(idx)) + 1);
+      if ( value === newValue ) return;
+      cache.pixels[idx] = newValue;
+      changedIndices.add(idx);
+    }
+
+    // For each pixel that is greater than 0, its value is 1 + min of 8 neighbors.
+    // Record changed indices so we can re-process those neighbors.
+
+    console.time(`${MODULE_ID}|Iterate over every pixel`);
+    for ( let i = 0; i < nPixels; i += 1 ) updatePixel(holeCache, i);
+    console.timeEnd(`${MODULE_ID}|Iterate over every pixel`); // 100 ms
+    // avgPixels(holeCache.pixels); // 1.33
+    // drawPixels(holeCache)
+    // drawHoles(holeCache)
+    // pixelCounts(holeCache, max = 2) // {0: 616231, 1: 11632, 2: 7360, > 2: 1389777, numPixels: 2025000}
+
+    const MAX_ITER = 1000;
+    console.time(`${MODULE_ID}|Update pixels`);
+    let iter = 0;
+    while ( changedIndices.size && iter < MAX_ITER ) {
+      iter += 1;
+      const indices = [...changedIndices.values()];
+      changedIndices.clear();
+      for ( const idx of indices ) {
+        const neighborIndices = holeCache.localNeighborIndices(idx);
+        for ( const neighborIdx of neighborIndices ) updatePixel(holeCache, neighborIdx);
+      }
+    }
+    console.timeEnd(`${MODULE_ID}|Update pixels`); // 28801.6630859375 ms // 11687.419189453125 ms using pixelStep instead of x,y.
+    console.log(`${MODULE_ID}|${iter} iterations.`);
+    console.groupEnd(`${MODULE_ID}|constructHoleCache`);
+    return holeCache;
+    // avgPixels(holeCache.pixels); // 1.33
+    // drawPixels(holeCache)
+    // drawHoles(holeCache)
+    // pixelCounts(holeCache, max = 10)
 
 
+    /* Debugging
+    Draw = CONFIG.GeometryLib.Draw;
+    sumPixels = pixels => pixels.reduce((acc, curr) => acc += curr);
+    avgPixels = pixels => sumPixels(pixels) / pixels.length;
 
+    function pixelCounts(cache, max = 1) {
+      const countsArr = Array.fromRange(max + 1);
+      const out = {};
+      for ( const ct of countsArr ) {
+        const fn = holeCache.constructor.pixelAggregator("count_eq_threshold", ct);
+        out[ct] = fn(cache.pixels).count;
+      }
+      const gtFn = holeCache.constructor.pixelAggregator("count_gt_threshold", max);
+      const gtRes = gtFn(cache.pixels);
+      out[`> ${max}`] = gtRes.count;
+      out.numPixels = gtRes.numPixels;
+      return out;
+    }
+
+    function drawHoles(cache, {skip = 10, radius = 2 } = {}) {
+      const { right, left, top, bottom } = cache.localFrame;
+      const max = Math.max(cache.width, cache.height);
+      for ( let x = left; x <= right; x += skip ) {
+        for ( let y = top; y <= bottom; y += skip ) {
+          const value = cache._pixelAtLocal(x, y);
+          if ( value == null ) continue;
+          const color = value > 0 ? Draw.COLORS.red : Draw.COLORS.white;
+          Draw.point({x, y}, { color, alpha: 0.8, radius });
+        }
+      }
+    }
+
+    function drawPixel(cache, idx) {
+      const value = cache.pixels[idx];
+      if ( value == null ) {
+        console.warn("Index out-of-bounds");
+        return;
+      }
+      const pt = cache._localAtIndex(idx);
+      const color = value > 0 ? Draw.COLORS.red : Draw.COLORS.white;
+      Draw.point(pt, { color, radius: 1, alpha: 0.8 })
+    }
+
+
+    function drawPixels(cache, {skip = 10, radius = 2 } = {}) {
+      const { right, left, top, bottom } = cache.localFrame;
+      const max = Math.max(cache.width, cache.height);
+      for ( let x = left; x <= right; x += skip ) {
+        for ( let y = top; y <= bottom; y += skip ) {
+          const value = cache._pixelAtLocal(x, y);
+          if ( !value ) continue;
+
+          let color = Draw.COLORS.black;
+          if ( value === 1 ) color = Draw.COLORS.lightgreen;
+          if ( value === 2 ) color = Draw.COLORS.lightorange;
+          if ( value === 3 ) color = Draw.COLORS.lightred;
+          if ( max * 0.001 > 3 && value > max * 0.001 ) color = Draw.COLORS.green;
+          if ( max * 0.005 > 3 && value > max * 0.005 ) color = Draw.COLORS.orange;
+          if ( max * 0.01 > 3 && value > max * 0.01 ) color = Draw.COLORS.red;
+          if ( max * 0.05 > 3 && value > max * 0.05 ) color = Draw.COLORS.lightyellow;
+          if ( max * 0.1 > 3 && value > max * 0.1 ) color = Draw.COLORS.yellow;
+          if ( value > max * 0.15 ) color = Draw.COLORS.gray;
+          if ( value > max * 0.2 ) color = Draw.COLORS.white;
+
+          Draw.point({x, y}, { color, alpha: 0.8, radius });
+        }
+      }
+    }
+    */
+
+  }
 }

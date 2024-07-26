@@ -35,10 +35,10 @@
   "terrainmapper.tile-config.isFloor.hint": "When enabled, will be treated as a solid floor (ground) when moving tokens.",
 
   "terrainmapper.tile-config.trimAlphaBorder.name": "Trim Boundary",
-  "terrainmapper.tile-config.trimAlphaBorder.hint": "When enabled, the transparent border of the tile will be ignored for purposes of token movement.",
+  "terrainmapper.tile-config.trimAlphaBorder.hint": "When enabled, the transparent border of the tile will be ignored for purposes of token movement. Only a rectangle, possibly rotated, will be used as the border. For more complex shapes, enable Test for Holes.",
 
-  "terrainmapper.tile-config.holeThreshold.name": "Minimum Hole Size",
-  "terrainmapper.tile-config.holeThreshold.hint": "The minimum radius, in grid units, of transparent pixels to treat any given pixel on the tile as a hole. The width of a normal token is a good default. Set to 0 to ignore holes.",
+  "terrainmapper.tile-config.testHoles.name": "Test for Holes",
+  "terrainmapper.tile-config.testHoles.hint": "Transparent pixels will be considered holes on this tile. Sufficiently large holes will cause the token to 'fall' through the tile.  `CONFIG.terrainmapper.holePercentThreshold` controls how large a hole must be for a given token. Default setting: a hole that exceeds 50% of the token size as measured from a given pixel will not support the token. Testing for holes is somewhat performance-intensive.",
 
   "terrainmapper.tile-config.alphaThreshold.name": "Alpha (Transparency) Threshold",
   "terrainmapper.tile-config.alphaThreshold.hint": "What percentage transparency counts for treating a given pixel as a hole or outer boundary. Default in Foundry is 0.75.",

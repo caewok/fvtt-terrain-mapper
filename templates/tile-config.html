@@ -19,13 +19,13 @@
       <p class="hint">{{ localize "terrainmapper.tile-config.trimAlphaBorder.hint" }}</p>
     </div>
 
-    <!-- Minimum hole size. Between 0 and ∞. -->
-    <div class="form-group" id="terrainmapper-tileconfig-holeThreshold">
-      <label>{{ localize "terrainmapper.tile-config.holeThreshold.name" }} </label>
+    <!-- Treat transparent pixels as holes -->
+    <div class="form-group" id="terrainmapper-tileconfig-testHoles">
+      <label>{{ localize "terrainmapper.tile-config.testHoles.name" }} </label>
       <div class="form-fields">
-      {{rangePicker name="flags.terrainmapper.holeThreshold" value=data.flags.terrainmapper.holeThreshold step=0.1 min=0}}
+        <input type="checkbox" name="flags.terrainmapper.testHoles" {{ checked data.flags.terrainmapper.testHoles }}>
       </div>
-      <p class="hint">{{ localize "terrainmapper.tile-config.holeThreshold.hint" }}</p>
+      <p class="hint">{{ localize "terrainmapper.tile-config.testHoles.hint" }}</p>
     </div>
 
     <!-- Alpha threshold. Between 0 and 1. -->

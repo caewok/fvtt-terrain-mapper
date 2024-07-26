@@ -77,7 +77,7 @@ Hooks.once("init", function() {
 /**
  * A hook event that fires when the game is fully ready.
  */
-Hooks.on("ready", async function(_canvas) {
+Hooks.on("ready", function(_canvas) {
   CONFIG[MODULE_ID].Terrain.initialize(); // Async. Must wait until ready hook to store Settings for UniqueEffectFlag
 });
 //
@@ -94,7 +94,7 @@ Hooks.on("ready", async function(_canvas) {
  * A hook event that fires when the Canvas is ready.
  * @param {Canvas} canvas The Canvas which is now ready for use
  */
-Hooks.on("canvasReady", async function(_canvas) {
+Hooks.on("canvasReady", function(_canvas) {
   CONFIG[MODULE_ID].Terrain.transitionTokens(); // Async
   setDefaultPlaceablesFlags(); // Async.
 });

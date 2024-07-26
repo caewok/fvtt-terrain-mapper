@@ -71,7 +71,7 @@ export const FLAGS = {
   TILE: {
     IS_FLOOR: "isFloor",
     TRIM_BORDER: "trimAlphaBorder",
-    HOLE_THRESHOLD: "holeThreshold",
+    TEST_HOLES: "testHoles",
     ALPHA_THRESHOLD: "alphaThreshold"
   },
 
@@ -116,7 +116,7 @@ export const DEFAULT_FLAGS = {
   TILE: {
     [FLAGS.TILE.IS_FLOOR]: false,
     [FLAGS.TILE.TRIM_BORDER]: true,
-    [FLAGS.TILE.HOLE_THRESHOLD]: 0,
+    [FLAGS.TILE.TEST_HOLES]: false,
     [FLAGS.TILE.ALPHA_THRESHOLD]: 0.75
   }
 };
