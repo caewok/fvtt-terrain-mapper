@@ -40,6 +40,18 @@ export class TileElevationHandler {
     return new Plane(new Point3d(0, 0, CONFIG.GeometryLib.utils.gridUnitsToPixels(this.elevation)));
   }
 
+  /** @type {number} */
+  get alphaThreshold() { return this.tile.document.getFlag(MODULE_ID, FLAGS.TILE.ALPHA_THRESHOLD); }
+
+  /** @type {boolean} */
+  get trimBorder() { return this.tile.document.getFlag(MODULE_ID, FLAGS.TILE.TRIM_BORDER); }
+
+  /**
+   * Border of the tile that removes the transparent alpha pixels along the edges.
+   * @type {PIXI.Rectangle|PIXI.Polygon}
+   */
+  get alphaBorder() { return this.tile.evPixelCache.getThresholdCanvasBoundingBox(this.alphaThreshold); }
+
   // ----- NOTE: Methods ----- //
 
   /**
@@ -92,6 +104,8 @@ export class TileElevationHandler {
     return this.lineSegmentIntersects({ ...a, elevation: a.elevation + 1 }, { ...a, elevation: a.elevation - 1 });
   }
 
+
+
   // ----- NOTE: Secondary methods ----- //
 
   /**
@@ -105,7 +119,9 @@ export class TileElevationHandler {
     // TODO: Handle transparent border
     // TODO: Handle holes
     if ( !this.isElevated ) return null;
-    const quad = this.#quadrangle2dCutaway(start, end, this.tile.bounds);
+
+    const bounds = this.trimBorder ? this.alphaBorder : this.tile.bounds;
+    const quad = this.#quadrangle2dCutaway(start, end, bounds);
     if ( !quad ) return null;
     const regionPath = ClipperPaths.fromPolygons([quad]);
     const combined = regionPath.combine().clean();
