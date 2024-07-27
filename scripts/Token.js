@@ -16,7 +16,7 @@ Hook token movement to add/remove terrain effects and pause tokens dependent on 
 */
 
 import { MODULE_ID, FLAGS } from "./const.js";
-import { log, tokenIsFlying, tokenIsBurrowing } from "./util.js";
+import { log } from "./util.js";
 import { ElevationHandler } from "./ElevationHandler.js";
 
 export const PATCHES = {};
@@ -93,8 +93,8 @@ function refreshToken(token, flags) {
       const destination = token.center;
       destination.elevation = origin.elevation;
 
-      const flying = tokenIsFlying(token, origin, destination);
-      const burrowing = tokenIsBurrowing(token, origin, destination);
+      const flying = ElevationHandler.tokenIsFlying(token, origin, destination);
+      const burrowing = ElevationHandler.tokenIsBurrowing(token, origin, destination);
       const path = ElevationHandler.constructPath(origin, destination, { burrowing, flying, token }); // Returns minimum [start, end]. End might be changed.
       const elevationChanged = token.document.elevation !== path.at(-1).elevation;
       if ( elevationChanged ) {
@@ -151,8 +151,8 @@ export function preUpdateToken(tokenD, changed, options, _userId) {
   const origin = token.center;
   origin.elevation = token.elevationE
   destination.elevation = changed.elevation ?? origin.elevation;
-  const flying = tokenIsFlying(token, origin, destination);
-  const burrowing = tokenIsBurrowing(token, origin, destination);
+  const flying = ElevationHandler.tokenIsFlying(token, origin, destination);
+  const burrowing = ElevationHandler.tokenIsBurrowing(token, origin, destination);
   token[MODULE_ID].path = ElevationHandler.constructPath(origin, destination, { burrowing, flying, token });
 
   // Set the destination elevation.

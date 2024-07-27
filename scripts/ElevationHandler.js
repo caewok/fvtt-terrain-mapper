@@ -736,6 +736,32 @@ export class ElevationHandler {
     this.drawRegionPath(cutaway, { color });
     return cutaway;
   }
+
+  /**
+   * Determine the token movement types.
+   * @param {Token} token                     Token doing the movement
+   * @param {RegionMovementWaypoint} start    Starting location
+   * @param {RegionMovementWaypoint} end      Ending location
+   * @returns {boolean} True if token has flying status or implicitly is flying
+   */
+  static tokenIsFlying(token, start, _end) {
+    if ( this.elevationType(start) === this.ELEVATION_LOCATIONS.FLOATING ) return true;
+    if ( game.system.id === "dnd5e" && token.actor ) return token.actor.statuses.has("flying") || actor.statuses.has("hovering");
+    return false;
+  }
+
+  /**
+   * Determine the token movement types.
+   * @param {Token} token                     Token doing the movement
+   * @param {RegionMovementWaypoint} start    Starting location
+   * @param {RegionMovementWaypoint} end      Ending location
+   * @returns {boolean} True if token has flying status or implicitly is flying
+   */
+  static tokenIsBurrowing(token, start, _end) {
+    if ( this.elevationType(start) === this.ELEVATION_LOCATIONS.BURROWING ) return true;
+    if ( game.system.id === "dnd5e" && token.actor ) return token.actor.statuses.has("burrowing");
+    return false;
+  }
 }
 
 

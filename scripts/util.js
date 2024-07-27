@@ -9,7 +9,7 @@ renderTemplate
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { MODULE_ID, FLAGS, MOVEMENT_TYPES } from "./const.js";
+import { MODULE_ID, FLAGS } from "./const.js";
 import { ElevationHandler } from "./ElevationHandler.js";
 
 export function log(...args) {
@@ -230,7 +230,7 @@ export function elevatedTiles(tiles) {
  * @param {RegionMovementWaypoint} end      Ending location
  * @returns {boolean} True if token has flying status or implicitly is flying
  */
-export function tokenIsFlying(token, start, end) {
+export function tokenIsFlying(token, start, _end) {
   const actor = token.actor;
   const types = new Set();
   if ( game.system.id === "dnd5e" && actor ) return actor.statuses.has("flying") || actor.statuses.has("hovering");
