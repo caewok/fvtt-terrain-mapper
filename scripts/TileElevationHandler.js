@@ -220,6 +220,10 @@ export class TileElevationHandler {
     const bounds = this.alphaBorder;
     let a = holePositions[0];
     let onTile = !a.holeStart;
+    if ( holePositions.length === 1 && onTile ) {
+      const quad = this.#quadrangle2dCutaway(a, end, bounds, { start, end });
+      if ( quad ) return [quad];
+    }
     for ( let i = 1, n = holePositions.length; i < n; i += 1 ) {
       const b = holePositions[i];
       if ( onTile && b.holeStart ) {
@@ -329,7 +333,7 @@ export class TileElevationHandler {
     holeCache.pixels = new Uint16Array(nPixels);
 
     // Set each alpha pixel to the max integer value to start, 0 otherwise.
-    console.group(`${MODULE_ID}|constructHoleCache`);
+    console.group(`${MODULE_ID}|constructHoleCache ${this.tile.id}`);
     const threshold = tileCache.maximumPixelValue * alphaThreshold;
     console.time(`${MODULE_ID}|Mark each alpha pixel`);
     for ( let i = 0; i < nPixels; i += 1 ) holeCache.pixels[i] = tileCache.pixels[i] > threshold ? 0 : MAX_VALUE;
@@ -374,7 +378,7 @@ export class TileElevationHandler {
     }
     console.timeEnd(`${MODULE_ID}|Update pixels`); // 28801.6630859375 ms // 11687.419189453125 ms using pixelStep instead of x,y.
     console.log(`${MODULE_ID}|${iter} iterations.`);
-    console.groupEnd(`${MODULE_ID}|constructHoleCache`);
+    console.groupEnd(`${MODULE_ID}|constructHoleCache ${this.tile.id}`);
     return holeCache;
     // avgPixels(holeCache.pixels); // 1.33
     // drawPixels(holeCache)
