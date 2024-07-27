@@ -9,6 +9,7 @@ import { Point3d } from "./geometry/3d/Point3d.js";
 import { Plane } from "./geometry/3d/Plane.js";
 import { ElevationHandler } from "./ElevationHandler.js";
 import { ClipperPaths } from "./geometry/ClipperPaths.js";
+import { regionWaypointsXYEqual } from "./util.js";
 
 /**
  * Single tile elevation handler
@@ -127,28 +128,47 @@ export class TileElevationHandler {
    */
   holePositions(a, b, holeThreshold = 1) {
     if ( !this.isElevated || !this.testHoles ) return [];
-    const tileCache = tile.evPixelCache;
-    const holeCache = tile[MODULE_ID].holeCache;
+    const tileCache = this.tile.evPixelCache;
+    const holeCache = this.tile[MODULE_ID].holeCache;
 
     // Mark every time it moves from solid ground to a hole threshold of a given size.
     const alphaThreshold = this.alphaThreshold;
     const markHoleStartFn = (currPixel, prevPixel) => prevPixel < holeThreshold && currPixel >= holeThreshold;
-    const holeStarts = holeCache._extractAllMarkedPixelValuesAlongCanvasRay(a, b, markHoleStartFn, { alphaThreshold });
+    const holeStarts = holeCache._extractAllMarkedPixelValuesAlongCanvasRay(a, b, markHoleStartFn, { alphaThreshold, skipFirst: true });
 
     // Mark every time it moves from transparent to non-transparent.
     const threshold = tileCache.maximumPixelValue * alphaThreshold;
     const markHoleEndFn = (currPixel, prevPixel) => prevPixel <= threshold && currPixel > threshold;
-    const holeEnds = tileCache._extractAllMarkedPixelValuesAlongCanvasRay(a, b, markHoleEndFn, { alphaThreshold });
+    const holeEnds = tileCache._extractAllMarkedPixelValuesAlongCanvasRay(a, b, markHoleEndFn, { alphaThreshold, skipFirst: true });
 
     // Sort by distance squared from a.
     holeStarts.forEach(pt => pt.holeStart = true);
     holeEnds.forEach(pt => pt.holeStart = false);
     const holes = [...holeStarts, ...holeEnds];
     holes.forEach(pt => pt.dist2 = PIXI.Point.distanceSquaredBetween(a, pt));
+    holes.sort((a, b) => a.dist2 - b.dist2);
+
+    // If the first pixel is in the bounds of the tile, add it.
+    if ( tileCache.containsPixel(a.x, a.y, alphaThreshold)
+      && tileCache.pixelAtCanvas(a.x, a.y) >= threshold) holes.unshift({ ...a, holeStart: false, isStart: true, dist2: 0 });
+
     return holes;
   }
 
+  /**
+   * For a token traveling along a 2d line through this tile, determine its hole threshold.
+   * The threshold is dependent on tile resolution and token size.
+   * @param {Token} token
+   * @returns {number} The hole threshold, in number of local pixels for the tile.
+   */
+  holeThresholdForToken(token) {
+    const tokenPercentHoleThreshold = CONFIG[MODULE_ID].tokenPercentHoleThreshold;
+    const holeThreshold = Math.max(token.w, token.h) * tokenPercentHoleThreshold;
 
+    // If the tile resolution is not 1, the hole threshold varies proportionally.
+    const tileCache = this.tile.evPixelCache;
+    return holeThreshold * tileCache.scale.resolution;
+  }
 
 
   // ----- NOTE: Secondary methods ----- //
@@ -158,43 +178,95 @@ export class TileElevationHandler {
    * If no alpha border, this will be based on the tile bounds.
    * @param {RegionMovementWaypoint} start          Start of the segment
    * @param {RegionMovementWaypoint} end            End of the segment
+   * @param {Token} [token]                         Token doing the movement; required for holes
    * @returns {ClipperPaths|null} The combined Clipper paths for the tile cutaway.
    */
-  _cutaway(start, end) {
-    // TODO: Handle transparent border
-    // TODO: Handle holes
+  _cutaway(start, end, token) {
     if ( !this.isElevated ) return null;
-
-    const bounds = this.trimBorder ? this.alphaBorder : this.tile.bounds;
-    const quad = this.#quadrangle2dCutaway(start, end, bounds);
-    if ( !quad ) return null;
-    const regionPath = ClipperPaths.fromPolygons([quad]);
+    const polys = token && this.testHoles
+      ? this.#cutawayPolygonsHoles(start, end, this.holeThresholdForToken(token))
+        : this.#cutawayPolygonsNoHoles(start, end);
+    if ( !polys.length ) return null;
+    const regionPath = ClipperPaths.fromPolygons(polys);
     const combined = regionPath.combine().clean();
     return combined;
+  }
+
+  /**
+   * Cutaway polygons for a basic border only, no holes.
+   * @param {RegionMovementWaypoint} start          Start of the segment
+   * @param {RegionMovementWaypoint} end            End of the segment
+   * @returns {PIXI.Polygon[]} The polygon for the cutaway (if any), in an array.
+   */
+  #cutawayPolygonsNoHoles(start, end) {
+    const bounds = this.trimBorder ? this.alphaBorder : this.tile.bounds;
+    const quad = this.#quadrangle2dCutaway(start, end, bounds);
+    return quad ? [quad] : [];
+  }
+
+  /**
+   * Cutaway for a border considering holes
+   * @param {RegionMovementWaypoint} start          Start of the segment
+   * @param {RegionMovementWaypoint} end            End of the segment
+   * @param {number} holeThreshold                  The hole threshold to use
+   * @returns {PIXI.Polygon[]} The polygons for the cutaway (if any)
+   */
+  #cutawayPolygonsHoles(start, end, holeThreshold = 1) {
+    const holePositions = this.holePositions(start, end, holeThreshold);
+    if ( !holePositions.length ) return [];// return this.#cutawayPolygonsNoHoles(start, end);
+
+    // Starting outside the tile and moving until we hit something.
+    const polys = [];
+    const bounds = this.alphaBorder;
+    let a = holePositions[0];
+    let onTile = !a.holeStart;
+    for ( let i = 1, n = holePositions.length; i < n; i += 1 ) {
+      const b = holePositions[i];
+      if ( onTile && b.holeStart ) {
+        const quad = this.#quadrangle2dCutaway(a, b, bounds, { start, end });
+        if ( quad ) polys.push(quad);
+        onTile = false;
+        a = b;
+      } else if ( !onTile && !b.holeStart ) {
+        onTile = true;
+        a = b;
+      }
+    }
+    return polys;
   }
 
   // ----- NOTE: Private methods ----- //
 
   /**
    * Construct a quadrangle for a cutaway along a line segment
-   * @param {RegionMovementWaypoint} start          Start of the segment
-   * @param {RegionMovementWaypoint} end            End of the segment
+   * @param {RegionMovementWaypoint} a              Start of the segment
+   * @param {RegionMovementWaypoint} b              End of the segment
    * @param {PIXI.Polygon|PIXI.Rectangle} shape     A polygon or rectangle from the tile
+   * @param {object} [opts]                         Options that affect the shape
+   * @param {RegionMovementWaypoint} [opts.start]   The start of the entire path, if different than a
+   * @param {RegionMovementWaypoint} [opts.end]     The end of the entire path, if different than b
+   * @param {boolean} [opts.isHole=false]           If true, reverse the polygon orientation
    * @returns {PIXI.Polygon|null}
    */
-  #quadrangle2dCutaway(start, end, shape, { isHole = false } = {}) {
-    if ( !shape.lineSegmentIntersects(start, end, { inside: true }) ) return null;
+  #quadrangle2dCutaway(a, b, shape, { start, end, isHole = false } = {}) {
+    if ( !shape.lineSegmentIntersects(a, b, { inside: true }) ) return null;
 
     // Build the polygon slightly larger than start and end so that the start and end will
     // be correctly characterized (float/ground/underground)
-    const paddedStart = PIXI.Point._tmp.copyFrom(start).towardsPoint(PIXI.Point._tmp2.copyFrom(end), -2);
-    const paddedEnd = PIXI.Point._tmp.copyFrom(end).towardsPoint(PIXI.Point._tmp2.copyFrom(start), -2);
-    paddedStart.elevation = start.elevation;
-    paddedEnd.elevation = end.elevation;
+    start ??= a;
+    end ??= b;
+    let paddedStart = a;
+    let paddedEnd = b;
+    if ( start && regionWaypointsXYEqual(a, start) ) {
+      paddedStart = PIXI.Point._tmp.copyFrom(start).towardsPoint(PIXI.Point._tmp2.copyFrom(end), -2);
+      paddedStart.elevation = start.elevation;
+    }
+    if ( end && regionWaypointsXYEqual(b, end) ) {
+      paddedEnd = PIXI.Point._tmp.copyFrom(end).towardsPoint(PIXI.Point._tmp2.copyFrom(start), -2);
+      paddedEnd.elevation = end.elevation;
+    }
 
     // Determine the appropriate endpoints.
-    let a;
-    let b;
     const ixs = shape.segmentIntersections(paddedStart, paddedEnd);
 
     switch ( ixs.length ) {

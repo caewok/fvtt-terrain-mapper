@@ -75,7 +75,7 @@ export class ElevationHandler {
    * @param {Point[]} [opts.samples]                Passed to Region#segmentizeMovement
    * @returns {StraightLinePath<RegionMovementWaypoint>}   Sorted points by distance from start.
    */
-  static constructPath(start, end, { regions, tiles, flying, burrowing, samples } = {}) {
+  static constructPath(start, end, { regions, tiles, flying, burrowing, samples, token } = {}) {
     // If the start and end are equal, we are done.
     // If flying and burrowing, essentially a straight shot would work.
     if ( regionWaypointsEqual(start, end) || (flying && burrowing) ) return new StraightLinePath(start, end);
@@ -103,7 +103,7 @@ export class ElevationHandler {
     // Locate all polygons within each region that are intersected.
     // Construct a polygon representing the cutaway.
     samples ??= [{x: 0, y: 0}];
-    const combinedPolys = this._cutaway(start, end, regions, tiles);
+    const combinedPolys = this._cutaway(start, end, { regions, tiles, token });
     if ( !combinedPolys.length ) return new StraightLinePath(start, end);
 
     // Convert start and end to 2d-cutaway coordinates.
@@ -434,16 +434,17 @@ export class ElevationHandler {
    * @param {RegionMovementWaypoint} end            End of the path; cutaway will be extended 2 pixels after
    * @param {Region[]} regions                      Regions to test
    * @param {Tile[]} tiles                          Tiles to test
+   * @param {Token} token                           Token doing the movement
    * @returns {PIXI.Polygon[]} Array of polygons representing the cutaway.
    */
-  static _cutaway(start, end, regions = [], tiles = []) {
+  static _cutaway(start, end, { regions = [], tiles = [], token } = {}) {
     const paths = [];
     for ( const region of regions ) {
       const combined = region[MODULE_ID]._cutaway(start, end);
       if ( combined ) paths.push(combined);
     }
     for ( const tile of tiles ) {
-      const combined = tile[MODULE_ID]._cutaway(start, end);
+      const combined = tile[MODULE_ID]._cutaway(start, end, token);
       if ( combined ) paths.push(combined);
     }
     if ( !paths.length ) return [];

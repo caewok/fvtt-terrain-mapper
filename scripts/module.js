@@ -133,20 +133,27 @@ function initializeConfig() {
   CONFIG[MODULE_ID] = {
     /**
      * Toggle to trigger debug console logging.
+     * @type {boolean}
      */
     debug: false,
-
-    /**
-     * Alpha threshold below which a tile is considered transparent for purposes of terrain.
-     * @type {number} Between 0 and 1
-     */
-    alphaThreshold: 0.75,
 
     /**
      * Default terrain jsons
      * @type {string} File path
      */
-    defaultTerrainJSONs: defaultTerrains()
+    defaultTerrainJSONs: defaultTerrains(),
+
+    /**
+     * As a percent of token (width/height), how far from the edge can a token move
+     * (measured from token center) over transparent tile pixels before it is considered to be in a "hole".
+     * Because it is measured from token center, a 50% threshold will effectively allow the
+     * token to be completely over transparent pixels before it "falls" through the hole.
+     * Note also that holes are measured by the number of pixels one can move from a center pixel
+     * before hitting a non-transparent pixel. For uneven edges, this is effectively the
+     * closest non-transparent pixel.
+     * @type {number} Positive number
+     */
+    tokenPercentHoleThreshold: 0.25
 
   };
 
