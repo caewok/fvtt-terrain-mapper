@@ -587,7 +587,7 @@ export class ElevationHandler {
           // Combine and redo.
           polys = polys.filter(poly => poly !== ixPoly);
           const clipperPaths = ClipperPaths.fromPolygons([...polys, hull, ixHull]);
-          const combinedPolys = ClipperPaths.combinePaths(clipperPaths).clean().toPolygons();
+          const combinedPolys = clipperPaths.combine().clean().toPolygons();
           return this._convexPath(start2d, end2d, combinedPolys, inverted, iter);
         }
       }
@@ -746,7 +746,7 @@ export class ElevationHandler {
    */
   static tokenIsFlying(token, start, _end) {
     if ( this.elevationType(start) === this.ELEVATION_LOCATIONS.FLOATING ) return true;
-    if ( game.system.id === "dnd5e" && token.actor ) return token.actor.statuses.has("flying") || actor.statuses.has("hovering");
+    if ( game.system.id === "dnd5e" && token.actor ) return token.actor.statuses.has("flying") || token.actor.statuses.has("hovering");
     return false;
   }
 
