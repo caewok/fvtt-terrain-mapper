@@ -78,14 +78,14 @@ export class ElevationHandler {
   static constructPath(start, end, { regions, tiles, flying, burrowing, samples, token } = {}) {
     // If the start and end are equal, we are done.
     // If flying and burrowing, essentially a straight shot would work.
-    if ( regionWaypointsEqual(start, end) || (flying && burrowing) ) return new StraightLinePath(start, end);
+    if ( regionWaypointsEqual(start, end) || (flying && burrowing) ) return StraightLinePath.from([start, end]);
 
     // Only care about elevated regions and elevated tiles.
     // Trim to regions and tiles whose bounds are intersected by the path.
     // Don't worry about elevation right now.
     regions = elevatedRegions(regions).filter(region => region.bounds.lineSegmentIntersects(start, end, { inside: true }));
     tiles = elevatedTiles(tiles).filter(tile => tile.bounds.lineSegmentIntersects(start, end, { inside: true }));
-    if ( !regions.length && !tiles.length ) return new StraightLinePath(start, end);
+    if ( !regions.length && !tiles.length ) return StraightLinePath.from([start, end]);
 
     // Simple case: Elevation-only change.
     // Only question is whether the end will be reset to ground.
@@ -97,14 +97,14 @@ export class ElevationHandler {
         const endE = this.nearestGroundElevation(end, { regions, tiles, samples, burrowing });
         end = { x: end.x, elevation: endE };
       }
-      return new StraightLinePath(start, end)
+      return StraightLinePath.from([start, end]);
     }
 
     // Locate all polygons within each region that are intersected.
     // Construct a polygon representing the cutaway.
     samples ??= [{x: 0, y: 0}];
     const combinedPolys = this._cutaway(start, end, { regions, tiles, token });
-    if ( !combinedPolys.length ) return new StraightLinePath(start, end);
+    if ( !combinedPolys.length ) return StraightLinePath.from([start, end]);
 
     // Convert start and end to 2d-cutaway coordinates.
     const start2d = this._to2dCutawayCoordinate(start, start);
@@ -517,7 +517,7 @@ export class ElevationHandler {
    */
   static _convexPath(start2d, end2d, polys, inverted = false, iter = 0) {
     const ixs = polygonsIntersections(start2d, end2d, polys);
-    if ( !ixs.length ) return [start2d, end2d];
+    if ( !ixs.length ) return StraightLinePath.from([start2d, end2d]);
 
     // Replace the polygon with a convex hull version.
     const ixPoly = ixs[0].poly;
@@ -557,7 +557,7 @@ export class ElevationHandler {
       currPolyIndex = minIndex;
       if ( !~minIndex ) {
         console.error("convexPath|Start point not found in the convex polygon.");
-        return [start2d, end2d];
+        return StraightLinePath.from([start2d, end2d]);
       }
     }
     polys = polys.filter(poly => poly !== ixPoly);
