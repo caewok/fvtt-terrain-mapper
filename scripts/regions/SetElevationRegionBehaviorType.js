@@ -1,7 +1,6 @@
 /* globals
 CONST,
-foundry,
-Region
+foundry
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
@@ -77,7 +76,6 @@ export class SetElevationRegionBehaviorType extends foundry.data.regionBehaviors
     return {
       algorithm: new foundry.data.fields.StringField({
         label: `${MODULE_ID}.behavior.types.set-elevation.fields.algorithm.name`,
-        hint: `${MODULE_ID}.behavior.types.set-elevation.fields.algorithm.hint`,
         initial: FLAGS.SET_ELEVATION_BEHAVIOR.CHOICES.ONE_WAY,
         choices: FLAGS.SET_ELEVATION_BEHAVIOR.LABELS
       }),
@@ -108,10 +106,15 @@ export class SetElevationRegionBehaviorType extends foundry.data.regionBehaviors
     log(`Token ${data.token.name} entering ${event.region.name}!`);
     if ( !isFirstGM() ) return;
 
-    // TODO: Stairs
-
     const tokenD = data.token;
-    return tokenD.update({ elevation: this.elevation });
+    let elevation;
+    if ( this.algorithm === FLAGS.SET_ELEVATION_BEHAVIOR.CHOICES.ONE_WAY ) elevation = this.elevation;
+    else {
+      // Stairs
+      const midPoint = (this.elevation - this.floor) / 2;
+      elevation = tokenD.elevation <= midPoint ? this.elevation : this.floor;
+    }
+    return tokenD.update({ elevation });
   }
 }
 
