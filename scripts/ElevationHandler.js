@@ -2,6 +2,7 @@
 canvas,
 CONFIG,
 foundry,
+game,
 PIXI,
 Region
 */
@@ -78,14 +79,14 @@ export class ElevationHandler {
   static constructPath(start, end, { regions, tiles, flying, burrowing, samples, token } = {}) {
     // If the start and end are equal, we are done.
     // If flying and burrowing, essentially a straight shot would work.
-    if ( regionWaypointsEqual(start, end) || (flying && burrowing) ) return new StraightLinePath(start, end);
+    if ( regionWaypointsEqual(start, end) || (flying && burrowing) ) return StraightLinePath.from([start, end]);
 
     // Only care about elevated regions and elevated tiles.
     // Trim to regions and tiles whose bounds are intersected by the path.
     // Don't worry about elevation right now.
     regions = elevatedRegions(regions).filter(region => region.bounds.lineSegmentIntersects(start, end, { inside: true }));
     tiles = elevatedTiles(tiles).filter(tile => tile.bounds.lineSegmentIntersects(start, end, { inside: true }));
-    if ( !regions.length && !tiles.length ) return new StraightLinePath(start, end);
+    if ( !regions.length && !tiles.length ) return StraightLinePath.from([start, end]);
 
     // Simple case: Elevation-only change.
     // Only question is whether the end will be reset to ground.
@@ -97,14 +98,14 @@ export class ElevationHandler {
         const endE = this.nearestGroundElevation(end, { regions, tiles, samples, burrowing });
         end = { x: end.x, elevation: endE };
       }
-      return new StraightLinePath(start, end)
+      return StraightLinePath.from([start, end]);
     }
 
     // Locate all polygons within each region that are intersected.
     // Construct a polygon representing the cutaway.
     samples ??= [{x: 0, y: 0}];
     const combinedPolys = this._cutaway(start, end, { regions, tiles, token });
-    if ( !combinedPolys.length ) return new StraightLinePath(start, end);
+    if ( !combinedPolys.length ) return StraightLinePath.from([start, end]);
 
     // Convert start and end to 2d-cutaway coordinates.
     const start2d = this._to2dCutawayCoordinate(start, start);
@@ -177,14 +178,21 @@ export class ElevationHandler {
 
   /**
    * Determine if a given location is on the terrain floor, on a plateau/ramp, in the air, or
-   * inside an elevated terrain.
+   * inside an elevated terrain or tile.
    * To be on the ground, it has to be on the region's plateau and not within another region unless it
    * is also on that other region's plateau.
+   * Or at a tile elevation.
    * @param {RegionMovementWaypoint} waypoint     Location to test
    * @param {Region[]} [regions]                  Regions to consider; otherwise entire canvas
    * @returns {ELEVATION_LOCATIONS}
    */
-  static elevationType(waypoint, regions) {
+  static elevationType(waypoint, regions, tiles) {
+    const locs = this.ELEVATION_LOCATIONS;
+    tiles = elevatedTiles(tiles);
+    for ( const tile of tiles ) {
+      if ( tile[MODULE_ID].waypointOnTile ) return locs.GROUND;
+    }
+
     regions = elevatedRegions(regions);
     let inside = false;
     let offPlateau = false;
@@ -197,7 +205,6 @@ export class ElevationHandler {
       }
     }
 
-    const locs = this.ELEVATION_LOCATIONS;
     if ( inside && offPlateau ) return locs.UNDERGROUND;
     if ( inside && !offPlateau ) return locs.GROUND;
     if ( !inside && waypoint.elevation === this.sceneFloor ) return locs.GROUND;
@@ -217,7 +224,7 @@ export class ElevationHandler {
    * @param {boolean} [opts.burrowing]            If true, will fall but not move up if already in region
    * @returns {number} The elevation for the nearest ground.
    */
-  static nearestGroundElevation(waypoint, { regions, tiles, samples, burrowing = false } = {}) {
+  static nearestGroundElevation(waypoint, { regions, tiles, samples, burrowing = false, token } = {}) {
     const teleport = false;
     samples ??= [{x: 0, y: 0}];
     regions = elevatedRegions(regions);
@@ -230,7 +237,7 @@ export class ElevationHandler {
     if ( burrowing && currRegions.length ) return currElevation;
 
     // Option 1.1: Waypoint is currently on a tile.
-    if ( tiles.some(tile => tile[MODULE_ID].waypointOnTile(waypoint)) ) return waypoint.elevation;
+    if ( tiles.some(tile => tile[MODULE_ID].waypointOnTile(waypoint, token)) ) return waypoint.elevation;
 
     // Option 2: Fall to ground and locate intersecting regions and tiles. If below ground, move up to ground.
     if ( !currRegions.length ) {
@@ -324,7 +331,9 @@ export class ElevationHandler {
    * @returns {StraightLinePath<RegionMovementWaypoint>} The 2d cutaway path based on concave hull
    */
   static _constructPathWalking(start2d, end2d, combinedPolys, { start, end } = {}) {
-    // If starting position is floating or underground, add a move to the terrain floor.
+    // If starting position is floating or underground:
+    // If it intersects a polygon to move towards end2d, set that as currEnd.
+    // Otherwise move to terrain floor.
     const startType = cutawayElevationType(start2d, combinedPolys);
     const sceneFloor = this.sceneFloor;
     let currPosition = start2d;
@@ -341,8 +350,20 @@ export class ElevationHandler {
         currPoly = firstIx.poly;
         currEnd = firstIx.edge.B;
         currPolyIndex = currPoly._pts.findIndex(pt => pt.almostEqual(currEnd));
+
+        // Check if we intersected with the point; if so, move to next.
+        if ( currPosition.almostEqual(currEnd) ) {
+          currPolyIndex += 1;
+          if ( currPolyIndex >= currPoly._pts.length ) currPolyIndex = 0;
+          currPosition = currEnd;
+          currEnd = currPoly._pts[currPolyIndex];
+        }
       }
-    } else currEnd = new PIXI.Point(start2d.x, sceneFloor); // Floating or underground endpoint; switch to scene floor b/c we are walking.
+
+    // Floating or underground endpoint; if we intersect a polygon, keep end; otherwise move to scene floor
+    // Underground points always hit a polygon b/c they are inside a polygon.
+    } else if ( !(startType === this.ELEVATION_LOCATIONS.UNDERGROUND
+               || segmentIntersectsPolygons(start2d, end2d, combinedPolys)) ) currEnd = new PIXI.Point(start2d.x, sceneFloor);
 
     // For each segment move, either circle around the current polygon or move in straight line toward end.
     const MAX_ITER = 1e04;
@@ -380,8 +401,6 @@ export class ElevationHandler {
           currPoly = null;
         }
       }
-
-
 
       // If this line intersects the end2d vertical, switch to that endpoint so we can finish.
       // B/c we are only walking, we can only intersect the end2d if it is on this ground level.
@@ -517,7 +536,7 @@ export class ElevationHandler {
    */
   static _convexPath(start2d, end2d, polys, inverted = false, iter = 0) {
     const ixs = polygonsIntersections(start2d, end2d, polys);
-    if ( !ixs.length ) return [start2d, end2d];
+    if ( !ixs.length ) return StraightLinePath.from([start2d, end2d]);
 
     // Replace the polygon with a convex hull version.
     const ixPoly = ixs[0].poly;
@@ -557,7 +576,7 @@ export class ElevationHandler {
       currPolyIndex = minIndex;
       if ( !~minIndex ) {
         console.error("convexPath|Start point not found in the convex polygon.");
-        return [start2d, end2d];
+        return StraightLinePath.from([start2d, end2d]);
       }
     }
     polys = polys.filter(poly => poly !== ixPoly);
@@ -587,7 +606,7 @@ export class ElevationHandler {
           // Combine and redo.
           polys = polys.filter(poly => poly !== ixPoly);
           const clipperPaths = ClipperPaths.fromPolygons([...polys, hull, ixHull]);
-          const combinedPolys = ClipperPaths.combinePaths(clipperPaths).clean().toPolygons();
+          const combinedPolys = clipperPaths.combine().clean().toPolygons();
           return this._convexPath(start2d, end2d, combinedPolys, inverted, iter);
         }
       }
@@ -736,11 +755,61 @@ export class ElevationHandler {
     this.drawRegionPath(cutaway, { color });
     return cutaway;
   }
+
+  /**
+   * Token is flying if the start and end points are floating or it has a system-specific flying status.
+   * @param {Token} token                     Token doing the movement
+   * @param {RegionMovementWaypoint} start    Starting location
+   * @param {RegionMovementWaypoint} end      Ending location
+   * @returns {boolean} True if token has flying status or implicitly is flying
+   */
+  static tokenIsFlying(token, start, end) {
+    if ( this.elevationType(start) === this.ELEVATION_LOCATIONS.FLOATING
+      && this.elevationType(end) === this.ELEVATION_LOCATIONS.FLOATING ) return true;
+    if ( game.system.id === "dnd5e" && token.actor ) return token.actor.statuses.has("flying") || token.actor.statuses.has("hovering");
+    return false;
+  }
+
+  /**
+   * Token is burrowing if the start and end points are underground or
+   * @param {Token} token                     Token doing the movement
+   * @param {RegionMovementWaypoint} start    Starting location
+   * @param {RegionMovementWaypoint} end      Ending location
+   * @returns {boolean} True if token has flying status or implicitly is flying
+   */
+  static tokenIsBurrowing(token, start, end) {
+    if ( this.elevationType(start) === this.ELEVATION_LOCATIONS.UNDERGROUND
+      && this.elevationType(end) === this.ELEVATION_LOCATIONS.UNDERGROUND) return true;
+    if ( game.system.id === "dnd5e" && token.actor ) return token.actor.statuses.has("burrowing");
+    return false;
+  }
 }
 
 
 
 // ----- NOTE: Helper functions ----- //
+
+/**
+ * Determine if there is an intersection of a segment in an array of polygons.
+ * @param {Point} a                 The starting endpoint of the segment
+ * @param {Point} b                 The ending endpoint of the segment
+ * @param {PIXI.Polygon[]} polys    The polygons to test; May have cached properties:
+ *   - _xMinMax: minimum and maximum x values
+ *   - _edges: Array of edges for the polygon
+ * @param {PIXI.Polygon} skipPoly   Ignore this polygon
+ * @returns {boolean}
+ */
+function segmentIntersectsPolygons(a, b, combinedPolys, skipPoly) {
+  for ( const poly of combinedPolys ) {
+    if ( poly === skipPoly ) continue;
+    poly._pts ??= [...poly.iteratePoints({close: false})];
+    poly._minMax ??= Math.minMax(...poly._pts.map(pt => pt.x));
+    if ( poly._xMinMax && poly._xMinMax.max <= a.x ) continue;
+    poly._edges ??= [...poly.iterateEdges({ close: true })];
+    if ( poly.lineSegmentIntersects(a, b, { edges: poly._edges }) ) return true;
+  }
+  return false;
+}
 
 /**
  * Locate all intersections of a segment in an array of polygons.
