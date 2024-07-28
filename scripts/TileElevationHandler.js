@@ -108,9 +108,15 @@ export class TileElevationHandler {
    * @param {RegionMovementWaypoint} a
    * @returns {boolean}
    */
-  waypointOnTile(a) {
+  waypointOnTile(a, token) {
     if ( a.elevation !== this.tile.elevation ) return false;
-    return this.lineSegmentIntersects({ ...a, elevation: a.elevation + 1 }, { ...a, elevation: a.elevation - 1 });
+    if ( !this.tile.bounds.contains(a.x, a.y) ) return false;
+    if ( !this.lineSegmentIntersects({ ...a, elevation: a.elevation + 1 }, { ...a, elevation: a.elevation - 1 }) ) return false;
+    if ( this.trimBorder && !tileCache.getThresholdCanvasBoundingBox(this.alphaThreshold).contains(a.x, a.y) ) return false;
+    if ( !(token && this.testHoles) ) return true;
+    const holeCache = this.tile[MODULE_ID].holeCache;
+    const holeThreshold = this.holeThresholdForToken(token);
+    return holeCache.pixelAtCanvas(a.x, a.y) < holeThreshold;
   }
 
   /**

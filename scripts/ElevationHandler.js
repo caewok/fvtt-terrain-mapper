@@ -2,6 +2,7 @@
 canvas,
 CONFIG,
 foundry,
+game,
 PIXI,
 Region
 */
@@ -177,14 +178,21 @@ export class ElevationHandler {
 
   /**
    * Determine if a given location is on the terrain floor, on a plateau/ramp, in the air, or
-   * inside an elevated terrain.
+   * inside an elevated terrain or tile.
    * To be on the ground, it has to be on the region's plateau and not within another region unless it
    * is also on that other region's plateau.
+   * Or at a tile elevation.
    * @param {RegionMovementWaypoint} waypoint     Location to test
    * @param {Region[]} [regions]                  Regions to consider; otherwise entire canvas
    * @returns {ELEVATION_LOCATIONS}
    */
-  static elevationType(waypoint, regions) {
+  static elevationType(waypoint, regions, tiles) {
+    const locs = this.ELEVATION_LOCATIONS;
+    tiles = elevatedTiles(tiles);
+    for ( const tile of tiles ) {
+      if ( tile[MODULE_ID].waypointOnTile ) return locs.GROUND;
+    }
+
     regions = elevatedRegions(regions);
     let inside = false;
     let offPlateau = false;
@@ -197,7 +205,6 @@ export class ElevationHandler {
       }
     }
 
-    const locs = this.ELEVATION_LOCATIONS;
     if ( inside && offPlateau ) return locs.UNDERGROUND;
     if ( inside && !offPlateau ) return locs.GROUND;
     if ( !inside && waypoint.elevation === this.sceneFloor ) return locs.GROUND;
@@ -217,7 +224,7 @@ export class ElevationHandler {
    * @param {boolean} [opts.burrowing]            If true, will fall but not move up if already in region
    * @returns {number} The elevation for the nearest ground.
    */
-  static nearestGroundElevation(waypoint, { regions, tiles, samples, burrowing = false } = {}) {
+  static nearestGroundElevation(waypoint, { regions, tiles, samples, burrowing = false, token } = {}) {
     const teleport = false;
     samples ??= [{x: 0, y: 0}];
     regions = elevatedRegions(regions);
@@ -230,7 +237,7 @@ export class ElevationHandler {
     if ( burrowing && currRegions.length ) return currElevation;
 
     // Option 1.1: Waypoint is currently on a tile.
-    if ( tiles.some(tile => tile[MODULE_ID].waypointOnTile(waypoint)) ) return waypoint.elevation;
+    if ( tiles.some(tile => tile[MODULE_ID].waypointOnTile(waypoint, token)) ) return waypoint.elevation;
 
     // Option 2: Fall to ground and locate intersecting regions and tiles. If below ground, move up to ground.
     if ( !currRegions.length ) {
@@ -324,7 +331,9 @@ export class ElevationHandler {
    * @returns {StraightLinePath<RegionMovementWaypoint>} The 2d cutaway path based on concave hull
    */
   static _constructPathWalking(start2d, end2d, combinedPolys, { start, end } = {}) {
-    // If starting position is floating or underground, add a move to the terrain floor.
+    // If starting position is floating or underground:
+    // If it intersects a polygon to move towards end2d, set that as currEnd.
+    // Otherwise move to terrain floor.
     const startType = cutawayElevationType(start2d, combinedPolys);
     const sceneFloor = this.sceneFloor;
     let currPosition = start2d;
@@ -342,7 +351,11 @@ export class ElevationHandler {
         currEnd = firstIx.edge.B;
         currPolyIndex = currPoly._pts.findIndex(pt => pt.almostEqual(currEnd));
       }
-    } else currEnd = new PIXI.Point(start2d.x, sceneFloor); // Floating or underground endpoint; switch to scene floor b/c we are walking.
+
+    // Floating or underground endpoint; if we intersect a polygon, keep end; otherwise move to scene floor
+    // Underground points always hit a polygon b/c they are inside a polygon.
+    } else if ( !(startType === this.ELEVATION_LOCATIONS.UNDERGROUND
+               || segmentIntersectsPolygons(start2d, end2d, combinedPolys)) ) currEnd = new PIXI.Point(start2d.x, sceneFloor);
 
     // For each segment move, either circle around the current polygon or move in straight line toward end.
     const MAX_ITER = 1e04;
@@ -380,8 +393,6 @@ export class ElevationHandler {
           currPoly = null;
         }
       }
-
-
 
       // If this line intersects the end2d vertical, switch to that endpoint so we can finish.
       // B/c we are only walking, we can only intersect the end2d if it is on this ground level.
@@ -738,27 +749,29 @@ export class ElevationHandler {
   }
 
   /**
-   * Determine the token movement types.
+   * Token is flying if the start and end points are floating or it has a system-specific flying status.
    * @param {Token} token                     Token doing the movement
    * @param {RegionMovementWaypoint} start    Starting location
    * @param {RegionMovementWaypoint} end      Ending location
    * @returns {boolean} True if token has flying status or implicitly is flying
    */
-  static tokenIsFlying(token, start, _end) {
-    if ( this.elevationType(start) === this.ELEVATION_LOCATIONS.FLOATING ) return true;
+  static tokenIsFlying(token, start, end) {
+    if ( this.elevationType(start) === this.ELEVATION_LOCATIONS.FLOATING
+      && this.elevationType(end) === this.ELEVATION_LOCATIONS.FLOATING ) return true;
     if ( game.system.id === "dnd5e" && token.actor ) return token.actor.statuses.has("flying") || token.actor.statuses.has("hovering");
     return false;
   }
 
   /**
-   * Determine the token movement types.
+   * Token is burrowing if the start and end points are underground or
    * @param {Token} token                     Token doing the movement
    * @param {RegionMovementWaypoint} start    Starting location
    * @param {RegionMovementWaypoint} end      Ending location
    * @returns {boolean} True if token has flying status or implicitly is flying
    */
-  static tokenIsBurrowing(token, start, _end) {
-    if ( this.elevationType(start) === this.ELEVATION_LOCATIONS.BURROWING ) return true;
+  static tokenIsBurrowing(token, start, end) {
+    if ( this.elevationType(start) === this.ELEVATION_LOCATIONS.UNDERGROUND
+      && this.elevationType(end) === this.ELEVATION_LOCATIONS.UNDERGROUND) return true;
     if ( game.system.id === "dnd5e" && token.actor ) return token.actor.statuses.has("burrowing");
     return false;
   }
@@ -767,6 +780,28 @@ export class ElevationHandler {
 
 
 // ----- NOTE: Helper functions ----- //
+
+/**
+ * Determine if there is an intersection of a segment in an array of polygons.
+ * @param {Point} a                 The starting endpoint of the segment
+ * @param {Point} b                 The ending endpoint of the segment
+ * @param {PIXI.Polygon[]} polys    The polygons to test; May have cached properties:
+ *   - _xMinMax: minimum and maximum x values
+ *   - _edges: Array of edges for the polygon
+ * @param {PIXI.Polygon} skipPoly   Ignore this polygon
+ * @returns {boolean}
+ */
+function segmentIntersectsPolygons(a, b, combinedPolys, skipPoly) {
+  for ( const poly of combinedPolys ) {
+    if ( poly === skipPoly ) continue;
+    poly._pts ??= [...poly.iteratePoints({close: false})];
+    poly._minMax ??= Math.minMax(...poly._pts.map(pt => pt.x));
+    if ( poly._xMinMax && poly._xMinMax.max <= a.x ) continue;
+    poly._edges ??= [...poly.iterateEdges({ close: true })];
+    if ( poly.lineSegmentIntersects(a, b, { edges: poly._edges }) ) return true;
+  }
+  return false;
+}
 
 /**
  * Locate all intersections of a segment in an array of polygons.
