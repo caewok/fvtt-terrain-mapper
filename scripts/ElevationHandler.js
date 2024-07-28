@@ -350,6 +350,14 @@ export class ElevationHandler {
         currPoly = firstIx.poly;
         currEnd = firstIx.edge.B;
         currPolyIndex = currPoly._pts.findIndex(pt => pt.almostEqual(currEnd));
+
+        // Check if we intersected with the point; if so, move to next.
+        if ( currPosition.almostEqual(currEnd) ) {
+          currPolyIndex += 1;
+          if ( currPolyIndex >= currPoly._pts.length ) currPolyIndex = 0;
+          currPosition = currEnd;
+          currEnd = currPoly._pts[currPolyIndex];
+        }
       }
 
     // Floating or underground endpoint; if we intersect a polygon, keep end; otherwise move to scene floor

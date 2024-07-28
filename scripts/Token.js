@@ -91,13 +91,8 @@ function refreshToken(token, flags) {
       origin.elevation = token._original.elevationE;
       const destination = token.center;
       destination.elevation = origin.elevation;
-
       const flying = ElevationHandler.tokenIsFlying(token, origin, destination);
       const burrowing = ElevationHandler.tokenIsBurrowing(token, origin, destination);
-
-      // If not flying or burrowing, we want the token to move horizontally without changing elevation.
-      // Otherwise, a token at 20' above ground will immediately drop to ground.
-      if ( !(flying || burrowing) ) destination.elevation = origin.elevation;
       const path = ElevationHandler.constructPath(origin, destination, { burrowing, flying, token }); // Returns minimum [start, end]. End might be changed.
       const elevationChanged = token.document.elevation !== path.at(-1).elevation;
       if ( elevationChanged ) {
@@ -157,10 +152,6 @@ export function preUpdateToken(tokenD, changed, options, _userId) {
   const flying = ElevationHandler.tokenIsFlying(token, origin, destination);
   const burrowing = ElevationHandler.tokenIsBurrowing(token, origin, destination);
   log(`preUpdateToken|Moving from ${origin.x},${origin.y}, @${origin.elevation} --> ${destination.x},${destination.y}, @${destination.elevation}.\tFlying: ${flying}\tBurrowing:${burrowing}`);
-
-  // If not flying or burrowing, we want the token to move horizontally without changing elevation.
-  // Otherwise, a token at 20' above ground will immediately drop to ground.
-  if ( !(flying || burrowing) ) destination.elevation = origin.elevation;
   token[MODULE_ID].path = ElevationHandler.constructPath(origin, destination, { burrowing, flying, token });
 
   log(`preUpdateToken|Setting destination elevation to ${token[MODULE_ID].path.at(-1).elevation}`, token[MODULE_ID].path);
