@@ -10,6 +10,7 @@ import { Plane } from "./geometry/3d/Plane.js";
 import { ElevationHandler } from "./ElevationHandler.js";
 import { ClipperPaths } from "./geometry/ClipperPaths.js";
 import { regionWaypointsXYEqual } from "./util.js";
+import { Draw } from "./geometry/Draw.js";
 
 /**
  * Single tile elevation handler
@@ -60,6 +61,8 @@ export class TileElevationHandler {
   #holeCache;
 
   get holeCache() { return this.#holeCache || (this.#holeCache = this.#constructHoleCache()); }
+
+  clearHoleCache() { this.#holeCache = undefined; }
 
   // ----- NOTE: Methods ----- //
 
@@ -112,7 +115,7 @@ export class TileElevationHandler {
     if ( a.elevation !== this.tile.elevation ) return false;
     if ( !this.tile.bounds.contains(a.x, a.y) ) return false;
     if ( !this.lineSegmentIntersects({ ...a, elevation: a.elevation + 1 }, { ...a, elevation: a.elevation - 1 }) ) return false;
-    if ( this.trimBorder && !tileCache.getThresholdCanvasBoundingBox(this.alphaThreshold).contains(a.x, a.y) ) return false;
+    if ( this.trimBorder && !this.tile.evPixelCache.getThresholdCanvasBoundingBox(this.alphaThreshold).contains(a.x, a.y) ) return false;
     if ( !(token && this.testHoles) ) return true;
     const holeCache = this.tile[MODULE_ID].holeCache;
     const holeThreshold = this.holeThresholdForToken(token);
@@ -390,77 +393,77 @@ export class TileElevationHandler {
     // drawPixels(holeCache)
     // drawHoles(holeCache)
     // pixelCounts(holeCache, max = 10)
+  }
 
 
-    /* Debugging
-    Draw = CONFIG.GeometryLib.Draw;
-    sumPixels = pixels => pixels.reduce((acc, curr) => acc += curr);
-    avgPixels = pixels => sumPixels(pixels) / pixels.length;
 
-    function pixelCounts(cache, max = 1) {
-      const countsArr = Array.fromRange(max + 1);
-      const out = {};
-      for ( const ct of countsArr ) {
-        const fn = holeCache.constructor.pixelAggregator("count_eq_threshold", ct);
-        out[ct] = fn(cache.pixels).count;
-      }
-      const gtFn = holeCache.constructor.pixelAggregator("count_gt_threshold", max);
-      const gtRes = gtFn(cache.pixels);
-      out[`> ${max}`] = gtRes.count;
-      out.numPixels = gtRes.numPixels;
-      return out;
+
+  // ----- NOTE: Debugging ----- //
+
+  /**
+   * Construct a count of the number of pixels that have specific values.
+   * @param {number} [max=1]      Values below this are explicitly counted; above summed
+   * @returns {object} Object with numbered properties containing counts
+   */
+  pixelCounts(max = 1) {
+    const countsArr = Array.fromRange(max + 1);
+    const out = {};
+    const holeCache = this.holeCache;
+    for ( const ct of countsArr ) {
+      const fn = holeCache.constructor.pixelAggregator("count_eq_threshold", ct);
+      out[ct] = fn(holeCache.pixels).count;
     }
+    const gtFn = holeCache.constructor.pixelAggregator("count_gt_threshold", max);
+    const gtRes = gtFn(holeCache.pixels);
+    out[`> ${max}`] = gtRes.count;
+    out.numPixels = gtRes.numPixels;
+    return out;
+  }
 
-    function drawHoles(cache, {skip = 10, radius = 2 } = {}) {
-      const { right, left, top, bottom } = cache.localFrame;
-      const max = Math.max(cache.width, cache.height);
-      for ( let x = left; x <= right; x += skip ) {
-        for ( let y = top; y <= bottom; y += skip ) {
-          const value = cache._pixelAtLocal(x, y);
-          if ( value == null ) continue;
-          const color = value > 0 ? Draw.COLORS.red : Draw.COLORS.white;
-          Draw.point({x, y}, { color, alpha: 0.8, radius });
-        }
-      }
-    }
+  /**
+   * Draw pixels below, equal to, or above a threshold.
+   * Below: green; at threshold: orange; above threshold: red
+   * @param {number} [threshold = 1]    The value to test
+   * @param {object} [opts]
+   * @param {number} [opts.skip=10]     Only draw every x pixel
+   * @param {number} [opts.radius=2]    Draw each pixel at this size (1 to match the canvas pixels)
+   * @param {boolean} [opts.local=true] Draw the local pixels (at 0,0) or the canvas pixels
+   */
+  drawPixelsAtThreshold(threshold = 1, { skip = 10, radius = 2, local=true }) {
+    const holeCache = this.holeCache;
+    const { right, left, top, bottom } = holeCache.localFrame;
+    const drawFn = local
+      ? (x, y, color) => Draw.point({x, y}, { color, alpha: 0.8, radius })
+        : (x, y, color) => {
+          const canvasPt = holeCache._toCanvasCoordinates(x, y);
+          Draw.point(canvasPt, { color, alpha: 0.8, radius });
+        };
 
-    function drawPixel(cache, idx) {
-      const value = cache.pixels[idx];
-      if ( value == null ) {
-        console.warn("Index out-of-bounds");
-        return;
-      }
-      const pt = cache._localAtIndex(idx);
-      const color = value > 0 ? Draw.COLORS.red : Draw.COLORS.white;
-      Draw.point(pt, { color, radius: 1, alpha: 0.8 })
-    }
-
-
-    function drawPixels(cache, {skip = 10, radius = 2 } = {}) {
-      const { right, left, top, bottom } = cache.localFrame;
-      const max = Math.max(cache.width, cache.height);
-      for ( let x = left; x <= right; x += skip ) {
-        for ( let y = top; y <= bottom; y += skip ) {
-          const value = cache._pixelAtLocal(x, y);
-          if ( !value ) continue;
-
-          let color = Draw.COLORS.black;
-          if ( value === 1 ) color = Draw.COLORS.lightgreen;
-          if ( value === 2 ) color = Draw.COLORS.lightorange;
-          if ( value === 3 ) color = Draw.COLORS.lightred;
-          if ( max * 0.001 > 3 && value > max * 0.001 ) color = Draw.COLORS.green;
-          if ( max * 0.005 > 3 && value > max * 0.005 ) color = Draw.COLORS.orange;
-          if ( max * 0.01 > 3 && value > max * 0.01 ) color = Draw.COLORS.red;
-          if ( max * 0.05 > 3 && value > max * 0.05 ) color = Draw.COLORS.lightyellow;
-          if ( max * 0.1 > 3 && value > max * 0.1 ) color = Draw.COLORS.yellow;
-          if ( value > max * 0.15 ) color = Draw.COLORS.gray;
-          if ( value > max * 0.2 ) color = Draw.COLORS.white;
-
-          Draw.point({x, y}, { color, alpha: 0.8, radius });
-        }
+    for ( let x = left; x <= right; x += skip ) {
+      for ( let y = top; y <= bottom; y += skip ) {
+        const value = holeCache._pixelAtLocal(x, y);
+        let color;
+        if ( !value ) continue;
+        else if ( value < threshold ) color = Draw.COLORS.green;
+        else if ( value === threshold ) color = Draw.COLORS.orange;
+        else color = Draw.COLORS.red;
+        drawFn(x, y, color);
       }
     }
-    */
-
   }
 }
+
+/*
+TileElevationHandler.js:345 terrainmapper|constructHoleCache mC8FvDWgb3da4m3g
+TileElevationHandler.js:349 terrainmapper|Mark each alpha pixel: 3.1689453125 ms
+TileElevationHandler.js:370 terrainmapper|Iterate over every pixel: 78.195068359375 ms
+TileElevationHandler.js:388 terrainmapper|Update pixels: 467.125 ms
+TileElevationHandler.js:389 terrainmapper|132 iterations.
+
+TileElevationHandler.js:345 terrainmapper|constructHoleCache 6tV5ynPSXgSA04X6
+TileElevationHandler.js:349 terrainmapper|Mark each alpha pixel: 3.134033203125 ms
+TileElevationHandler.js:370 terrainmapper|Iterate over every pixel: 180.170166015625 ms
+TileElevationHandler.js:388 terrainmapper|Update pixels: 1013.5439453125 ms
+TileElevationHandler.js:389 terrainmapper|280 iterations.
+
+*/

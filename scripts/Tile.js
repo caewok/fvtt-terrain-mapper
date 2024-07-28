@@ -46,12 +46,27 @@ function createTile(document, _options, _userId) {
  * @param {string} userId                           The ID of the User who triggered the update workflow
  */
 function updateTile(tileD, changed, _options, _userId) {
-  if ( foundry.utils.hasProperty(changed, `flags.${MODULE_ID}.${FLAGS.TILE.TEST_HOLES}`)
-    || foundry.utils.hasProperty(changed, `flags.${MODULE_ID}.${FLAGS.TILE.ALPHA}`) ) {
+  const tm = tileD.object?.[MODULE_ID];
+  if ( !(tm && tm.isElevated && tm.testHoles )) return;
 
-    const tm = tileD.object?.[MODULE_ID];
-    if ( tm && tm.isElevated && tm.testHoles ) { const holeCache = tm.holeCache; } // eslint-disable-line no-unused-vars
-  }
+  // Test for changes in tile size, tile scale, or specific hole-related flags.
+  const changeKeys = new Set(Object.keys(foundry.utils.flattenObject(changed)));
+  const resized = ["x", "y", "width", "height"].some(key => changeKeys.has(key));
+  const transformed = ["rotation", "texture", "scaleX", "scaleY"].some(key => changeKeys.has(key));
+  const flagChanged = [
+    `flags.${MODULE_ID}.${FLAGS.TILE.IS_FLOOR}`,
+    `flags.${MODULE_ID}.${FLAGS.TILE.TEST_HOLES}`,
+    `flags.${MODULE_ID}.${FLAGS.TILE.ALPHA_THRESHOLD}`
+  ].some(key => changeKeys.has(key));
+  if ( !(resized || transformed || flagChanged) ) return;
+
+  // Rebuild the hole cache if the alpha threshold changed
+  if ( foundry.utils.hasProperty(changed, `flags.${MODULE_ID}.${FLAGS.TILE.ALPHA_THRESHOLD}`) ) tm.clearHoleCache();
+
+  // This constructs the hole cache if not yet present; otherwise pulls the hole cache.
+  const holeCache = tm.holeCache;
+  if ( resized ) holeCache._resize();
+  if ( transformed ) holeCache.clearTransforms();
 }
 
 
