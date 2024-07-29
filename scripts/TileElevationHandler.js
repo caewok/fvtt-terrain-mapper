@@ -1,5 +1,6 @@
 /* globals
 CONFIG,
+foundry,
 PIXI,
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
@@ -9,7 +10,7 @@ import { Point3d } from "./geometry/3d/Point3d.js";
 import { Plane } from "./geometry/3d/Plane.js";
 import { ElevationHandler } from "./ElevationHandler.js";
 import { ClipperPaths } from "./geometry/ClipperPaths.js";
-import { regionWaypointsXYEqual } from "./util.js";
+import { regionWaypointsXYEqual, regionWaypointsXYAlmostEqual } from "./util.js";
 import { Draw } from "./geometry/Draw.js";
 
 /**
@@ -137,31 +138,126 @@ export class TileElevationHandler {
    */
   holePositions(a, b, holeThreshold = 1) {
     if ( !this.isElevated || !this.testHoles ) return [];
-    const tileCache = this.tile.evPixelCache;
     const holeCache = this.tile[MODULE_ID].holeCache;
 
     // Mark every time it moves from solid ground to a hole threshold of a given size.
-    const alphaThreshold = this.alphaThreshold;
     const markHoleStartFn = (currPixel, prevPixel) => prevPixel < holeThreshold && currPixel >= holeThreshold;
-    const holeStarts = holeCache._extractAllMarkedPixelValuesAlongCanvasRay(a, b, markHoleStartFn, { alphaThreshold, skipFirst: true });
+    const holeStarts = holeCache._extractAllMarkedPixelValuesAlongCanvasRay(a, b, markHoleStartFn, { skipFirst: true });
+    holeStarts.forEach(pt => pt.holeStart = true);
 
-    // Mark every time it moves from transparent to non-transparent.
-    const threshold = tileCache.maximumPixelValue * alphaThreshold;
-    const markHoleEndFn = (currPixel, prevPixel) => prevPixel <= threshold && currPixel > threshold;
-    const holeEnds = tileCache._extractAllMarkedPixelValuesAlongCanvasRay(a, b, markHoleEndFn, { alphaThreshold, skipFirst: true });
+    // Mark the opposite move, from a hole to solid ground.
+    const markHoleEndFn = (currPixel, prevPixel) => prevPixel >= holeThreshold && currPixel < holeThreshold;
+    const holeEnds = holeCache._extractAllMarkedPixelValuesAlongCanvasRay(a, b, markHoleEndFn, { skipFirst: true });
+    holeEnds.forEach(pt => pt.holeStart = false);
+
+    // Locate holes outside the alpha = 0 border.
+    const outerHoles = this._findOuterHoles(a, b, holeThreshold);
 
     // Sort by distance squared from a.
-    holeStarts.forEach(pt => pt.holeStart = true);
-    holeEnds.forEach(pt => pt.holeStart = false);
-    const holes = [...holeStarts, ...holeEnds];
+    const holes = [...holeStarts, ...holeEnds, ...outerHoles];
     holes.forEach(pt => pt.dist2 = PIXI.Point.distanceSquaredBetween(a, pt));
     holes.sort((a, b) => a.dist2 - b.dist2);
 
     // If the first pixel is in the bounds of the tile, add it.
-    if ( tileCache.containsPixel(a.x, a.y, alphaThreshold)
-      && tileCache.pixelAtCanvas(a.x, a.y) >= threshold) holes.unshift({ ...a, holeStart: false, isStart: true, dist2: 0 });
-
+    if ( holes.length && regionWaypointsXYAlmostEqual(holes[0], a) ) return holes;
+    const startValue = holeCache.pixelAtCanvas(a.x, a.y);
+    if ( startValue !== null && startValue < holeThreshold ) holes.unshift({ ...a, holeStart: false, isStart: true, dist2: 0 });
     return holes;
+  }
+
+  /**
+   * For a given line outside the hole cache, determine the point at which it is no longer
+   * a hole for a given threshold.
+   * This point is a specified distance from the edge.
+   * @param {Point} a
+   * @param {Point} b
+   * @param {number} holeThreshold        In pixel coordinates, how large a hole counts?
+   * @returns {PIXI.Point[]} Zero, one, or two points where the hole stops and starts
+   *   Two points if the line intersects two edges; one point if a or b is inside
+   */
+  _findOuterHoles(a, b, holeThreshold = 1) {
+    if ( !this.isElevated || !this.testHoles ) return [];
+    const holeCache = this.tile[MODULE_ID].holeCache;
+
+    // Easiest to do this in local space, to take advantage of the rectangle.
+    a = holeCache._fromCanvasCoordinates(a.x, a.y);
+    b = holeCache._fromCanvasCoordinates(b.x, b.y);
+    const ixs = holeCache.segmentIntersections(a, b);
+
+    // Can have 0, 1, or 2 outer segments.
+    const outerSegments = [];
+    switch ( ixs.length ) {
+      case 0: {
+        if ( holeCache.contains(a.x, a.y) ) return []; // Both a and b are inside.
+        const paddedCache = new PIXI.Rectangle();
+        holeCache.copyTo(paddedCache);
+        paddedCache.pad(holeThreshold);
+        if ( !paddedCache.lineSegmentIntersects(a, b, { inside: true }) ) return []; // a|b never comes close enough
+        outerSegments.push({ a, b }); // Both a and b are outside.
+        break;
+      }
+      case 1: {
+        if ( holeCache.contains(a.x, a.y) ) outerSegments.push({ a: ixs[0], b });
+        else outerSegments.push({ a, b: ixs[0] });
+        break;
+      }
+      case 2: {
+        outerSegments.push({ a, b: ixs[0] }, { a: ixs[1], b });
+        break;
+      }
+    }
+
+    // Padding the border by holeThreshold gets us the point beyond which the segment is
+    // definitely a hole.
+    // The catch is that if the a|b segment moves toward a gap in the tile (e.g., a U shape)
+    // then it should continue to be a hole through that gap.
+    // For each pixel along that line, need to get its distance from the perpendicular intersection with the border.
+    // Could use a full pixel offset window but that would test a lot of unnecessary pixels.
+    // Instead, get perpendicular border intersection and minimum hole value along the border.
+    const bresenhamLineIterator = CONFIG.GeometryLib.utils.bresenhamLineIterator;
+    const closestPointToSegment = foundry.utils.closestPointToSegment;
+    const CSZ = PIXI.Rectangle.CS_ZONES;
+    const edges = {
+      [CSZ.LEFT]: holeCache.leftEdge,
+      [CSZ.TOP]: holeCache.topEdge,
+      [CSZ.RIGHT]: holeCache.rightEdge,
+      [CSZ.BOTTOM]: holeCache.bottomEdge
+    };
+
+    const holes = [];
+    const holeThreshold_1_2 = holeThreshold * 0.5;
+    for ( const outerSegment of outerSegments ) {
+      let currHole = !holeCache.contains(outerSegment.a.x, outerSegment.a.y);
+      for ( const pt of bresenhamLineIterator(outerSegment.a.x, outerSegment.a.y, outerSegment.b.x, outerSegment.b.y) ) {
+        // Either the edge is L/R/T/B or is one of the corners, e.g. TOP_LEFT.
+        const z = holeCache._getZone(pt);
+        if ( !z ) continue; // Point is inside.
+        const closestEdge = edges[z] || edges[z & CSZ.TOP] || edges[z & CSZ.RIGHT] || edges[z & CSZ.BOTTOM] || edges[z & CSZ.LEFT];
+        const closestEdgePt = closestPointToSegment(pt, closestEdge.A, closestEdge.B);
+
+        // Distance + edge point value must exceed the holeThreshold for this to be a hole.
+        // If it does, then every pixel along the edge up to holeThreshold / 2 must also meet that value.
+        const dist = Math.ceil(PIXI.Point.distanceBetween(pt, closestEdgePt));
+        const targetValue = holeThreshold - dist;
+
+        let isHole;
+        if ( targetValue < 1 ) isHole = true;
+        else if ( holeCache._pixelAtLocal(pt.x, pt.y) < targetValue ) isHole = false;
+        else {
+          const markPixelFn = currPixel => currPixel < targetValue;
+          const edgeDir = PIXI.Point._tmp2.copyFrom(closestEdge.B).subtract(closestEdge.A, PIXI.Point._tmp3).normalize();
+          const res = holeCache._extractNextMarkedPixelValueAlongLocalRay(
+            PIXI.Point._tmp.copyFrom(closestEdgePt).subtract(edgeDir.multiplyScalar(holeThreshold_1_2)),
+            PIXI.Point._tmp2.copyFrom(closestEdgePt).add(edgeDir.multiplyScalar(holeThreshold_1_2)), markPixelFn);
+          isHole = !res;
+        }
+        if ( !(currHole ^ isHole) ) continue;
+        pt.holeStart = !currHole;
+        holes.push(pt);
+        currHole = isHole;
+      }
+    }
+    return holes.map(pt => holeCache._toCanvasCoordinates(pt.x, pt.y, pt));
   }
 
   /**
@@ -336,12 +432,12 @@ export class TileElevationHandler {
     // Until no more changes: update the 8 neighbors of each changed pixel.
     const { alphaThreshold, tile } = this;
     const tileCache = tile.evPixelCache;
-    const holeCache = tileCache.constructor.fromOverheadTileAlpha(tile);
+    const holeCache = tileCache.constructor.fromOverheadTileAlpha(tile, tileCache.scale.resolution);
 
     // Set each alpha pixel to the max integer value to start, 0 otherwise.
     console.group(`${MODULE_ID}|constructHoleCache ${this.tile.id}`);
     const alphaPixelThreshold = tileCache.maximumPixelValue * alphaThreshold;
-    holeCache.pixels = this.#calculateHoleCachePixels(tileCache.pixels, tileCache.localFrame.width, alphaPixelThreshold);
+    holeCache.pixels = this.#calculateHoleCachePixels(tileCache.pixels, tileCache.width, alphaPixelThreshold);
     console.groupEnd(`${MODULE_ID}|constructHoleCache ${this.tile.id}`);
     return holeCache;
     // avgPixels(holeCache.pixels); // 1.33
@@ -440,13 +536,13 @@ export class TileElevationHandler {
    * @param {number} [opts.radius=2]    Draw each pixel at this size (1 to match the canvas pixels)
    * @param {boolean} [opts.local=true] Draw the local pixels (at 0,0) or the canvas pixels
    */
-  drawPixelsAtThreshold(threshold = 1, { skip = 10, radius = 2, local=true }) {
+  drawPixelsAtThreshold(threshold = 1, { skip = 10, radius = 2, local=true } = {}) {
     const holeCache = this.holeCache;
-    const { right, left, top, bottom } = holeCache.localFrame;
+    const { right, left, top, bottom } = holeCache;
     const drawFn = local
       ? (x, y, color) => Draw.point({x, y}, { color, alpha: 0.8, radius })
         : (x, y, color) => {
-          const canvasPt = holeCache._toCanvasCoordinates(x, y);
+          const canvasPt = holeCache._toCanvasCoordinates(x, y, PIXI.Point._tmp);
           Draw.point(canvasPt, { color, alpha: 0.8, radius });
         };
 

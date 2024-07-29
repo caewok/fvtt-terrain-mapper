@@ -183,6 +183,8 @@ export function regionWaypointsEqual(a, b) { return a.x === b.x && a.y === b.y &
  */
 export function regionWaypointsXYEqual(a, b) { return a.x === b.x && a.y === b.y; }
 
+export function regionWaypointsXYAlmostEqual(a, b) { return a.x.almostEqual(b.x) && a.y.almostEqual(b.y); }
+
 /**
  * Is this region a plateau?
  * @param {Region} region
