@@ -1,6 +1,8 @@
 /* globals
+AsyncWorker,
 CONFIG,
 foundry,
+game,
 PIXI,
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
@@ -19,6 +21,9 @@ import { Draw } from "./geometry/Draw.js";
  * Encapsulated inside Tile.prototype.terrainmapper class
  */
 export class TileElevationHandler {
+  /** @type {HoleDetector} */
+  static holeDetector;
+
   /** @type {Tile} */
   tile;
 
@@ -61,9 +66,18 @@ export class TileElevationHandler {
   /** @type {PixelCache} */
   #holeCache;
 
-  get holeCache() { return this.#holeCache || (this.#holeCache = this.#constructHoleCache()); }
+  get holeCache() { return this.#holeCache; }
 
   clearHoleCache() { this.#holeCache = undefined; }
+
+  async buildHoleCache() {
+    if ( !this.constructor.holeDetector ) {
+      this.constructor.holeDetector = new HoleDetector();
+      await this.constructor.holeDetector.initialize();
+    }
+    this.#holeCache = await this.#constructHoleCache();
+
+  }
 
   // ----- NOTE: Methods ----- //
 
@@ -422,7 +436,7 @@ export class TileElevationHandler {
    * non-transparent pixel.
    * @returns {PixelArray}
    */
-  #constructHoleCache() {
+  async #constructHoleCache() {
     // First construct a pixel array where 0 = no alpha and 1 = alpha.
     // Then iterate through each pixel:
     // If 0, move to next
@@ -437,72 +451,19 @@ export class TileElevationHandler {
     // Set each alpha pixel to the max integer value to start, 0 otherwise.
     console.group(`${MODULE_ID}|constructHoleCache ${this.tile.id}`);
     const alphaPixelThreshold = tileCache.maximumPixelValue * alphaThreshold;
-    holeCache.pixels = this.#calculateHoleCachePixels(tileCache.pixels, tileCache.width, alphaPixelThreshold);
+    if ( CONFIG[MODULE_ID].debug ) {
+      holeCache.pixels = calculateHoleCachePixelsSync(tileCache.pixels, tileCache.width, alphaPixelThreshold)
+    } else {
+      holeCache.pixels = await this.constructor.holeDetector.calculateHoleCachePixels(tileCache.pixels, tileCache.width, alphaPixelThreshold);
+    }
+
+    // holeCache.pixels = this.#calculateHoleCachePixels(tileCache.pixels, tileCache.width, alphaPixelThreshold);
     console.groupEnd(`${MODULE_ID}|constructHoleCache ${this.tile.id}`);
     return holeCache;
     // avgPixels(holeCache.pixels); // 1.33
     // drawPixels(holeCache)
     // drawHoles(holeCache)
     // pixelCounts(holeCache, max = 10)
-  }
-
-  /**
-   * Placeholder for eventual worker method that takes the tile array and constructs a hole array
-   * @param {Uint8Array} tileCachePixels      The pixel array for a tile
-   * @param {number} width                    The local width of the tile cache
-   * @param {number} alphaPixelThreshold      Value between 0 and 255; above this is non-transparent.
-   *                                          Default is alphaThreshold = 75%
-   * @returns {Uint16Array} The hole cache array
-   */
-  #calculateHoleCachePixels(tileCachePixels, width, alphaPixelThreshold = 191.25) {
-    const MAX_VALUE = 65535; // Uint16Array maximum.
-    const nPixels = tileCachePixels.length;
-    const holeCachePixels = new Uint16Array(nPixels);
-
-    // Set each alpha pixel to the max integer value to start, 0 otherwise.
-    console.time(`${MODULE_ID}|Mark each alpha pixel`);
-    for ( let i = 0; i < nPixels; i += 1 ) holeCachePixels[i] = tileCachePixels[i] > alphaPixelThreshold ? 0 : MAX_VALUE;
-    console.timeEnd(`${MODULE_ID}|Mark each alpha pixel`); // 6.5 ms.
-    // avgPixels(holeCache.pixels); // 0.66
-    // drawPixels(holeCache)
-    // drawHoles(holeCache)
-    // pixelCounts(holeCache, max = 1) // {0: 616231, 1: 0, > 1: 1408769, numPixels: 2025000}
-
-    const changedIndices = new Set();
-    const updatePixel = idx => {
-      const value = holeCachePixels[idx];
-      if ( !value ) return;
-      const newValue = Math.min(MAX_VALUE, Math.min(...localNeighbors(holeCachePixels, idx, width)) + 1);
-      if ( value === newValue ) return;
-      holeCachePixels[idx] = newValue;
-      changedIndices.add(idx);
-    }
-
-    // For each pixel that is greater than 0, its value is 1 + min of 8 neighbors.
-    // Record changed indices so we can re-process those neighbors.
-    console.time(`${MODULE_ID}|Iterate over every pixel`);
-    for ( let i = 0; i < nPixels; i += 1 ) updatePixel(i);
-    console.timeEnd(`${MODULE_ID}|Iterate over every pixel`); // 100 ms
-    // avgPixels(holeCache.pixels); // 1.33
-    // drawPixels(holeCache)
-    // drawHoles(holeCache)
-    // pixelCounts(holeCache, max = 2) // {0: 616231, 1: 11632, 2: 7360, > 2: 1389777, numPixels: 2025000}
-
-    const MAX_ITER = 1000;
-    console.time(`${MODULE_ID}|Update pixels`);
-    let iter = 0;
-    while ( changedIndices.size && iter < MAX_ITER ) {
-      iter += 1;
-      const indices = [...changedIndices.values()];
-      changedIndices.clear();
-      for ( const idx of indices ) {
-        const neighborIndices = localNeighborIndices(holeCachePixels, idx, width);
-        for ( const neighborIdx of neighborIndices ) updatePixel(neighborIdx);
-      }
-    }
-    console.timeEnd(`${MODULE_ID}|Update pixels`); // 28801.6630859375 ms // 11687.419189453125 ms using pixelStep instead of x,y.
-    console.log(`${MODULE_ID}|${iter} iterations.`);
-    return holeCachePixels;
   }
 
   // ----- NOTE: Debugging ----- //
@@ -575,6 +536,8 @@ TileElevationHandler.js:389 terrainmapper|280 iterations.
 
 */
 
+// ----- NOTE: Helper functions ---- //
+
 /**
  * For this rectangular frame of local pixels, step backward or forward in the x and y directions
  * from a current index. Presumes index is row-based, such that:
@@ -590,6 +553,18 @@ function localPixelStep(currIdx, localWidth, xStep = 0, yStep = 0) {
 }
 
 /**
+ * Test if a number falls between two other numbers. For worker.
+ * @param {number} n    Number to test
+ * @param {number} min  Smaller number
+ * @param {number} max  Larger number
+ * @param {boolean} [inclusive=true]  If true, include min and max
+ * @returns {boolean}
+ */
+function between(n, min, max, inclusive=true) {
+  return inclusive ? (n >= min) && (n <= max) : (n > min) && (n < max);
+}
+
+/**
  * Indices of the 8 neighbors to this local pixel index. Does not
  * @param {number} currIdx
  * @returns {number[]}
@@ -601,7 +576,7 @@ function localNeighborIndices(pixels, currIdx, localWidth, trimBorder = true) {
     for ( let yi = -1; yi < 2; yi += 1 ) {
       if ( !(xi || yi) ) continue;
       const neighborIdx = localPixelStep(currIdx, localWidth, xi, yi);
-      if ( trimBorder && !neighborIdx.between(0, maxIdx) ) continue;
+      if ( trimBorder && !between(neighborIdx, 0, maxIdx) ) continue;
       arr.push(neighborIdx);
     }
   }
@@ -617,3 +592,106 @@ function localNeighborIndices(pixels, currIdx, localWidth, trimBorder = true) {
 function localNeighbors(pixels, currIdx, localWidth, trimBorder = true) {
   return localNeighborIndices(pixels, currIdx, localWidth, trimBorder).map(idx => pixels[idx]);
 }
+
+function calculateHoleCachePixelsSync(tileCachePixels, width, alphaPixelThreshold = 191.25) {
+  const res = calculateHoleCachePixels([{ tileCachePixels, width, alphaPixelThreshold }]);
+    return res[0].holeCachePixels;
+}
+
+/**
+ * Placeholder for eventual worker method that takes the tile array and constructs a hole array
+ * @param {Uint8Array} tileCachePixels      The pixel array for a tile
+ * @param {number} width                    The local width of the tile cache
+ * @param {number} alphaPixelThreshold      Value between 0 and 255; above this is non-transparent.
+ *                                          Default is alphaThreshold = 75%
+ * @returns {Uint16Array} The hole cache array
+ */
+function calculateHoleCachePixels({ tileCachePixels, width, alphaPixelThreshold = 191.25 } = {}) {
+  const MODULE_ID = "terrainmapper";
+  const MAX_VALUE = 65535; // Uint16Array maximum.
+  const nPixels = tileCachePixels.length;
+  const holeCachePixels = new Uint16Array(nPixels);
+
+  // Set each alpha pixel to the max integer value to start, 0 otherwise.
+  console.time(`${MODULE_ID}|Mark each alpha pixel`);
+  for ( let i = 0; i < nPixels; i += 1 ) holeCachePixels[i] = tileCachePixels[i] > alphaPixelThreshold ? 0 : MAX_VALUE;
+  console.timeEnd(`${MODULE_ID}|Mark each alpha pixel`); // 6.5 ms.
+  // avgPixels(holeCache.pixels); // 0.66
+  // drawPixels(holeCache)
+  // drawHoles(holeCache)
+  // pixelCounts(holeCache, max = 1) // {0: 616231, 1: 0, > 1: 1408769, numPixels: 2025000}
+
+  const changedIndices = new Set();
+  const updatePixel = idx => {
+    const value = holeCachePixels[idx];
+    if ( !value ) return;
+    const newValue = Math.min(MAX_VALUE, Math.min(...localNeighbors(holeCachePixels, idx, width)) + 1);
+    if ( value === newValue ) return;
+    holeCachePixels[idx] = newValue;
+    changedIndices.add(idx);
+  }
+
+  // For each pixel that is greater than 0, its value is 1 + min of 8 neighbors.
+  // Record changed indices so we can re-process those neighbors.
+  console.time(`${MODULE_ID}|Iterate over every pixel`);
+  for ( let i = 0; i < nPixels; i += 1 ) updatePixel(i);
+  console.timeEnd(`${MODULE_ID}|Iterate over every pixel`); // 100 ms
+  // avgPixels(holeCache.pixels); // 1.33
+  // drawPixels(holeCache)
+  // drawHoles(holeCache)
+  // pixelCounts(holeCache, max = 2) // {0: 616231, 1: 11632, 2: 7360, > 2: 1389777, numPixels: 2025000}
+
+  const MAX_ITER = 1000;
+  console.time(`${MODULE_ID}|Update pixels`);
+  let iter = 0;
+  while ( changedIndices.size && iter < MAX_ITER ) {
+    iter += 1;
+    const indices = [...changedIndices.values()];
+    changedIndices.clear();
+    for ( const idx of indices ) {
+      const neighborIndices = localNeighborIndices(holeCachePixels, idx, width);
+      for ( const neighborIdx of neighborIndices ) updatePixel(neighborIdx);
+    }
+  }
+  console.timeEnd(`${MODULE_ID}|Update pixels`); // 28801.6630859375 ms // 11687.419189453125 ms using pixelStep instead of x,y.
+  console.log(`${MODULE_ID}|${iter} iterations.`);
+  return [{holeCachePixels}];
+}
+
+/**
+ * Wrapper for a web worker meant to quantify the holes for a given array of pixels.
+ * Holes in this case are the number of spaces one has to move before encountering a pixel of value 0 (solid).
+ * So 5 means no 0 values within 5 pixels of this pixel.
+ * @param {string} name                            The worker name to be initialized
+ * @param {object} [config={}]                     Worker initialization options
+ * @param {boolean} [config.debug=false]           Should the worker run in debug mode?
+ */
+export class HoleDetector extends AsyncWorker {
+  constructor(name = `${MODULE_ID}|Hole Detector`, config = {}) {
+    // config.scripts ??= ["Data/modules/terrainmapper/scripts/workers/hole_detector.js"];
+    config.loadPrimitives ??= false;
+    super(name, config);
+  }
+
+  async initialize() {
+    await this.loadFunction("between", between);
+    await this.loadFunction("localPixelStep", localPixelStep);
+    await this.loadFunction("localNeighborIndices", localNeighborIndices);
+    await this.loadFunction("localNeighbors", localNeighbors);
+    await this.loadFunction("calculateHoleCachePixels", calculateHoleCachePixels);
+  }
+
+  /**
+   * Worker method that takes the tile array and constructs a hole array.
+   * @param {Uint8Array} tileCachePixels      The pixel array for a tile
+   * @param {number} width                    The local width of the tile cache
+   * @param {number} alphaPixelThreshold      Value between 0 and 255; above this is non-transparent.
+   *                                          Default is alphaThreshold = 75%
+   * @returns {Uint16Array} The hole cache array
+   */
+  async calculateHoleCachePixels(tileCachePixels, width, alphaPixelThreshold = 191.25) {
+    const res = await this.executeFunction("calculateHoleCachePixels", [{ tileCachePixels, width, alphaPixelThreshold }]);
+    return res.holeCachePixels;
+  }
+}
+

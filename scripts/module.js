@@ -26,6 +26,7 @@ import { StraightLinePath } from "./StraightLinePath.js";
 
 // Elevation
 import { ElevationHandler } from "./ElevationHandler.js";
+import { HoleDetector } from "./TileElevationHandler.js";
 
 // Unique Terrain Effects
 import { TerrainActiveEffect, TerrainItemEffect, TerrainFlagEffect, TerrainPF2E } from "./terrain_unique_effects.js";
@@ -60,6 +61,8 @@ Hooks.once("init", function() {
 //   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.removeTerrain`] = FA_ICONS.MODULE;
   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.setTerrain`] = FA_ICONS.MODULE;
   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.setElevation`] = FA_ICONS.ELEVATE;
+
+
 
   // Must go at end?
   loadTemplates(Object.values(TEMPLATES)).then(_value => log(`Templates loaded.`));
@@ -101,7 +104,7 @@ Hooks.on("canvasReady", function(_canvas) {
 
 
 function initializeAPI() {
-  game.modules.get(MODULE_ID).api = {
+  const api = game.modules.get(MODULE_ID).api = {
     Settings,
     PATCHER,
     WallTracerEdge,

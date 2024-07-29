@@ -18,12 +18,12 @@ PATCHES.ELEVATION = {};
 /**
  * Hook canvas ready to construct the hole caches for any tiles.
  */
-function canvasReady() {
-  canvas.tiles.placeables.forEach(tile => {
+async function canvasReady() {
+  for ( const tile of canvas.tiles.placeables ) {
     const tm = tile[MODULE_ID];
-    if ( !tm.isElevated || !tm.testHoles ) return;
-    const holeCache = tm.holeCache; // eslint-disable-line no-unused-vars
-  });
+    if ( !tm.isElevated || !tm.testHoles ) continue;
+    await tm.buildHoleCache();
+  }
 }
 
 /**
@@ -64,9 +64,11 @@ function updateTile(tileD, changed, _options, _userId) {
   if ( foundry.utils.hasProperty(changed, `flags.${MODULE_ID}.${FLAGS.TILE.ALPHA_THRESHOLD}`) ) tm.clearHoleCache();
 
   // This constructs the hole cache if not yet present; otherwise pulls the hole cache.
-  const holeCache = tm.holeCache;
-  if ( resized ) holeCache._resize();
-  if ( transformed ) holeCache.clearTransforms();
+  tm.buildHoleCache().then(_result => {
+    const holeCache = tm.holeCache;
+    if ( resized ) holeCache._resize();
+    if ( transformed ) holeCache.clearTransforms();
+  });
 }
 
 
