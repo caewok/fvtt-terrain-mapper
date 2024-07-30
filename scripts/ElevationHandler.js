@@ -859,12 +859,12 @@ function polygonsIntersections(a, b, combinedPolys, skipPoly) {
  * @param {PIXI.Polygon} poly     The polygon to test
  * @returns {Edge|false} The first edge it is on (more than one if on endpoint)
  */
-function pointOnPolygonEdge(a, poly) {
+function pointOnPolygonEdge(a, poly, epsilon = 1e-08) {
   poly._edges ??= [...poly.iterateEdges({ close: true })];
   a = PIXI.Point._tmp.copyFrom(a);
   for ( const edge of poly._edges ) {
     const pt = foundry.utils.closestPointToSegment(a, edge.A, edge.B);
-    if ( a.almostEqual(pt) ) return edge;
+    if ( a.almostEqual(pt, epsilon) ) return edge;
   }
   return false;
 }
@@ -882,7 +882,7 @@ function pointOnPolygonEdge(a, poly) {
 function cutawayElevationType(pt, polys) {
   const locs = ElevationHandler.ELEVATION_LOCATIONS;
   for ( const poly of polys ) {
-    const edge = pointOnPolygonEdge(pt, poly);
+    const edge = pointOnPolygonEdge(pt, poly, 0.1);
     if ( !edge ) continue;
 
     // If on a vertical edge, only counts as on the ground if it is at the top or bottom. Otherwise floating.
