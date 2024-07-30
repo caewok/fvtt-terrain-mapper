@@ -78,7 +78,7 @@ function updateRegion(regionDoc, changed, _options, _userId) {
 
   // Clear the cache used to calculate ramp properties.
   if ( Object.hasOwn(changed, "shapes")
-      || foundry.utils.hasProperty(changed, `flags.${MODULE_ID}.${FLAGS.REGION.DIRECTION}`) ) region[MODULE_ID].clearCache();;
+      || foundry.utils.hasProperty(changed, `flags.${MODULE_ID}.${FLAGS.REGION.RAMP.DIRECTION}`) ) region[MODULE_ID].clearCache();;
 
 }
 
