@@ -344,7 +344,7 @@ export class ElevationHandler {
     if ( startType === this.ELEVATION_LOCATIONS.GROUND ) {
       // Determine what polygon we are on.
       const ixs = polygonsIntersections({ x: currPosition.x, y: currPosition.y + 1 }, { x: currPosition.x, y: currPosition.y - 1 }, combinedPolys);
-      if ( ixs ) {
+      if ( ixs.length ) {
         const firstIx = ixs[0];
         currPosition = PIXI.Point.fromObject(firstIx);
         currPoly = firstIx.poly;
@@ -385,7 +385,7 @@ export class ElevationHandler {
         const travelingUp = prevPosition ? prevPosition.y  < currPosition.y : currPosition.y < currEnd.y;
         if ( travelingUp ) {
           const ixs = polygonsIntersections(currPosition, { x: currPosition.x, y: 1e06 }, combinedPolys);
-          if ( ixs ) {
+          if ( ixs.length ) {
             const firstIx = ixs[0];
             currPosition = PIXI.Point.fromObject(firstIx);
             waypoints.push(currPosition);
@@ -474,7 +474,8 @@ export class ElevationHandler {
     const MIN_ELEV = -1e06;
     const sceneFloor = this.sceneFloor;
     const dist = PIXI.Point.distanceBetween(start, end);
-    const floorPoly = new PIXI.Polygon(-2, sceneFloor, -2, MIN_ELEV, dist + 2, MIN_ELEV, dist + 2, sceneFloor);
+    const floorPoly = new PIXI.Polygon(0, sceneFloor, 0, MIN_ELEV, dist, MIN_ELEV, dist, sceneFloor);
+    // const floorPoly = new PIXI.Polygon(-2, sceneFloor, -2, MIN_ELEV, dist + 2, MIN_ELEV, dist + 2, sceneFloor);
     paths.push(ClipperPaths.fromPolygons([floorPoly]));
 
     // if ( !paths.length ) return [];
@@ -835,7 +836,7 @@ function polygonsIntersections(a, b, combinedPolys, skipPoly) {
     poly._minMax ??= Math.minMax(...poly._pts.map(pt => pt.x));
     if ( poly._xMinMax && poly._xMinMax.max <= a.x ) return;
     poly._edges ??= [...poly.iterateEdges({ close: true })];
-    if ( !poly.lineSegmentIntersects(a, b, { edges: poly._edges }) ) return;
+    if ( !poly.lineSegmentIntersects(a, b, { edges: poly._edges }) ) return [];
 
     // Retrieve the indices so that the edge can be linked to the intersection, for traversing the poly.
     const ixIndices = poly.segmentIntersections(a, b, { edges: poly._edges, indices: true });

@@ -380,14 +380,14 @@ export class TileElevationHandler {
     end ??= b;
     let paddedStart = a;
     let paddedEnd = b;
-    if ( start && regionWaypointsXYEqual(a, start) ) {
-      paddedStart = PIXI.Point._tmp.copyFrom(start).towardsPoint(PIXI.Point._tmp2.copyFrom(end), -2);
-      paddedStart.elevation = start.elevation;
-    }
-    if ( end && regionWaypointsXYEqual(b, end) ) {
-      paddedEnd = PIXI.Point._tmp.copyFrom(end).towardsPoint(PIXI.Point._tmp2.copyFrom(start), -2);
-      paddedEnd.elevation = end.elevation;
-    }
+//     if ( start && regionWaypointsXYEqual(a, start) ) {
+//       paddedStart = PIXI.Point._tmp.copyFrom(start).towardsPoint(PIXI.Point._tmp2.copyFrom(end), -2);
+//       paddedStart.elevation = start.elevation;
+//     }
+//     if ( end && regionWaypointsXYEqual(b, end) ) {
+//       paddedEnd = PIXI.Point._tmp.copyFrom(end).towardsPoint(PIXI.Point._tmp2.copyFrom(start), -2);
+//       paddedEnd.elevation = end.elevation;
+//     }
 
     // Determine the appropriate endpoints.
     const ixs = shape.segmentIntersections(paddedStart, paddedEnd);

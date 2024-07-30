@@ -399,10 +399,13 @@ export class RegionElevationHandler {
 
     // Build the polygon slightly larger than start and end so that the start and end will
     // be correctly characterized (float/ground/underground).
-    const paddedStart = PIXI.Point._tmp.copyFrom(start).towardsPoint(PIXI.Point._tmp2.copyFrom(end), -2);
-    const paddedEnd = PIXI.Point._tmp.copyFrom(end).towardsPoint(PIXI.Point._tmp2.copyFrom(start), -2);
+//     const paddedStart = PIXI.Point._tmp.copyFrom(start).towardsPoint(PIXI.Point._tmp2.copyFrom(end), -2);
+//     const paddedEnd = PIXI.Point._tmp.copyFrom(end).towardsPoint(PIXI.Point._tmp2.copyFrom(start), -2);
+    const paddedStart = PIXI.Point.fromObject(start);
+    const paddedEnd = PIXI.Point.fromObject(end);
     paddedStart.elevation = start.elevation;
     paddedEnd.elevation = end.elevation;
+
 
     // For plateau and ramp, construct the cutaway polygon.
     const ixs = regionPoly.segmentIntersections(paddedStart, paddedEnd);
