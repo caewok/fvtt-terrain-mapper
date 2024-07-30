@@ -153,11 +153,11 @@ export class ElevationHandler {
 
     // Walk around the polygons or convex version of polygons for burrowing/flying.
     const fnName = flying ? "_constructPathFlying" : burrowing ? "_constructPathBurrowing" : "_constructPathWalking";
-    if ( flying && endType === UNDERGROUND ) {
+    if ( flying && endType !== FLOATING ) {
       const endE = this.nearestGroundElevation(end, { regions, samples });
       end2d.y = endE;
     }
-    if ( burrowing && endType === FLOATING ) {
+    if ( burrowing && endType !== UNDERGROUND ) {
       const endE = this.nearestGroundElevation(end, { regions, samples });
       end2d.y = endE;
     }
