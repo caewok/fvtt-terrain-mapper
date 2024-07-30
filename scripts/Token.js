@@ -94,9 +94,9 @@ function refreshToken(token, flags) {
       const flying = ElevationHandler.tokenIsFlying(token, origin, destination);
       const burrowing = ElevationHandler.tokenIsBurrowing(token, origin, destination);
       const path = ElevationHandler.constructPath(origin, destination, { burrowing, flying, token }); // Returns minimum [start, end]. End might be changed.
-      const elevationChanged = token.document.elevation !== path.at(-1).elevation;
+      const destElevation = path.at(-1).elevation;
+      const elevationChanged = token.document.elevation !== destElevation;
       if ( elevationChanged ) {
-        const destElevation = token[MODULE_ID].path.at(-1).elevation;
         if ( isFinite(destElevation) ) {
           log(`refreshToken|Setting preview token ${token.name} elevation to ${path.at(-1).elevation} at ${destination.x},${destination.y}`);
           token.document.elevation = destElevation;

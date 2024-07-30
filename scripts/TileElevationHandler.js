@@ -91,10 +91,13 @@ export class TileElevationHandler {
    */
   lineSegmentIntersects(start, end) {
     // Handle the 2d case.
-    if ( start.elevation === start.elevation ) {
+    if ( start.elevation === end.elevation ) {
       if ( start.elevation !== this.elevation ) return false;
       return this.tile.bounds.lineSegmentIntersects(start, end, { inside: true });
     }
+
+    // Handle the vertical move case.
+    if ( regionWaypointsXYAlmostEqual(start, end) ) return this.elevation.between(start.elevation, end.elevation);
 
     // Handle 3d case.
     const gridUnitsToPixels = CONFIG.GeometryLib.utils.gridUnitsToPixels;
