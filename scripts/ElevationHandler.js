@@ -294,7 +294,7 @@ export class ElevationHandler {
     } while ( maxElevation !== currElevation && iter < MAX_ITER )
 
     if ( iter >= MAX_ITER ) console.error("nearestGroundElevation|Max iterations reached!", waypoint);
-    return currElevation;
+    return isFinite(currElevation) ? currElevation : terrainFloor;
   }
 
 
