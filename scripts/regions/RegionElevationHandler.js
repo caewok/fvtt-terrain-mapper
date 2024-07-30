@@ -442,6 +442,7 @@ export class RegionElevationHandler {
     let topB = topA;
     let bottomE = this.region.document.elevation.bottom ?? MIN_ELEV;
     if ( usePlateauElevation && this.isElevated ) {
+      if ( typeof a === "undefined" || typeof b === "undefined" ) console.error("quadrangle2dCutaway|a or b undefined", a, b);
       topA = this.elevationUponEntry(a);
       topB = this.elevationUponEntry(b);
     }
