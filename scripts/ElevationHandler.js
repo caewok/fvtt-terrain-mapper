@@ -488,9 +488,10 @@ export class ElevationHandler {
     // TODO: This can never happen if the floor is added first.
     if ( !combinedPolys.length || combinedPolys.every(poly => !poly.isPositive) ) return [];
 
-    // At this point, there should not be any holes.
+    // At this point, could be holes but rarely.
     // Holes go top-to-bottom, so any hole cuts the polygon in two from a cutaway perspective.
-    if ( combinedPolys.some(poly => !poly.isPositive) ) console.error("Combined cutaway polygons still have holes.");
+    // But a tile "bridge" between two regions could create a hole in the middle, b/c the scene floor would also connect them.
+    // if ( combinedPolys.some(poly => !poly.isPositive) ) console.error("Combined cutaway polygons still have holes.");
     // combinedPolys.forEach(poly => Draw.shape(poly, { color: Draw.COLORS.blue, fill: Draw.COLORS.blue, fillAlpha: 0.5 }))
     return combinedPolys;
   }
