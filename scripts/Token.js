@@ -94,14 +94,16 @@ function refreshToken(token, flags) {
       const flying = ElevationHandler.tokenIsFlying(token, origin, destination);
       const burrowing = ElevationHandler.tokenIsBurrowing(token, origin, destination);
       const path = ElevationHandler.constructPath(origin, destination, { burrowing, flying, token }); // Returns minimum [start, end]. End might be changed.
-      const elevationChanged = token.document.elevation !== path.at(-1).elevation;
+      const destElevation = path.at(-1).elevation;
+      const elevationChanged = token.document.elevation !== destElevation;
       if ( elevationChanged ) {
-        log(`refreshToken|Setting preview token ${token.name} elevation to ${path.at(-1).elevation} at ${destination.x},${destination.y}`);
-        token.document.elevation = path.at(-1).elevation;
-        //token.renderFlags.set({ refreshElevation: true, refreshVisibility: true });
+        if ( isFinite(destElevation) ) {
+          log(`refreshToken|Setting preview token ${token.name} elevation to ${path.at(-1).elevation} at ${destination.x},${destination.y}`);
+          token.document.elevation = destElevation;
+        } else {
+          console.error(`${MODULE_ID}|refreshToken destination elevation is not finite. Moving from ${origin.x},${origin.y}, @${origin.elevation} --> ${destination.x},${destination.y}, @${destination.elevation}.\tFlying: ${flying}\tBurrowing:${burrowing}`)
+        }
       }
-
-      // if ( path.length > 2 ) token.document.updateSource({ elevation: path.at(-1).elevation });
     }
     return;
   } else if ( token.animationContexts.size ) {
@@ -116,11 +118,14 @@ function refreshToken(token, flags) {
     const currElevation = Math.round(path.elevationAt(currPosition));
     const elevationChanged = token.document.elevation !== currElevation;
     if ( elevationChanged ) {
-       // token.document.elevation = path.at(-1).elevation;
-       log(`refreshToken|Setting animating token ${token.name} elevation to ${currElevation} at ${currPosition.x},${currPosition.y}`);
-       // token.document.updateSource({ elevation: currPath.at(-1).elevation });
-       token.document.elevation = currElevation;
-       token.renderFlags.set({refreshElevation: true, refreshVisibility: true, refreshTooltip: true });
+      if ( isFinite(currElevation) ) {
+        log(`refreshToken|Setting animating token ${token.name} elevation to ${currElevation} at ${currPosition.x},${currPosition.y}`);
+        // Set the destination elevation based on the end of the path.
+        token.document.elevation = currElevation;
+        token.renderFlags.set({refreshElevation: true, refreshVisibility: true, refreshTooltip: true });
+      } else {
+        console.error(`${MODULE_ID}|refreshToken destination elevation is not finite.`)
+      }
     }
   }
 }
@@ -153,10 +158,15 @@ export function preUpdateToken(tokenD, changed, options, _userId) {
   const burrowing = ElevationHandler.tokenIsBurrowing(token, origin, destination);
   log(`preUpdateToken|Moving from ${origin.x},${origin.y}, @${origin.elevation} --> ${destination.x},${destination.y}, @${destination.elevation}.\tFlying: ${flying}\tBurrowing:${burrowing}`);
   token[MODULE_ID].path = ElevationHandler.constructPath(origin, destination, { burrowing, flying, token });
+  const destElevation = token[MODULE_ID].path.at(-1).elevation;
+  if ( isFinite(destElevation) ) {
+    log(`preUpdateToken|Setting destination elevation to ${token[MODULE_ID].path.at(-1).elevation}`, token[MODULE_ID].path);
+    // Set the destination elevation based on the end of the path.
+    changed.elevation = destElevation;
+  } else {
+    console.error(`${MODULE_ID}|preUpdateToken destination elevation is not finite. Moving from ${origin.x},${origin.y}, @${origin.elevation} --> ${destination.x},${destination.y}, @${destination.elevation}.\tFlying: ${flying}\tBurrowing:${burrowing}`)
+  }
 
-  log(`preUpdateToken|Setting destination elevation to ${token[MODULE_ID].path.at(-1).elevation}`, token[MODULE_ID].path);
-  // Set the destination elevation based on the end of the path.
-  changed.elevation = token[MODULE_ID].path.at(-1).elevation;
 }
 
 PATCHES.BASIC.HOOKS = {

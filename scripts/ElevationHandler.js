@@ -153,11 +153,11 @@ export class ElevationHandler {
 
     // Walk around the polygons or convex version of polygons for burrowing/flying.
     const fnName = flying ? "_constructPathFlying" : burrowing ? "_constructPathBurrowing" : "_constructPathWalking";
-    if ( flying && endType === UNDERGROUND ) {
+    if ( flying && endType !== FLOATING ) {
       const endE = this.nearestGroundElevation(end, { regions, samples });
       end2d.y = endE;
     }
-    if ( burrowing && endType === FLOATING ) {
+    if ( burrowing && endType !== UNDERGROUND ) {
       const endE = this.nearestGroundElevation(end, { regions, samples });
       end2d.y = endE;
     }
@@ -232,14 +232,14 @@ export class ElevationHandler {
     const terrainFloor = this.sceneFloor;
     let currElevation = waypoint.elevation;
 
-    // Option 1: Waypoint is currently in a region.
+    // Option 1: Waypoint is currently on a tile.
+    if ( tiles.some(tile => tile[MODULE_ID].waypointOnTile(waypoint, token)) ) return waypoint.elevation;
+
+    // Option 2: Waypoint is currently in a region.
     const currRegions = regions.filter(region => region.testPoint(waypoint, currElevation));
     if ( burrowing && currRegions.length ) return currElevation;
 
-    // Option 1.1: Waypoint is currently on a tile.
-    if ( tiles.some(tile => tile[MODULE_ID].waypointOnTile(waypoint, token)) ) return waypoint.elevation;
-
-    // Option 2: Fall to ground and locate intersecting regions and tiles. If below ground, move up to ground.
+    // Option 3: Fall to ground and locate intersecting regions and tiles. If below ground, move up to ground.
     if ( !currRegions.length ) {
       if ( waypoint.elevation === terrainFloor ) return terrainFloor;
       const ixs = [];
@@ -281,20 +281,21 @@ export class ElevationHandler {
     // If the entry elevation changes the current elevation, repeat.
     const MAX_ITER = 1e04;
     let iter = 0;
+    let currRegionElevation = currElevation;
     let maxElevation = currElevation;
     do {
       iter += 1;
-      currElevation = maxElevation;
+      currRegionElevation = maxElevation;
       maxElevation = Number.NEGATIVE_INFINITY;
       for ( const region of regions ) {
-        if ( !region.testPoint(waypoint, currElevation) ) continue;
+        if ( !region.testPoint(waypoint, currRegionElevation) ) continue;
         const newE = region[MODULE_ID].elevationUponEntry(waypoint);
         maxElevation = Math.max(maxElevation, newE);
       }
-    } while ( maxElevation !== currElevation && iter < MAX_ITER )
-
+    } while ( maxElevation !== currRegionElevation && iter < MAX_ITER )
     if ( iter >= MAX_ITER ) console.error("nearestGroundElevation|Max iterations reached!", waypoint);
-    return currElevation;
+
+    return isFinite(currRegionElevation) ? currRegionElevation : currElevation;
   }
 
 
@@ -344,7 +345,7 @@ export class ElevationHandler {
     if ( startType === this.ELEVATION_LOCATIONS.GROUND ) {
       // Determine what polygon we are on.
       const ixs = polygonsIntersections({ x: currPosition.x, y: currPosition.y + 1 }, { x: currPosition.x, y: currPosition.y - 1 }, combinedPolys);
-      if ( ixs ) {
+      if ( ixs.length ) {
         const firstIx = ixs[0];
         currPosition = PIXI.Point.fromObject(firstIx);
         currPoly = firstIx.poly;
@@ -385,7 +386,7 @@ export class ElevationHandler {
         const travelingUp = prevPosition ? prevPosition.y  < currPosition.y : currPosition.y < currEnd.y;
         if ( travelingUp ) {
           const ixs = polygonsIntersections(currPosition, { x: currPosition.x, y: 1e06 }, combinedPolys);
-          if ( ixs ) {
+          if ( ixs.length ) {
             const firstIx = ixs[0];
             currPosition = PIXI.Point.fromObject(firstIx);
             waypoints.push(currPosition);
@@ -474,7 +475,8 @@ export class ElevationHandler {
     const MIN_ELEV = -1e06;
     const sceneFloor = this.sceneFloor;
     const dist = PIXI.Point.distanceBetween(start, end);
-    const floorPoly = new PIXI.Polygon(-2, sceneFloor, -2, MIN_ELEV, dist + 2, MIN_ELEV, dist + 2, sceneFloor);
+    const floorPoly = new PIXI.Polygon(0, sceneFloor, 0, MIN_ELEV, dist, MIN_ELEV, dist, sceneFloor);
+    // const floorPoly = new PIXI.Polygon(-2, sceneFloor, -2, MIN_ELEV, dist + 2, MIN_ELEV, dist + 2, sceneFloor);
     paths.push(ClipperPaths.fromPolygons([floorPoly]));
 
     // if ( !paths.length ) return [];
@@ -487,9 +489,10 @@ export class ElevationHandler {
     // TODO: This can never happen if the floor is added first.
     if ( !combinedPolys.length || combinedPolys.every(poly => !poly.isPositive) ) return [];
 
-    // At this point, there should not be any holes.
+    // At this point, could be holes but rarely.
     // Holes go top-to-bottom, so any hole cuts the polygon in two from a cutaway perspective.
-    if ( combinedPolys.some(poly => !poly.isPositive) ) console.error("Combined cutaway polygons still have holes.");
+    // But a tile "bridge" between two regions could create a hole in the middle, b/c the scene floor would also connect them.
+    // if ( combinedPolys.some(poly => !poly.isPositive) ) console.error("Combined cutaway polygons still have holes.");
     // combinedPolys.forEach(poly => Draw.shape(poly, { color: Draw.COLORS.blue, fill: Draw.COLORS.blue, fillAlpha: 0.5 }))
     return combinedPolys;
   }
@@ -835,7 +838,7 @@ function polygonsIntersections(a, b, combinedPolys, skipPoly) {
     poly._minMax ??= Math.minMax(...poly._pts.map(pt => pt.x));
     if ( poly._xMinMax && poly._xMinMax.max <= a.x ) return;
     poly._edges ??= [...poly.iterateEdges({ close: true })];
-    if ( !poly.lineSegmentIntersects(a, b, { edges: poly._edges }) ) return;
+    if ( !poly.lineSegmentIntersects(a, b, { edges: poly._edges }) ) return [];
 
     // Retrieve the indices so that the edge can be linked to the intersection, for traversing the poly.
     const ixIndices = poly.segmentIntersections(a, b, { edges: poly._edges, indices: true });

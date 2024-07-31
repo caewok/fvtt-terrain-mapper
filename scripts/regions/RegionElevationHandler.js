@@ -10,7 +10,8 @@ import { MODULE_ID, FLAGS } from "../const.js";
 import {
   isPlateau,
   isRamp,
-  regionWaypointsXYEqual } from "../util.js";
+  regionWaypointsXYEqual,
+  regionWaypointsXYAlmostEqual } from "../util.js";
 import { Point3d } from "../geometry/3d/Point3d.js";
 import { Plane } from "../geometry/3d/Plane.js";
 import { ClipperPaths } from "../geometry/ClipperPaths.js";
@@ -156,8 +157,8 @@ export class RegionElevationHandler {
   _cutaway(start, end, { usePlateauElevation = true } = {}) {
     const regionPolys = [];
     for ( const regionPoly of this.region.polygons ) {
-      const quad = this.#quadrangle2dCutaway(start, end, regionPoly, { usePlateauElevation });
-      if ( quad ) regionPolys.push(quad);
+      const quad = this.#polygonCutaway(start, end, regionPoly, { usePlateauElevation });
+      regionPolys.push(...quad);
     }
 
     // If all holes or no polygons, we are done.
@@ -388,54 +389,66 @@ export class RegionElevationHandler {
   }
 
   /**
+   * Construct one or more quadrangles for a cutaway of this region polygon along a line segment.
+   * Depending on the line and the polygon, could have multiple quads.
+   * @param {RegionMovementWaypoint} start          Start of the segment
+   * @param {RegionMovementWaypoint} end            End of the segment
+   * @param {PIXI.Polygon} regionPoly               A polygon from the region
+   * @param {object} [opts]
+   * @param {boolean} [usePlateauElevation=true]    Use the plateau as the top, not the region top
+   * @returns {PIXI.Polygon[]}
+   */
+  #polygonCutaway(start, end, regionPoly, { usePlateauElevation = true } = {}) {
+    if ( !regionPoly.lineSegmentIntersects(start, end, { inside: true}) ) return [];
+
+    // Handle unlimited intersections with the polygon.
+    // Possible if the polygon is not simple. May go in and out of it.
+    const isHole = !regionPoly.isPositive;
+    const ixs = regionPoly.segmentIntersections(start, end);
+    if ( ixs.length === 0 ) return [this.#quadrangle2dCutaway(start, end, regionPoly, { usePlateauElevation, isHole })];
+    if ( ixs.length === 1 ) {
+      const ix0 = ixs[0];
+
+      // Intersects only at start point. Infer that end is inside; go from start --> end.
+      if ( regionWaypointsXYAlmostEqual(start, ix0) )  return [this.#quadrangle2dCutaway(start, end, regionPoly, { usePlateauElevation, isHole })];
+
+      // Intersects only at end point. Expand one pixel beyond to get a valid polygon.
+      if ( regionWaypointsXYAlmostEqual(end, ix0) ) {
+        const b = PIXI.Point._tmp.copyFrom(end).towardsPoint(PIXI.Point._tmp2.copyFrom(start), -1);
+        return [this.#quadrangle2dCutaway(start, b, regionPoly, { end, usePlateauElevation, isHole })];
+      }
+    }
+
+    ixs.sort((a, b) => a.t0 - b.t0);
+    if ( !regionWaypointsXYAlmostEqual(end, ixs.at(-1)) ) ixs.push(end);
+    if ( regionWaypointsXYAlmostEqual(start, ixs[0]) ) ixs.shift();
+
+    // Shoelace: move in and out of the polygon, constructing a quad for every "in"
+    const quads = [];
+    let prevIx = start;
+    let isInside = regionPoly.contains(start.x, start.y);
+    for ( const ix of ixs ) {
+      if ( isInside ) quads.push(this.#quadrangle2dCutaway(prevIx, ix, { start, end, usePlateauElevation, isHole }));
+      isInside = !isInside;
+      prevIx = ix;
+    }
+    return quads;
+  }
+
+  /**
    * Construct a quadrangle for a cutaway along a line segment
    * @param {RegionMovementWaypoint} start          Start of the segment
    * @param {RegionMovementWaypoint} end            End of the segment
    * @param {PIXI.Polygon} regionPoly               A polygon from the region
+   * @param {object} [opts]
+   * @param {boolean} [usePlateauElevation=true]    Use the plateau as the top, not the region top
    * @returns {PIXI.Polygon|null}
    */
-  #quadrangle2dCutaway(start, end, regionPoly, { usePlateauElevation = true } = {}) {
-    if ( !regionPoly.lineSegmentIntersects(start, end, { inside: true}) ) return null;
-
-    // Build the polygon slightly larger than start and end so that the start and end will
-    // be correctly characterized (float/ground/underground).
-    const paddedStart = PIXI.Point._tmp.copyFrom(start).towardsPoint(PIXI.Point._tmp2.copyFrom(end), -2);
-    const paddedEnd = PIXI.Point._tmp.copyFrom(end).towardsPoint(PIXI.Point._tmp2.copyFrom(start), -2);
-    paddedStart.elevation = start.elevation;
-    paddedEnd.elevation = end.elevation;
-
-    // For plateau and ramp, construct the cutaway polygon.
-    const ixs = regionPoly.segmentIntersections(paddedStart, paddedEnd);
-
-    // Determine the appropriate endpoints.
-    let a;
-    let b;
-    switch ( ixs.length ) {
-      case 0: { a = paddedStart; b = paddedEnd; break; }
-      case 1: {
-        const ix0 = ixs[0];
-        if ( paddedStart.x === ix0.x && paddedStart.y === ix0.y ) {
-          // Intersects only at start point. Infer that end is inside; go from start --> end.
-          a = paddedStart;
-          b = paddedEnd;
-        } else if ( paddedEnd.x === ix0.x && paddedEnd.y === ix0.y ) {
-          // Intersects only at end point.
-          // Expand one pixel past the end location to get a valid polygon.
-          a = paddedEnd;
-          b = PIXI.Point._tmp.copyFrom(paddedEnd).towardsPoint(PIXI.Point._tmp2.copyFrom(paddedStart), -1);
-        } else [a, b] = regionPoly.contains(paddedStart.x, paddedStart.y) ? [paddedStart, ix0] : [ix0, paddedEnd];
-        break;
-      }
-      case 2: {
-        const ix0 = ixs[0];
-        const ix1 = ixs[1];
-        [a, b] = ix0.t0 < ix1.t0 ? [ix0, ix1] : [ix1, ix0];
-        break;
-      }
-    }
-
+  #quadrangle2dCutaway(a, b, { start, end, usePlateauElevation = true, isHole = false } = {}) {
     // Build the quadrangle
     // For testing, use distance instead of distanceSquared
+    start ??= a;
+    end ??= b;
     const MAX_ELEV = 1e06;
     const MIN_ELEV = -1e06; // MIN_SAFE_INTEGER is much too high.
     let topA = this.region.document.elevation.top ?? MAX_ELEV;
@@ -448,23 +461,23 @@ export class RegionElevationHandler {
     }
 
     // If this poly is a hole, use the max/min elevations so it creates a hole regardless of ramp.
-    if ( !regionPoly.isPositive ) {
+    if ( isHole ) {
       topA = MAX_ELEV;
       topB = MAX_ELEV;
       bottomE = MIN_ELEV;
     }
     const toCutawayCoord = ElevationHandler._to2dCutawayCoordinate;
-    a.elevation = topA;
-    b.elevation = topB;
     const TL = toCutawayCoord(a, start, end);
     const TR = toCutawayCoord(b, start, end);
+    TL.y = topA;
+    TR.y = topB
     const BL = { x: TL.x, y: bottomE };
     const BR = { x: TR.x, y: bottomE };
-    if ( usePlateauElevation && this.isRamp && this.rampStepSize && regionPoly.isPositive ) {
+    if ( usePlateauElevation && this.isRamp && this.rampStepSize && !isHole ) {
       // Locate the breaks for the ramp. Move horizontally to each break, stepping up in elevation from low to high.
       // Cutpoints are always returned low --> high.
       // First point is the transition from lowest elevation to the cutpoint elevation.
-      const cutPoints = this._rampCutpointsForSegment(a, b);
+      const cutPoints = this._rampCutpointsForSegment({ ...a, elevation: topA }, { ...b, elevation: topB });
       const nCuts = cutPoints.length;
       if ( nCuts ) {
         const steps = [];
@@ -480,7 +493,7 @@ export class RegionElevationHandler {
       }
     }
     // _isPositive is y-down clockwise. For Foundry canvas, this is CCW.
-    const cutPointPoly = regionPoly.isPositive ? new PIXI.Polygon(TL, BL, BR, TR) : new PIXI.Polygon(TL, TR, BR, BL);
+    const cutPointPoly = isHole ? new PIXI.Polygon(TL, TR, BR, BL) : new PIXI.Polygon(TL, BL, BR, TR);
     return cutPointPoly;
   }
 }
