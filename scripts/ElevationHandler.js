@@ -232,14 +232,14 @@ export class ElevationHandler {
     const terrainFloor = this.sceneFloor;
     let currElevation = waypoint.elevation;
 
-    // Option 1: Waypoint is currently in a region.
+    // Option 1: Waypoint is currently on a tile.
+    if ( tiles.some(tile => tile[MODULE_ID].waypointOnTile(waypoint, token)) ) return waypoint.elevation;
+
+    // Option 2: Waypoint is currently in a region.
     const currRegions = regions.filter(region => region.testPoint(waypoint, currElevation));
     if ( burrowing && currRegions.length ) return currElevation;
 
-    // Option 1.1: Waypoint is currently on a tile.
-    if ( tiles.some(tile => tile[MODULE_ID].waypointOnTile(waypoint, token)) ) return waypoint.elevation;
-
-    // Option 2: Fall to ground and locate intersecting regions and tiles. If below ground, move up to ground.
+    // Option 3: Fall to ground and locate intersecting regions and tiles. If below ground, move up to ground.
     if ( !currRegions.length ) {
       if ( waypoint.elevation === terrainFloor ) return terrainFloor;
       const ixs = [];
@@ -281,20 +281,21 @@ export class ElevationHandler {
     // If the entry elevation changes the current elevation, repeat.
     const MAX_ITER = 1e04;
     let iter = 0;
+    let currRegionElevation = currElevation;
     let maxElevation = currElevation;
     do {
       iter += 1;
-      currElevation = maxElevation;
+      currRegionElevation = maxElevation;
       maxElevation = Number.NEGATIVE_INFINITY;
       for ( const region of regions ) {
-        if ( !region.testPoint(waypoint, currElevation) ) continue;
+        if ( !region.testPoint(waypoint, currRegionElevation) ) continue;
         const newE = region[MODULE_ID].elevationUponEntry(waypoint);
         maxElevation = Math.max(maxElevation, newE);
       }
-    } while ( maxElevation !== currElevation && iter < MAX_ITER )
-
+    } while ( maxElevation !== currRegionElevation && iter < MAX_ITER )
     if ( iter >= MAX_ITER ) console.error("nearestGroundElevation|Max iterations reached!", waypoint);
-    return isFinite(currElevation) ? currElevation : terrainFloor;
+
+    return isFinite(currRegionElevation) ? currRegionElevation : currElevation;
   }
 
 

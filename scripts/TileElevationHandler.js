@@ -2,7 +2,6 @@
 AsyncWorker,
 CONFIG,
 foundry,
-game,
 PIXI,
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
@@ -12,7 +11,7 @@ import { Point3d } from "./geometry/3d/Point3d.js";
 import { Plane } from "./geometry/3d/Plane.js";
 import { ElevationHandler } from "./ElevationHandler.js";
 import { ClipperPaths } from "./geometry/ClipperPaths.js";
-import { regionWaypointsXYEqual, regionWaypointsXYAlmostEqual } from "./util.js";
+import { regionWaypointsXYAlmostEqual } from "./util.js";
 import { Draw } from "./geometry/Draw.js";
 
 /**
@@ -376,39 +375,25 @@ export class TileElevationHandler {
    */
   #quadrangle2dCutaway(a, b, shape, { start, end, isHole = false } = {}) {
     if ( !shape.lineSegmentIntersects(a, b, { inside: true }) ) return null;
-
-    // Build the polygon slightly larger than start and end so that the start and end will
-    // be correctly characterized (float/ground/underground)
     start ??= a;
     end ??= b;
-    let paddedStart = a;
-    let paddedEnd = b;
-//     if ( start && regionWaypointsXYEqual(a, start) ) {
-//       paddedStart = PIXI.Point._tmp.copyFrom(start).towardsPoint(PIXI.Point._tmp2.copyFrom(end), -2);
-//       paddedStart.elevation = start.elevation;
-//     }
-//     if ( end && regionWaypointsXYEqual(b, end) ) {
-//       paddedEnd = PIXI.Point._tmp.copyFrom(end).towardsPoint(PIXI.Point._tmp2.copyFrom(start), -2);
-//       paddedEnd.elevation = end.elevation;
-//     }
 
     // Determine the appropriate endpoints.
-    const ixs = shape.segmentIntersections(paddedStart, paddedEnd);
-
+    const ixs = shape.segmentIntersections(a, b);
     switch ( ixs.length ) {
-      case 0: { a = paddedStart; b = paddedEnd; break; }
+      case 0: break; // Use a|b
       case 1: {
         const ix0 = ixs[0];
-        if ( paddedStart.x === ix0.x && paddedStart.y === ix0.y ) {
-          // Intersects only at start point. Infer that end is inside; go from start --> end.
-          a = paddedStart;
-          b = paddedEnd;
-        } else if ( paddedEnd.x === ix0.x && paddedEnd.y === ix0.y ) {
-          // Intersects only at end point.
-          // Expand one pixel past the end location to get a valid polygon.
-          a = paddedEnd;
-          b = PIXI.Point._tmp.copyFrom(paddedEnd).towardsPoint(PIXI.Point._tmp2.copyFrom(paddedStart), -1);
-        } else [a, b] = shape.contains(paddedStart.x, paddedStart.y) ? [paddedStart, ix0] : [ix0, paddedEnd];
+
+        // Intersects only at start point. Infer that end is inside; go from start --> end.
+        if ( regionWaypointsXYAlmostEqual(a, ix0) ) break;
+
+        // Intersects only at end point.
+        // Expand one pixel past the end location to get a valid polygon.
+        else if ( regionWaypointsXYAlmostEqual(b, ix0) ) [a, b] = [b, PIXI.Point._tmp.copyFrom(b).towardsPoint(PIXI.Point._tmp2.copyFrom(a), -1)];
+
+        // Intersect once somewhere between a and b, so either a is outside or b is outside but not both.
+        else [a, b] = shape.contains(a.x, a.y) ? [a, ix0] : [ix0, b];
         break;
       }
       case 2: {
@@ -421,13 +406,13 @@ export class TileElevationHandler {
 
     // Build the quadrangle
     // Give tiles a 1-pixel height so they are proper polygons in the cutaway.
+    const tileE = this.elevation;
     const toCutawayCoord = ElevationHandler._to2dCutawayCoordinate;
-    a.elevation = this.elevation;
-    b.elevation = this.elevation;
     const TL = toCutawayCoord(a, start, end);
     const TR = toCutawayCoord(b, start, end);
-    const BL = { x: TL.x, y: a.elevation - 1 };
-    const BR = { x: TR.x, y: b.elevation - 1 };
+    TL.y = TR.y = tileE;
+    const BL = { x: TL.x, y: tileE - 1 };
+    const BR = { x: TR.x, y: tileE - 1 };
     return isHole ? new PIXI.Polygon(TL, TR, BR, BL) : new PIXI.Polygon(TL, BL, BR, TR);
   }
 
