@@ -1,3 +1,6 @@
+## 0.3.3
+Add json folder to workflow so default terrains will be present in dnd5e.
+
 ## 0.3.2
 Address compatibility with Elevation Ruler. Requires Elevation Ruler v0.9.5.
 
