@@ -228,27 +228,26 @@ export function elevatedTiles(tiles) {
 /**
  * Determine the token movement types.
  * @param {Token} token                     Token doing the movement
- * @param {RegionMovementWaypoint} start    Starting location
- * @param {RegionMovementWaypoint} end      Ending location
+ * @param {RegionMovementWaypoint} loc      Location to test (typically the start position of the token)
  * @returns {boolean} True if token has flying status or implicitly is flying
  */
-export function tokenIsFlying(token, start, _end) {
+export function tokenIsFlying(token, loc) {
   const actor = token.actor;
   const types = new Set();
   if ( game.system.id === "dnd5e" && actor ) return actor.statuses.has("flying") || actor.statuses.has("hovering");
-  return tm.elevationType(start) === ElevationHandler.ELEVATION_LOCATIONS.FLOATING;
+  return tm.elevationType(loc) === ElevationHandler.ELEVATION_LOCATIONS.FLOATING;
 }
 
 /**
  * Determine the token movement types.
  * @param {Token} token                     Token doing the movement
- * @param {RegionMovementWaypoint} start    Starting location
+ * @param {RegionMovementWaypoint} loc      Location to test (typically the start position of the token)
  * @param {RegionMovementWaypoint} end      Ending location
  * @returns {boolean} True if token has flying status or implicitly is flying
  */
-export function tokenIsBurrowing(token, start, end) {
+export function tokenIsBurrowing(token, loc) {
   const actor = token.actor;
   const types = new Set();
   if ( game.system.id === "dnd5e" && actor ) return actor.statuses.has("burrowing");
-  return tm.elevationType(start) === ElevationHandler.ELEVATION_LOCATIONS.BURROWING;
+  return tm.elevationType(loc) === ElevationHandler.ELEVATION_LOCATIONS.BURROWING;
 }

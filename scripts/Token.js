@@ -3,7 +3,8 @@ canvas,
 CONFIG,
 CONST,
 game,
-PIXI
+PIXI,
+ruler
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
@@ -14,7 +15,7 @@ Methods and hooks related to tokens.
 Hook token movement to add/remove terrain effects and pause tokens dependent on settings.
 */
 
-import { MODULE_ID, FLAGS } from "./const.js";
+import { MODULE_ID, FLAGS, MODULES_ACTIVE } from "./const.js";
 import { log } from "./util.js";
 import { ElevationHandler } from "./ElevationHandler.js";
 
@@ -87,6 +88,11 @@ function refreshToken(token, flags) {
 
 
       // Adjust the token preview's elevation based on regions.
+      if ( MODULES_ACTIVE.ELEVATION_RULER
+        && canvas.controls.ruler.state === Ruler.STATES.MEASURING
+        && canvas.controls.ruler.token === token
+        && canvas.controls.ruler._isTokenRuler) return;
+
       const origin = token._original.center;
       origin.elevation = token._original.elevationE;
       const destination = token.center;
@@ -108,10 +114,6 @@ function refreshToken(token, flags) {
     return;
   } else if ( token.animationContexts.size ) {
     log(`${token.name} is animating`);
-    // TODO: Is there a way to calculate the path only once? The issue is with ramps mostly---how to store step elevation?
-    //       Also, how to easily locate position along the path?
-    // Maybe take a page from Elevated Vision TER approach: Use a class for the path that can determine elevation.
-    // This could track current region and adjust as necessary.
     const path = token[MODULE_ID]?.path;
     if ( !path ) return;
     const currPosition = token.getCenterPoint(token.position);
@@ -136,11 +138,18 @@ function refreshToken(token, flags) {
  * @param {Document} document                       The Document instance being updated
  * @param {object} changed                          Differential data that will be used to update the document
  * @param {Partial<DatabaseUpdateOperation>} options Additional options which modify the update request
+ * @param {object} [options.terrainmapper]
+ *   - @param {boolean} [options.terrainmapper.]
  * @param {string} userId                           The ID of the requesting user, always game.user.id
  * @returns {boolean|void}                          Explicitly return false to prevent update of this Document
  */
 export function preUpdateToken(tokenD, changed, options, _userId) {
   log(`preUpdateToken ${tokenD.name}`);
+  options[MODULE_ID] ??= {};
+  options[MODULE_ID].fixedDestination ??= false;
+  options[MODULE_ID].usePath ??= true;
+  if ( !options[MODULE_ID].usePath ) return;
+
   const token = tokenD.object;
   if ( !token ) return;
   token[MODULE_ID] ??= {};
@@ -154,8 +163,10 @@ export function preUpdateToken(tokenD, changed, options, _userId) {
   const origin = token.center;
   origin.elevation = token.elevationE
   destination.elevation = changed.elevation ?? origin.elevation;
-  const flying = ElevationHandler.tokenIsFlying(token, origin, destination);
-  const burrowing = ElevationHandler.tokenIsBurrowing(token, origin, destination);
+
+  const testLoc = options[MODULE_ID].fixedDestination ? origin : destination;
+  const flying = ElevationHandler.tokenIsFlying(token, testLoc);
+  const burrowing = ElevationHandler.tokenIsBurrowing(token, testLoc);
   log(`preUpdateToken|Moving from ${origin.x},${origin.y}, @${origin.elevation} --> ${destination.x},${destination.y}, @${destination.elevation}.\tFlying: ${flying}\tBurrowing:${burrowing}`);
   token[MODULE_ID].path = ElevationHandler.constructPath(origin, destination, { burrowing, flying, token });
   const destElevation = token[MODULE_ID].path.at(-1).elevation;
