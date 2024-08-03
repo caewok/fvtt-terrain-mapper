@@ -1,0 +1,54 @@
+{
+  "terrainmapper.name": "Terrain Mapper",
+  "terrainmapper.controls.fill-by-grid.name": "Preencher por Grade",
+  "terrainmapper.controls.fill-by-los.name": "Preencher por Linha de Visão",
+  "terrainmapper.controls.fill-space.name": "Preencher Espaços Cercados por Paredes",
+
+  "terrainmapper.terrainbook.create-terrain": "Criar Terreno",
+  "terrainmapper.terrainbook.create-defaults": "Redefinir Terrenos Padrão",
+
+  "terrainmapper.scene-config.backgroundElevation.name": "Elevação de Fundo",
+  "terrainmapper.scene-config.backgroundElevation.hint": "A elevação padrão para tokens colocados na tela.",
+
+  "terrainmapper.active-effect-config.duplicatesAllowed.name": "Permitir Duplicatas",
+  "terrainmapper.active-effect-config.duplicatesAllowed.hint": "Quando ativado, este efeito de terreno pode ser aplicado diversas vezes a um único token.",
+
+  "terrainmapper.active-effect-config.displayStatusIcon.name": "Ícone de Status",
+  "terrainmapper.active-effect-config.displayStatusIcon.hint": "Quando desativado, o ícone de status do terreno não será exibido nos tokens afetados.",
+
+  "terrainmapper.behavior.types.add-terrain.fields.terrain.hint": "Selecione o terreno que será adicionado ao token como efeito ativo.",
+
+  "terrainmapper.behavior.types.set-terrain.fields.terrain.hint": "Selecione o terreno que será adicionado ao token como efeito ativo. Quando o token sair da região, o terreno será removido automaticamente.",
+
+  "terrainmapper.behavior.types.add-terrain.fields.removeOther.name": "Remover Outros",
+  "terrainmapper.behavior.types.add-terrain.fields.removeOther.hint": "Quando ativado, todos os outros terrenos do token serão removidos.",
+
+  "terrainmapper.behavior.types.add-terrain.fields.secret.name": "Secreto",
+  "terrainmapper.behavior.types.add-terrain.fields.secret.hint": "Quando ativado, arrastar o token não revelará a existência do terreno aos usuários.",
+
+  "terrainmapper.behavior.types.remove-terrain.fields.terrain.hint": "Selecione um ou mais terrenos que serão removidos do token. Deixe em branco para remover todos os terrenos.",
+
+  "terrainmapper.behavior.types.remove-terrain.fields.keepSelected.name": "Manter Selecionados",
+  "terrainmapper.behavior.types.remove-terrain.fields.keepSelected.hint": "Habilite para manter os terrenos selecionados e remover todo o resto do token.",
+
+    "terrainmapper.behavior.types.set-elevation.fields.elevation.name": "Elevação",
+  "terrainmapper.behavior.types.set-elevation.fields.elevation.hint": "Ao entrar na região, o token será definido para esta elevação. Para uma cena típica, você deve definir a região superior para esta elevação e a região inferior para infinito negativo.",
+
+    "terrainmapper.behavior.types.set-elevation.fields.reset.name": "Redefinir ao Sair",
+  "terrainmapper.behavior.types.set-elevation.fields.reset.hint": "Quando ativado, a elevação do token será redefinida para a elevação de fundo da cena quando o token sair da região.",
+
+  "TYPES.RegionBehavior.terrainmapper.addTerrain": "Adicionar Terrenos",
+  "TYPES.RegionBehavior.terrainmapper.removeTerrain": "Remover Terrenos",
+  "TYPES.RegionBehavior.terrainmapper.setTerrain": "Definir Terreno",
+  "TYPES.RegionBehavior.terrainmapper.setElevation": "Definir Elevação",
+
+  "terrainmapper.phrases.terrainLayer": "Camada de Terreno",
+  "terrainmapper.phrases.terrain": "Terreno",
+  "terrainmapper.phrases.terrains": "Terrenos",
+  "terrainmapper.phrases.no-terrain": "Sem Terreno",
+  "terrainmapper.phrases.new-terrain": "Novo Terreno",
+  "terrainmapper.phrases.layer-number": "Camada {layerNumber}",
+  "terrainmapper.phrases.difficult_x2": "Dificuldade (x2)",
+  "terrainmapper.phrases.water_swimming": "Água (Natação)",
+  "terrainmapper.phrases.cliff_climbing": "Penhasco (Escalada)"
+}
