@@ -96,7 +96,10 @@ export class TileElevationHandler {
     }
 
     // Handle the vertical move case.
-    if ( regionWaypointsXYAlmostEqual(start, end) ) return this.elevation.between(start.elevation, end.elevation);
+    if ( regionWaypointsXYAlmostEqual(start, end) ) {
+      if ( !this.elevation.between(start.elevation, end.elevation) ) return false;
+      return this.tile.bounds.contains(start.x, start.y);
+    }
 
     // Handle 3d case.
     const gridUnitsToPixels = CONFIG.GeometryLib.utils.gridUnitsToPixels;
