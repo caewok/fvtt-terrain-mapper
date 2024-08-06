@@ -48,6 +48,49 @@ export class ElevationHandler {
   // ----- NOTE: Primary methods ----- //
 
   /**
+   * Retrieve tiles and regions that may intersect a line segment. Bounds test only.
+   * @param {RegionMovementWaypoint} start          Start of the path
+   * @param {RegionMovementWaypoint} end            End of the path
+   * @param {object} [opts]
+   * @param {Region[]} [opts.regions]               Regions to test; if undefined all on canvas will be tested
+   * @param {Region[]} [opts.tiles]               Tiles to test; if undefined all on canvas will be tested
+   * @returns {object}
+   *   @prop {Region[]} regions   Elevated regions that may intersect
+   *   @prop {Tile[]} tiles       Elevated tiles that may intersect
+   */
+  static elevatedObjectsBoundLineSegment(start, end, { regions, tiles } = {}) {
+    regions = elevatedRegions(regions).filter(region => region.bounds.lineSegmentIntersects(start, end, { inside: true }));
+    tiles = elevatedTiles(tiles).filter(tile => tile.bounds.lineSegmentIntersects(start, end, { inside: true }));
+    return { regions, tiles };
+  }
+
+  /**
+   * Retrieve terrain regions that may intersect a line segment. Bounds test only.
+   * @param {RegionMovementWaypoint} start          Start of the path
+   * @param {RegionMovementWaypoint} end             End of the path
+   * @param {object} [opts]
+   * @param {Region[]} [opts.regions]               Regions to test; if undefined all on canvas will be tested
+   * @returns {Region[]} Terrain regions that may intersect.
+   */
+  static terrainRegionsBoundLineSegment(start, end, { regions } = {}) {
+    regions ??= canvas.regions.placeables;
+    return regions.filter(region => region[MODULE_ID].hasTerrain && region.bounds.lineSegmentIntersects(start, end, { inside: true }));
+  }
+
+  /**
+   * Simple test for whether any terrain regions may intersect a line segment. Bounds test only.
+   * @param {RegionMovementWaypoint} start          Start of the path
+   * @param {RegionMovementWaypoint} end             End of the path
+   * @param {object} [opts]
+   * @param {Region[]} [opts.regions]               Regions to test; if undefined all on canvas will be tested
+   * @returns {boolean} True if at least one region found.
+   */
+  static anyTerrainRegionsBoundLineSegment(start, end, { regions } = {}) {
+    regions ??= canvas.regions.placeables;
+    return regions.some(region => region[MODULE_ID].hasTerrain && region.bounds.lineSegmentIntersects(start, end, { inside: true }));
+  }
+
+  /**
    * Create a path for a given straight line segment that may move through regions.
    * Unless flying or burrowing, the path will run along the "top" of any ramp or plateau,
    * with the token moving up to the plateau/ramp elevations and down when exiting regions.
@@ -84,8 +127,9 @@ export class ElevationHandler {
     // Only care about elevated regions and elevated tiles.
     // Trim to regions and tiles whose bounds are intersected by the path.
     // Don't worry about elevation right now.
-    regions = elevatedRegions(regions).filter(region => region.bounds.lineSegmentIntersects(start, end, { inside: true }));
-    tiles = elevatedTiles(tiles).filter(tile => tile.bounds.lineSegmentIntersects(start, end, { inside: true }));
+    const res = this.elevatedObjectsBoundLineSegment(start, end, { regions, tiles });
+    regions = res.regions;
+    tiles = res.tiles;
     if ( !regions.length && !tiles.length ) return StraightLinePath.from([start, end]);
 
     // Simple case: Elevation-only change.
