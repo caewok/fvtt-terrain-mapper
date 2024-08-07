@@ -50,7 +50,7 @@ export function TerrainMixin(Base) {
       return data;
     }
 
-  /**
+    /**
      * Calculate the percent of the token speed that would be used if the token were to travel
      * along segment start|end. The token speed is adjusted over this span by terrains.
      * Percentage is from the token's initial speed, which may have effects applied already.

@@ -10,8 +10,7 @@ import { MODULE_ID, FLAGS } from "../const.js";
 import {
   isPlateau,
   isRamp,
-  regionWaypointsXYEqual,
-  regionWaypointsXYAlmostEqual } from "../util.js";
+  regionWaypointsXYEqual } from "../util.js";
 import { Point3d } from "../geometry/3d/Point3d.js";
 import { Plane } from "../geometry/3d/Plane.js";
 import { ClipperPaths } from "../geometry/ClipperPaths.js";
@@ -415,102 +414,23 @@ export class RegionElevationHandler {
    * @returns {PIXI.Polygon[]}
    */
   #polygonCutaway(start, end, regionPoly, { usePlateauElevation = true } = {}) {
-    if ( !regionPoly.lineSegmentIntersects(start, end, { inside: true}) ) return [];
-
-    // Handle unlimited intersections with the polygon.
-    // Possible if the polygon is not simple. May go in and out of it.
-    const isHole = !regionPoly.isPositive;
-    const ixs = regionPoly.segmentIntersections(start, end);
-    if ( ixs.length === 0 ) return [this.#quadrangle2dCutaway(start, end, regionPoly, { usePlateauElevation, isHole })];
-    if ( ixs.length === 1 ) {
-      const ix0 = ixs[0];
-
-      // Intersects only at start point. Infer that end is inside; go from start --> end.
-      if ( regionWaypointsXYAlmostEqual(start, ix0) )  return [this.#quadrangle2dCutaway(start, end, regionPoly, { usePlateauElevation, isHole })];
-
-      // Intersects only at end point. Expand one pixel beyond to get a valid polygon.
-      if ( regionWaypointsXYAlmostEqual(end, ix0) ) {
-        const b = PIXI.Point._tmp.copyFrom(end).towardsPoint(PIXI.Point._tmp2.copyFrom(start), -1);
-        return [this.#quadrangle2dCutaway(start, b, regionPoly, { end, usePlateauElevation, isHole })];
-      }
-    }
-
-    ixs.sort((a, b) => a.t0 - b.t0);
-    if ( !regionWaypointsXYAlmostEqual(end, ixs.at(-1)) ) ixs.push(end);
-    if ( regionWaypointsXYAlmostEqual(start, ixs[0]) ) ixs.shift();
-
-    // Shoelace: move in and out of the polygon, constructing a quad for every "in"
-    const quads = [];
-    let prevIx = start;
-    let isInside = regionPoly.contains(start.x, start.y);
-    for ( const ix of ixs ) {
-      if ( isInside ) quads.push(this.#quadrangle2dCutaway(prevIx, ix, { start, end, usePlateauElevation, isHole }));
-      isInside = !isInside;
-      prevIx = ix;
-    }
-    return quads;
-  }
-
-  /**
-   * Construct a quadrangle for a cutaway along a line segment
-   * @param {RegionMovementWaypoint} start          Start of the segment
-   * @param {RegionMovementWaypoint} end            End of the segment
-   * @param {PIXI.Polygon} regionPoly               A polygon from the region
-   * @param {object} [opts]
-   * @param {boolean} [usePlateauElevation=true]    Use the plateau as the top, not the region top
-   * @returns {PIXI.Polygon|null}
-   */
-  #quadrangle2dCutaway(a, b, { start, end, usePlateauElevation = true, isHole = false } = {}) {
-    // Build the quadrangle
-    // For testing, use distance instead of distanceSquared
-    start ??= a;
-    end ??= b;
+    const { gridUnitsToPixels, pixelsToGridUnits } = CONFIG.GeometryLib.utils;
+    const a = Point3d.copyFrom(start);
+    const b = Point3d.copyFrom(end);
+    a.z = gridUnitsToPixels(start.elevation)
+    b.z = gridUnitsToPixels(end.elevation);
+    const MIN_ELEV = -1e06;
     const MAX_ELEV = 1e06;
-    const MIN_ELEV = -1e06; // MIN_SAFE_INTEGER is much too high.
-    let topA = this.region.document.elevation.top ?? MAX_ELEV;
-    let topB = topA;
-    let bottomE = this.region.document.elevation.bottom ?? MIN_ELEV;
-    if ( usePlateauElevation && this.isElevated ) {
-      if ( typeof a === "undefined" || typeof b === "undefined" ) console.error("quadrangle2dCutaway|a or b undefined", a, b);
-      topA = this.elevationUponEntry(a);
-      topB = this.elevationUponEntry(b);
-    }
-
-    // If this poly is a hole, use the max/min elevations so it creates a hole regardless of ramp.
-    if ( isHole ) {
-      topA = MAX_ELEV;
-      topB = MAX_ELEV;
-      bottomE = MIN_ELEV;
-    }
-    const toCutawayCoord = ElevationHandler._to2dCutawayCoordinate;
-    const TL = toCutawayCoord(a, start, end);
-    const TR = toCutawayCoord(b, start, end);
-    TL.y = topA;
-    TR.y = topB
-    const BL = { x: TL.x, y: bottomE };
-    const BR = { x: TR.x, y: bottomE };
-    if ( usePlateauElevation && this.isRamp && this.rampStepSize && !isHole ) {
-      // Locate the breaks for the ramp. Move horizontally to each break, stepping up in elevation from low to high.
-      // Cutpoints are always returned low --> high.
-      // First point is the transition from lowest elevation to the cutpoint elevation.
-      const cutPoints = this._rampCutpointsForSegment({ ...a, elevation: topA }, { ...b, elevation: topB });
-      const nCuts = cutPoints.length;
-      if ( nCuts ) {
-        const steps = [];
-        let currElev = Math.min(TR.y, TL.y)
-        for ( let i = 0; i < nCuts; i += 1 ) {
-          const cutPoint = cutPoints[i];
-          const x = toCutawayCoord(cutPoint, start, end).x;
-          steps.push({ x, y: currElev}, { x, y: cutPoint.elevation });
-          currElev = cutPoint.elevation;
-        }
-        if ( TL.y < TR.y ) steps.reverse();
-        return new PIXI.Polygon(TL, BL, BR, TR, ...steps);
-      }
-    }
-    // _isPositive is y-down clockwise. For Foundry canvas, this is CCW.
-    const cutPointPoly = isHole ? new PIXI.Polygon(TL, TR, BR, BL) : new PIXI.Polygon(TL, BL, BR, TR);
-    return cutPointPoly;
+    const topE = this.region.document.elevation.top ?? MAX_ELEV;
+    const bottomE = this.region.document.elevation.bottom ?? MIN_ELEV; // Note: in grid units to avoid recalculation later.
+    const topElevationFn = usePlateauElevation
+      ? pt => this.elevationUponEntry({ ...pt, elevation: pixelsToGridUnits(pt.z) })
+        : _pt => topE;
+    const bottomElevationFn = _pt => bottomE;
+    const cutPointsFn = (this.isRamp && this.rampStepSize)
+      ? (a, b) => this._rampCutpointsForSegment({ ...a, elevation: pixelsToGridUnits(a.z) }, { ...b, elevation: pixelsToGridUnits(b.z) })
+        : undefined;
+    return regionPoly.cutaway(a, b, { topElevationFn, bottomElevationFn, cutPointsFn });
   }
 }
 

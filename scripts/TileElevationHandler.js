@@ -324,7 +324,14 @@ export class TileElevationHandler {
    */
   #cutawayPolygonsNoHoles(start, end) {
     const bounds = this.trimBorder ? this.alphaBorder : this.tile.bounds;
-    const quad = this.#quadrangle2dCutaway(start, end, bounds);
+
+    // Give tiles a 1-pixel height so they are proper polygons in the cutaway.
+    // Use grid units for elevation.
+    const topE = this.elevation;
+    const bottomE = topE - 1;
+    const topElevationFn = _pt => topE;
+    const bottomElevationFn = _pt => bottomE;
+    const quad = bounds.cutaway(start, end, { topElevationFn, bottomElevationFn });
     return quad ? [quad] : [];
   }
 
@@ -339,19 +346,26 @@ export class TileElevationHandler {
     const holePositions = this.holePositions(start, end, holeThreshold);
     if ( !holePositions.length ) return [];// return this.#cutawayPolygonsNoHoles(start, end);
 
+    // Give tiles a 1-pixel height so they are proper polygons in the cutaway.
+    // Use grid units for elevation.
+    const topE = this.elevation;
+    const bottomE = topE - 1;
+    const topElevationFn = _pt => topE;
+    const bottomElevationFn = _pt => bottomE;
+
     // Starting outside the tile and moving until we hit something.
     const polys = [];
     const bounds = this.alphaBorder;
     let a = holePositions[0];
     let onTile = !a.holeStart;
     if ( holePositions.length === 1 && onTile ) {
-      const quad = this.#quadrangle2dCutaway(a, end, bounds, { start, end });
+      const quad = bounds.cutaway(a, end, { start, end, topElevationFn, bottomElevationFn });
       if ( quad ) return [quad];
     }
     for ( let i = 1, n = holePositions.length; i < n; i += 1 ) {
       const b = holePositions[i];
       if ( onTile && b.holeStart ) {
-        const quad = this.#quadrangle2dCutaway(a, b, bounds, { start, end });
+        const quad = bounds.cutaway(a, b, { start, end, topElevationFn, bottomElevationFn });
         if ( quad ) polys.push(quad);
         onTile = false;
         a = b;
@@ -364,60 +378,6 @@ export class TileElevationHandler {
   }
 
   // ----- NOTE: Private methods ----- //
-
-  /**
-   * Construct a quadrangle for a cutaway along a line segment
-   * @param {RegionMovementWaypoint} a              Start of the segment
-   * @param {RegionMovementWaypoint} b              End of the segment
-   * @param {PIXI.Polygon|PIXI.Rectangle} shape     A polygon or rectangle from the tile
-   * @param {object} [opts]                         Options that affect the shape
-   * @param {RegionMovementWaypoint} [opts.start]   The start of the entire path, if different than a
-   * @param {RegionMovementWaypoint} [opts.end]     The end of the entire path, if different than b
-   * @param {boolean} [opts.isHole=false]           If true, reverse the polygon orientation
-   * @returns {PIXI.Polygon|null}
-   */
-  #quadrangle2dCutaway(a, b, shape, { start, end, isHole = false } = {}) {
-    if ( !shape.lineSegmentIntersects(a, b, { inside: true }) ) return null;
-    start ??= a;
-    end ??= b;
-
-    // Determine the appropriate endpoints.
-    const ixs = shape.segmentIntersections(a, b);
-    switch ( ixs.length ) {
-      case 0: break; // Use a|b
-      case 1: {
-        const ix0 = ixs[0];
-
-        // Intersects only at start point. Infer that end is inside; go from start --> end.
-        if ( regionWaypointsXYAlmostEqual(a, ix0) ) break;
-
-        // Intersects only at end point.
-        // Expand one pixel past the end location to get a valid polygon.
-        else if ( regionWaypointsXYAlmostEqual(b, ix0) ) [a, b] = [b, PIXI.Point._tmp.copyFrom(b).towardsPoint(PIXI.Point._tmp2.copyFrom(a), -1)];
-
-        // Intersect once somewhere between a and b, so either a is outside or b is outside but not both.
-        else [a, b] = shape.contains(a.x, a.y) ? [a, ix0] : [ix0, b];
-        break;
-      }
-      case 2: {
-        const ix0 = ixs[0];
-        const ix1 = ixs[1];
-        [a, b] = ix0.t0 < ix1.t0 ? [ix0, ix1] : [ix1, ix0];
-        break;
-      }
-    }
-
-    // Build the quadrangle
-    // Give tiles a 1-pixel height so they are proper polygons in the cutaway.
-    const tileE = this.elevation;
-    const toCutawayCoord = ElevationHandler._to2dCutawayCoordinate;
-    const TL = toCutawayCoord(a, start, end);
-    const TR = toCutawayCoord(b, start, end);
-    TL.y = TR.y = tileE;
-    const BL = { x: TL.x, y: tileE - 1 };
-    const BR = { x: TR.x, y: tileE - 1 };
-    return isHole ? new PIXI.Polygon(TL, TR, BR, BL) : new PIXI.Polygon(TL, BL, BR, TR);
-  }
 
   /**
    * Construct a pixel cache for the local values of the tile, in which every pixel
