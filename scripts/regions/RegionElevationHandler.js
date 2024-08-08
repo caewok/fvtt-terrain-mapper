@@ -170,6 +170,8 @@ export class RegionElevationHandler {
    * @returns {ClipperPaths|null} The combined Clipper paths for the region cutaway.
    */
   _cutaway(start, end, { usePlateauElevation = true } = {}) {
+    start = ElevationHandler._toPoint3d(start);
+    end = ElevationHandler._toPoint3d(end);
     const regionPolys = [];
     for ( const regionPoly of this.region.polygons ) {
       const quad = this.#polygonCutaway(start, end, regionPoly, { usePlateauElevation });
@@ -406,8 +408,8 @@ export class RegionElevationHandler {
   /**
    * Construct one or more quadrangles for a cutaway of this region polygon along a line segment.
    * Depending on the line and the polygon, could have multiple quads.
-   * @param {RegionMovementWaypoint} start          Start of the segment
-   * @param {RegionMovementWaypoint} end            End of the segment
+   * @param {Point3d} start          Start of the segment
+   * @param {Point3d} end            End of the segment
    * @param {PIXI.Polygon} regionPoly               A polygon from the region
    * @param {object} [opts]
    * @param {boolean} [usePlateauElevation=true]    Use the plateau as the top, not the region top
@@ -415,22 +417,20 @@ export class RegionElevationHandler {
    */
   #polygonCutaway(start, end, regionPoly, { usePlateauElevation = true } = {}) {
     const { gridUnitsToPixels, pixelsToGridUnits } = CONFIG.GeometryLib.utils;
-    const a = Point3d.copyFrom(start);
-    const b = Point3d.copyFrom(end);
-    a.z = gridUnitsToPixels(start.elevation)
-    b.z = gridUnitsToPixels(end.elevation);
     const MIN_ELEV = -1e06;
     const MAX_ELEV = 1e06;
-    const topE = this.region.document.elevation.top ?? MAX_ELEV;
-    const bottomE = this.region.document.elevation.bottom ?? MIN_ELEV; // Note: in grid units to avoid recalculation later.
+    const topE = gridUnitsToPixels(this.region.document.elevation.top ?? MAX_ELEV);
+    const bottomE = gridUnitsToPixels(this.region.document.elevation.bottom ?? MIN_ELEV); // Note: in grid units to avoid recalculation later.
     const topElevationFn = usePlateauElevation
-      ? pt => this.elevationUponEntry({ ...pt, elevation: pixelsToGridUnits(pt.z) })
+      ? pt => gridUnitsToPixels(this.elevationUponEntry({ ...pt, elevation: pixelsToGridUnits(pt.z) }))
         : _pt => topE;
     const bottomElevationFn = _pt => bottomE;
     const cutPointsFn = (this.isRamp && this.rampStepSize)
-      ? (a, b) => this._rampCutpointsForSegment({ ...a, elevation: pixelsToGridUnits(a.z) }, { ...b, elevation: pixelsToGridUnits(b.z) })
+      ? (a, b) => this._rampCutpointsForSegment(
+        { ...a, elevation: pixelsToGridUnits(a.z) },
+        { ...b, elevation: pixelsToGridUnits(b.z) }).map(pt => ElevationHandler._to2dCutawayCoordinate(pt, start, end))
         : undefined;
-    return regionPoly.cutaway(a, b, { topElevationFn, bottomElevationFn, cutPointsFn });
+    return regionPoly.cutaway(start, end, { topElevationFn, bottomElevationFn, cutPointsFn });
   }
 }
 

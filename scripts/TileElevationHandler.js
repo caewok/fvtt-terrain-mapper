@@ -307,6 +307,8 @@ export class TileElevationHandler {
    */
   _cutaway(start, end, token) {
     if ( !this.isElevated ) return null;
+    start = ElevationHandler._toPoint3d(start);
+    end = ElevationHandler._toPoint3d(end);
     const polys = token && this.testHoles
       ? this.#cutawayPolygonsHoles(start, end, this.holeThresholdForToken(token))
         : this.#cutawayPolygonsNoHoles(start, end);
@@ -318,38 +320,39 @@ export class TileElevationHandler {
 
   /**
    * Cutaway polygons for a basic border only, no holes.
-   * @param {RegionMovementWaypoint} start          Start of the segment
-   * @param {RegionMovementWaypoint} end            End of the segment
+   * @param {Point3d} start          Start of the segment
+   * @param {Point3d} end            End of the segment
    * @returns {PIXI.Polygon[]} The polygon for the cutaway (if any), in an array.
    */
   #cutawayPolygonsNoHoles(start, end) {
+    const gridUnitsToPixels = CONFIG.GeometryLib.utils.gridUnitsToPixels;
     const bounds = this.trimBorder ? this.alphaBorder : this.tile.bounds;
 
     // Give tiles a 1-pixel height so they are proper polygons in the cutaway.
     // Use grid units for elevation.
-    const topE = this.elevation;
-    const bottomE = topE - 1;
+    const topE = gridUnitsToPixels(this.elevation);
+    const bottomE = topE - gridUnitsToPixels(1);
     const topElevationFn = _pt => topE;
     const bottomElevationFn = _pt => bottomE;
-    const quad = bounds.cutaway(start, end, { topElevationFn, bottomElevationFn });
-    return quad ? [quad] : [];
+    return bounds.cutaway(start, end, { topElevationFn, bottomElevationFn });
   }
 
   /**
    * Cutaway for a border considering holes
-   * @param {RegionMovementWaypoint} start          Start of the segment
-   * @param {RegionMovementWaypoint} end            End of the segment
+   * @param {Point3d} start          Start of the segment
+   * @param {Point3d} end            End of the segment
    * @param {number} holeThreshold                  The hole threshold to use
    * @returns {PIXI.Polygon[]} The polygons for the cutaway (if any)
    */
   #cutawayPolygonsHoles(start, end, holeThreshold = 1) {
+    const gridUnitsToPixels = CONFIG.GeometryLib.utils.gridUnitsToPixels;
     const holePositions = this.holePositions(start, end, holeThreshold);
     if ( !holePositions.length ) return [];// return this.#cutawayPolygonsNoHoles(start, end);
 
     // Give tiles a 1-pixel height so they are proper polygons in the cutaway.
     // Use grid units for elevation.
-    const topE = this.elevation;
-    const bottomE = topE - 1;
+    const topE = gridUnitsToPixels(this.elevation);
+    const bottomE = topE - gridUnitsToPixels(1);
     const topElevationFn = _pt => topE;
     const bottomElevationFn = _pt => bottomE;
 
@@ -359,14 +362,14 @@ export class TileElevationHandler {
     let a = holePositions[0];
     let onTile = !a.holeStart;
     if ( holePositions.length === 1 && onTile ) {
-      const quad = bounds.cutaway(a, end, { start, end, topElevationFn, bottomElevationFn });
-      if ( quad ) return [quad];
+      const quads = bounds.cutaway(ElevationHandler._toPoint3d(a), end, { start, end, topElevationFn, bottomElevationFn });
+      if ( quads.length ) return quads;
     }
     for ( let i = 1, n = holePositions.length; i < n; i += 1 ) {
       const b = holePositions[i];
       if ( onTile && b.holeStart ) {
-        const quad = bounds.cutaway(a, b, { start, end, topElevationFn, bottomElevationFn });
-        if ( quad ) polys.push(quad);
+        const quads = bounds.cutaway(ElevationHandler._toPoint3d(a), ElevationHandler._toPoint3d(b), { start, end, topElevationFn, bottomElevationFn });
+        if ( quads.length ) polys.push(...quads);
         onTile = false;
         a = b;
       } else if ( !onTile && !b.holeStart ) {
