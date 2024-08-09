@@ -101,10 +101,11 @@ export class StraightLinePath extends NoDupePointsArray {
    */
   elevationAt(loc) {
     // Quickly find the correct segment by using distance from start.
-    const c = foundry.utils.closestPointToSegment(loc, this.start, this.end);
     const E = this.elevationProperty;
     if ( this.start.x.almostEqual(loc.x) && this.start.y.almostEqual(loc.y) ) return this.start[E];
     if ( this.end.x.almostEqual(loc.x) && this.end.y.almostEqual(loc.y) ) return this.end[E];
+    const c =  (this.start.x === this.start.y && this.end.x === this.end.y)
+      ? this.start :  foundry.utils.closestPointToSegment(loc, this.start, this.end);
 
     const locDist2 = PIXI.Point.distanceSquaredBetween(this.start, c);
     let i;
