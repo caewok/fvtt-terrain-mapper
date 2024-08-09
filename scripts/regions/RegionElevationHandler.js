@@ -75,16 +75,14 @@ export class RegionElevationHandler {
   /** @type {boolean} */
   get hasTerrain() { return [...this.region.document.behaviors].some(b => !b.disabled && b.type === `${MODULE_ID}.setTerrain`); }
 
-  /** @type {object: terrains: {Set<Terrain>}, secretTerrains: Set<Terrain>} */
+  /** @type {Set<Terrain>} */
   get terrains() {
     const terrains = new Set();
-    const secretTerrains = new Set();
     for ( const b of this.region.document.behaviors.values() ) {
       if ( b.disabled || b.type !== `${MODULE_ID}.setTerrain` ) continue;
-      const tSet = b.system.secret ? secretTerrains : terrains;
-      b.system.terrains.forEach(t => tSet.add(CONFIG[MODULE_ID].Terrain._instances.get(t)));
+      b.system.terrains.forEach(t => terrains.add(CONFIG[MODULE_ID].Terrain._instances.get(t)));
     }
-    return { terrains, secretTerrains };
+    return terrains;
   }
 
   // ----- NOTE: Primary methods ----- //
