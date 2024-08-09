@@ -1,14 +1,11 @@
 /* globals
-canvas,
 CONFIG,
-game,
-PIXI
+game
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
 import { ICONS, MODULE_ID } from "./const.js";
-import { ElevationHandler } from "./ElevationHandler.js";
 
 /**
  * A mixin which extends the UniqueEffect with specialized terrain behaviors
@@ -49,25 +46,5 @@ export function TerrainMixin(Base) {
       data.img = "icons/svg/hazard.svg";
       return data;
     }
+  };
 }
-
-
-// ----- Helper functions ----- //
-
-/**
- *
-
-/**
- * Local clone of a token.
- * Currently clones the actor and the token document but makes no effort to clone the other token properties.
- * @param {Token} token
- * @returns {object}
- *   - @prop {TokenDocument} document
- *   - @prop {Actor} actor
- */
-function localTokenClone(token) {
-  const actor = new CONFIG.Actor.documentClass(token.actor.toObject())
-  const document = new CONFIG.Token.documentClass(token.document.toObject())
-  return { document, actor };
-}
-
