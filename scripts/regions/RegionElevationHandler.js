@@ -171,13 +171,16 @@ export class RegionElevationHandler {
     start = ElevationHandler._toPoint3d(start);
     end = ElevationHandler._toPoint3d(end);
     const regionPolys = [];
+    const opts = this.#cutawayOptionFunctions(start, end, usePlateauElevation);
+    let allHoles = true;
     for ( const regionPoly of this.region.polygons ) {
-      const quad = this.#polygonCutaway(start, end, regionPoly, { usePlateauElevation });
+      const quad = regionPoly.cutaway(start, end, opts);
       regionPolys.push(...quad);
+      allHoles &&= !regionPoly.isPositive;
     }
 
     // If all holes or no polygons, we are done.
-    if ( !regionPolys.length || regionPolys.every(poly => !poly.isPositive) ) return null;
+    if ( !regionPolys.length || allHoles ) return null;
 
     /* Debugging
     Draw.shape(regionPolys[0], { color: Draw.COLORS.blue })
@@ -188,6 +191,29 @@ export class RegionElevationHandler {
     const regionPath = ClipperPaths.fromPolygons(regionPolys);
     const combined = regionPath.combine().clean(); // After this, should not be any holes.
     return combined;
+  }
+
+  /**
+   * Calculate the cutaway intersections for a segment that traverses this region.
+   * @param {RegionMovementWaypoint} start          Start of the segment
+   * @param {RegionMovementWaypoint} end            End of the segment
+   * @param {object} [opts]                         Options that affect the polygon shape
+   * @param {boolean} [opts.usePlateauElevation=true]   Use the plateau or ramp shape instead of the region top elevation
+   * @returns {PIXI.Point[]}
+   */
+  _cutawayIntersections(start, end, { usePlateauElevation = true } = {}) {
+    start = ElevationHandler._toPoint3d(start);
+    end = ElevationHandler._toPoint3d(end);
+    const regionIxs = [];
+    const opts = this.#cutawayOptionFunctions(start, end, usePlateauElevation);
+    let allHoles = true;
+    for ( const regionPoly of this.region.polygons ) {
+      const ixs = regionPoly.cutawayIntersections(start, end, opts);
+      regionIxs.push(...ixs);
+      allHoles &&= !regionPoly.isPositive;
+    }
+    if ( allHoles ) return [];
+    return regionIxs;
   }
 
   /**
@@ -404,16 +430,13 @@ export class RegionElevationHandler {
   }
 
   /**
-   * Construct one or more quadrangles for a cutaway of this region polygon along a line segment.
-   * Depending on the line and the polygon, could have multiple quads.
-   * @param {Point3d} start          Start of the segment
-   * @param {Point3d} end            End of the segment
-   * @param {PIXI.Polygon} regionPoly               A polygon from the region
-   * @param {object} [opts]
-   * @param {boolean} [usePlateauElevation=true]    Use the plateau as the top, not the region top
-   * @returns {PIXI.Polygon[]}
+   * Construct cutaway functions for this region.
+   * @returns {object}
+   *   - @prop {function} topElevationFn
+   *   - @prop {function} bottomElevationFn
+   *   - @prop {function} cutPointsFn
    */
-  #polygonCutaway(start, end, regionPoly, { usePlateauElevation = true } = {}) {
+  #cutawayOptionFunctions(start, end, usePlateauElevation = true) {
     const { gridUnitsToPixels, pixelsToGridUnits } = CONFIG.GeometryLib.utils;
     const MIN_ELEV = -1e06;
     const MAX_ELEV = 1e06;
@@ -428,7 +451,7 @@ export class RegionElevationHandler {
         { ...a, elevation: pixelsToGridUnits(a.z) },
         { ...b, elevation: pixelsToGridUnits(b.z) }).map(pt => ElevationHandler._to2dCutawayCoordinate(pt, start, end))
         : undefined;
-    return regionPoly.cutaway(start, end, { topElevationFn, bottomElevationFn, cutPointsFn });
+    return { topElevationFn, bottomElevationFn, cutPointsFn };
   }
 }
 
