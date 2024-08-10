@@ -141,7 +141,7 @@ export class ElevationHandler {
       if ( (flying === false && endType === FLOATING)
         || (burrowing === false && endType === UNDERGROUND) ) {
         const endE = this.nearestGroundElevation(end, { regions, tiles, samples, burrowing });
-        end = { x: end.x, elevation: endE };
+        end = { x: end.x, elevation: CONFIG.GeometryLib.utils.gridUnitsToPixels(endE) };
       }
       return StraightLinePath.from([start, end]);
     }
@@ -200,11 +200,11 @@ export class ElevationHandler {
     const fnName = flying ? "_constructPathFlying" : burrowing ? "_constructPathBurrowing" : "_constructPathWalking";
     if ( flying && endType !== FLOATING ) {
       const endE = this.nearestGroundElevation(end, { regions, samples });
-      end2d.y = endE;
+      end2d.y = CONFIG.GeometryLib.utils.gridUnitsToPixels(endE);
     }
     if ( burrowing && endType !== UNDERGROUND ) {
       const endE = this.nearestGroundElevation(end, { regions, samples });
-      end2d.y = endE;
+      end2d.y = CONFIG.GeometryLib.utils.gridUnitsToPixels(endE);
     }
     const waypoints = this[fnName](start2d, end2d, combinedPolys, { start, end });
 
