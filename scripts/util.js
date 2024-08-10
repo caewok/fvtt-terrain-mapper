@@ -235,7 +235,7 @@ export function tokenIsFlying(token, loc) {
   const actor = token.actor;
   const types = new Set();
   if ( game.system.id === "dnd5e" && actor ) return actor.statuses.has("flying") || actor.statuses.has("hovering");
-  return ElevationHandler.elevationType(loc) === ElevationHandler.ELEVATION_LOCATIONS.FLOATING;
+  return ElevationHandler.elevationType(loc, token) === ElevationHandler.ELEVATION_LOCATIONS.FLOATING;
 }
 
 /**
@@ -249,5 +249,5 @@ export function tokenIsBurrowing(token, loc) {
   const actor = token.actor;
   const types = new Set();
   if ( game.system.id === "dnd5e" && actor ) return actor.statuses.has("burrowing");
-  return ElevationHandler.elevationType(loc) === ElevationHandler.ELEVATION_LOCATIONS.BURROWING;
+  return ElevationHandler.elevationType(loc, token) === ElevationHandler.ELEVATION_LOCATIONS.BURROWING;
 }

@@ -136,7 +136,7 @@ export class ElevationHandler {
     // Simple case: Elevation-only change.
     // Only question is whether the end will be reset to ground.
     const { FLOATING, UNDERGROUND } = this.ELEVATION_LOCATIONS;
-    const endType = this.elevationType(end, regions);
+    const endType = this.elevationType(end, token, regions, tiles);
     if ( regionWaypointsXYEqual(start, end) ) {
       if ( (flying === false && endType === FLOATING)
         || (burrowing === false && endType === UNDERGROUND) ) {
@@ -166,36 +166,6 @@ export class ElevationHandler {
       if ( poly.isClockwise ^ (walkDir === "cw") ) poly.reverseOrientation();
     });
 
-    /*
-
-    poly.contains:
-    - Does not contain point on bottom or right of a polygon. Does contain left and top.
-    - This is inverted here, so poly does not contain point on top or left; does contain right and bottom.
-    - So on ground will not be contained. Might be contained on the ramp.
-
-    poly.lineSegmentIntersects:
-    - Intersects if hits top, left, right, bottom.
-
-    poly.segmentIntersections
-    -  Intersects if hits top, left, right, bottom.
-
-    poly.linesCross:
-    - Intersects if hits top, left, right, bottom. But only if not hitting at endpoint.
-
-    Underground: contained in polygon
-    Above ground: not contained and not on edge. pointOnPolygonEdge
-    On ground: pointOnPolygonEdge
-
-    Each loop:
-
-
-    Ground floor: On the terrain floor: end is { x: end.x, y: terrainFloor }
-    Ground: On a polygon edge: end is next endpoint.
-      - If the end is higher, go there.
-      - If the end is lower, go there unless end is backwards or flying.
-
-    */
-
     // Walk around the polygons or convex version of polygons for burrowing/flying.
     const fnName = flying ? "_constructPathFlying" : burrowing ? "_constructPathBurrowing" : "_constructPathWalking";
     if ( flying && endType !== FLOATING ) {
@@ -212,11 +182,6 @@ export class ElevationHandler {
     const endWaypoint = waypoints.at(-1);
     if ( end2d.x.almostEqual(endWaypoint.x, 0.51) ) endWaypoint.x = end2d.x;
 
-    // Add move endpoint depending on movement type.
-//     if ( !regionWaypointsEqual(currPosition, currEnd)
-//       && ((flying !== false && endType === FLOATING)
-//        || (burrowing !== false && endType === UNDERGROUND)) ) waypoints.push(end2d);
-
     // Convert back to regular coordinates.
     return waypoints.map(waypoint => this._from2dCutawayCoordinate(waypoint, start, end));
   }
@@ -228,14 +193,16 @@ export class ElevationHandler {
    * is also on that other region's plateau.
    * Or at a tile elevation.
    * @param {RegionMovementWaypoint} waypoint     Location to test
+   * @param {Token} [token]                       Token doing the movement; used to test tile holes
    * @param {Region[]} [regions]                  Regions to consider; otherwise entire canvas
+   * @param {Tile[]} [tiles]                      Tiles to consider; otherwise entire canvas
    * @returns {ELEVATION_LOCATIONS}
    */
-  static elevationType(waypoint, regions, tiles) {
+  static elevationType(waypoint, token, regions, tiles) {
     const locs = this.ELEVATION_LOCATIONS;
     tiles = elevatedTiles(tiles);
     for ( const tile of tiles ) {
-      if ( tile[MODULE_ID].waypointOnTile ) return locs.GROUND;
+      if ( tile[MODULE_ID].waypointOnTile(waypoint, token) ) return locs.GROUND;
     }
 
     regions = elevatedRegions(regions);
@@ -862,22 +829,22 @@ export class ElevationHandler {
    * @returns {boolean} True if token has flying status or implicitly is flying
    */
   static tokenIsFlying(token, start, end) {
-    if ( this.elevationType(start) === this.ELEVATION_LOCATIONS.FLOATING
-      && this.elevationType(end) === this.ELEVATION_LOCATIONS.FLOATING ) return true;
+    if ( this.elevationType(start, token) === this.ELEVATION_LOCATIONS.FLOATING
+      && this.elevationType(end, token) === this.ELEVATION_LOCATIONS.FLOATING ) return true;
     if ( game.system.id === "dnd5e" && token.actor ) return token.actor.statuses.has("flying") || token.actor.statuses.has("hovering");
     return false;
   }
 
   /**
-   * Token is burrowing if the start and end points are underground or
+   * Token is burrowing if the start and end points are underground or it has a system-specific burrowing status.
    * @param {Token} token                     Token doing the movement
    * @param {RegionMovementWaypoint} start    Starting location
    * @param {RegionMovementWaypoint} end      Ending location
    * @returns {boolean} True if token has flying status or implicitly is flying
    */
   static tokenIsBurrowing(token, start, end) {
-    if ( this.elevationType(start) === this.ELEVATION_LOCATIONS.UNDERGROUND
-      && this.elevationType(end) === this.ELEVATION_LOCATIONS.UNDERGROUND) return true;
+    if ( this.elevationType(start, token) === this.ELEVATION_LOCATIONS.UNDERGROUND
+      && this.elevationType(end, token) === this.ELEVATION_LOCATIONS.UNDERGROUND) return true;
     if ( game.system.id === "dnd5e" && token.actor ) return token.actor.statuses.has("burrowing");
     return false;
   }
