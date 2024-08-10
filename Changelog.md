@@ -1,7 +1,16 @@
 ## 0.4.0
+Add a Terrain Mapper tab to the region configuration with options to make a 3d region shape:
+1. Plateau: Region treated like a physical plateau with a flat top at a given elevation. Note that the region affected area can continue above the plateau.
+2. Ramp/Steps: Like Plateau but the top goes from a low to a high elevation, either continuously or at a given step size.
+
+Modify the SetElevation behavior to act like stairs, moving a token up or up/down.
+Automatically adjust token elevations as they move across region plateaus/ramps/steps, accounting for flying or burrowing tokens.
+
+Add config options to overhead tiles to treat them as a "floor" at the set tile elevation. Include options to ignore the transparent rectangular boundary and to treat transparent tiles (alpha <= 0.75 ) to be holes. Add `CONFIG.terrainmapper.holePercentThreshold` to modify how large the hole has to be for a token to "fall through."
+
 Set scene config elevation step to "0.1" so that it accepts decimal values. Closes #33.
 Added basic Brazilian Portuguese translation. Thanks @Kharmans!
-
+Modifications to better support move and move penalty calculations in Elevation Ruler when crossing regions or tiles.
 
 ## 0.3.3
 Add json folder to workflow so default terrains will be present in dnd5e.
