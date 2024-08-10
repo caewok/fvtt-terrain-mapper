@@ -9,6 +9,12 @@ ruler
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
+/** Token movement rules related to regions.
+A token walking should move to ground and stay on the ground.
+A flying token should not lose elevation.
+A burrowing token should not gain elevation.
+*/
+
 
 /*
 Methods and hooks related to tokens.

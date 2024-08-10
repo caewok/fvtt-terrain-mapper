@@ -205,22 +205,23 @@ export class ElevationHandler {
       if ( tile[MODULE_ID].waypointOnTile(waypoint, token) ) return locs.GROUND;
     }
 
+    // Not inside a region (2d): floating if above ground; burrowing if below.
+    // Single region: Floating if not at elevationUponEntry.
+    // Multiple regions: Floating if not at highest elevationUponEntry (recall all plateaus are solids).
     regions = elevatedRegions(regions);
     let inside = false;
-    let offPlateau = false;
+    let highestElevation = Number.NEGATIVE_INFINITY;
     for ( const region of regions ) {
-      if ( !region.testPoint(waypoint, waypoint.elevation) ) continue;
+      if ( !region.testPoint(waypoint) ) continue;
       inside ||= true;
-      if ( region[MODULE_ID].elevationUponEntry(waypoint) !== waypoint.elevation ) {
-        offPlateau = true;
-        break;
-      }
+      highestElevation = Math.max(highestElevation, region[MODULE_ID].elevationUponEntry(waypoint));
     }
-
-    if ( inside && offPlateau ) return locs.UNDERGROUND;
-    if ( inside && !offPlateau ) return locs.GROUND;
-    if ( !inside && waypoint.elevation === this.sceneFloor ) return locs.GROUND;
-    return locs.FLOATING;
+    if ( inside ) {
+      if ( waypoint.elevation.almostEqual(highestElevation) ) return locs.GROUND;
+      return waypoint.elevation > highestElevation ? locs.FLOATING : locs.UNDERGROUND;
+    }
+    if ( waypoint.elevation.almostEqual(this.sceneFloor) ) return locs.GROUND;
+    return waypoint.elevation > this.sceneFloor ? locs.FLOATING : locs.UNDERGROUND;
   }
 
 
