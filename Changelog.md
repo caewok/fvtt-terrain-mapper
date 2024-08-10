@@ -1,3 +1,6 @@
+## 0.4.0
+Set scene config elevation step to "0.1" so that it accepts decimal values. Closes #33.
+
 ## 0.3.3
 Add json folder to workflow so default terrains will be present in dnd5e.
 
