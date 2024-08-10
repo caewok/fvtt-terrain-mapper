@@ -17,6 +17,7 @@ import {
 import { ClipperPaths } from "./geometry/ClipperPaths.js";
 import { RegionElevationHandler } from "./regions/RegionElevationHandler.js";
 import { StraightLinePath } from "./StraightLinePath.js";
+import { Point3d } from "./geometry/3d/Point3d.js";
 
 /**
  * Regions elevation handler
@@ -46,6 +47,49 @@ export class ElevationHandler {
   static get sceneFloor() { return canvas.scene?.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0 }
 
   // ----- NOTE: Primary methods ----- //
+
+  /**
+   * Retrieve tiles and regions that may intersect a line segment. Bounds test only.
+   * @param {RegionMovementWaypoint} start          Start of the path
+   * @param {RegionMovementWaypoint} end            End of the path
+   * @param {object} [opts]
+   * @param {Region[]} [opts.regions]               Regions to test; if undefined all on canvas will be tested
+   * @param {Region[]} [opts.tiles]               Tiles to test; if undefined all on canvas will be tested
+   * @returns {object}
+   *   @prop {Region[]} regions   Elevated regions that may intersect
+   *   @prop {Tile[]} tiles       Elevated tiles that may intersect
+   */
+  static elevatedObjectsBoundLineSegment(start, end, { regions, tiles } = {}) {
+    regions = elevatedRegions(regions).filter(region => region.bounds.lineSegmentIntersects(start, end, { inside: true }));
+    tiles = elevatedTiles(tiles).filter(tile => tile.bounds.lineSegmentIntersects(start, end, { inside: true }));
+    return { regions, tiles };
+  }
+
+  /**
+   * Retrieve terrain regions that may intersect a line segment. Bounds test only.
+   * @param {RegionMovementWaypoint} start          Start of the path
+   * @param {RegionMovementWaypoint} end             End of the path
+   * @param {object} [opts]
+   * @param {Region[]} [opts.regions]               Regions to test; if undefined all on canvas will be tested
+   * @returns {Region[]} Terrain regions that may intersect.
+   */
+  static terrainRegionsBoundLineSegment(start, end, { regions } = {}) {
+    regions ??= canvas.regions.placeables;
+    return regions.filter(region => region[MODULE_ID].hasTerrain && region.bounds.lineSegmentIntersects(start, end, { inside: true }));
+  }
+
+  /**
+   * Simple test for whether any terrain regions may intersect a line segment. Bounds test only.
+   * @param {RegionMovementWaypoint} start          Start of the path
+   * @param {RegionMovementWaypoint} end             End of the path
+   * @param {object} [opts]
+   * @param {Region[]} [opts.regions]               Regions to test; if undefined all on canvas will be tested
+   * @returns {boolean} True if at least one region found.
+   */
+  static anyTerrainRegionsBoundLineSegment(start, end, { regions } = {}) {
+    regions ??= canvas.regions.placeables;
+    return regions.some(region => region[MODULE_ID].hasTerrain && region.bounds.lineSegmentIntersects(start, end, { inside: true }));
+  }
 
   /**
    * Create a path for a given straight line segment that may move through regions.
@@ -84,8 +128,9 @@ export class ElevationHandler {
     // Only care about elevated regions and elevated tiles.
     // Trim to regions and tiles whose bounds are intersected by the path.
     // Don't worry about elevation right now.
-    regions = elevatedRegions(regions).filter(region => region.bounds.lineSegmentIntersects(start, end, { inside: true }));
-    tiles = elevatedTiles(tiles).filter(tile => tile.bounds.lineSegmentIntersects(start, end, { inside: true }));
+    const res = this.elevatedObjectsBoundLineSegment(start, end, { regions, tiles });
+    regions = res.regions;
+    tiles = res.tiles;
     if ( !regions.length && !tiles.length ) return StraightLinePath.from([start, end]);
 
     // Simple case: Elevation-only change.
@@ -108,8 +153,8 @@ export class ElevationHandler {
     if ( !combinedPolys.length ) return StraightLinePath.from([start, end]);
 
     // Convert start and end to 2d-cutaway coordinates.
-    const start2d = this._to2dCutawayCoordinate(start, start);
-    const end2d = this._to2dCutawayCoordinate(end, start);
+    const start2d = this._to2dCutawayCoordinate(start, start, end);
+    const end2d = this._to2dCutawayCoordinate(end, start, end );
 
     // Clipper will end up rounding the polygon points to integers.
     // To ensure the end can be reached from the terrain floor, round end2d down.
@@ -336,7 +381,7 @@ export class ElevationHandler {
     // If it intersects a polygon to move towards end2d, set that as currEnd.
     // Otherwise move to terrain floor.
     const startType = cutawayElevationType(start2d, combinedPolys);
-    const sceneFloor = this.sceneFloor;
+    const sceneFloor = CONFIG.GeometryLib.utils.gridUnitsToPixels(this.sceneFloor);
     let currPosition = start2d;
     let currEnd = end2d;
     let currPoly = null;
@@ -458,6 +503,8 @@ export class ElevationHandler {
    * @returns {PIXI.Polygon[]} Array of polygons representing the cutaway.
    */
   static _cutaway(start, end, { regions = [], tiles = [], token } = {}) {
+    start = this._toPoint3d(start);
+    end = this._toPoint3d(end);
     const paths = [];
     for ( const region of regions ) {
       const combined = region[MODULE_ID]._cutaway(start, end);
@@ -474,12 +521,14 @@ export class ElevationHandler {
     // be correctly characterized (float/ground/underground).
     const MIN_ELEV = -1e06;
     const sceneFloor = this.sceneFloor;
-    const dist = PIXI.Point.distanceBetween(start, end);
-    const floorPoly = new PIXI.Polygon(0, sceneFloor, 0, MIN_ELEV, dist, MIN_ELEV, dist, sceneFloor);
-    // const floorPoly = new PIXI.Polygon(-2, sceneFloor, -2, MIN_ELEV, dist + 2, MIN_ELEV, dist + 2, sceneFloor);
+    const pts = [
+      { ...start, elevation: sceneFloor },
+      { ...start, elevation: MIN_ELEV },
+      { ...end, elevation: MIN_ELEV },
+      { ...end, elevation: sceneFloor }
+    ].map(pt => this._to2dCutawayCoordinate(pt, start, end));
+    const floorPoly = new PIXI.Polygon(...pts);
     paths.push(ClipperPaths.fromPolygons([floorPoly]));
-
-    // if ( !paths.length ) return [];
 
     // Union the paths.
     const combinedPaths = ClipperPaths.combinePaths(paths);
@@ -497,32 +546,7 @@ export class ElevationHandler {
     return combinedPolys;
   }
 
-  /**
-   * Convert to a cutaway coordinate.
-   * @param {RegionMovementWaypoint} waypoint   Point to convert
-   * @param {RegionMovementWaypoint} start      Starting coordinates for the line segment
-   * @returns {PIXI.Point} Point where x is the distance from start and y is the elevation
-   */
-  static _to2dCutawayCoordinate(waypoint, start, end) {
-    const pt = new PIXI.Point(PIXI.Point.distanceBetween(start, waypoint), waypoint.elevation);
-    if ( end && PIXI.Point.distanceBetween(waypoint, end) > PIXI.Point.distanceBetween(start, end) ) pt.x *= -1;
-    return pt;
-  }
 
-  /**
-   * Convert from a cutaway coordinate.
-   * @param {PIXI.Point} pt                     2d cutaway point to convert
-   * @param {RegionMovementWaypoint} start      Starting coordinates for the line segment
-   * @param {RegionMovementWaypoint} end        Ending coordinates for the line segment
-   * @returns {PIXI.Point} Point in canvas coordinates, with elevation property
-   */
-  static _from2dCutawayCoordinate(pt, start, end) {
-    start = PIXI.Point._tmp.copyFrom(start);
-    end = PIXI.Point._tmp2.copyFrom(end);
-    const canvasPt = start.towardsPoint(end, pt.x);
-    canvasPt.elevation = pt.y;
-    return canvasPt;
-  }
 
   /**
    * For a path, determine if it intersects 1+ polygons in the array.
@@ -624,10 +648,69 @@ export class ElevationHandler {
   }
 
 
-  // ----- NOTE: Private methods ----- //
+  // ----- NOTE: Cutaway methods ----- //
 
+  /**
+   * @typedef {PIXI.Point} CutawayPoint
+   * A point in cutaway space.
+   * @param {number} x      Distance-squared from start point
+   * @param {number} y      Elevation in pixel units
+   */
 
+  /**
+   * Convert a RegionMovementWaypoint to a cutaway coordinate.
+   * @param {RegionMovementWaypoint} waypoint
+   * @param {RegionMovementWaypoint} start
+   * @param {RegionMovementWaypoint} end
+   * @returns {CutawayPoint}
+   */
+  static _to2dCutawayCoordinate(waypoint, start, end, outPoint) {
+    start = this._toPoint3d(start);
+    end = this._toPoint3d(end);
+    waypoint = this._toPoint3d(waypoint);
+    return CONFIG.GeometryLib.utils.cutaway.to2d(waypoint, start, end, outPoint);
+  }
 
+  /**
+   * Convert a cutaway coordinate to a RegionMovementWaypoint.
+   * @param {CutawayPoint} cutawayPt
+   * @param {RegionMovementWaypoint} start
+   * @param {RegionMovementWaypoint} end
+   * @param {Point3d} outPoint                  Point to use for the return
+   * @returns {RegionMovementWaypoint|Point3d}
+   */
+  static _from2dCutawayCoordinate(cutawayPt, start, end, outPoint) {
+    start = this._toPoint3d(start);
+    end = this._toPoint3d(end);
+    outPoint ??= new Point3d();
+    CONFIG.GeometryLib.utils.cutaway.from2d(cutawayPt, start, end, outPoint);
+    return this._fromPoint3d(outPoint);
+  }
+
+  /**
+   * Convert a region waypoint to a Point3d.
+   * Changes elevation from grid units to pixel units (z).
+   * @param {RegionMovementWaypoint|Point3d} waypoint     Modified in place if waypoint is a Point3d
+   * @param {Point3d} [outPoint]                          Optional Point3d to modify
+   * @returns {Point3d}
+   */
+  static _toPoint3d(waypoint, outPoint) {
+    outPoint ??= waypoint instanceof Point3d ? waypoint : new Point3d();
+    outPoint.copyFrom(waypoint);
+    outPoint.elevation = waypoint.elevation; // So RegionMovementWaypoint can be used interchangeably
+    outPoint.z = CONFIG.GeometryLib.utils.gridUnitsToPixels(waypoint.elevation);
+    return outPoint;
+  }
+
+  /**
+   * Convert a Point3d to a RegionMovementWaypoint.
+   * @param {Point3d} pt
+   * @returns {RegionMovementWaypoint|Point3d} A Point3d with an elevation value
+   */
+  static _fromPoint3d(pt) {
+    pt.elevation = CONFIG.GeometryLib.utils.pixelsToGridUnits(pt.z);
+    return pt;
+  }
 
   // ----- NOTE: Basic Helper methods ----- //
 
@@ -644,18 +727,23 @@ export class ElevationHandler {
    */
   static drawCutawayPolygon(poly, opts = {}) {
     const Draw = CONFIG.GeometryLib.Draw;
-    const gridUnitsToPixels = CONFIG.GeometryLib.utils.gridUnitsToPixels;
+    const { convertToDistance, convertToElevation } = CONFIG.GeometryLib.utils.cutaway;
     opts.color ??= Draw.COLORS.red;
     opts.fill ??= Draw.COLORS.red;
     opts.fillAlpha ??= 0.3;
     const invertedPolyPoints = [];
-    const floor = gridUnitsToPixels(ElevationHandler.sceneFloor - canvas.dimensions.distance);
+    const floor = CONFIG.GeometryLib.utils.gridUnitsToPixels(ElevationHandler.sceneFloor - canvas.dimensions.distance);
     for ( let i = 0, n = poly.points.length; i < n; i += 2 ) {
       const x = poly.points[i];
       const y = poly.points[i+1];
-      invertedPolyPoints.push(x, -Math.max(floor, gridUnitsToPixels(y)));
+      const pt = { x, y: -Math.max(floor, y) };
+
+      // Convert to smaller values for displaying.
+      convertToDistance(pt);
+      convertToElevation(pt);
+      invertedPolyPoints.push(pt);
     }
-    const invertedPoly = new PIXI.Polygon(invertedPolyPoints);
+    const invertedPoly = new PIXI.Polygon(...invertedPolyPoints);
     Draw.shape(invertedPoly, opts);
   }
 
@@ -665,7 +753,7 @@ export class ElevationHandler {
    */
   static drawCutawayPath(path, opts = {}) {
     const Draw = CONFIG.GeometryLib.Draw;
-    const gridUnitsToPixels = CONFIG.GeometryLib.utils.gridUnitsToPixels;
+    const { convertToDistance, convertToElevation } = CONFIG.GeometryLib.utils.cutaway;
     opts.color ??= Draw.COLORS.blue;
     const start = path[0];
     const end = path.at(-1);
@@ -674,9 +762,16 @@ export class ElevationHandler {
       const b = path[i];
       const a2d = this._to2dCutawayCoordinate(a, start, end);
       const b2d = this._to2dCutawayCoordinate(b, start, end);
+
+      // Convert to smaller values for displaying.
+      convertToDistance(a2d);
+      convertToDistance(b2d);
+      convertToElevation(a2d);
+      convertToElevation(b2d);
+
       // Invert the y value for display.
-      a2d.y = -gridUnitsToPixels(a2d.y);
-      b2d.y = -gridUnitsToPixels(b2d.y);
+      a2d.y = -a2d.y;
+      b2d.y = -b2d.y;
       Draw.segment({ A: a2d, B: b2d }, opts);
     }
   }
