@@ -87,6 +87,24 @@ Hooks.once("ready", () => {
                 fill-within-walls. These mimic tools provided in previous versions of Terrain Mapper.`
         })
 
+        .addEntry({
+            version: "0.4.0",
+            title: "Plateaus, Ramps, Steps, Tiles",
+            body: `\
+                You will now see a new tab in the Region configuration to treat the region as a 3d plateau or mesa.
+                If enabled, the region will have a flat top at a given elevation, and tokens moving through the region
+                are assumed to "climb" the region to the plateau top. Additional settings allow you to incline the top,
+                so it creates a ramp or steps in a given direction.
+
+                Overhead tiles gain configuration options to treat them like "floors" at a given elevation. You can enable
+                holes (somewhat performance-intensive) to have tokens fall through sufficiently large transparent "holes" in the tiles.
+
+                Moving tokens across regions with plateaus/ramps/steps automatically adjusts their elevation.
+
+                If you want region stairs/elevator, try using the SetElevation region behavior.
+
+                This release offers better compatibility with Elevation Ruler v0.10 for measuring token movement and move penalties.`
+        })
         .build()
         ?.render(true);
 });
