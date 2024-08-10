@@ -36,7 +36,7 @@ export class TileElevationHandler {
   get isElevated() {
     // No point in treating tile as elevated if it is on the scene floor.
     return this.tile.document.getFlag(MODULE_ID, FLAGS.TILE.IS_FLOOR)
-        && this.tile.elevation !== ElevationHandler.sceneFloor;
+        && this.tile.elevationE !== ElevationHandler.sceneFloor;
   }
 
   /** @type {boolean} */
@@ -132,7 +132,7 @@ export class TileElevationHandler {
    * @returns {boolean}
    */
   waypointOnTile(a, token) {
-    if ( a.elevation !== this.tile.elevation ) return false;
+    if ( a.elevation !== this.tile.elevationE ) return false;
     if ( !this.tile.bounds.contains(a.x, a.y) ) return false;
     if ( !this.lineSegmentIntersects({ ...a, elevation: a.elevation + 1 }, { ...a, elevation: a.elevation - 1 }) ) return false;
     if ( this.trimBorder && !this.tile.evPixelCache.getThresholdCanvasBoundingBox(this.alphaThreshold).contains(a.x, a.y) ) return false;

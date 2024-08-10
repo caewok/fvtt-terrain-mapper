@@ -9,6 +9,12 @@ ruler
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
+/** Token movement rules related to regions.
+A token walking should move to ground and stay on the ground.
+A flying token should not lose elevation.
+A burrowing token should not gain elevation.
+*/
+
 
 /*
 Methods and hooks related to tokens.
@@ -146,7 +152,7 @@ function refreshToken(token, flags) {
 export function preUpdateToken(tokenD, changed, options, _userId) {
   log(`preUpdateToken ${tokenD.name}`);
   options[MODULE_ID] ??= {};
-  options[MODULE_ID].fixedDestination ??= false;
+  // options[MODULE_ID].fixedDestination ??= false;
   options[MODULE_ID].usePath ??= true;
   if ( !options[MODULE_ID].usePath ) return;
 
@@ -164,9 +170,8 @@ export function preUpdateToken(tokenD, changed, options, _userId) {
   origin.elevation = token.elevationE
   destination.elevation = changed.elevation ?? origin.elevation;
 
-  const testLoc = options[MODULE_ID].fixedDestination ? origin : destination;
-  const flying = ElevationHandler.tokenIsFlying(token, testLoc);
-  const burrowing = ElevationHandler.tokenIsBurrowing(token, testLoc);
+  const flying = ElevationHandler.tokenIsFlying(token, origin, destination);
+  const burrowing = ElevationHandler.tokenIsBurrowing(token, origin, destination);
   log(`preUpdateToken|Moving from ${origin.x},${origin.y}, @${origin.elevation} --> ${destination.x},${destination.y}, @${destination.elevation}.\tFlying: ${flying}\tBurrowing:${burrowing}`);
   token[MODULE_ID].path = ElevationHandler.constructPath(origin, destination, { burrowing, flying, token });
   const destElevation = token[MODULE_ID].path.at(-1).elevation;
