@@ -8,7 +8,7 @@ loadTemplates
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { MODULE_ID, FA_ICONS, TEMPLATES } from "./const.js";
+import { MODULE_ID, FA_ICONS, TEMPLATES, DEFAULT_FLAGS } from "./const.js";
 import { log } from "./util.js";
 import { Settings } from "./settings.js";
 import { PATCHER, initializePatching } from "./patching.js";
@@ -22,6 +22,11 @@ import { WallTracerEdge, WallTracerVertex, WallTracer, SCENE_GRAPH } from "./Wal
 // import { RemoveTerrainRegionBehaviorType } from "./regions/RemoveTerrainRegionBehaviorType.js";
 import { SetTerrainRegionBehaviorType } from "./regions/SetTerrainRegionBehaviorType.js";
 import { SetElevationRegionBehaviorType } from "./regions/SetElevationRegionBehaviorType.js";
+import { StraightLinePath } from "./StraightLinePath.js";
+
+// Elevation
+import { ElevationHandler } from "./ElevationHandler.js";
+import { HoleDetector } from "./TileElevationHandler.js";
 
 // Unique Terrain Effects
 import { TerrainActiveEffect, TerrainItemEffect, TerrainFlagEffect, TerrainPF2E } from "./terrain_unique_effects.js";
@@ -32,6 +37,7 @@ import { defaultTerrains } from "./default_terrains.js";
 
 // Self-executing hooks.
 import "./changelog.js";
+import "./regions/HighlightRegionShader.js";
 
 /**
  * A hook event that fires as Foundry is initializing, right before any
@@ -56,6 +62,8 @@ Hooks.once("init", function() {
   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.setTerrain`] = FA_ICONS.MODULE;
   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.setElevation`] = FA_ICONS.ELEVATE;
 
+
+
   // Must go at end?
   loadTemplates(Object.values(TEMPLATES)).then(_value => log(`Templates loaded.`));
 });
@@ -72,7 +80,7 @@ Hooks.once("init", function() {
 /**
  * A hook event that fires when the game is fully ready.
  */
-Hooks.on("ready", async function(_canvas) {
+Hooks.on("ready", function(_canvas) {
   CONFIG[MODULE_ID].Terrain.initialize(); // Async. Must wait until ready hook to store Settings for UniqueEffectFlag
 });
 //
@@ -89,13 +97,14 @@ Hooks.on("ready", async function(_canvas) {
  * A hook event that fires when the Canvas is ready.
  * @param {Canvas} canvas The Canvas which is now ready for use
  */
-Hooks.on("canvasReady", async function(_canvas) {
+Hooks.on("canvasReady", function(_canvas) {
   CONFIG[MODULE_ID].Terrain.transitionTokens(); // Async
+  setDefaultPlaceablesFlags(); // Async.
 });
 
 
 function initializeAPI() {
-  game.modules.get(MODULE_ID).api = {
+  const api = game.modules.get(MODULE_ID).api = {
     Settings,
     PATCHER,
     WallTracerEdge,
@@ -106,6 +115,9 @@ function initializeAPI() {
     TerrainItemEffect,
     TerrainFlagEffect,
     regionElevationAtPoint,
+    StraightLinePath,
+    ElevationHandler,
+
 
     /**
      * API to determine the elevation of a line through 0+ setElevation regions.
@@ -116,7 +128,7 @@ function initializeAPI() {
      * @param {number} [opts.endElevation]   Elevation in grid units
      * @returns {RegionMovementSegment}
      */
-    estimateElevationForSegment: SetElevationRegionBehaviorType.estimateElevationForSegment
+    estimateElevationForSegment: SetElevationRegionBehaviorType.estimateElevationForSegment,
   };
 }
 
@@ -124,20 +136,27 @@ function initializeConfig() {
   CONFIG[MODULE_ID] = {
     /**
      * Toggle to trigger debug console logging.
+     * @type {boolean}
      */
     debug: false,
-
-    /**
-     * Alpha threshold below which a tile is considered transparent for purposes of terrain.
-     * @type {number} Between 0 and 1
-     */
-    alphaThreshold: 0.75,
 
     /**
      * Default terrain jsons
      * @type {string} File path
      */
-    defaultTerrainJSONs: defaultTerrains()
+    defaultTerrainJSONs: defaultTerrains(),
+
+    /**
+     * As a percent of token (width/height), how far from the edge can a token move
+     * (measured from token center) over transparent tile pixels before it is considered to be in a "hole".
+     * Because it is measured from token center, a 50% threshold will effectively allow the
+     * token to be completely over transparent pixels before it "falls" through the hole.
+     * Note also that holes are measured by the number of pixels one can move from a center pixel
+     * before hitting a non-transparent pixel. For uneven edges, this is effectively the
+     * closest non-transparent pixel.
+     * @type {number} Positive number
+     */
+    tokenPercentHoleThreshold: 0.25
 
   };
 
@@ -208,4 +227,19 @@ function regionElevationAtPoint(location, {
     return behavior.system.elevation;
   }
   return undefined;
+}
+
+/**
+ * Set default values for placeables flags.
+ */
+async function setDefaultPlaceablesFlags() {
+  const promises = [];
+  for ( const tile of canvas.tiles.placeables ) {
+    for ( const [key, defaultValue] of Object.entries(DEFAULT_FLAGS.TILE) ) {
+      const flag = `flags.${MODULE_ID}.${key}`;
+      if ( typeof tile.document.getFlag(MODULE_ID, key) !== "undefined" ) continue;
+      promises.push(tile.document.setFlag(MODULE_ID, key, defaultValue));
+    }
+  }
+  await Promise.allSettled(promises);
 }

@@ -608,7 +608,9 @@ export class AbstractUniqueEffect {
     // Transition each token if it has data
     const tokenPromises = [];
     for ( const token of canvas.tokens.placeables ) {
-      for ( const doc of this.getTokenStorage(token).values() ) {
+      const tokenStorage = this.getTokenStorage(token);
+      if ( !tokenStorage ) continue;
+      for ( const doc of tokenStorage.values() ) {
         // Only if this document might be an effect.
         if ( !doc.flags?.[MODULE_ID] ) continue;
         tokenPromises.push(this._doTransition(doc, newDocData));

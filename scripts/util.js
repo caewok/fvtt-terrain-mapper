@@ -1,13 +1,16 @@
 /* globals
 canvas,
 CONFIG,
+game,
+Handlebars,
 PIXI,
 renderTemplate
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { MODULE_ID } from "./const.js";
+import { MODULE_ID, FLAGS } from "./const.js";
+import { ElevationHandler } from "./ElevationHandler.js";
 
 export function log(...args) {
   try {
@@ -21,7 +24,17 @@ export function log(...args) {
  * Helper to inject configuration html into the application config.
  */
 export async function injectConfiguration(app, html, data, template, findString, attachMethod = "append") {
-  const myHTML = await renderTemplate(template, data);
+  const myHTML = await renderTemplateSync(template, data);
+  const form = html.find(findString);
+  form[attachMethod](myHTML);
+  app.setPosition(app.position);
+}
+
+/**
+ * Helper to inject configuration html into the application config.
+ */
+export function injectConfigurationSync(app, html, data, template, findString, attachMethod = "append") {
+  const myHTML = renderTemplateSync(template, data);
   const form = html.find(findString);
   form[attachMethod](myHTML);
   app.setPosition(app.position);
@@ -153,3 +166,87 @@ export function firstGM() { return game.users?.find((u) => u.isGM && u.active); 
  * @returns {boolean}
  */
 export function isFirstGM() { return game.user && game.user.id === firstGM()?.id; }
+
+/**
+ * Are two region waypoints equal in all coordinates?
+ * @param {RegionMovementWaypoint} a
+ * @param {RegionMovementWaypoint} b
+ * @returns {boolean}
+ */
+export function regionWaypointsEqual(a, b) { return a.x === b.x && a.y === b.y && a.elevation === b.elevation; }
+
+/**
+ * Are two region waypoints equal in x,y coordinates?
+ * @param {RegionMovementWaypoint} a
+ * @param {RegionMovementWaypoint} b
+ * @returns {boolean}
+ */
+export function regionWaypointsXYEqual(a, b) { return a.x === b.x && a.y === b.y; }
+
+export function regionWaypointsXYAlmostEqual(a, b) { return a.x.almostEqual(b.x) && a.y.almostEqual(b.y); }
+
+/**
+ * Is this region a plateau?
+ * @param {Region} region
+ * @returns {boolean}
+ */
+export function isPlateau(region) {
+  return region.document.getFlag(MODULE_ID, FLAGS.REGION.ELEVATION_ALGORITHM) === FLAGS.REGION.CHOICES.PLATEAU;
+}
+
+/**
+ * Is this region a ramp?
+ * @param {Region} region
+ * @returns {boolean}
+ */
+export function isRamp(region) {
+  return region.document.getFlag(MODULE_ID, FLAGS.REGION.ELEVATION_ALGORITHM) === FLAGS.REGION.CHOICES.RAMP;
+}
+
+/**
+ * Retrieve all plateau and ramp regions.
+ * @param {Region[]} [regions]    Regions to use, if not all regions on the canvas
+ * @returns {Region[]}
+ */
+export function elevatedRegions(regions) {
+  regions ??= canvas.regions?.placeables;
+  if ( !regions ) return [];
+  return regions.filter(region => region[MODULE_ID].isElevated);
+}
+
+/**
+ * Retrieve all tiles treated as floors and elevated above scene ground.
+ * @param {Tile[]} [tiles]    Tiles to use, if not all tiles on the canvas
+ * @returns {Tiles[]}
+ */
+export function elevatedTiles(tiles) {
+  tiles ??= canvas.tiles?.placeables;
+  if ( !tiles ) return [];
+  return tiles.filter(tile => tile[MODULE_ID].isElevated);
+}
+
+/**
+ * Determine the token movement types.
+ * @param {Token} token                     Token doing the movement
+ * @param {RegionMovementWaypoint} loc      Location to test (typically the start position of the token)
+ * @returns {boolean} True if token has flying status or implicitly is flying
+ */
+export function tokenIsFlying(token, loc) {
+  const actor = token.actor;
+  const types = new Set();
+  if ( game.system.id === "dnd5e" && actor ) return actor.statuses.has("flying") || actor.statuses.has("hovering");
+  return ElevationHandler.elevationType(loc, token) === ElevationHandler.ELEVATION_LOCATIONS.FLOATING;
+}
+
+/**
+ * Determine the token movement types.
+ * @param {Token} token                     Token doing the movement
+ * @param {RegionMovementWaypoint} loc      Location to test (typically the start position of the token)
+ * @returns {boolean} True if token has flying status or implicitly is flying
+ */
+export function tokenIsBurrowing(token, loc) {
+  const actor = token.actor;
+  const types = new Set();
+  if ( game.system.id === "dnd5e" && actor ) return actor.statuses.has("burrowing");
+  return ElevationHandler.elevationType(loc, token) === ElevationHandler.ELEVATION_LOCATIONS.BURROWING;
+}

@@ -1,0 +1,43 @@
+<fieldset>
+  <legend>{{ localize "terrainmapper.name" }}</legend>
+
+    <!-- Treat tile as a "floor." Checkbox. -->
+    <div class="form-group" id="terrainmapper-tileconfig-isFloor">
+      <label>{{ localize "terrainmapper.tile-config.isFloor.name" }} </label>
+      <div class="form-fields">
+        <input type="checkbox" name="flags.terrainmapper.isFloor" {{ checked data.flags.terrainmapper.isFloor }}>
+      </div>
+      <p class="hint">{{ localize "terrainmapper.tile-config.isFloor.hint" }}</p>
+    </div>
+
+    <!-- Ignore transparent border. Checkbox. -->
+    <div class="form-group" id="terrainmapper-tileconfig-trimAlphaBorder">
+      <label>{{ localize "terrainmapper.tile-config.trimAlphaBorder.name" }} </label>
+      <div class="form-fields">
+        <input type="checkbox" name="flags.terrainmapper.trimAlphaBorder" {{ checked data.flags.terrainmapper.trimAlphaBorder }}>
+      </div>
+      <p class="hint">{{ localize "terrainmapper.tile-config.trimAlphaBorder.hint" }}</p>
+    </div>
+
+    <!-- Treat transparent pixels as holes -->
+    <div class="form-group" id="terrainmapper-tileconfig-testHoles">
+      <label>{{ localize "terrainmapper.tile-config.testHoles.name" }} </label>
+      <div class="form-fields">
+        <input type="checkbox" name="flags.terrainmapper.testHoles" {{ checked data.flags.terrainmapper.testHoles }}>
+      </div>
+      <p class="hint">{{ localize "terrainmapper.tile-config.testHoles.hint" }}</p>
+    </div>
+
+    <!-- Alpha threshold. Between 0 and 1. Disable for now; may include in the future. -->
+    <!--
+    <div class="form-group" id="terrainmapper-tileconfig-alphaThreshold">
+      <label>{{ localize "terrainmapper.tile-config.alphaThreshold.name" }} </label>
+      <div class="form-fields">
+      {{rangePicker name="flags.terrainmapper.alphaThreshold" value=data.flags.terrainmapper.alphaThreshold step="0.01" min="0.01" max="0.99" }}
+      </div>
+      <p class="hint">{{ localize "terrainmapper.tile-config.alphaThreshold.hint" }}</p>
+    </div>
+    -->
+
+  </legend>
+</fieldset>

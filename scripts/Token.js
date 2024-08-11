@@ -2,12 +2,18 @@
 canvas,
 CONFIG,
 CONST,
-fromUuidSync,
 game,
-PIXI
+PIXI,
+ruler
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
+
+/** Token movement rules related to regions.
+A token walking should move to ground and stay on the ground.
+A flying token should not lose elevation.
+A burrowing token should not gain elevation.
+*/
 
 
 /*
@@ -15,7 +21,9 @@ Methods and hooks related to tokens.
 Hook token movement to add/remove terrain effects and pause tokens dependent on settings.
 */
 
-import { MODULE_ID, FLAGS } from "./const.js";
+import { MODULE_ID, FLAGS, MODULES_ACTIVE } from "./const.js";
+import { log } from "./util.js";
+import { ElevationHandler } from "./ElevationHandler.js";
 
 export const PATCHES = {};
 PATCHES.BASIC = {};
@@ -33,7 +41,7 @@ PATCHES.BASIC = {};
  */
 function preCreateToken(tokenD, data, _options, _userId) {
   if ( !canvas.scene ) return;
-  const elevation = canvas.scene.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0;
+  const elevation = ElevationHandler.sceneFloor;
   if ( elevation && !data.elevation ) tokenD.updateSource({ elevation });
 }
 
@@ -83,27 +91,109 @@ function refreshToken(token, flags) {
         text = `${names.join("\n")}\n${text}`;
       }
       token.tooltip.text = text;
+
+
+      // Adjust the token preview's elevation based on regions.
+      if ( MODULES_ACTIVE.ELEVATION_RULER
+        && canvas.controls.ruler.state === Ruler.STATES.MEASURING
+        && canvas.controls.ruler.token === token
+        && canvas.controls.ruler._isTokenRuler) return;
+
+      const origin = token._original.center;
+      origin.elevation = token._original.elevationE;
+      const destination = token.center;
+      destination.elevation = origin.elevation;
+      const flying = ElevationHandler.tokenIsFlying(token, origin, destination);
+      const burrowing = ElevationHandler.tokenIsBurrowing(token, origin, destination);
+      const path = ElevationHandler.constructPath(origin, destination, { burrowing, flying, token }); // Returns minimum [start, end]. End might be changed.
+      const destElevation = path.at(-1).elevation;
+      const elevationChanged = token.document.elevation !== destElevation;
+      if ( elevationChanged ) {
+        if ( isFinite(destElevation) ) {
+          log(`refreshToken|Setting preview token ${token.name} elevation to ${path.at(-1).elevation} at ${destination.x},${destination.y}`);
+          token.document.elevation = destElevation;
+        } else {
+          console.error(`${MODULE_ID}|refreshToken destination elevation is not finite. Moving from ${origin.x},${origin.y}, @${origin.elevation} --> ${destination.x},${destination.y}, @${destination.elevation}.\tFlying: ${flying}\tBurrowing:${burrowing}`)
+        }
+      }
     }
     return;
+  } else if ( token.animationContexts.size ) {
+    log(`${token.name} is animating`);
+    const path = token[MODULE_ID]?.path;
+    if ( !path ) return;
+    const currPosition = token.getCenterPoint(token.position);
+    const currElevation = Math.round(path.elevationAt(currPosition));
+    const elevationChanged = token.document.elevation !== currElevation;
+    if ( elevationChanged ) {
+      if ( isFinite(currElevation) ) {
+        log(`refreshToken|Setting animating token ${token.name} elevation to ${currElevation} at ${currPosition.x},${currPosition.y}`);
+        // Set the destination elevation based on the end of the path.
+        token.document.elevation = currElevation;
+        token.renderFlags.set({refreshElevation: true, refreshVisibility: true, refreshTooltip: true });
+      } else {
+        console.error(`${MODULE_ID}|refreshToken destination elevation is not finite.`)
+      }
+    }
   }
 }
 
 /**
- * Function to update token data as a specific user.
- * This allows the GM to continue token movement but as that user.
- * By doing so, this allows the pause-for-user to work as expected.
+ * Hook preUpdateToken
+ * If the token moves, calculate its new elevation across setElevation regions.
+ * @param {Document} document                       The Document instance being updated
+ * @param {object} changed                          Differential data that will be used to update the document
+ * @param {Partial<DatabaseUpdateOperation>} options Additional options which modify the update request
+ * @param {object} [options.terrainmapper]
+ *   - @param {boolean} [options.terrainmapper.]
+ * @param {string} userId                           The ID of the requesting user, always game.user.id
+ * @returns {boolean|void}                          Explicitly return false to prevent update of this Document
  */
-export async function updateTokenDocument(tokenUUID, data) {
-  const token = fromUuidSync(tokenUUID)?.object;
+export function preUpdateToken(tokenD, changed, options, _userId) {
+  log(`preUpdateToken ${tokenD.name}`);
+  options[MODULE_ID] ??= {};
+  // options[MODULE_ID].fixedDestination ??= false;
+  options[MODULE_ID].usePath ??= true;
+  if ( !options[MODULE_ID].usePath ) return;
+
+  const token = tokenD.object;
   if ( !token ) return;
-  token.document.update(data);
+  token[MODULE_ID] ??= {};
+  token[MODULE_ID].path = undefined;
+
+  if ( options.RidingMovement ) return; // See EV issue #83—compatibility with Rideables.
+  if ( Object.hasOwn(changed, "elevation") ) return; // Do not override existing elevation changes.
+  if ( !(Object.hasOwn(changed, "x") || Object.hasOwn(changed, "y")) ) return;
+
+  const destination = token.getCenterPoint({ x: changed.x ?? token.x, y: changed.y ?? token.y });
+  const origin = token.center;
+  origin.elevation = token.elevationE
+  destination.elevation = changed.elevation ?? origin.elevation;
+
+  const flying = ElevationHandler.tokenIsFlying(token, origin, destination);
+  const burrowing = ElevationHandler.tokenIsBurrowing(token, origin, destination);
+  log(`preUpdateToken|Moving from ${origin.x},${origin.y}, @${origin.elevation} --> ${destination.x},${destination.y}, @${destination.elevation}.\tFlying: ${flying}\tBurrowing:${burrowing}`);
+  token[MODULE_ID].path = ElevationHandler.constructPath(origin, destination, { burrowing, flying, token });
+  const destElevation = token[MODULE_ID].path.at(-1).elevation;
+  if ( isFinite(destElevation) ) {
+    log(`preUpdateToken|Setting destination elevation to ${token[MODULE_ID].path.at(-1).elevation}`, token[MODULE_ID].path);
+    // Set the destination elevation based on the end of the path.
+    changed.elevation = destElevation;
+  } else {
+    console.error(`${MODULE_ID}|preUpdateToken destination elevation is not finite. Moving from ${origin.x},${origin.y}, @${origin.elevation} --> ${destination.x},${destination.y}, @${destination.elevation}.\tFlying: ${flying}\tBurrowing:${burrowing}`)
+  }
+
 }
 
 PATCHES.BASIC.HOOKS = {
   preCreateToken,
   refreshToken,
+  preUpdateToken,
   updateToken
 };
+
+// ----- NOTE: Wraps ----- //
+
 
 // ----- NOTE: Methods ----- //
 

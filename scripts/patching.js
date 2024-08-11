@@ -18,6 +18,10 @@ import { PATCHES as PATCHES_SceneConfig } from "./SceneConfig.js";
 import { PATCHES as PATCHES_SetElevationRegionBehaviorType } from "./regions/SetElevationRegionBehaviorType.js";
 import { PATCHES as PATCHES_ModuleSettingsAbstract } from "./ModuleSettingsAbstract.js";
 import { PATCHES as PATCHES_ItemSheet } from "./ItemSheet.js";
+import { PATCHES as PATCHES_Region } from "./regions/Region.js";
+import { PATCHES as PATCHES_RegionConfig } from "./regions/RegionConfig.js";
+import { PATCHES as PATCHES_Tile } from "./Tile.js";
+import { PATCHES as PATCHES_TileConfig } from "./TileConfig.js";
 
 export const PATCHES = {
   ActiveEffect: PATCHES_ActiveEffect,
@@ -26,9 +30,13 @@ export const PATCHES = {
   ClientSettings: PATCHES_ModuleSettingsAbstract,
   ItemDirectory: PATCHES_ItemDirectory,
   ItemSheet: PATCHES_ItemSheet,
+  Region: PATCHES_Region,
+  ["foundry.applications.sheets.RegionConfig"]: PATCHES_RegionConfig,
   RegionLayer: PATCHES_RegionLayer,
   SceneConfig: PATCHES_SceneConfig,
   SidebarTab: PATCHES_SidebarTab,
+  Tile: PATCHES_Tile,
+  TileConfig: PATCHES_TileConfig,
   Token: PATCHES_Token,
   Wall: PATCHES_Wall,
 
@@ -43,6 +51,7 @@ PATCHER.addPatchesFromRegistrationObject(PATCHES);
 export function initializePatching() {
   PATCHER.registerGroup("BASIC");
   PATCHER.registerGroup("REGIONS");
+  PATCHER.registerGroup("ELEVATION");
   PATCHER.registerGroup(game.system.id);
 
   if ( game.system.id === "sfrpg" || game.system.id === "pf2e" ) PATCHER.registerGroup("COVER_ITEM");
