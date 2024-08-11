@@ -242,7 +242,6 @@ export function tokenIsFlying(token, loc) {
  * Determine the token movement types.
  * @param {Token} token                     Token doing the movement
  * @param {RegionMovementWaypoint} loc      Location to test (typically the start position of the token)
- * @param {RegionMovementWaypoint} end      Ending location
  * @returns {boolean} True if token has flying status or implicitly is flying
  */
 export function tokenIsBurrowing(token, loc) {
