@@ -5,7 +5,6 @@
   "version": "#{VERSION}#",
   "library": "false",
   "socket": "true",
-  "manifestPlusVersion": "1.2.0",
   "compatibility": {
     "minimum": "12",
     "verified": "12.330"
