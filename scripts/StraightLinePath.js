@@ -40,7 +40,7 @@ class NoDupePointsArray extends Array {
    * @returns {RegionMovementWaypoint[]}
    */
   static fromSegments(segments, { start, end } = {}) {
-    const { ENTER, MOVE, EXIT } = Region.MOVEMENT_SEGMENT_TYPES;
+    const { ENTER, MOVE, EXIT } = CONFIG.Region.objectClass.MOVEMENT_SEGMENT_TYPES;
     const path = new this();
     if ( start ) path.push(start);
     for ( const segment of segments ) {

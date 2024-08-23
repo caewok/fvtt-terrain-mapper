@@ -264,7 +264,7 @@ export class ElevationHandler {
         const segments = region.segmentizeMovement(waypoints, samples, { teleport });
         if ( !segments.length ) continue;
         const segment = segments[0];
-        if ( segment.type !== Region.MOVEMENT_SEGMENT_TYPES.ENTER ) continue;
+        if ( segment.type !== CONFIG.Region.objectClass.MOVEMENT_SEGMENT_TYPES.ENTER ) continue;
         segment.to.region = region;
         segment.to.dist = currElevation - segment.to.elevation;
         segment.to.elevation = () => region[MODULE_ID].elevationUponEntry(waypoint); // Don't calculate until we have to.
@@ -750,10 +750,11 @@ export class ElevationHandler {
   }
 
   static #drawRegionSegment(segment) {
+    const TYPES = CONFIG.Region.objectClass.MOVEMENT_SEGMENT_TYPES;
     const Draw = CONFIG.GeometryLib.Draw
-    const color = segment.type === Region.MOVEMENT_SEGMENT_TYPES.ENTER
+    const color = segment.type === TYPES.ENTER
       ?  Draw.COLORS.green
-        : segment.type === Region.MOVEMENT_SEGMENT_TYPES.MOVE ? Draw.COLORS.orange
+        : segment.type === TYPES.MOVE ? Draw.COLORS.orange
           : Draw.COLORS.red;
     const A = segment.from;
     const B = segment.to;
