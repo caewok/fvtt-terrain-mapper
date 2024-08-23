@@ -10,20 +10,25 @@ Region
  */
 class NoDupePointsArray extends Array {
   push(...args) {
-    const prev = this.at(-1);
-    if ( prev && this.constructor.isDuplicate(args[0], prev) ) return;
-    super.push(...args);
+    const newArgs = [];
+    let prev = this.at(-1);
+    if ( !(prev && this.constructor.isDuplicate(args[0], prev) ) ) newArgs.push(args[0]);
+    prev = args[0];
+    for ( let i = 1, n = args.length; i < n; i += 1 ) {
+      const elem = args[i];
+      if ( this.constructor.isDuplicate(elem, prev) ) continue;
+      newArgs.push(elem);
+      prev = elem;
+    }
+    super.push(...newArgs);
   }
   static isDuplicate(a, b) {
     let dupe = true;
-    if ( a.almostEqual ) dupe &&= a.almostEqual(b);
-    else {
-      dupe &&= a.x.almostEqual(b.x);
-      dupe &&= b.y.almostEqual(b.y);
-    }
+    dupe &&= a.x.almostEqual(b.x);
+    dupe &&= a.y.almostEqual(b.y);
     if ( Object.hasOwn(a, "elevation") ) dupe &&= a.elevation.almostEqual(b.elevation);
+    if ( Object.hasOwn(a, "z") ) dupe &&= a.z.almostEqual(b.z);
     return dupe;
-
   }
 
   /**
