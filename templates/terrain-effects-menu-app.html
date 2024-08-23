@@ -1,0 +1,82 @@
+<section
+  id='terrainmapper'
+  class='terrainmapper sidebar-tab directory flexcol'
+>
+  <!-- Directory Header -->
+  <header class='directory-header'>
+
+      <!-- Create Terrain Button -->
+      <div class='header-actions action-buttons flexrow'>
+        <button class='create-effect'>
+          <i class='fas fa-person-hiking'></i>
+          {{ localize "terrainmapper.terrainbook.create-terrain" }}
+        </button>
+      </div>
+
+      <!-- Create Defaults Button -->
+      {{#if hasDefaults}}
+      <div class='header-actions action-buttons flexrow'>
+        <button class='create-defaults'>
+          <i class='fas fa-file-image'></i>
+           {{ localize "terrainmapper.terrainbook.create-defaults" }}
+        </button>
+      </div>
+      {{/if}}
+    <div class='header-search flexrow'>
+      <i class='fas fa-search'></i>
+      <input
+        type='search'
+        name='search'
+        value=''
+        placeholder='Search Terrains'
+        autocomplete='off'
+        autofocus
+      />
+      <a class='header-control collapse-all' title='Collapse All Folders'>
+        <i class='fas fa-duotone fa-folder-tree'></i>
+      </a>
+        <a
+          class='header-control reset-status-effects'
+          title='Reset Terrains to Defaults'
+        >
+          <i class='fas fa-undo fa-fw'></i>
+        </a>
+    </div>
+  </header>
+  <!-- Directories List -->
+  <ol class='directory-list'>
+    {{#each folders as |folder|}}
+      <li
+        class='directory-item folder flexcol collapsed terrainmapper-folder'
+        data-folder-id='{{folder.id}}'
+        draggable='false'
+      >
+        <header class='folder-header flexrow' data-folder-id='{{folder.id}}'>
+          <h3 class='noborder'>
+            <i class='fas fa-folder-open fa-fw'></i>
+            {{folder.name}}
+          </h3>
+
+        </header>
+        <ol class='subdirectory'>
+          {{#each folder.effects as |effect|}}
+            <li
+              class='directory-item document entity flexrow terrainmapper-effect'
+              data-effect-id='{{effect.id}}'
+              data-effect-name='{{effect.name}}'
+              draggable='true'
+              style='display: flex'
+            >
+              <img title='{{effect.name}}' src='{{effect.icon}}' />
+              <h4 class='document-name entity-name'>
+                <a title='{{effect.description}}'>
+                  {{effect.name}}
+                </a>
+              </h4>
+            </li>
+          {{/each}}
+        </ol>
+      </li>
+    {{/each}}
+  </ol>
+</section>

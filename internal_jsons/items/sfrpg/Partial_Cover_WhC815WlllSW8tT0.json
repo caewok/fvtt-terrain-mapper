@@ -1,0 +1,105 @@
+{
+  "name": "Partial Cover",
+  "type": "effect",
+  "img": "modules/tokencover/assets/shield_low_gray.svg",
+  "system": {
+    "description": {
+      "chat": "",
+      "gmnotes": "",
+      "short": "",
+      "value": "<p>&gt;@UUID[Compendium.sfrpg.rules.0yJjfyvWg5pDLcVR]{Conditions}</p><hr /><p>You have partial cover versus a specific token.</p><p>More than half of you is visible, so your bonuses from cover are reduced to +2 to AC and +1 to Reflex saving throws.</p><p>Cover does not necessarily block precise senses, but it does make it more difficult to hit a target. To determine whether your target has cover from your attack, choose a corner of your square. If any line from this corner to any corner of the target’s square passes through a square or border that blocks line of effect or provides cover, or through a square occupied by a creature, the target has cover. Cover grants you a +4 bonus to AC and a +2 bonus to Reflex saves against attacks that originate from a point on the other side of the cover from you. Note that spread effects can extend around corners and negate these bonuses.</p>",
+      "unidentified": ""
+    },
+    "source": "CRB.276",
+    "type": "condition",
+    "modifiers": [
+      {
+        "_id": "54c06ee6-5bdf-4015-acce-f294f1b201ad",
+        "name": "Partial Cover",
+        "type": "armor",
+        "condition": "",
+        "effectType": "ranged-attacks",
+        "enabled": true,
+        "max": -2,
+        "modifier": "-2",
+        "modifierType": "constant",
+        "notes": "",
+        "source": "Condition",
+        "subtab": "misc",
+        "valueAffected": ""
+      },
+      {
+        "name": "Partial Cover Reflex",
+        "modifier": "+1",
+        "type": "armor",
+        "modifierType": "constant",
+        "effectType": "save",
+        "valueAffected": "reflex",
+        "enabled": true,
+        "source": "",
+        "notes": "",
+        "subtab": "misc",
+        "condition": "",
+        "_id": "57d3dcdc-3b48-45b1-9f3b-ec39fa708100",
+        "max": 1
+      }
+    ],
+    "activeDuration": {
+      "unit": "permanent",
+      "value": 0,
+      "activationTime": 0,
+      "expiryMode": {
+        "type": "turn",
+        "turn": "parent"
+      },
+      "expiryInit": 0,
+      "endsOn": "onTurnStart"
+    },
+    "enabled": true,
+    "context": {
+      "origin": {
+        "actorUuid": "",
+        "itemUuid": ""
+      }
+    },
+    "showOnToken": true,
+    "abilityMods": {
+      "parts": []
+    },
+    "critical": {
+      "effect": "",
+      "parts": []
+    },
+    "damage": {
+      "parts": []
+    },
+    "requirements": "Condition",
+    "sourceActorId": null
+  },
+  "effects": [],
+  "folder": null,
+  "flags": {
+    "core": {},
+    "tokencover": {
+      "coverEffectId": "tokencover.sfrpg.partial",
+      "coverTypes": [
+        "tokencover.sfrpg.partial"
+      ]
+    }
+  },
+  "_stats": {
+    "systemId": "sfrpg",
+    "systemVersion": "0.25.2",
+    "coreVersion": "11.315",
+    "createdTime": 1693930613750,
+    "modifiedTime": 1713588789675,
+    "lastModifiedBy": "JEcpXSsAPXNXDYnc"
+  },
+  "_id": "WhC815WlllSW8tT0",
+  "sort": 0,
+  "ownership": {
+    "default": 0,
+    "JEcpXSsAPXNXDYnc": 3
+  },
+  "_key": "!items!WhC815WlllSW8tT0"
+}

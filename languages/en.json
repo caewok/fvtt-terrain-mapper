@@ -1,3 +1,98 @@
 {
-    "MODULE.hello": "hello"
+  "terrainmapper.name": "Terrain Mapper",
+  "terrainmapper.controls.fill-by-grid.name": "Fill by grid",
+  "terrainmapper.controls.fill-by-los.name": "Fill by line-of-sight",
+  "terrainmapper.controls.fill-space.name": "Fill space enclosed by walls",
+
+  "terrainmapper.terrainbook.create-terrain": "Create Terrain",
+  "terrainmapper.terrainbook.create-defaults": "Reset Default Terrains",
+
+  "terrainmapper.scene-config.backgroundElevation.name": "Background Elevation",
+  "terrainmapper.scene-config.backgroundElevation.hint": "The default elevation for tokens placed on the canvas.",
+
+  "terrainmapper.active-effect-config.duplicatesAllowed.name": "Duplicates Allowed",
+  "terrainmapper.active-effect-config.duplicatesAllowed.hint": "When enabled, this terrain effect may be applied multiple times to a single token",
+
+  "terrainmapper.active-effect-config.displayStatusIcon.name": "Status Icon",
+  "terrainmapper.active-effect-config.displayStatusIcon.hint": "When disabled, the terrain status icon will not display on affected tokens.",
+
+  "terrainmapper.region-config.algorithm.name": "Region Elevation Shape",
+  "terrainmapper.region-config.algorithm.hint": "Apply a physical shape to the region's elevation. 'None' keeps the Foundry default. 'Plateau' treats the region like a plateau or mesa. Tokens entering the region will move to the plateau elevation and will be considered 'burrowing' if under that elevation. 'Ramp' is similar to 'Plateau' but applies a slope starting at the floor elevation and moving up to the plateau elevation in the given direction. Tokens that leave the region will 'fall' back to the ground unless flying.",
+
+  "terrainmapper.region-config.plateauElevation.name": "Plateau Elevation",
+  "terrainmapper.region-config.plateauElevation.hint": "When moving into the region, the token will be set to this elevation. For ramps, this is the topmost elevation of the ramp. For a typical scene, try setting the region top to this elevation and the region bottom to negative infinity.",
+
+  "terrainmapper.region-config.rampFloor.name": "Lowest Ramp Elevation",
+  "terrainmapper.region-config.rampFloor.hint": "For ramps only. Ramp elevation starts here and goes up to the Plateau Elevation. To create a wedge shape, set this value to the scene elevation.",
+
+  "terrainmapper.region-config.rampDirection.name": "Ramp Direction",
+  "terrainmapper.region-config.rampDirection.hint": "0º is due south; 90º is due west. For ramps only.",
+
+  "terrainmapper.region-config.rampStepSize.name": "Step Size",
+  "terrainmapper.region-config.rampStepSize.hint": "How tall, in grid units, to make each step of the ramp. The number of steps will be automatically determined based on this value. If set to 0, the ramp will approximate a smooth incline. For ramps only.",
+
+  "terrainmapper.tile-config.isFloor.name": "Treat as Floor",
+  "terrainmapper.tile-config.isFloor.hint": "When enabled, will be treated as a solid floor (ground) when moving tokens.",
+
+  "terrainmapper.tile-config.trimAlphaBorder.name": "Trim Boundary",
+  "terrainmapper.tile-config.trimAlphaBorder.hint": "When enabled, the transparent border of the tile will be ignored for purposes of token movement. Only a rectangle, possibly rotated, will be used as the border. For more complex shapes, enable Test for Holes.",
+
+  "terrainmapper.tile-config.testHoles.name": "Test for Holes",
+  "terrainmapper.tile-config.testHoles.hint": "Transparent pixels will be considered holes on this tile. Sufficiently large holes will cause the token to 'fall' through the tile.  `CONFIG.terrainmapper.holePercentThreshold` controls how large a hole must be for a given token. Default setting: a hole that exceeds 50% of the token size as measured from a given pixel will not support the token. Testing for holes is somewhat performance-intensive.",
+
+  "terrainmapper.tile-config.alphaThreshold.name": "Alpha (Transparency) Threshold",
+  "terrainmapper.tile-config.alphaThreshold.hint": "What percentage transparency counts for treating a given pixel as a hole or outer boundary. Default in Foundry is 0.75.",
+
+  "terrainmapper.behavior.types.add-terrain.fields.terrain.hint": "Select terrain that will be added to the token as an active effect.",
+
+  "terrainmapper.behavior.types.set-terrain.fields.terrain.hint": "Select terrain that will be added to the token as an active effect. When the token exits the region, the terrain will be automatically removed.",
+
+  "terrainmapper.behavior.types.add-terrain.fields.removeOther.name": "Remove Others",
+  "terrainmapper.behavior.types.add-terrain.fields.removeOther.hint": "When enabled, all other terrains on the token will be removed.",
+
+  "terrainmapper.behavior.types.add-terrain.fields.secret.name": "Secret",
+  "terrainmapper.behavior.types.add-terrain.fields.secret.hint": "When enabled, dragging the token will not reveal the existence of the terrain to users.",
+
+  "terrainmapper.behavior.types.remove-terrain.fields.terrain.hint": "Select one or more terrains that will be removed from the token. Leave blank to remove all terrains.",
+
+  "terrainmapper.behavior.types.remove-terrain.fields.keepSelected.name": "Keep selected",
+  "terrainmapper.behavior.types.remove-terrain.fields.keepSelected.hint": "Enable to keep the selected terrains and remove all the rest from the token.",
+
+  "terrainmapper.behavior.types.set-elevation.fields.elevation.name": "Elevation/Stairs Top",
+  "terrainmapper.behavior.types.set-elevation.fields.elevation.hint": "When moving into the region, the token will be set to this elevation. For stairs, tokens at elevation below the midpoint of this and the stairs bottom will be set to this elevation upon entry.",
+
+  "terrainmapper.behavior.types.set-elevation.fields.algorithm.name": "Elevation Method",
+
+  "terrainmapper.elevationAlgorithm.labels.none": "None",
+  "terrainmapper.elevationAlgorithm.labels.oneWay": "Single Elevation",
+  "terrainmapper.elevationAlgorithm.labels.plateau": "Plateau / Mesa",
+  "terrainmapper.elevationAlgorithm.labels.ramp": "Ramp / Steps",
+  "terrainmapper.elevationAlgorithm.labels.stairs": "Stairs",
+
+  "terrainmapper.behavior.types.set-elevation.fields.floor.name": "Stairs Bottom",
+  "terrainmapper.behavior.types.set-elevation.fields.floor.hint": "For stairs, tokens at elevation above the midpoint of this and the stairs top will be set to this elevation upon entry.",
+
+  "terrainmapper.behavior.types.set-elevation.fields.rampDirection.name": "Ramp Direction",
+  "terrainmapper.behavior.types.set-elevation.fields.rampDirection.hint": "0 is due south; 90 is due west. Does nothing unless method chosen is 'Ramp'.",
+
+  "terrainmapper.behavior.types.set-elevation.fields.rampStepHeight.name": "Ramp Step Size",
+  "terrainmapper.behavior.types.set-elevation.fields.rampStepHeight.hint": "How tall, in grid units, to make each step of the ramp. The number of steps will be automatically determined based on this value. If set to 0, the ramp will approximate a smooth incline. Does nothing unless method chosen is 'Ramp'.",
+
+  "terrainmapper.behavior.types.set-elevation.fields.ignoreOtherElevations.name": "Ignore Other Elevations",
+  "terrainmapper.behavior.types.set-elevation.fields.ignoreOtherElevations.hint": "If enabled, tokens entering the region will be ignored unless at the designated minimum elevation (or maximum, for stairs).",
+
+  "TYPES.RegionBehavior.terrainmapper.addTerrain": "Add Terrains",
+  "TYPES.RegionBehavior.terrainmapper.removeTerrain": "Remove Terrains",
+  "TYPES.RegionBehavior.terrainmapper.setTerrain": "Set Terrain",
+  "TYPES.RegionBehavior.terrainmapper.setElevation": "Set Elevation",
+
+  "terrainmapper.phrases.terrainLayer": "Terrain Layer",
+  "terrainmapper.phrases.terrain": "Terrain",
+  "terrainmapper.phrases.terrains": "Terrains",
+  "terrainmapper.phrases.no-terrain": "No Terrain",
+  "terrainmapper.phrases.new-terrain": "New Terrain",
+  "terrainmapper.phrases.layer-number": "Layer {layerNumber}",
+  "terrainmapper.phrases.difficult_x2": "Difficult (x2)",
+  "terrainmapper.phrases.water_swimming": "Water (Swimming)",
+  "terrainmapper.phrases.cliff_climbing": "Cliff (Climbing)"
 }

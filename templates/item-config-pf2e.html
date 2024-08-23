@@ -1,0 +1,18 @@
+<fieldset>
+  <legend>{{ localize "terrainmapper.name" }}</legend>
+    <div class="form-group" id="terrainmapper-tileconfig-terrain">
+      <label>{{ localize "terrainmapper.active-effect-config.duplicatesAllowed.name" }} </label>
+      <div class="form-fields">
+        <input type="checkbox" name="flags.terrainmapper.duplicatesAllowed" {{ checked document.flags.terrainmapper.duplicatesAllowed }} />
+      </div>
+      <p class="hint">{{ localize "terrainmapper.active-effect-config.duplicatesAllowed.hint" }}</p>
+    </div>
+
+    <div class="form-group" id="terrainmapper-tileconfig-terrain">
+      <label>{{ localize "terrainmapper.active-effect-config.displayStatusIcon.name" }} </label>
+      <div class="form-fields">
+        <input type="checkbox" name="flags.terrainmapper.displayStatusIcon" {{ checked document.flags.terrainmapper.displayStatusIcon }} />
+      </div>
+      <p class="hint">{{ localize "terrainmapper.active-effect-config.displayStatusIcon.hint" }}</p>
+    </div>
+</fieldset>
