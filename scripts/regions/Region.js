@@ -57,9 +57,9 @@ When exiting, moves back to the scene elevation
  * On init, add the terrain mapper refresh flag.
  */
 Hooks.on("init", function() {
-  Region.RENDER_FLAGS.refreshTerrainMapperMesh = {};
-  Region.RENDER_FLAGS.refreshBorder.propagate ??= [];
-  Region.RENDER_FLAGS.refreshBorder.propagate.push("refreshTerrainMapperMesh");
+  CONFIG.Region.objectClass.RENDER_FLAGS.refreshTerrainMapperMesh = {};
+  CONFIG.Region.objectClass.RENDER_FLAGS.refreshBorder.propagate ??= [];
+  CONFIG.Region.objectClass.RENDER_FLAGS.refreshBorder.propagate.push("refreshTerrainMapperMesh");
 });
 
 /**

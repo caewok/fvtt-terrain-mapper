@@ -475,7 +475,7 @@ function constructVerticalMoveSegment(waypoint, targetElevation) {
       y: waypoint.y,
       elevation: targetElevation
     },
-    type: Region.MOVEMENT_SEGMENT_TYPES.MOVE
+    type: CONFIG.Region.objectClass.MOVEMENT_SEGMENT_TYPES.MOVE
   };
 }
 
