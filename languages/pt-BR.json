@@ -16,6 +16,33 @@
   "terrainmapper.active-effect-config.displayStatusIcon.name": "Ícone de Status",
   "terrainmapper.active-effect-config.displayStatusIcon.hint": "Quando desativado, o ícone de status do terreno não será exibido nos tokens afetados.",
 
+  "terrainmapper.region-config.algorithm.name": "Forma da Elevação da Região",
+  "terrainmapper.region-config.algorithm.hint": "Aplique uma forma física à elevação da região. 'Nenhuma' mantém o padrão do Foundry. 'Planalto' trata a região como um planalto ou área plana. Tokens que entrarem na região se moverão para a elevação do planalto e serão considerados “Enterrados” se estiverem abaixo dessa elevação. 'Rampa' é semelhante a 'Planalto' mas aplica uma inclinação começando na elevação do chão e subindo até a elevação do planalto na direção determinada. Os tokens que saírem da região ‘cairão’ de volta no chão, a menos que voem.",
+
+  "terrainmapper.region-config.plateauElevation.name": "Elevação do Planalto",
+  "terrainmapper.region-config.plateauElevation.hint": "Ao entrar na região, o token será definido para esta elevação. Para rampas, esta é a elevação mais alta da rampa. Para uma cena típica, tente definir a região superior para esta elevação e a região inferior para infinito negativo.",
+
+  "terrainmapper.region-config.rampFloor.name": "Elevação Mais Baixa da Rampa",
+  "terrainmapper.region-config.rampFloor.hint": "Apenas para rampas. A elevação da rampa começa aqui e sobe até a Elevação do Planalto. Para criar uma forma de cunha, defina este valor para a elevação da cena.",
+
+  "terrainmapper.region-config.rampDirection.name": "Direção da Rampa",
+  "terrainmapper.region-config.rampDirection.hint": "0º é para sul; 90º é para oeste. Apenas para rampas.",
+
+  "terrainmapper.region-config.rampStepSize.name": "Tamanho do Degrau",
+  "terrainmapper.region-config.rampStepSize.hint": "Qual a altura, em unidades de grade, de cada degrau da rampa. O número de passos será determinado automaticamente com base neste valor. Se definido como 0, a rampa terá uma inclinação aproximada e suave. Apenas para rampas.",
+
+  "terrainmapper.tile-config.isFloor.name": "Tratar como Chão",
+  "terrainmapper.tile-config.isFloor.hint": "Quando habilitado, será tratado como piso sólido (chão) ao mover tokens.",
+
+  "terrainmapper.tile-config.trimAlphaBorder.name": "Limite de Corte",
+  "terrainmapper.tile-config.trimAlphaBorder.hint": "Quando ativado, a borda transparente do bloco será ignorada para fins de movimentação do token. Apenas um retângulo, possivelmente girado, será usado como borda. Para formas mais complexas, ative Teste para Furos.",
+
+  "terrainmapper.tile-config.testHoles.name": "Teste para Furos",
+  "terrainmapper.tile-config.testHoles.hint": "Pixels transparentes serão considerados buracos nesta peça. Buracos grandes o suficiente farão com que o token 'caia' através da peça. `CONFIG.terrainmapper.holePercentThreshold` controla o tamanho que um buraco deve ter para um determinado token. Configuração padrão: um buraco que exceda 50% do tamanho do token medido a partir de um determinado pixel não suportará o token. O teste para furos exige um pouco do desempenho.",
+
+  "terrainmapper.tile-config.alphaThreshold.name": "Limite Alfa (Transparência)",
+  "terrainmapper.tile-config.alphaThreshold.hint": "Qual porcentagem de transparência conta para tratar um determinado pixel como um furo ou limite externo. O padrão no Foundry é 0,75.",
+
   "terrainmapper.behavior.types.add-terrain.fields.terrain.hint": "Selecione o terreno que será adicionado ao token como efeito ativo.",
 
   "terrainmapper.behavior.types.set-terrain.fields.terrain.hint": "Selecione o terreno que será adicionado ao token como efeito ativo. Quando o token sair da região, o terreno será removido automaticamente.",
@@ -31,12 +58,29 @@
   "terrainmapper.behavior.types.remove-terrain.fields.keepSelected.name": "Manter Selecionados",
   "terrainmapper.behavior.types.remove-terrain.fields.keepSelected.hint": "Habilite para manter os terrenos selecionados e remover todo o resto do token.",
 
-    "terrainmapper.behavior.types.set-elevation.fields.elevation.name": "Elevação",
+  "terrainmapper.behavior.types.set-elevation.fields.elevation.name": "Elevação",
   "terrainmapper.behavior.types.set-elevation.fields.elevation.hint": "Ao entrar na região, o token será definido para esta elevação. Para uma cena típica, você deve definir a região superior para esta elevação e a região inferior para infinito negativo.",
 
-    "terrainmapper.behavior.types.set-elevation.fields.reset.name": "Redefinir ao Sair",
-  "terrainmapper.behavior.types.set-elevation.fields.reset.hint": "Quando ativado, a elevação do token será redefinida para a elevação de fundo da cena quando o token sair da região.",
+  "terrainmapper.behavior.types.set-elevation.fields.algorithm.name": "Método de Elevação",
 
+  "terrainmapper.elevationAlgorithm.labels.none": "Nenhum",
+  "terrainmapper.elevationAlgorithm.labels.oneWay": "Elevação Única",
+  "terrainmapper.elevationAlgorithm.labels.plateau": "Planalto / Plataforma",
+  "terrainmapper.elevationAlgorithm.labels.ramp": "Rampa / Degraus",
+  "terrainmapper.elevationAlgorithm.labels.stairs": "Escadas",
+
+  "terrainmapper.behavior.types.set-elevation.fields.floor.name": "Parte Inferior da Escada",
+  "terrainmapper.behavior.types.set-elevation.fields.floor.hint": "Para escadas, os tokens na elevação acima do ponto médio desta e no topo da escada, serão definidos para esta elevação ao entrarem.",
+
+  "terrainmapper.behavior.types.set-elevation.fields.rampDirection.name": "Direção da Rampa",
+  "terrainmapper.behavior.types.set-elevation.fields.rampDirection.hint": "0º é para sul; 90º é para oeste. Não faz nada a menos que o método escolhido seja 'Rampa'.",
+
+  "terrainmapper.behavior.types.set-elevation.fields.rampStepHeight.name": "Tamanho do Degrau da Rampa",
+  "terrainmapper.behavior.types.set-elevation.fields.rampStepHeight.hint": "Qual a altura, em unidades de grade, de cada degrau da rampa. O número de passos será determinado automaticamente com base neste valor. Se definido como 0, a rampa terá uma inclinação aproximada e suave. Não faz nada a menos que o método escolhido seja 'Rampa'.",
+
+  "terrainmapper.behavior.types.set-elevation.fields.ignoreOtherElevations.name": "Ignorar Outras Elevações",
+  "terrainmapper.behavior.types.set-elevation.fields.ignoreOtherElevations.hint": "Se ativado, tokens que entrarem na região serão ignorados, a menos que estejam na elevação mínima designada (ou máxima, para escadas).",
+  
   "TYPES.RegionBehavior.terrainmapper.addTerrain": "Adicionar Terrenos",
   "TYPES.RegionBehavior.terrainmapper.removeTerrain": "Remover Terrenos",
   "TYPES.RegionBehavior.terrainmapper.setTerrain": "Definir Terreno",
