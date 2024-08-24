@@ -245,16 +245,54 @@ function _getShiftedPosition(wrapped, dx, dy) {
   if ( this.document._source.x === shifted.x && this.document._source.y === shifted.y ) return shifted;
 
   // Determine the full path but only use the last point.
-  const origin3d = RegionMovementWaypoint3d.fromObject(this.document._source);
-  const dest3d = RegionMovementWaypoint3d.fromObject(shifted);
-  dest3d.elevation = origin3d.elevation;
-  const flying = ElevationHandler.tokenIsFlying(this, origin3d, dest3d);
-  const burrowing = ElevationHandler.tokenIsBurrowing(this, origin3d, dest3d);
-  log(`_getShiftedPosition|Moving ${this.name} from ${origin3d.x},${origin3d.y}, @${origin3d.elevation} --> ${dest3d.x},${dest3d.y}, @${dest3d.elevation}.\tFlying: ${flying}\tBurrowing:${burrowing}`);
-  const path = ElevationHandler.constructPath(origin3d, dest3d, { burrowing, flying, token: this });
-  return path.at(-1) || shifted;
+  const aTL = RegionMovementWaypoint3d.fromObject(this.document._source);
+  const bTL = RegionMovementWaypoint3d.fromObject(shifted);
+  bTL.elevation = aTL.elevation;
+  const path = calculatePathForTopLeftPoints(this, aTL, bTL);
+  const lastPoint = path.at(-1);
+  if ( !lastPoint ) return shifted;
+  return { x: lastPoint.x, y: lastPoint.y, elevation: lastPoint.elevation };
 }
 
+/**
+ * Determine the path for top left start and end.
+ * @param {Token} token
+ * @param {RegionMovementWaypoint3d} aTL
+ * @param {RegionMovementWaypoint3d} bTL
+ */
+function calculatePathForTopLeftPoints(token, aTL, bTL) {
+  const aCentered = aTL.centerPointToToken(token);
+  const bCentered = bTL.centerPointToToken(token);
+  const path =  calculatePathForCenterPoints(token, aCentered, bCentered);
+  return shiftPathToTopLeft(path, aTL, aCentered);
+}
+
+/**
+ * Determine the path for a given start and end. Must be center points.
+ * @param {Token} token
+ * @param {RegionMovementWaypoint3d} aCenter
+ * @param {RegionMovementWaypoint3d} bCenter
+ */
+function calculatePathForCenterPoints(token, aCenter, bCenter) {
+  const flying = ElevationHandler.tokenIsFlying(token, aCenter, bCenter);
+  const burrowing = ElevationHandler.tokenIsBurrowing(token, aCenter, bCenter);
+  log(`calculatePathForCenterPoints|Calculating path for ${token.name}: ${aCenter.x},${aCenter.y}, @${aCenter.elevation} --> ${bCenter.x},${bCenter.y}, @${bCenter.elevation}.\tFlying: ${flying}\tBurrowing:${burrowing}`);
+  const path = ElevationHandler.constructPath(aCenter, bCenter, { burrowing, flying, token });
+  return path;
+}
+
+/**
+ * Shift the path from center points to top left points. Used when updating token position.
+ * @param {RegionMovementWaypoint3d[]} path
+ * @param {RegionMovementWaypoint3d} topLeftPosition
+ * @param {RegionMovementWaypoint3d} centeredPosition
+ * @returns {RegionMovementWaypoint3d[]} The path, modified in place.
+ */
+function shiftPathToTopLeft(path, topLeftPosition, centeredPosition) {
+  const delta = topLeftPosition.subtract(centeredPosition);
+  path.forEach(pt => pt.add(delta, pt));
+  return path;
+}
 
 PATCHES.BASIC.WRAPS = { _getAnimationData, _onAnimationUpdate, _getShiftedPosition };
 
@@ -274,19 +312,16 @@ function _prepareDragLeftDropUpdates(wrapped, event) {
   const paths = new Map();
   for ( const clone of event.interactionData.clones ) {
     const {_original: original} = clone;
-    const dest = clone.getSnappedPosition();
-    const target = clone.getCenterPoint(dest);
-    if ( !canvas.dimensions.rect.contains(target.x, target.y) ) continue;
+    const dest = RegionMovementWaypoint3d.fromObject(clone.getSnappedPosition());
+    const bCentered = dest.centerPointToToken(clone); // i.e., target
+    if ( !canvas.dimensions.rect.contains(bCentered.x, bCentered.y) ) continue;
 
     // Determine the full path for the clone.
-    const origin3d = RegionMovementWaypoint3d.fromObject(original.center);
-    origin3d.elevation = original.elevationE;
-    const dest3d = RegionMovementWaypoint3d.fromObject(target);
-    dest3d.elevation = origin3d.elevation;
-    const flying = ElevationHandler.tokenIsFlying(this, origin3d, dest3d);
-    const burrowing = ElevationHandler.tokenIsBurrowing(this, origin3d, dest3d);
-    log(`_prepareDragLeftDropUpdates|Moving ${original.name} from ${origin3d.x},${origin3d.y}, @${origin3d.elevation} --> ${dest3d.x},${dest3d.y}, @${dest3d.elevation}.\tFlying: ${flying}\tBurrowing:${burrowing}`);
-    const path = ElevationHandler.constructPath(origin3d, dest3d, { burrowing, flying, token: this });
+    // Keep the path as center points so collisions can be easily tested.
+    const aCentered = RegionMovementWaypoint3d.fromObject(original.center);
+    aCentered.elevation = original.elevationE;
+    bCentered.elevation = aCentered.elevation;
+    const path = calculatePathForCenterPoints(this, aCentered, bCentered);
 
     // Test for collisions; if any collision along the path, don't move.
     if ( !game.user.isGM ) {
@@ -303,13 +338,7 @@ function _prepareDragLeftDropUpdates(wrapped, event) {
         continue;
       }
     }
-    // Modify the path to use TL of the token instead of center.
-    const dx = dest.x - target.x;
-    const dy = dest.y - target.y;
-    path.forEach(pt => {
-      pt.x += dx;
-      pt.y += dy;
-    });
+    shiftPathToTopLeft(path, dest, bCentered);
     paths.set(original.id, path);
   }
   commitDragLeftDropUpdatesAlongPaths.call(this, paths);
@@ -324,7 +353,6 @@ function _prepareDragLeftDropUpdates(wrapped, event) {
  */
 async function commitDragLeftDropUpdatesAlongPaths(paths) {
   const updateIds = new Set();
-  const nPaths = paths.size;
   let pathIdx = 1; // Path[0] is the origin.
   this.layer.clearPreviewContainer();
   while ( paths.size ) {

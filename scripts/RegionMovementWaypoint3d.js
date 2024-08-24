@@ -45,7 +45,40 @@ export class RegionMovementWaypoint3d extends Point3d {
     else if ( Object.hasOwn(pt, "k") ) newPt.elevation = elevationForUnit(pt.k);
     return newPt;
   }
+
+  /**
+   * Given a token, modify this point to match the center point of the token for that position.
+   * @param {Token} token
+   * @param {RegionMovementWaypoint3d} outPoint
+   * @returns {RegionMovementWaypoint3d} The outPoint
+   */
+  centerPointToToken(token, outPoint) {
+    outPoint ??= new this.constructor();
+    const center = token.getCenterPoint(this);
+    outPoint.set(center.x, center.y, this.z);
+    return outPoint;
+  }
+
+  /**
+   * Modify this point to center it in elevation units.
+   * @param {RegionMovementWaypoint3d} outPoint
+   * @returns {RegionMovementWaypoint3d} The outPoint
+   */
+  centerElevation(outPoint) {
+    outPoint ??= new this.constructor();
+    outPoint.copyFrom(this);
+    outPoint.elevation = elevationForUnit(unitElevation(this.elevation));
+    return outPoint;
+  }
 }
+
+/**
+ * Calculate the unit elevation for a given set of coordinates.
+ * @param {number} elevation    Elevation in grid units
+ * @returns {number} Elevation in number of grid steps.
+ */
+function unitElevation(elevation) { return Math.round(elevation / canvas.scene.dimensions.distance); }
+
 
 /**
  * Calculate the grid unit elevation from unit elevation.
