@@ -4,7 +4,8 @@ CONFIG,
 CONST,
 game,
 PIXI,
-ruler
+ruler,
+ui
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
@@ -24,6 +25,7 @@ Hook token movement to add/remove terrain effects and pause tokens dependent on 
 import { MODULE_ID, FLAGS, MODULES_ACTIVE } from "./const.js";
 import { log } from "./util.js";
 import { ElevationHandler } from "./ElevationHandler.js";
+import { RegionMovementWaypoint3d } from "./RegionMovementWaypoint3d.js";
 
 export const PATCHES = {};
 PATCHES.BASIC = {};
@@ -55,9 +57,14 @@ function preCreateToken(tokenD, data, _options, _userId) {
  * @returns {boolean|void}                          Explicitly return false to prevent update of this Document
  */
 function updateToken(tokenD, changed, _options, userId) {
+  const token = tokenD.object;
+  if ( !token ) return;
+//   if ( Object.hasOwn(changed, "elevation") && token.animationContexts.size && token[MODULE_ID]?.path?.length ) {
+//     log(`updateToken|${tokenD.name} had elevation change to ${changed.elevation} while animating`);
+//   }
+
   if ( !game.users.get(userId).isGM ) return;
   if ( !Object.hasOwn(changed, "disposition") ) return;
-  if ( !tokenD.object ) return;
   const terrainDocs = CONFIG[MODULE_ID].Terrain._allUniqueEffectDocumentsOnToken(tokenD.object)
   if ( !terrainDocs.length ) return;
 
@@ -120,21 +127,21 @@ function refreshToken(token, flags) {
     return;
   } else if ( token.animationContexts.size ) {
     log(`${token.name} is animating`);
-    const path = token[MODULE_ID]?.path;
-    if ( !path ) return;
-    const currPosition = token.getCenterPoint(token.position);
-    const currElevation = Math.round(path.elevationAt(currPosition));
-    const elevationChanged = token.document.elevation !== currElevation;
-    if ( elevationChanged ) {
-      if ( isFinite(currElevation) ) {
-        log(`refreshToken|Setting animating token ${token.name} elevation to ${currElevation} at ${currPosition.x},${currPosition.y}`);
-        // Set the destination elevation based on the end of the path.
-        token.document.elevation = currElevation;
-        token.renderFlags.set({refreshElevation: true, refreshVisibility: true, refreshTooltip: true });
-      } else {
-        console.error(`${MODULE_ID}|refreshToken destination elevation is not finite.`)
-      }
-    }
+//     const path = token[MODULE_ID]?.path;
+//     if ( !path ) return;
+//     const currPosition = token.getCenterPoint(token.position);
+//     const currElevation = Math.round(path.elevationAt(currPosition));
+//     const elevationChanged = token.document.elevation !== currElevation;
+//     if ( elevationChanged ) {
+//       if ( isFinite(currElevation) ) {
+//         log(`refreshToken|Setting animating token ${token.name} elevation to ${currElevation} at ${currPosition.x},${currPosition.y}`);
+//         // Set the destination elevation based on the end of the path.
+//         token.document.elevation = currElevation;
+//         token.renderFlags.set({refreshElevation: true, refreshVisibility: true, refreshTooltip: true });
+//       } else {
+//         console.error(`${MODULE_ID}|refreshToken destination elevation is not finite.`)
+//       }
+//     }
   }
 }
 
@@ -151,37 +158,37 @@ function refreshToken(token, flags) {
  */
 export function preUpdateToken(tokenD, changed, options, _userId) {
   log(`preUpdateToken ${tokenD.name}`);
-  options[MODULE_ID] ??= {};
-  // options[MODULE_ID].fixedDestination ??= false;
-  options[MODULE_ID].usePath ??= true;
-  if ( !options[MODULE_ID].usePath ) return;
-
-  const token = tokenD.object;
-  if ( !token ) return;
-  token[MODULE_ID] ??= {};
-  token[MODULE_ID].path = undefined;
-
-  if ( options.RidingMovement ) return; // See EV issue #83—compatibility with Rideables.
-  if ( Object.hasOwn(changed, "elevation") ) return; // Do not override existing elevation changes.
-  if ( !(Object.hasOwn(changed, "x") || Object.hasOwn(changed, "y")) ) return;
-
-  const destination = token.getCenterPoint({ x: changed.x ?? token.x, y: changed.y ?? token.y });
-  const origin = token.center;
-  origin.elevation = token.elevationE
-  destination.elevation = changed.elevation ?? origin.elevation;
-
-  const flying = ElevationHandler.tokenIsFlying(token, origin, destination);
-  const burrowing = ElevationHandler.tokenIsBurrowing(token, origin, destination);
-  log(`preUpdateToken|Moving from ${origin.x},${origin.y}, @${origin.elevation} --> ${destination.x},${destination.y}, @${destination.elevation}.\tFlying: ${flying}\tBurrowing:${burrowing}`);
-  token[MODULE_ID].path = ElevationHandler.constructPath(origin, destination, { burrowing, flying, token });
-  const destElevation = token[MODULE_ID].path.at(-1).elevation;
-  if ( isFinite(destElevation) ) {
-    log(`preUpdateToken|Setting destination elevation to ${token[MODULE_ID].path.at(-1).elevation}`, token[MODULE_ID].path);
-    // Set the destination elevation based on the end of the path.
-    changed.elevation = destElevation;
-  } else {
-    console.error(`${MODULE_ID}|preUpdateToken destination elevation is not finite. Moving from ${origin.x},${origin.y}, @${origin.elevation} --> ${destination.x},${destination.y}, @${destination.elevation}.\tFlying: ${flying}\tBurrowing:${burrowing}`)
-  }
+//   options[MODULE_ID] ??= {};
+//   // options[MODULE_ID].fixedDestination ??= false;
+//   options[MODULE_ID].usePath ??= true;
+//   if ( !options[MODULE_ID].usePath ) return;
+//
+//   const token = tokenD.object;
+//   if ( !token ) return;
+//   token[MODULE_ID] ??= {};
+//   token[MODULE_ID].path = undefined;
+//
+//   if ( options.RidingMovement ) return; // See EV issue #83—compatibility with Rideables.
+//   if ( Object.hasOwn(changed, "elevation") ) return; // Do not override existing elevation changes.
+//   if ( !(Object.hasOwn(changed, "x") || Object.hasOwn(changed, "y")) ) return;
+//
+//   const destination = token.getCenterPoint({ x: changed.x ?? token.x, y: changed.y ?? token.y });
+//   const origin = token.center;
+//   origin.elevation = token.elevationE
+//   destination.elevation = changed.elevation ?? origin.elevation;
+//
+//   const flying = ElevationHandler.tokenIsFlying(token, origin, destination);
+//   const burrowing = ElevationHandler.tokenIsBurrowing(token, origin, destination);
+//   log(`preUpdateToken|Moving from ${origin.x},${origin.y}, @${origin.elevation} --> ${destination.x},${destination.y}, @${destination.elevation}.\tFlying: ${flying}\tBurrowing:${burrowing}`);
+//   token[MODULE_ID].path = ElevationHandler.constructPath(origin, destination, { burrowing, flying, token });
+//   const destElevation = token[MODULE_ID].path.at(-1).elevation;
+//   if ( isFinite(destElevation) ) {
+//     log(`preUpdateToken|Setting destination elevation to ${token[MODULE_ID].path.at(-1).elevation}`, token[MODULE_ID].path);
+//     // Set the destination elevation based on the end of the path.
+//     changed.elevation = destElevation;
+//   } else {
+//     console.error(`${MODULE_ID}|preUpdateToken destination elevation is not finite. Moving from ${origin.x},${origin.y}, @${origin.elevation} --> ${destination.x},${destination.y}, @${destination.elevation}.\tFlying: ${flying}\tBurrowing:${burrowing}`)
+//   }
 
 }
 
@@ -194,6 +201,181 @@ PATCHES.BASIC.HOOKS = {
 
 // ----- NOTE: Wraps ----- //
 
+/**
+ * Wrap Token.prototype._getAnimationData
+ * Add elevation to the data types to be animated.
+ * See https://ptb.discord.com/channels/170995199584108546/811676497965613117/1276706805153529917
+ * @returns {TokenAnimationData}         The target animation data object
+ */
+function _getAnimationData(wrapped) {
+  const data = wrapped();
+  data.elevation = this.document.elevation;
+  return data;
+}
+
+/**
+ * Wrap Token.prototype._onAnimationUpdate
+ * On an elevation change, refresh elevation, visibility, vision
+ * Called each animation frame.
+ * @param {Partial<TokenAnimationData>} changed    The animation data that changed
+ * @param {TokenAnimationContext} context          The animation context
+ */
+function _onAnimationUpdate(wrapped, changed, context) {
+  wrapped(changed, context);
+  if ( !("elevation" in changed) ) return;
+
+  // Force elevation to be an integer change.
+  // TODO: Handle decimal elevation changes -- set some sort of flag on the token?
+  this.document.elevation = Math.round(this.document.elevation);
+
+  // Visibility refresh for the token at the new elevation.
+  this.renderFlags.set({ refreshElevation: true, refreshVisibility: true });
+  this.initializeSources();
+}
+
+/**
+ * Wrap Token.prototype._getShiftedPosition
+ * Add elevation change.
+ * @param {-1|0|1} dx         The number of grid units to shift along the X-axis
+ * @param {-1|0|1} dy         The number of grid units to shift along the Y-axis
+ * @returns {Point}           The shifted target coordinates
+ */
+function _getShiftedPosition(wrapped, dx, dy) {
+  const shifted = wrapped(dx, dy);
+  if ( this.document._source.x === shifted.x && this.document._source.y === shifted.y ) return shifted;
+
+  // Determine the full path but only use the last point.
+  const origin3d = RegionMovementWaypoint3d.fromObject(this.document._source);
+  const dest3d = RegionMovementWaypoint3d.fromObject(shifted);
+  dest3d.elevation = origin3d.elevation;
+  const flying = ElevationHandler.tokenIsFlying(this, origin3d, dest3d);
+  const burrowing = ElevationHandler.tokenIsBurrowing(this, origin3d, dest3d);
+  log(`_getShiftedPosition|Moving ${this.name} from ${origin3d.x},${origin3d.y}, @${origin3d.elevation} --> ${dest3d.x},${dest3d.y}, @${dest3d.elevation}.\tFlying: ${flying}\tBurrowing:${burrowing}`);
+  const path = ElevationHandler.constructPath(origin3d, dest3d, { burrowing, flying, token: this });
+  return path.at(-1) || shifted;
+}
+
+
+PATCHES.BASIC.WRAPS = { _getAnimationData, _onAnimationUpdate, _getShiftedPosition };
+
+
+// ----- NOTE: Mixed Wraps ----- //
+
+/**
+ * Mixed wrap Token.prototype._prepareDragLeftDropUpdates
+ * If the path has multiple steps for the token, commit each step and confirm the token destination.
+ * Bypasses intermediate calls to Token.prototype.#commitDragLeftDropUpdates
+ * @param {PIXI.FederatedEvent} event The triggering canvas interaction event
+ * @returns {object[]|null}           An array of database updates to perform for documents in this collection
+ */
+function _prepareDragLeftDropUpdates(wrapped, event) {
+  // If the shift key is held, ignore the path.
+  if ( event.shiftKey || !event.interactionData.clones.length ) return wrapped(event);
+  const paths = new Map();
+  for ( const clone of event.interactionData.clones ) {
+    const {_original: original} = clone;
+    const dest = clone.getSnappedPosition();
+    const target = clone.getCenterPoint(dest);
+    if ( !canvas.dimensions.rect.contains(target.x, target.y) ) continue;
+
+    // Determine the full path for the clone.
+    const origin3d = RegionMovementWaypoint3d.fromObject(original.center);
+    origin3d.elevation = original.elevationE;
+    const dest3d = RegionMovementWaypoint3d.fromObject(target);
+    dest3d.elevation = origin3d.elevation;
+    const flying = ElevationHandler.tokenIsFlying(this, origin3d, dest3d);
+    const burrowing = ElevationHandler.tokenIsBurrowing(this, origin3d, dest3d);
+    log(`_prepareDragLeftDropUpdates|Moving ${original.name} from ${origin3d.x},${origin3d.y}, @${origin3d.elevation} --> ${dest3d.x},${dest3d.y}, @${dest3d.elevation}.\tFlying: ${flying}\tBurrowing:${burrowing}`);
+    const path = ElevationHandler.constructPath(origin3d, dest3d, { burrowing, flying, token: this });
+
+    // Test for collisions; if any collision along the path, don't move.
+    if ( !game.user.isGM ) {
+      let collides = false;
+      let a = path[0];
+      for ( let i = 1, n = path.length; i < n; i += 1 ) {
+        const b = path[i];
+        collides = original.checkCollision(b, { origin: a});
+        if ( collides ) break;
+        a = b;
+      }
+      if ( collides ) {
+        ui.notifications.error("RULER.MovementCollision", {localize: true, console: false});
+        continue;
+      }
+    }
+    // Modify the path to use TL of the token instead of center.
+    const dx = dest.x - target.x;
+    const dy = dest.y - target.y;
+    path.forEach(pt => {
+      pt.x += dx;
+      pt.y += dy;
+    });
+    paths.set(original.id, path);
+  }
+  commitDragLeftDropUpdatesAlongPaths.call(this, paths);
+  return null;
+}
+
+/**
+ * Replicates Token.prototype.#commitDragLeftDropUpdates
+ * But commits the updates in order and confirms the destination was reached.
+ * On not reaching the destination, stops further updates
+ * @param {Map<string, RegionMovementWaypoint3d[]>} paths     Path for each token id; map will be modified.
+ */
+async function commitDragLeftDropUpdatesAlongPaths(paths) {
+  const updateIds = new Set();
+  const nPaths = paths.size;
+  let pathIdx = 1; // Path[0] is the origin.
+  this.layer.clearPreviewContainer();
+  while ( paths.size ) {
+    const updates = [];
+    updateIds.clear();
+    // For each token, take the next destination along its path.
+    for ( const [_id, path] of paths.entries() ) {
+      const dest = path[pathIdx];
+      if ( !dest ) {
+        paths.delete(_id);
+        continue;
+      }
+      updates.push({ _id, x: dest.x, y: dest.y, elevation: dest.elevation });
+      updateIds.add(_id);
+    }
+    if ( !updates.length ) break;
+    for ( const u of updates ) {
+      const d = this.document.collection.get(u._id);
+      if ( d ) d.locked = d._source.locked; // Unlock original documents
+    }
+
+    // If the TokenDocument is not returned, no update occurred.
+    const tokenDs = await canvas.scene.updateEmbeddedDocuments(this.document.documentName, updates);
+    const resIds = new Set(tokenDs.map(d => d.id));
+    const notInRes = updateIds.difference(resIds);
+    notInRes.forEach(id => paths.delete(id));
+
+    const promises = [];
+    for ( const tokenD of tokenDs ) {
+      // Retrieve the animation for this token.
+      const token = tokenD.object;
+      const anim = token.animationContexts.get(token.animationName);
+      if ( anim?.promise ) promises.push(anim.promise);
+
+      // If the TokenDocument does not match the destination, stop updating.
+      const dest = paths.get(tokenD.id)[pathIdx];
+      const { x, y, elevation } = tokenD._source;
+      if ( !(x.almostEqual(dest.x, 1) && y.almostEqual(dest.y, 1) && elevation.almostEqual(dest.elevation, 0.5)) ) {
+        log(`commitDragLeftDropUpdatesAlongPaths|Destination for ${tokenD.name} does not match.`);
+        paths.delete(tokenD.id);
+      }
+
+      // Wait for animations to finish. Otherwise, the token document update will change the animation path.
+      await Promise.allSettled(promises);
+    }
+    pathIdx += 1;
+  }
+}
+
+
+PATCHES.BASIC.MIXES = { _prepareDragLeftDropUpdates };
 
 // ----- NOTE: Methods ----- //
 
