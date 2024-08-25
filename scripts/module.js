@@ -8,7 +8,7 @@ loadTemplates
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { MODULE_ID, FA_ICONS, TEMPLATES, DEFAULT_FLAGS } from "./const.js";
+import { MODULE_ID, FA_ICONS, TEMPLATES, DEFAULT_FLAGS, SOCKETS } from "./const.js";
 import { log } from "./util.js";
 import { Settings } from "./settings.js";
 import { PATCHER, initializePatching } from "./patching.js";
@@ -101,7 +101,6 @@ Hooks.on("canvasReady", function(_canvas) {
   CONFIG[MODULE_ID].Terrain.transitionTokens(); // Async
   setDefaultPlaceablesFlags(); // Async.
 });
-
 
 function initializeAPI() {
   const api = game.modules.get(MODULE_ID).api = {

@@ -64,7 +64,7 @@
   "terrainmapper.behavior.types.set-elevation.fields.algorithm.name": "Elevation Method",
 
   "terrainmapper.elevationAlgorithm.labels.none": "None",
-  "terrainmapper.elevationAlgorithm.labels.oneWay": "Single Elevation",
+  "terrainmapper.elevationAlgorithm.labels.oneWay": "One-Way Stairs",
   "terrainmapper.elevationAlgorithm.labels.plateau": "Plateau / Mesa",
   "terrainmapper.elevationAlgorithm.labels.ramp": "Ramp / Steps",
   "terrainmapper.elevationAlgorithm.labels.stairs": "Stairs",
@@ -81,10 +81,16 @@
   "terrainmapper.behavior.types.set-elevation.fields.ignoreOtherElevations.name": "Ignore Other Elevations",
   "terrainmapper.behavior.types.set-elevation.fields.ignoreOtherElevations.hint": "If enabled, tokens entering the region will be ignored unless at the designated minimum elevation (or maximum, for stairs).",
 
+  "terrainmapper.behavior.types.set-elevation.fields.dialog.name": "User Confirms",
+  "terrainmapper.behavior.types.set-elevation.fields.dialog.hint": "If enabled, a dialog will prompt the user to confirm the elevation change. If the user rejects, the move will occur without the elevation change.",
+
+  "terrainmapper.behavior.types.set-elevation.fields.dialog.name": "Strict Elevation Test",
+  "terrainmapper.behavior.types.set-elevation.fields.dialog.hint": "If enabled, the stairs will only work if the token starts exactly at the botttom elevation (to move up) or top elevation (to move down)",
+
   "TYPES.RegionBehavior.terrainmapper.addTerrain": "Add Terrains",
   "TYPES.RegionBehavior.terrainmapper.removeTerrain": "Remove Terrains",
   "TYPES.RegionBehavior.terrainmapper.setTerrain": "Set Terrain",
-  "TYPES.RegionBehavior.terrainmapper.setElevation": "Set Elevation",
+  "TYPES.RegionBehavior.terrainmapper.setElevation": "Stairs",
 
   "terrainmapper.phrases.terrainLayer": "Terrain Layer",
   "terrainmapper.phrases.terrain": "Terrain",
@@ -94,5 +100,7 @@
   "terrainmapper.phrases.layer-number": "Layer {layerNumber}",
   "terrainmapper.phrases.difficult_x2": "Difficult (x2)",
   "terrainmapper.phrases.water_swimming": "Water (Swimming)",
-  "terrainmapper.phrases.cliff_climbing": "Cliff (Climbing)"
+  "terrainmapper.phrases.cliff_climbing": "Cliff (Climbing)",
+  "terrainmapper.phrases.stairs-go-up": "Take these stairs up?",
+  "terrainmapper.phrases.stairs-go-down": "Take these stairs down?"
 }
