@@ -5,7 +5,7 @@ foundry
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { MODULE_ID, FLAGS } from "../const.js";
+import { MODULE_ID, FLAGS, SOCKETS } from "../const.js";
 import { log, isFirstGM } from "../util.js";
 import { ElevationHandler } from "../ElevationHandler.js";
 
@@ -77,7 +77,8 @@ export class SetElevationRegionBehaviorType extends foundry.data.regionBehaviors
       algorithm: new foundry.data.fields.StringField({
         label: `${MODULE_ID}.behavior.types.set-elevation.fields.algorithm.name`,
         initial: FLAGS.SET_ELEVATION_BEHAVIOR.CHOICES.ONE_WAY,
-        choices: FLAGS.SET_ELEVATION_BEHAVIOR.LABELS
+        choices: FLAGS.SET_ELEVATION_BEHAVIOR.LABELS,
+        blank: false
       }),
 
       elevation: new foundry.data.fields.NumberField({
@@ -93,6 +94,18 @@ export class SetElevationRegionBehaviorType extends foundry.data.regionBehaviors
           return ElevationHandler.sceneFloor;
         }
       }),
+
+      strict: new foundry.data.fields.BooleanField({
+        label: `${MODULE_ID}.behavior.types.set-elevation.fields.strict.name`,
+        hint: `${MODULE_ID}.behavior.types.set-elevation.fields.strict.hint`,
+        initial: false
+      }),
+
+      dialog: new foundry.data.fields.BooleanField({
+        label: `${MODULE_ID}.behavior.types.set-elevation.fields.dialog.name`,
+        hint: `${MODULE_ID}.behavior.types.set-elevation.fields.dialog.hint`,
+        initial: false
+      })
     }
   }
 
@@ -101,11 +114,20 @@ export class SetElevationRegionBehaviorType extends foundry.data.regionBehaviors
     [CONST.REGION_EVENTS.TOKEN_ENTER]: this.#onTokenEnter,
   };
 
+  /**
+   * @type {RegionEvent} event
+   *   - @prop {object} data        Data related to the event
+   *     - @prop {Token} token      Token triggering the event
+   *   - @prop {string} name        Name of the event type (e.g., "tokenEnter")
+   *   - @prop {RegionDocument}     Region for the event
+   *   - @prop {User} user          User that triggered the event
+   */
   static async #onTokenEnter(event) {
     const data = event.data;
     log(`Token ${data.token.name} entering ${event.region.name}!`);
-    if ( !isFirstGM() ) return;
+    if ( event.user !== game.user ) return;
 
+    // Determine the target elevation.
     const tokenD = data.token;
     let elevation;
     if ( this.algorithm === FLAGS.SET_ELEVATION_BEHAVIOR.CHOICES.ONE_WAY ) elevation = this.elevation;
@@ -113,6 +135,13 @@ export class SetElevationRegionBehaviorType extends foundry.data.regionBehaviors
       // Stairs
       const midPoint = (this.elevation - this.floor) / 2;
       elevation = tokenD.elevation <= midPoint ? this.elevation : this.floor;
+    }
+
+    // If dialog is set, ask the user to accept the elevation change.
+    if ( this.dialog ) {
+      const content = game.i18n.localize(elevation > tokenD.elevation ? `${MODULE_ID}.phrases.stairs-go-up` : `${MODULE_ID}.phrases.stairs-go-down`);
+      const proceed = await foundry.applications.api.DialogV2.confirm({ content, rejectClose: false, modal: true });
+      if ( !proceed ) return;
     }
     return tokenD.update({ elevation });
   }

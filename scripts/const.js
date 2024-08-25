@@ -8,6 +8,9 @@ Hooks
 // Module identifier
 export const MODULE_ID = "terrainmapper";
 
+// For socketlib
+export const SOCKETS = { socket: null };
+
 // Templates used in this module when displaying configs.
 export const TEMPLATES = {
   SCENE: `modules/${MODULE_ID}/templates/scene-config.html`,

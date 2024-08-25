@@ -8,7 +8,7 @@ loadTemplates
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { MODULE_ID, FA_ICONS, TEMPLATES, DEFAULT_FLAGS } from "./const.js";
+import { MODULE_ID, FA_ICONS, TEMPLATES, DEFAULT_FLAGS, SOCKETS } from "./const.js";
 import { log } from "./util.js";
 import { Settings } from "./settings.js";
 import { PATCHER, initializePatching } from "./patching.js";
@@ -102,6 +102,20 @@ Hooks.on("canvasReady", function(_canvas) {
   setDefaultPlaceablesFlags(); // Async.
 });
 
+
+Hooks.once("socketlib.ready", () => {
+  SOCKETS.socket ??= socketlib.registerModule(MODULE_ID);
+  SOCKETS.socket.register("confirmDialog", confirmDialog);
+});
+
+/**
+ * Send a confirm dialog via socket.
+ * @param {string} content   The prompt for the dialog
+ * @returns {boolean}
+ */
+async function confirmDialog(content) {
+  return foundry.applications.api.DialogV2.confirm({ content, rejectClose: false, modal: true });
+}
 
 function initializeAPI() {
   const api = game.modules.get(MODULE_ID).api = {
