@@ -137,6 +137,7 @@ export class SetElevationRegionBehaviorType extends foundry.data.regionBehaviors
       const midPoint = (this.elevation - this.floor) / 2;
       elevation = tokenD.elevation <= midPoint ? this.elevation : this.floor;
     }
+    if ( elevation === tokenD.elevation ) return; // Already at the elevation.
 
     // If dialog is set, ask the user to accept the elevation change.
     if ( this.dialog ) {
