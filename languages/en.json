@@ -43,6 +43,8 @@
   "terrainmapper.tile-config.alphaThreshold.name": "Alpha (Transparency) Threshold",
   "terrainmapper.tile-config.alphaThreshold.hint": "What percentage transparency counts for treating a given pixel as a hole or outer boundary. Default in Foundry is 0.75.",
 
+  "terrainmapper.behavior.types.elevator.fields.floors.hint": "Set the elevation options for the elevator along with optional labels for each floor.",
+
   "terrainmapper.behavior.types.add-terrain.fields.terrain.hint": "Select terrain that will be added to the token as an active effect.",
 
   "terrainmapper.behavior.types.set-terrain.fields.terrain.hint": "Select terrain that will be added to the token as an active effect. When the token exits the region, the terrain will be automatically removed.",
@@ -91,6 +93,7 @@
   "TYPES.RegionBehavior.terrainmapper.removeTerrain": "Remove Terrains",
   "TYPES.RegionBehavior.terrainmapper.setTerrain": "Set Terrain",
   "TYPES.RegionBehavior.terrainmapper.setElevation": "Stairs",
+  "TYPES.RegionBehavior.terrainmapper.elevator": "Elevator",
 
   "terrainmapper.phrases.terrainLayer": "Terrain Layer",
   "terrainmapper.phrases.terrain": "Terrain",

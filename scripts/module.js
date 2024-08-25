@@ -22,6 +22,7 @@ import { WallTracerEdge, WallTracerVertex, WallTracer, SCENE_GRAPH } from "./Wal
 // import { RemoveTerrainRegionBehaviorType } from "./regions/RemoveTerrainRegionBehaviorType.js";
 import { SetTerrainRegionBehaviorType } from "./regions/SetTerrainRegionBehaviorType.js";
 import { SetElevationRegionBehaviorType } from "./regions/SetElevationRegionBehaviorType.js";
+import { ElevatorRegionBehaviorType } from "./regions/ElevatorRegionBehaviorType.js";
 import { StraightLinePath } from "./StraightLinePath.js";
 
 // Elevation
@@ -54,7 +55,8 @@ Hooks.once("init", function() {
 //     [`${MODULE_ID}.addTerrain`]: AddTerrainRegionBehaviorType,
 //     [`${MODULE_ID}.removeTerrain`]: RemoveTerrainRegionBehaviorType,
     [`${MODULE_ID}.setTerrain`]: SetTerrainRegionBehaviorType,
-    [`${MODULE_ID}.setElevation`]: SetElevationRegionBehaviorType
+    [`${MODULE_ID}.setElevation`]: SetElevationRegionBehaviorType,
+    [`${MODULE_ID}.elevator`]: ElevatorRegionBehaviorType
   });
 
 //   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.addTerrain`] = FA_ICONS.MODULE;
