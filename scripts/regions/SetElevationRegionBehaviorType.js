@@ -126,9 +126,10 @@ export class SetElevationRegionBehaviorType extends foundry.data.regionBehaviors
     const data = event.data;
     log(`Token ${data.token.name} entering ${event.region.name}!`);
     if ( event.user !== game.user ) return;
+    const tokenD = data.token;
+    if ( strict && tokenD.elevation !== this.elevation && tokenD.elevation !== this.floor ) return;
 
     // Determine the target elevation.
-    const tokenD = data.token;
     let elevation;
     if ( this.algorithm === FLAGS.SET_ELEVATION_BEHAVIOR.CHOICES.ONE_WAY ) elevation = this.elevation;
     else {
