@@ -8,7 +8,7 @@ loadTemplates
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { MODULE_ID, FA_ICONS, TEMPLATES, DEFAULT_FLAGS, SOCKETS } from "./const.js";
+import { MODULE_ID, FA_ICONS, TEMPLATES, DEFAULT_FLAGS } from "./const.js";
 import { log } from "./util.js";
 import { Settings } from "./settings.js";
 import { PATCHER, initializePatching } from "./patching.js";
