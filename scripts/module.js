@@ -102,21 +102,6 @@ Hooks.on("canvasReady", function(_canvas) {
   setDefaultPlaceablesFlags(); // Async.
 });
 
-
-Hooks.once("socketlib.ready", () => {
-  SOCKETS.socket ??= socketlib.registerModule(MODULE_ID);
-  SOCKETS.socket.register("confirmDialog", confirmDialog);
-});
-
-/**
- * Send a confirm dialog via socket.
- * @param {string} content   The prompt for the dialog
- * @returns {boolean}
- */
-async function confirmDialog(content) {
-  return foundry.applications.api.DialogV2.confirm({ content, rejectClose: false, modal: true });
-}
-
 function initializeAPI() {
   const api = game.modules.get(MODULE_ID).api = {
     Settings,

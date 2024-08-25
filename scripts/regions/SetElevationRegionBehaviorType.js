@@ -5,7 +5,7 @@ foundry
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { MODULE_ID, FLAGS, SOCKETS } from "../const.js";
+import { MODULE_ID, FLAGS } from "../const.js";
 import { log, isFirstGM } from "../util.js";
 import { ElevationHandler } from "../ElevationHandler.js";
 
