@@ -152,19 +152,19 @@ export class SetElevationRegionBehaviorType extends foundry.data.regionBehaviors
       await CanvasAnimation.getAnimation(tokenD.object?.animationName)?.promise;
     }
 
-    // Update the token to the actual destination.
+    // Continue to the actual destination.
     const lastDestination = this.constructor.lastDestination;
     if ( !lastDestination ) return;
-
     await tokenD.update({ x: lastDestination.x, y: lastDestination.y });
     this.constructor.lastDestination = undefined;
   }
 
+  /** @type {RegionWaypoint} */
   static lastDestination;
 
   /**
-   * Ask user to move up stairs if dialog is present.
-   * Set the segments to move up stairs otherwise.
+   * Stop at the entrypoint for the region.
+   * This allows onTokenEnter to then handle the stair movement.
    * @param {RegionEvent} event
    * @this {PauseGameRegionBehaviorType}
    */
