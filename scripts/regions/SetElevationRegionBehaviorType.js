@@ -126,28 +126,26 @@ export class SetElevationRegionBehaviorType extends foundry.data.regionBehaviors
   static async #onTokenEnter(event) {
     const data = event.data;
     log(`Token ${data.token.name} entering ${event.region.name}!`);
-//     if ( event.user !== game.user ) return;
-//     const tokenD = data.token;
-//     if ( this.strict && tokenD.elevation !== this.elevation && tokenD.elevation !== this.floor ) return;
-//
-//     // Determine the target elevation.
-//     let elevation;
-//     if ( this.algorithm === FLAGS.SET_ELEVATION_BEHAVIOR.CHOICES.ONE_WAY ) elevation = this.elevation;
-//     else {
-//       // Stairs
-//       const midPoint = (this.elevation - this.floor) / 2;
-//       elevation = tokenD.elevation <= midPoint ? this.elevation : this.floor;
-//     }
-//     if ( elevation === tokenD.elevation ) return; // Already at the elevation.
-//
-//     // If dialog is set, ask the user to accept the elevation change.
-//     if ( this.dialog ) {
-//       const content = game.i18n.localize(elevation > tokenD.elevation ? `${MODULE_ID}.phrases.stairs-go-up` : `${MODULE_ID}.phrases.stairs-go-down`);
-//       const proceed = await foundry.applications.api.DialogV2.confirm({ content, rejectClose: false, modal: true });
-//       if ( !proceed ) return;
-//     }
-//     return tokenD.update({ elevation });
+    if ( event.user !== game.user ) return;
+    const tokenD = data.token;
+    if ( this.strict && tokenD.elevation !== this.elevation && tokenD.elevation !== this.floor ) return;
+
+    // Determine the target elevation.
+    let elevation;
+    if ( this.algorithm === FLAGS.SET_ELEVATION_BEHAVIOR.CHOICES.ONE_WAY ) elevation = this.elevation;
+    else {
+      // Stairs
+      const midPoint = (this.elevation - this.floor) / 2;
+      elevation = tokenD.elevation <= midPoint ? this.elevation : this.floor;
+    }
+    if ( elevation === tokenD.elevation ) return; // Already at the elevation.
+
+    // Asked user in #onTokenPreMove whether to take stairs.
+    if ( !this.constructor.takeStairs ) return;
+    return tokenD.update({ elevation });
   }
+
+  static takeStairs = true;
 
   /**
    * Ask user to move up stairs if dialog is present.
@@ -156,11 +154,12 @@ export class SetElevationRegionBehaviorType extends foundry.data.regionBehaviors
    * @this {PauseGameRegionBehaviorType}
    */
   static async #onTokenPreMove(event) {
-    if ( event.data.forced ) return;
-    const tokenD = event.data.token;
-    const { ENTER, EXIT, MOVE } = Region.MOVEMENT_SEGMENT_TYPES;
+    this.constructor.takeStairs = true;
+    if ( event.data.forced || !this.dialog || !event.user === game.user ) return;
+    const askUser = event.data.segments.some(s => s.type === Region.MOVEMENT_SEGMENT_TYPES.ENTER );
+    if ( !askUser ) return;
 
-    let askUser = this.dialog && event.user === game.user;
+    const tokenD = event.data.token;
     let targetElevation;
     if ( this.algorithm === FLAGS.SET_ELEVATION_BEHAVIOR.CHOICES.ONE_WAY ) targetElevation = this.elevation;
     else {
@@ -168,40 +167,8 @@ export class SetElevationRegionBehaviorType extends foundry.data.regionBehaviors
       const midPoint = (this.elevation - this.floor) / 2;
       targetElevation = tokenD.elevation <= midPoint ? this.elevation : this.floor;
     }
-    let currElevation = event.data.segments[0].from.elevation;
-    const startElevation = currElevation;
-    let stairsUsed = false;
-    for ( const segment of event.data.segments ) {
-      switch ( segment.type ) {
-        case ENTER: {
-          if ( stairsUsed ) continue; // Should not occur?
-          if ( askUser ) {
-            const content = game.i18n.localize(targetElevation > tokenD.elevation ? `${MODULE_ID}.phrases.stairs-go-up` : `${MODULE_ID}.phrases.stairs-go-down`);
-            const proceed = await foundry.applications.api.DialogV2.confirm({ content, rejectClose: false, modal: true });
-            if ( proceed ) currElevation = targetElevation;
-            askUser = false;
-          } else currElevation = targetElevation;
-          stairsUsed = true;
-          segment.to.elevation = currElevation;
-          break;
-        }
-        case EXIT: {
-          let stairsUsed = false;
-          if ( stairsUsed && segment.from.elevation === segment.to.elevation && segment.from.elevation === startElevation ) {
-            segment.from.elevation = currElevation;
-            segment.to.elevation = currElevation;
-          }
-          break;
-        }
-        case MOVE: {
-          if ( stairsUsed && segment.from.elevation === segment.to.elevation && segment.from.elevation === startElevation ) {
-            segment.from.elevation = currElevation;
-            segment.to.elevation = currElevation;
-          }
-          break;
-        }
-      }
-    }
+    const content = game.i18n.localize(targetElevation > tokenD.elevation ? `${MODULE_ID}.phrases.stairs-go-up` : `${MODULE_ID}.phrases.stairs-go-down`);
+    this.constructor.takeStairs = await foundry.applications.api.DialogV2.confirm({ content, rejectClose: false, modal: true });
   }
 }
 
