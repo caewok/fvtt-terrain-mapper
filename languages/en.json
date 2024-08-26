@@ -43,8 +43,6 @@
   "terrainmapper.tile-config.alphaThreshold.name": "Alpha (Transparency) Threshold",
   "terrainmapper.tile-config.alphaThreshold.hint": "What percentage transparency counts for treating a given pixel as a hole or outer boundary. Default in Foundry is 0.75.",
 
-  "terrainmapper.behavior.types.elevator.fields.floors.hint": "Set the elevation options for the elevator along with optional labels for each floor.",
-
   "terrainmapper.behavior.types.add-terrain.fields.terrain.hint": "Select terrain that will be added to the token as an active effect.",
 
   "terrainmapper.behavior.types.set-terrain.fields.terrain.hint": "Select terrain that will be added to the token as an active effect. When the token exits the region, the terrain will be automatically removed.",
@@ -86,8 +84,13 @@
   "terrainmapper.behavior.types.set-elevation.fields.dialog.name": "User Confirms",
   "terrainmapper.behavior.types.set-elevation.fields.dialog.hint": "If enabled, a dialog will prompt the user to confirm the elevation change. If the user rejects, the move will occur without the elevation change.",
 
-  "terrainmapper.behavior.types.set-elevation.fields.dialog.name": "Strict Elevation Test",
-  "terrainmapper.behavior.types.set-elevation.fields.dialog.hint": "If enabled, the stairs will only work if the token starts exactly at the botttom elevation (to move up) or top elevation (to move down)",
+  "terrainmapper.behavior.types.set-elevation.fields.strict.name": "Strict Elevation Test",
+  "terrainmapper.behavior.types.set-elevation.fields.strict.hint": "If enabled, the token must be at the precise elevation of the stairs top elevation (to move down) or stairs bottom elevation (to move up).",
+
+  "terrainmapper.behavior.types.elevator.fields.strict.name": "Strict Elevation Test",
+  "terrainmapper.behavior.types.elevator.fields.strict.hint": "If enabled, the token must be at the precise elevation of a given floor to trigger the elevator.",
+
+  "terrainmapper.behavior.types.elevator.fields.floors.hint": "Add 1+ floors for the elevator. The format is 'number|label', where 'label' is optional. For example: 10|1st Floor.",
 
   "TYPES.RegionBehavior.terrainmapper.addTerrain": "Add Terrains",
   "TYPES.RegionBehavior.terrainmapper.removeTerrain": "Remove Terrains",
@@ -105,5 +108,9 @@
   "terrainmapper.phrases.water_swimming": "Water (Swimming)",
   "terrainmapper.phrases.cliff_climbing": "Cliff (Climbing)",
   "terrainmapper.phrases.stairs-go-up": "Take these stairs up?",
-  "terrainmapper.phrases.stairs-go-down": "Take these stairs down?"
+  "terrainmapper.phrases.stairs-go-down": "Take these stairs down?",
+  "terrainmapper.phrases.elevator": "Elevator",
+  "terrainmapper.phrases.elevator-choice": "Choose a floor",
+  "terrainmapper.phrases.top": "Top",
+  "terrainmapper.phrases.bottom": "Bottom"
 }

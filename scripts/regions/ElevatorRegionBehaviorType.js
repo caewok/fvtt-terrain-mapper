@@ -33,25 +33,24 @@ export class ElevatorRegionBehaviorType extends foundry.data.regionBehaviors.Reg
   static defineSchema() {
     const fields = foundry.data.fields;
     const setFieldOptions = {
-      label: `${MODULE_ID}.phrases.elevatorFloors`,
+      label: `${MODULE_ID}.phrases.elevator`,
       hint: `${MODULE_ID}.behavior.types.elevator.fields.floors.hint`
     };
 
     return {
-      floors: new fields.SetField(new fields.StringField({
+      floors: new fields.SetField(new fields.StringField({}), setFieldOptions),
+      /* Will not display (see BaseActiveEffect for parallel example):
+      floors: new fields.ArrayField(new fields.SchemaField({
+        elevation: new fields.NumberField({ required: true }),
+        label: new fields.StringField(),
       }), setFieldOptions),
+      */
 
       strict: new fields.BooleanField({
         label: `${MODULE_ID}.behavior.types.set-elevation.fields.strict.name`,
         hint: `${MODULE_ID}.behavior.types.set-elevation.fields.strict.hint`,
         initial: false
       }),
-
-      dialog: new fields.BooleanField({
-        label: `${MODULE_ID}.behavior.types.set-elevation.fields.dialog.name`,
-        hint: `${MODULE_ID}.behavior.types.set-elevation.fields.dialog.hint`,
-        initial: false
-      })
     }
   }
 
@@ -73,31 +72,57 @@ export class ElevatorRegionBehaviorType extends foundry.data.regionBehaviors.Reg
     log(`Token ${data.token.name} entering ${event.region.name}!`);
     if ( event.user !== game.user ) return;
     const tokenD = data.token;
-//     if ( strict && tokenD.elevation !== this.elevation && tokenD.elevation !== this.floor ) return;
-//
-//     // Determine the target elevation.
-//     let elevation;
-//     if ( this.algorithm === FLAGS.SET_ELEVATION_BEHAVIOR.CHOICES.ONE_WAY ) elevation = this.elevation;
-//     else {
-//       // Stairs
-//       const midPoint = (this.elevation - this.floor) / 2;
-//       elevation = tokenD.elevation <= midPoint ? this.elevation : this.floor;
-//     }
-//     if ( elevation === tokenD.elevation ) return; // Already at the elevation.
-//
-//     // If dialog is set, ask the user to accept the elevation change.
-//     if ( this.dialog ) {
-//       const content = game.i18n.localize(elevation > tokenD.elevation ? `${MODULE_ID}.phrases.stairs-go-up` : `${MODULE_ID}.phrases.stairs-go-down`);
-//       const proceed = await foundry.applications.api.DialogV2.confirm({ content, rejectClose: false, modal: true });
-//       if ( !proceed ) return;
-//     }
-//     return tokenD.update({ elevation });
+    const stops = [];
+    const elevations = new Set();
+    this.floors.forEach(floor => {
+      let [floorElev, floorLabel] = floor.split("|");
+      floorLabel ??= floorElev.trim();
+      floorElev = Number(floorElev);
+      floorLabel = floorLabel.trim();
+      stops.push({ [floorLabel]: floorElev }); // Use the labels as keys so that multiple labels can go to the same place.
+      elevations.add(floorElev);
+    });
+    stops.sort((a, b) => b[Object.keys(b)[0]] - a[Object.keys(a)[0]]); // Sort on elevation low to high
+
+    // When strict, don't trigger the elevator unless the token is already on a floor.
+    if ( this.strict && !elevations.has(tokenD.elevation) ) return;
+
+    // Ask the user to pick a floor.
+    const window = { title: game.i18n.localize(`${MODULE_ID}.phrases.elevator`) };
+    let content = "";
+    for ( const stop of stops ) {
+      const floorLabel = Object.keys(stop)[0];
+      const floorElev = stop[floorLabel];
+      const checked = tokenD.elevation.almostEqual(floorElev) ? "checked" : "";
+      content += `\n<label><input type="radio" name="choice" value=" ${floorElev}" ${checked}>${floorLabel}</label>`;
+    }
+
+    const buttons = [{
+      action: "choice",
+      label: game.i18n.localize(`${MODULE_ID}.phrases.elevator-choice`),
+      default: true,
+      callback: (event, button, dialog) => button.form.elements.choice.value
+    }];
+
+    // Force the animation to wait.
+    async function fn(tokenD, opts) {
+      const res = await foundry.applications.api.DialogV2.wait(opts);
+      await tokenD.update({ elevation: Number(res) });
+    }
+    const anim = CanvasAnimation.getAnimation(tokenD.object?.animationName);
+    if ( !anim ) return fn(tokenD, { rejectClose: false, window, content, buttons });
+
+    const oldWait = anim.wait;
+    anim.wait = fn(tokenD, { rejectClose: false, window, content, buttons });
+    return oldWait;
+    // const res = await foundry.applications.api.DialogV2.wait({ rejectClose: false, window, content, buttons });
+//     await tokenD.update({ elevation: Number(res) })
   }
 }
 
 /**
  * Hook preCreateRegionBehavior
- * Set the default elevation to the region top elevation if defined.
+ * Set the default elevation to the region top and bottom elevations if defined.
  * @param {Document} document                     The pending document which is requested for creation
  * @param {object} data                           The initial data object provided to the document creation request
  * @param {Partial<DatabaseCreateOperation>} options Additional options which modify the creation request
@@ -106,11 +131,15 @@ export class ElevatorRegionBehaviorType extends foundry.data.regionBehaviors.Reg
  */
 function preCreateRegionBehavior(document, data, _options, _userId) {
   log("preCreateRegionBehavior");
-//   if ( data.type !== `${MODULE_ID}.setElevation` ) return;
-//   const topE = document.region.elevation.top;
-//   const elevation = topE ?? ElevationHandler.sceneFloor;
-//   const floor = ElevationHandler.sceneFloor;
-//   document.updateSource({ ["system.elevation"]: elevation, ["system.floor"]: floor });
+  if ( data.type !== `${MODULE_ID}.elevator` ) return;
+  const topE = document.region.elevation.top;
+  const bottomE = document.region.elevation.bottom ?? ElevationHandler.sceneFloor;
+  const bottomLabel = game.i18n.localize(`${MODULE_ID}.phrases.bottom`);
+  const topLabel = game.i18n.localize(`${MODULE_ID}.phrases.top`);
+
+  const floors = [`${bottomE}|${bottomLabel}`];
+  if ( topE ) floors.push(`${topE}|${topLabel}`)
+  document.updateSource({ ["system.floors"]: floors });
 }
 
 PATCHES.REGIONS.HOOKS = { preCreateRegionBehavior };

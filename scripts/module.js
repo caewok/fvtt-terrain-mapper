@@ -62,7 +62,8 @@ Hooks.once("init", function() {
 //   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.addTerrain`] = FA_ICONS.MODULE;
 //   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.removeTerrain`] = FA_ICONS.MODULE;
   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.setTerrain`] = FA_ICONS.MODULE;
-  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.setElevation`] = FA_ICONS.ELEVATE;
+  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.setElevation`] = FA_ICONS.STAIRS;
+  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.elevator`] = FA_ICONS.ELEVATOR;
 
 
 
