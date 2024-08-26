@@ -5,6 +5,7 @@ game
 "use strict";
 
 import { Patcher } from "./Patcher.js";
+import { MODULES_ACTIVE } from "./const.js";
 
 import { PATCHES_SidebarTab, PATCHES_ItemDirectory } from "./settings.js";
 import { PATCHES as PATCHES_ActiveEffect } from "./ActiveEffect.js";
@@ -21,6 +22,7 @@ import { PATCHES as PATCHES_ModuleSettingsAbstract } from "./ModuleSettingsAbstr
 import { PATCHES as PATCHES_ItemSheet } from "./ItemSheet.js";
 import { PATCHES as PATCHES_Region } from "./regions/Region.js";
 import { PATCHES as PATCHES_RegionConfig } from "./regions/RegionConfig.js";
+import { PATCHES as PATCHES_Ruler } from "./Ruler.js";
 import { PATCHES as PATCHES_Tile } from "./Tile.js";
 import { PATCHES as PATCHES_TileConfig } from "./TileConfig.js";
 
@@ -34,6 +36,7 @@ export const PATCHES = {
   Region: PATCHES_Region,
   ["foundry.applications.sheets.RegionConfig"]: PATCHES_RegionConfig,
   RegionLayer: PATCHES_RegionLayer,
+  Ruler: PATCHES_Ruler,
   SceneConfig: PATCHES_SceneConfig,
   SidebarTab: PATCHES_SidebarTab,
   Tile: PATCHES_Tile,
@@ -57,5 +60,5 @@ export function initializePatching() {
   PATCHER.registerGroup(game.system.id);
 
   if ( game.system.id === "sfrpg" || game.system.id === "pf2e" ) PATCHER.registerGroup("COVER_ITEM");
-
+  if ( !MODULES_ACTIVE.ELEVATION_RULER ) PATCHER.registerGroup("RULER");
 }
