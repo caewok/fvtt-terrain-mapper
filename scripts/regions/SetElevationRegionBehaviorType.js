@@ -23,11 +23,12 @@ when the region boundary changes such that it now contains/no longer contains th
 when the token is created/deleted within the area of the region
 when a behavior becomes active/inactive, in which case the event is triggered only for this behavior and not others.
 
-Tokens Move In: You'll find a couple of new behaviors for Scene Regions that differ slightly from Token Enter and Token Exit,
-providing subtle but important differences. Token Enter or Exit should be used in cases where you want your behavior to trigger
-regardless of how a token entered or left the region. Token Move In or Token Move Out should be used in cases where you want
-the assigned behavior to trigger explicitly as a result of a user dragging, using their arrow keys, or moving their token along
-a path to get into the region. "Why is this necessary?" You might ask. Do you like infinitely looping teleportation?
+Tokens Move In: You'll find a couple of new behaviors for Scene Regions that differ slightly from Token Enter
+and Token Exit, providing subtle but important differences. Token Enter or Exit should be used in cases where
+you want your behavior to triggerregardless of how a token entered or left the region. Token Move In or
+Token Move Out should be used in cases where you want the assigned behavior to trigger explicitly as a result
+of a user dragging, using their arrow keys, or moving their token along a path to get into the region.
+"Why is this necessary?" You might ask. Do you like infinitely looping teleportation?
 Because that is how you get infinitely looping teleportation.
 
 
@@ -55,8 +56,10 @@ PreMove -> Exit -> Move -> MoveOut
  * @typedef RegionPathWaypoint extends RegionMovementWaypoint
  * RegionMovementWaypoint with added features to describe its position along a segment and the regions encountered
  * @prop {object} regions
- *   - @prop {Set<Region>} enter    All regions entered at this location; the region contains this point but not the previous
- *   - @prop {Set<Region>} exit     All regions exited at this location; the region contains this point but not the next
+ *   - @prop {Set<Region>} enter    All regions entered at this location;
+ *                                  the region contains this point but not the previous
+ *   - @prop {Set<Region>} exit     All regions exited at this location;
+ *                                  the region contains this point but not the next
  *   - @prop {Set<Region>} move     All regions were already entered at the start
  * @prop {number} dist2             Distance squared to the start
  * @prop {RegionMovementWaypoint} start   Starting waypoint
@@ -106,7 +109,7 @@ export class SetElevationRegionBehaviorType extends foundry.data.regionBehaviors
         hint: `${MODULE_ID}.behavior.types.set-elevation.fields.dialog.hint`,
         initial: false
       })
-    }
+    };
   }
 
   /** @override */
@@ -131,21 +134,33 @@ export class SetElevationRegionBehaviorType extends foundry.data.regionBehaviors
     if ( this.strict && tokenD.elevation !== this.elevation && tokenD.elevation !== this.floor ) return;
 
     // Determine the target elevation.
-    let elevation;
+    let targetElevation;
     if ( this.algorithm === FLAGS.SET_ELEVATION_BEHAVIOR.CHOICES.ONE_WAY ) elevation = this.elevation;
     else {
       // Stairs
       const midPoint = (this.elevation - this.floor) / 2;
-      elevation = tokenD.elevation <= midPoint ? this.elevation : this.floor;
+      targetElevation = tokenD.elevation <= midPoint ? this.elevation : this.floor;
     }
-    if ( elevation === tokenD.elevation ) return; // Already at the elevation.
+    let takeStairs = targetElevation !== tokenD.elevation;
+    if ( this.dialog && takeStairs ) {
+      // Could also await the prior move animation but probably not strictly necessary given the dialog pause.
+      const content = game.i18n.localize(targetElevation > tokenD.elevation ? `${MODULE_ID}.phrases.stairs-go-up` : `${MODULE_ID}.phrases.stairs-go-down`);
+      takeStairs = await foundry.applications.api.DialogV2.confirm({ content, rejectClose: false, modal: true });
+    }
+    if ( takeStairs ) {
+      await tokenD.update({ elevation: targetElevation });
+      await CanvasAnimation.getAnimation(tokenD.object?.animationName)?.promise;
+    }
 
-    // Asked user in #onTokenPreMove whether to take stairs.
-    if ( !this.constructor.takeStairs ) return;
-    return tokenD.update({ elevation });
+    // Update the token to the actual destination.
+    const lastDestination = this.constructor.lastDestination;
+    if ( !lastDestination ) return;
+
+    await tokenD.update({ x: lastDestination.x, y: lastDestination.y });
+    this.constructor.lastDestination = undefined;
   }
 
-  static takeStairs = true;
+  static lastDestination;
 
   /**
    * Ask user to move up stairs if dialog is present.
@@ -154,21 +169,15 @@ export class SetElevationRegionBehaviorType extends foundry.data.regionBehaviors
    * @this {PauseGameRegionBehaviorType}
    */
   static async #onTokenPreMove(event) {
-    this.constructor.takeStairs = true;
-    if ( event.data.forced || !this.dialog || !event.user === game.user ) return;
-    const askUser = event.data.segments.some(s => s.type === Region.MOVEMENT_SEGMENT_TYPES.ENTER );
-    if ( !askUser ) return;
+    if ( event.data.forced ) return;
 
-    const tokenD = event.data.token;
-    let targetElevation;
-    if ( this.algorithm === FLAGS.SET_ELEVATION_BEHAVIOR.CHOICES.ONE_WAY ) targetElevation = this.elevation;
-    else {
-      // Stairs
-      const midPoint = (this.elevation - this.floor) / 2;
-      targetElevation = tokenD.elevation <= midPoint ? this.elevation : this.floor;
+    for ( const segment of event.data.segments ) {
+      if ( segment.type === Region.MOVEMENT_SEGMENT_TYPES.ENTER ) {
+        this.constructor.lastDestination = event.data.destination;
+        event.data.destination = segment.to;
+        break;
+      }
     }
-    const content = game.i18n.localize(targetElevation > tokenD.elevation ? `${MODULE_ID}.phrases.stairs-go-up` : `${MODULE_ID}.phrases.stairs-go-down`);
-    this.constructor.takeStairs = await foundry.applications.api.DialogV2.confirm({ content, rejectClose: false, modal: true });
   }
 }
 
