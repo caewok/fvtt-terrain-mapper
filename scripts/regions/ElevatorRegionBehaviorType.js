@@ -104,19 +104,8 @@ export class ElevatorRegionBehaviorType extends foundry.data.regionBehaviors.Reg
       callback: (event, button, dialog) => button.form.elements.choice.value
     }];
 
-    // Force the animation to wait.
-    async function fn(tokenD, opts) {
-      const res = await foundry.applications.api.DialogV2.wait(opts);
-      await tokenD.update({ elevation: Number(res) });
-    }
-    const anim = CanvasAnimation.getAnimation(tokenD.object?.animationName);
-    if ( !anim ) return fn(tokenD, { rejectClose: false, window, content, buttons });
-
-    const oldWait = anim.wait;
-    anim.wait = fn(tokenD, { rejectClose: false, window, content, buttons });
-    return oldWait;
-    // const res = await foundry.applications.api.DialogV2.wait({ rejectClose: false, window, content, buttons });
-//     await tokenD.update({ elevation: Number(res) })
+    const res = await foundry.applications.api.DialogV2.wait({ rejectClose: false, window, content, buttons });
+    await tokenD.update({ elevation: Number(res) })
   }
 }
 
