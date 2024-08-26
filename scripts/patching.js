@@ -16,7 +16,7 @@ import { PATCHES as PATCHES_CanvasEdges } from "./CanvasEdges.js";
 import { PATCHES as PATCHES_RegionSceneControls } from "./regions/controls.js";
 import { PATCHES as PATCHES_RegionLayer } from "./regions/RegionLayer.js";
 import { PATCHES as PATCHES_SceneConfig } from "./SceneConfig.js";
-import { PATCHES as PATCHES_SetElevationRegionBehaviorType } from "./regions/SetElevationRegionBehaviorType.js";
+import { PATCHES as PATCHES_StairsRegionBehaviorType } from "./regions/StairsRegionBehaviorType.js";
 import { PATCHES as PATCHES_ElevatorRegionBehaviorType } from "./regions/ElevatorRegionBehaviorType.js";
 import { PATCHES as PATCHES_ModuleSettingsAbstract } from "./ModuleSettingsAbstract.js";
 import { PATCHES as PATCHES_ItemSheet } from "./ItemSheet.js";
@@ -46,7 +46,7 @@ export const PATCHES = {
 
   // Only hooks
   RegionSceneControls: PATCHES_RegionSceneControls,
-  SetElevationRegionBehaviorType: PATCHES_SetElevationRegionBehaviorType,
+  StairsRegionBehaviorType: PATCHES_StairsRegionBehaviorType,
   ElevatorRegionBehaviorType: PATCHES_ElevatorRegionBehaviorType
 };
 
