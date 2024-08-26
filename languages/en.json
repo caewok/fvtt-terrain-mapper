@@ -84,13 +84,19 @@
   "terrainmapper.behavior.types.set-elevation.fields.dialog.name": "User Confirms",
   "terrainmapper.behavior.types.set-elevation.fields.dialog.hint": "If enabled, a dialog will prompt the user to confirm the elevation change. If the user rejects, the move will occur without the elevation change.",
 
-  "terrainmapper.behavior.types.set-elevation.fields.dialog.name": "Strict Elevation Test",
-  "terrainmapper.behavior.types.set-elevation.fields.dialog.hint": "If enabled, the stairs will only work if the token starts exactly at the botttom elevation (to move up) or top elevation (to move down)",
+  "terrainmapper.behavior.types.set-elevation.fields.strict.name": "Strict Elevation Test",
+  "terrainmapper.behavior.types.set-elevation.fields.strict.hint": "If enabled, the token must be at the precise elevation of the stairs top elevation (to move down) or stairs bottom elevation (to move up).",
+
+  "terrainmapper.behavior.types.elevator.fields.strict.name": "Strict Elevation Test",
+  "terrainmapper.behavior.types.elevator.fields.strict.hint": "If enabled, the token must be at the precise elevation of a given floor to trigger the elevator.",
+
+  "terrainmapper.behavior.types.elevator.fields.floors.hint": "Add 1+ floors for the elevator. The format is 'number|label', where 'label' is optional. For example: 10|1st Floor.",
 
   "TYPES.RegionBehavior.terrainmapper.addTerrain": "Add Terrains",
   "TYPES.RegionBehavior.terrainmapper.removeTerrain": "Remove Terrains",
   "TYPES.RegionBehavior.terrainmapper.setTerrain": "Set Terrain",
   "TYPES.RegionBehavior.terrainmapper.setElevation": "Stairs",
+  "TYPES.RegionBehavior.terrainmapper.elevator": "Elevator",
 
   "terrainmapper.phrases.terrainLayer": "Terrain Layer",
   "terrainmapper.phrases.terrain": "Terrain",
@@ -102,5 +108,9 @@
   "terrainmapper.phrases.water_swimming": "Water (Swimming)",
   "terrainmapper.phrases.cliff_climbing": "Cliff (Climbing)",
   "terrainmapper.phrases.stairs-go-up": "Take these stairs up?",
-  "terrainmapper.phrases.stairs-go-down": "Take these stairs down?"
+  "terrainmapper.phrases.stairs-go-down": "Take these stairs down?",
+  "terrainmapper.phrases.elevator": "Elevator",
+  "terrainmapper.phrases.elevator-choice": "Choose a floor",
+  "terrainmapper.phrases.top": "Top",
+  "terrainmapper.phrases.bottom": "Bottom"
 }

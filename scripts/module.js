@@ -8,7 +8,7 @@ loadTemplates
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { MODULE_ID, FA_ICONS, TEMPLATES, DEFAULT_FLAGS, SOCKETS } from "./const.js";
+import { MODULE_ID, FA_ICONS, TEMPLATES, DEFAULT_FLAGS } from "./const.js";
 import { log } from "./util.js";
 import { Settings } from "./settings.js";
 import { PATCHER, initializePatching } from "./patching.js";
@@ -22,6 +22,7 @@ import { WallTracerEdge, WallTracerVertex, WallTracer, SCENE_GRAPH } from "./Wal
 // import { RemoveTerrainRegionBehaviorType } from "./regions/RemoveTerrainRegionBehaviorType.js";
 import { SetTerrainRegionBehaviorType } from "./regions/SetTerrainRegionBehaviorType.js";
 import { SetElevationRegionBehaviorType } from "./regions/SetElevationRegionBehaviorType.js";
+import { ElevatorRegionBehaviorType } from "./regions/ElevatorRegionBehaviorType.js";
 import { StraightLinePath } from "./StraightLinePath.js";
 
 // Elevation
@@ -54,13 +55,15 @@ Hooks.once("init", function() {
 //     [`${MODULE_ID}.addTerrain`]: AddTerrainRegionBehaviorType,
 //     [`${MODULE_ID}.removeTerrain`]: RemoveTerrainRegionBehaviorType,
     [`${MODULE_ID}.setTerrain`]: SetTerrainRegionBehaviorType,
-    [`${MODULE_ID}.setElevation`]: SetElevationRegionBehaviorType
+    [`${MODULE_ID}.setElevation`]: SetElevationRegionBehaviorType,
+    [`${MODULE_ID}.elevator`]: ElevatorRegionBehaviorType
   });
 
 //   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.addTerrain`] = FA_ICONS.MODULE;
 //   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.removeTerrain`] = FA_ICONS.MODULE;
   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.setTerrain`] = FA_ICONS.MODULE;
-  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.setElevation`] = FA_ICONS.ELEVATE;
+  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.setElevation`] = FA_ICONS.STAIRS;
+  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.elevator`] = FA_ICONS.ELEVATOR;
 
 
 

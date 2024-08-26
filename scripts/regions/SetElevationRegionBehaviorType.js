@@ -63,7 +63,7 @@ PreMove -> Exit -> Move -> MoveOut
  */
 
 /**
- * Region behavior to add terrain to token.
+ * Region behavior to set token to specific top/bottom elevation.
  * @property {number} elevation       The elevation at which to set the token
  * @property {number} floor           The elevation at which to reset the token when leaving the region; default scene background
  * @property {number} rampStepHeight  The vertical size, in grid units, of ramp elevation increments
@@ -127,7 +127,7 @@ export class SetElevationRegionBehaviorType extends foundry.data.regionBehaviors
     log(`Token ${data.token.name} entering ${event.region.name}!`);
     if ( event.user !== game.user ) return;
     const tokenD = data.token;
-    if ( strict && tokenD.elevation !== this.elevation && tokenD.elevation !== this.floor ) return;
+    if ( this.strict && tokenD.elevation !== this.elevation && tokenD.elevation !== this.floor ) return;
 
     // Determine the target elevation.
     let elevation;

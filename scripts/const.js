@@ -101,12 +101,13 @@ export const MOVEMENT_TYPES_INV = foundry.utils.invertObject(MOVEMENT_TYPES);
 
 // Icons used in this module in controls or tabs
 export const FA_ICONS = {
-  MODULE: "fa-solid fa-mountain-sun",
-  FILL_BY_GRID: "fa-solid fa-brush",
-  FILL_BY_LOS: "fa-solid fa-eye",
-  FILL_BY_WALLS: "fa-solid fa-fill-drip",
-  ELEVATE: "fa-solid fa-elevator",
-  TERRAIN_BOOK: "fa-solid fa-mountain-sun"
+  MODULE: "fa-solid fa-mountain-sun",           // https://fontawesome.com/icons/mountain-sun
+  FILL_BY_GRID: "fa-solid fa-brush",            // https://fontawesome.com/icons/brush
+  FILL_BY_LOS: "fa-solid fa-eye",               // https://fontawesome.com/icons/eye
+  FILL_BY_WALLS: "fa-solid fa-fill-drip",       // https://fontawesome.com/icons/fill-drip
+  STAIRS: "fa-solid fa-stairs",                 // https://fontawesome.com/icons/stairs
+  ELEVATOR: "fa-solid fa-elevator",             // https://fontawesome.com/icons/elevator
+  TERRAIN_BOOK: "fa-solid fa-mountain-sun"      // https://fontawesome.com/icons/mountain-sun
 };
 
 export const ICONS = {
