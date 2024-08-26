@@ -57,6 +57,7 @@ export class ElevatorRegionBehaviorType extends foundry.data.regionBehaviors.Reg
   /** @override */
   static events = {
     [CONST.REGION_EVENTS.TOKEN_ENTER]: this.#onTokenEnter,
+    [CONST.REGION_EVENTS.TOKEN_PRE_MOVE]: this.#onTokenPreMove,
   };
 
   /**
@@ -96,16 +97,47 @@ export class ElevatorRegionBehaviorType extends foundry.data.regionBehaviors.Reg
       const checked = tokenD.elevation.almostEqual(floorElev) ? "checked" : "";
       content += `\n<label><input type="radio" name="choice" value=" ${floorElev}" ${checked}>${floorLabel}</label>`;
     }
-
     const buttons = [{
       action: "choice",
       label: game.i18n.localize(`${MODULE_ID}.phrases.elevator-choice`),
       default: true,
       callback: (event, button, dialog) => button.form.elements.choice.value
     }];
-
     const res = await foundry.applications.api.DialogV2.wait({ rejectClose: false, window, content, buttons });
-    await tokenD.update({ elevation: Number(res) })
+    let chosenElevation = Number(res);
+
+    // Update the elevation.
+    if ( chosenElevation !== tokenD.elevation ) {
+      await tokenD.update({ elevation: chosenElevation });
+      await CanvasAnimation.getAnimation(tokenD.object?.animationName)?.promise;
+    }
+
+    // Continue to the actual destination.
+    const lastDestination = this.constructor.lastDestination;
+    if ( !lastDestination ) return;
+    await tokenD.update({ x: lastDestination.x, y: lastDestination.y });
+    this.constructor.lastDestination = undefined;
+  }
+
+  /** @type {RegionWaypoint} */
+  static lastDestination;
+
+  /**
+   * Stop at the entrypoint for the region.
+   * This allows onTokenEnter to then handle the stair movement.
+   * @param {RegionEvent} event
+   * @this {PauseGameRegionBehaviorType}
+   */
+  static async #onTokenPreMove(event) {
+    if ( event.data.forced ) return;
+
+    for ( const segment of event.data.segments ) {
+      if ( segment.type === Region.MOVEMENT_SEGMENT_TYPES.ENTER ) {
+        this.constructor.lastDestination = event.data.destination;
+        event.data.destination = segment.to;
+        break;
+      }
+    }
   }
 }
 
