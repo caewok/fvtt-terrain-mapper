@@ -28,6 +28,7 @@ import { RegionMovementWaypoint3d } from "./geometry/3d/RegionMovementWaypoint3d
 
 export const PATCHES = {};
 PATCHES.BASIC = {};
+PATCHES.RULER = {};
 
 // ----- NOTE: Hooks ----- //
 
@@ -353,7 +354,7 @@ async function commitDragLeftDropUpdatesAlongPaths(paths) {
 }
 
 
-PATCHES.BASIC.MIXES = { _prepareDragLeftDropUpdates };
+PATCHES.RULER.MIXES = { _prepareDragLeftDropUpdates };
 
 // ----- NOTE: Methods ----- //
 
