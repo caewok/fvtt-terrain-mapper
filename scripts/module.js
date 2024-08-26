@@ -21,7 +21,7 @@ import { WallTracerEdge, WallTracerVertex, WallTracer, SCENE_GRAPH } from "./Wal
 // import { AddTerrainRegionBehaviorType } from "./regions/AddTerrainRegionBehaviorType.js";
 // import { RemoveTerrainRegionBehaviorType } from "./regions/RemoveTerrainRegionBehaviorType.js";
 import { SetTerrainRegionBehaviorType } from "./regions/SetTerrainRegionBehaviorType.js";
-import { SetElevationRegionBehaviorType } from "./regions/SetElevationRegionBehaviorType.js";
+import { StairsRegionBehaviorType } from "./regions/StairsRegionBehaviorType.js";
 import { ElevatorRegionBehaviorType } from "./regions/ElevatorRegionBehaviorType.js";
 import { StraightLinePath } from "./StraightLinePath.js";
 
@@ -55,7 +55,7 @@ Hooks.once("init", function() {
 //     [`${MODULE_ID}.addTerrain`]: AddTerrainRegionBehaviorType,
 //     [`${MODULE_ID}.removeTerrain`]: RemoveTerrainRegionBehaviorType,
     [`${MODULE_ID}.setTerrain`]: SetTerrainRegionBehaviorType,
-    [`${MODULE_ID}.setElevation`]: SetElevationRegionBehaviorType,
+    [`${MODULE_ID}.setElevation`]: StairsRegionBehaviorType,
     [`${MODULE_ID}.elevator`]: ElevatorRegionBehaviorType
   });
 
@@ -130,7 +130,7 @@ function initializeAPI() {
      * @param {number} [opts.endElevation]   Elevation in grid units
      * @returns {RegionMovementSegment}
      */
-    estimateElevationForSegment: SetElevationRegionBehaviorType.estimateElevationForSegment,
+    estimateElevationForSegment: StairsRegionBehaviorType.estimateElevationForSegment,
   };
 }
 

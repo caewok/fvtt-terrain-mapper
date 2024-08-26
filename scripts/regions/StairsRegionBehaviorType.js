@@ -74,13 +74,13 @@ PreMove -> Exit -> Move -> MoveOut
  * @property {boolean} reset          When enabled, elevation will be reset to floor on exit
  * @property {FLAGS.REGION.CHOICES} algorithm       How elevation change should be handled. plateau, ramp, stairs
  */
-export class SetElevationRegionBehaviorType extends foundry.data.regionBehaviors.RegionBehaviorType {
+export class StairsRegionBehaviorType extends foundry.data.regionBehaviors.RegionBehaviorType {
   static defineSchema() {
     return {
       algorithm: new foundry.data.fields.StringField({
         label: `${MODULE_ID}.behavior.types.set-elevation.fields.algorithm.name`,
-        initial: FLAGS.SET_ELEVATION_BEHAVIOR.CHOICES.ONE_WAY,
-        choices: FLAGS.SET_ELEVATION_BEHAVIOR.LABELS,
+        initial: FLAGS.STAIRS_BEHAVIOR.CHOICES.ONE_WAY,
+        choices: FLAGS.STAIRS_BEHAVIOR.LABELS,
         blank: false
       }),
 
@@ -135,7 +135,7 @@ export class SetElevationRegionBehaviorType extends foundry.data.regionBehaviors
 
     // Determine the target elevation.
     let targetElevation;
-    if ( this.algorithm === FLAGS.SET_ELEVATION_BEHAVIOR.CHOICES.ONE_WAY ) elevation = this.elevation;
+    if ( this.algorithm === FLAGS.STAIRS_BEHAVIOR.CHOICES.ONE_WAY ) elevation = this.elevation;
     else {
       // Stairs
       const midPoint = (this.elevation - this.floor) / 2;

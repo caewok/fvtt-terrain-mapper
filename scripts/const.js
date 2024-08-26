@@ -76,8 +76,8 @@ export const FLAGS = {
     ALPHA_THRESHOLD: "alphaThreshold"
   },
 
-  // SetElevationRegionBehavior
-  SET_ELEVATION_BEHAVIOR: {
+  // StairsRegionBehavior
+  STAIRS_BEHAVIOR: {
     CHOICES: {
       ONE_WAY: "oneWay",
       STAIRS: "stairs",

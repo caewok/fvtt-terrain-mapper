@@ -101,7 +101,7 @@ Hooks.once("ready", () => {
 
                 Moving tokens across regions with plateaus/ramps/steps automatically adjusts their elevation.
 
-                If you want region stairs/elevator, try using the SetElevation region behavior.
+                If you want region stairs/elevator, try using the Stairs region behavior.
 
                 This release offers better compatibility with Elevation Ruler v0.10 for measuring token movement and move penalties.`
         })
