@@ -4,7 +4,6 @@ CONFIG,
 CONST,
 game,
 PIXI,
-ruler,
 ui
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
@@ -25,7 +24,7 @@ Hook token movement to add/remove terrain effects and pause tokens dependent on 
 import { MODULE_ID, FLAGS, MODULES_ACTIVE } from "./const.js";
 import { log } from "./util.js";
 import { ElevationHandler } from "./ElevationHandler.js";
-import { RegionMovementWaypoint3d } from "./RegionMovementWaypoint3d.js";
+import { RegionMovementWaypoint3d } from "./geometry/3d/RegionMovementWaypoint3d.js";
 
 export const PATCHES = {};
 PATCHES.BASIC = {};
@@ -61,11 +60,11 @@ function updateToken(tokenD, changed, _options, userId) {
   if ( !token ) return;
   if ( !game.users.get(userId).isGM ) return;
   if ( !Object.hasOwn(changed, "disposition") ) return;
-  const terrainDocs = CONFIG[MODULE_ID].Terrain._allUniqueEffectDocumentsOnToken(tokenD.object)
+  const terrainDocs = CONFIG[MODULE_ID].Terrain._allUniqueEffectDocumentsOnToken(tokenD.object);
   if ( !terrainDocs.length ) return;
 
   if ( changed.disposition === CONST.TOKEN_DISPOSITIONS.SECRET ) {
-    terrainDocs.forEach(doc =>  doc.update({ statuses: []})); // Async
+    terrainDocs.forEach(doc => doc.update({ statuses: []})); // Async
   } else terrainDocs.forEach(doc => {
     if ( !doc.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.DISPLAY_ICON) ) return;
     doc.update({ statuses: [doc.img]}); // Async
@@ -116,13 +115,11 @@ function refreshToken(token, flags) {
           log(`refreshToken|Setting preview token ${token.name} elevation to ${path.at(-1).elevation} at ${destination.x},${destination.y}`);
           token.document.elevation = destElevation;
         } else {
-          console.error(`${MODULE_ID}|refreshToken destination elevation is not finite. Moving from ${origin.x},${origin.y}, @${origin.elevation} --> ${destination.x},${destination.y}, @${destination.elevation}.\tFlying: ${flying}\tBurrowing:${burrowing}`)
+          console.error(`${MODULE_ID}|refreshToken destination elevation is not finite. Moving from ${origin.x},${origin.y}, @${origin.elevation} --> ${destination.x},${destination.y}, @${destination.elevation}.\tFlying: ${flying}\tBurrowing:${burrowing}`);
         }
       }
     }
-  } // else if ( token.animationContexts.size ) {
-    // log(`${token.name} is animating`);
-  // }
+  }
 }
 
 
@@ -154,6 +151,8 @@ function _getAnimationData(wrapped) {
  * @param {TokenAnimationContext} context          The animation context
  */
 function _onAnimationUpdate(wrapped, changed, context) {
+  // TODO: Cache elevation and compare to target elevation to skip visibility refresh.
+
   wrapped(changed, context);
   if ( !("elevation" in changed) ) return;
 
@@ -168,7 +167,9 @@ function _onAnimationUpdate(wrapped, changed, context) {
     else if ( elevDelta < canvas.grid.distance ) elevStep = 1;
     else elevStep = Math.floor(canvas.grid.distance);
   }
-  if ( !this.document.elevation.almostEqual(targetElev) ) this.document.elevation = this.document.elevation.toNearest(elevStep);
+  if ( !this.document.elevation.almostEqual(targetElev) ) {
+    this.document.elevation = this.document.elevation.toNearest(elevStep);
+  }
 
   // Visibility refresh for the token at the new elevation.
   this.renderFlags.set({ refreshElevation: true, refreshVisibility: true });
@@ -205,7 +206,7 @@ function _getShiftedPosition(wrapped, dx, dy) {
 function calculatePathForTopLeftPoints(token, aTL, bTL) {
   const aCentered = aTL.centerPointToToken(token);
   const bCentered = bTL.centerPointToToken(token);
-  const path =  calculatePathForCenterPoints(token, aCentered, bCentered);
+  const path = calculatePathForCenterPoints(token, aCentered, bCentered);
   return shiftPathToTopLeft(path, aTL, aCentered);
 }
 
@@ -215,7 +216,7 @@ function calculatePathForTopLeftPoints(token, aTL, bTL) {
  * @param {RegionMovementWaypoint3d} aCenter
  * @param {RegionMovementWaypoint3d} bCenter
  */
-function calculatePathForCenterPoints(token, aCenter, bCenter) {
+export function calculatePathForCenterPoints(token, aCenter, bCenter) {
   const flying = ElevationHandler.tokenIsFlying(token, aCenter, bCenter);
   const burrowing = ElevationHandler.tokenIsBurrowing(token, aCenter, bCenter);
   log(`calculatePathForCenterPoints|Calculating path for ${token.name}: ${aCenter.x},${aCenter.y}, @${aCenter.elevation} --> ${bCenter.x},${bCenter.y}, @${bCenter.elevation}.\tFlying: ${flying}\tBurrowing:${burrowing}`);
@@ -255,7 +256,7 @@ function _prepareDragLeftDropUpdates(wrapped, event) {
   for ( const clone of event.interactionData.clones ) {
     const {_original: original} = clone;
     const dest = RegionMovementWaypoint3d.fromObject(clone.getSnappedPosition());
-    const bCentered = dest.centerPointToToken(clone); // i.e., target
+    const bCentered = dest.centerPointToToken(clone); // I.e., target
     if ( !canvas.dimensions.rect.contains(bCentered.x, bCentered.y) ) continue;
 
     // Determine the full path for the clone.
@@ -266,25 +267,32 @@ function _prepareDragLeftDropUpdates(wrapped, event) {
     const path = calculatePathForCenterPoints(this, aCentered, bCentered);
 
     // Test for collisions; if any collision along the path, don't move.
-    if ( !game.user.isGM ) {
-      let collides = false;
-      let a = path[0];
-      for ( let i = 1, n = path.length; i < n; i += 1 ) {
-        const b = path[i];
-        collides = original.checkCollision(b, { origin: a});
-        if ( collides ) break;
-        a = b;
-      }
-      if ( collides ) {
-        ui.notifications.error("RULER.MovementCollision", {localize: true, console: false});
-        continue;
-      }
+    if ( !game.user.isGM && hasCollisionAlongPath(path, token) ) {
+      ui.notifications.error("RULER.MovementCollision", {localize: true, console: false});
+      return null;
     }
+
     shiftPathToTopLeft(path, dest, bCentered);
     paths.set(original.id, path);
   }
   commitDragLeftDropUpdatesAlongPaths.call(this, paths);
   return null;
+}
+
+/**
+ * Test for collisions along a path.
+ * @param {RegionMovementWaypoint3d[]} path
+ * @param {Token} token
+ * @returns {boolean}
+ */
+export function hasCollisionAlongPath(path, token) {
+  let a = path[0];
+  for ( let i = 1, n = path.length; i < n; i += 1 ) {
+    const b = path[i];
+    if ( token.checkCollision(b, { origin: a}) ) return true;
+    a = b;
+  }
+  return false;
 }
 
 /**
@@ -412,7 +420,7 @@ const ENTRY_EVENTS = new Set([
   CONST.REGION_EVENTS.TOKEN_ENTER,
   CONST.REGION_EVENTS.TOKEN_MOVE,
   CONST.REGION_EVENTS.TOKEN_MOVE_IN,
-  CONST.REGION_EVENTS.TOKEN_PRE_MOVE,
+  CONST.REGION_EVENTS.TOKEN_PRE_MOVE
 ]);
 
 const ENTRY_EVENTS_COMBAT = new Set([
