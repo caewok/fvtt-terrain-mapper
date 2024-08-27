@@ -374,14 +374,14 @@ export class TileElevationHandler {
     let a = holePositions[0];
     let onTile = !a.holeStart;
     if ( holePositions.length === 1 && onTile ) {
-      const quads = bounds.cutaway(ElevationHandler._toPoint3d(a), end,
+      const quads = bounds.cutaway(a, end,
         { start, end, topElevationFn, bottomElevationFn });
       if ( quads.length ) return quads;
     }
     for ( let i = 1, n = holePositions.length; i < n; i += 1 ) {
       const b = holePositions[i];
       if ( onTile && b.holeStart ) {
-        const quads = bounds.cutaway(ElevationHandler._toPoint3d(a), ElevationHandler._toPoint3d(b),
+        const quads = bounds.cutaway(a, b,
           { start, end, topElevationFn, bottomElevationFn });
         if ( quads.length ) polys.push(...quads);
         onTile = false;
