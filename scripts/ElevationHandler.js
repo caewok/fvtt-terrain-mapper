@@ -15,6 +15,7 @@ import { ClipperPaths } from "./geometry/ClipperPaths.js";
 import { RegionElevationHandler } from "./regions/RegionElevationHandler.js";
 import { StraightLinePath } from "./StraightLinePath.js";
 import { RegionMovementWaypoint3d } from "./geometry/3d/RegionMovementWaypoint3d.js";
+import { Point3d } from "./geometry/3d/Point3d.js";
 
 /**
  * Regions elevation handler
@@ -496,10 +497,10 @@ export class ElevationHandler {
     const MIN_ELEV = -1e06;
     const sceneFloor = this.sceneFloor;
     const pts = [
-      { ...start, elevation: sceneFloor },
-      { ...start, elevation: MIN_ELEV },
-      { ...end, elevation: MIN_ELEV },
-      { ...end, elevation: sceneFloor }
+      RegionMovementWaypoint3d.fromLocationWithElevation(start, sceneFloor),
+      RegionMovementWaypoint3d.fromLocationWithElevation(start, MIN_ELEV),
+      RegionMovementWaypoint3d.fromLocationWithElevation(end, MIN_ELEV),
+      RegionMovementWaypoint3d.fromLocationWithElevation(end, sceneFloor),
     ].map(pt => this._to2dCutawayCoordinate(pt, start, end));
     const floorPoly = new PIXI.Polygon(...pts);
     paths.push(ClipperPaths.fromPolygons([floorPoly]));

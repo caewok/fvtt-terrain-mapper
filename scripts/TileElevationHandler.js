@@ -371,7 +371,7 @@ export class TileElevationHandler {
     // Starting outside the tile and moving until we hit something.
     const polys = [];
     const bounds = this.alphaBorder;
-    let a = holePositions[0];
+    let a = PIXI.Point.fromObject(holePositions[0]);
     let onTile = !a.holeStart;
     if ( holePositions.length === 1 && onTile ) {
       const quads = bounds.cutaway(a, end,
@@ -379,7 +379,7 @@ export class TileElevationHandler {
       if ( quads.length ) return quads;
     }
     for ( let i = 1, n = holePositions.length; i < n; i += 1 ) {
-      const b = holePositions[i];
+      const b = PIXI.Point.fromObject(holePositions[i]);
       if ( onTile && b.holeStart ) {
         const quads = bounds.cutaway(a, b,
           { start, end, topElevationFn, bottomElevationFn });
