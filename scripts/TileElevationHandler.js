@@ -9,6 +9,7 @@ PIXI,
 import { MODULE_ID, FLAGS } from "./const.js";
 import { Point3d } from "./geometry/3d/Point3d.js";
 import { Plane } from "./geometry/3d/Plane.js";
+import { RegionMovementWaypoint3d } from "./geometry/3d/RegionMovementWaypoint3d.js";
 import { ElevationHandler } from "./ElevationHandler.js";
 import { ClipperPaths } from "./geometry/ClipperPaths.js";
 import { regionWaypointsXYAlmostEqual } from "./util.js";
@@ -84,11 +85,14 @@ export class TileElevationHandler {
    * Does this segment intersect the tile?
    * TODO: Segments that touch the border only do not intersect the tile.
    * TODO: Segments that are inside a hole only do not intersect the tile.
-   * @param {RegionMovementWaypoint} start          Start of the segment
-   * @param {RegionMovementWaypoint} end            End of the segment
+   * @param {RegionMovementWaypoint3d} start          Start of the segment
+   * @param {RegionMovementWaypoint3d} end            End of the segment
    * @returns {boolean}
    */
   lineSegmentIntersects(start, end) {
+    if ( !(start instanceof RegionMovementWaypoint3d) ) start = RegionMovementWaypoint3d.fromObject(start);
+    if ( !(end instanceof RegionMovementWaypoint3d) ) end = RegionMovementWaypoint3d.fromObject(end);
+
     // Handle the 2d case.
     if ( start.elevation === end.elevation ) {
       if ( start.elevation !== this.elevation ) return false;
@@ -128,14 +132,18 @@ export class TileElevationHandler {
 
   /**
    * Does a point lie on the tile?
-   * @param {RegionMovementWaypoint} a
+   * @param {RegionMovementWaypoint3d} a
    * @returns {boolean}
    */
   waypointOnTile(a, token) {
+    if ( !(a instanceof RegionMovementWaypoint3d) ) a = RegionMovementWaypoint3d.fromObject(a);
     if ( a.elevation !== this.tile.elevationE ) return false;
     if ( !this.tile.bounds.contains(a.x, a.y) ) return false;
-    if ( !this.lineSegmentIntersects({ ...a, elevation: a.elevation + 1 }, { ...a, elevation: a.elevation - 1 }) ) return false;
-    if ( this.trimBorder && !this.tile.evPixelCache.getThresholdCanvasBoundingBox(this.alphaThreshold).contains(a.x, a.y) ) return false;
+    if ( !this.lineSegmentIntersects(
+      { ...a, elevation: a.elevation + 1 },
+      { ...a, elevation: a.elevation - 1 }) ) return false;
+    if ( this.trimBorder
+      && !this.tile.evPixelCache.getThresholdCanvasBoundingBox(this.alphaThreshold).contains(a.x, a.y) ) return false;
     if ( !(token && this.testHoles) ) return true;
     const holeCache = this.tile[MODULE_ID].holeCache;
     const holeThreshold = this.holeThresholdForToken(token);
@@ -180,7 +188,8 @@ export class TileElevationHandler {
     // If the first pixel is in the bounds of the tile, add it.
     if ( holes.length && regionWaypointsXYAlmostEqual(holes[0], a) ) return holes;
     const startValue = holeCache.pixelAtCanvas(a.x, a.y);
-    if ( startValue !== null && startValue < holeThreshold ) holes.unshift({ ...a, holeStart: false, isStart: true, dist2: 0 });
+    if ( startValue !== null
+      && startValue < holeThreshold ) holes.unshift({ ...a, holeStart: false, isStart: true, dist2: 0 });
     return holes;
   }
 
@@ -211,7 +220,7 @@ export class TileElevationHandler {
         const paddedCache = new PIXI.Rectangle();
         holeCache.copyTo(paddedCache);
         paddedCache.pad(holeThreshold);
-        if ( !paddedCache.lineSegmentIntersects(a, b, { inside: true }) ) return []; // a|b never comes close enough
+        if ( !paddedCache.lineSegmentIntersects(a, b, { inside: true }) ) return []; // A|b never comes close enough
         outerSegments.push({ a, b }); // Both a and b are outside.
         break;
       }
@@ -245,13 +254,17 @@ export class TileElevationHandler {
 
     const holes = [];
     const holeThreshold_1_2 = holeThreshold * 0.5;
-    for ( const outerSegment of outerSegments ) {
-      let currHole = !holeCache.contains(outerSegment.a.x, outerSegment.a.y);
-      for ( const pt of bresenhamLineIterator(outerSegment.a.x, outerSegment.a.y, outerSegment.b.x, outerSegment.b.y) ) {
+    for ( const outerS of outerSegments ) {
+      let currHole = !holeCache.contains(outerS.a.x, outerS.a.y);
+      for ( const pt of bresenhamLineIterator(outerS.a.x, outerS.a.y, outerS.b.x, outerS.b.y) ) {
         // Either the edge is L/R/T/B or is one of the corners, e.g. TOP_LEFT.
         const z = holeCache._getZone(pt);
         if ( !z ) continue; // Point is inside.
-        const closestEdge = edges[z] || edges[z & CSZ.TOP] || edges[z & CSZ.RIGHT] || edges[z & CSZ.BOTTOM] || edges[z & CSZ.LEFT];
+        const closestEdge = edges[z]
+          || edges[z & CSZ.TOP]
+          || edges[z & CSZ.RIGHT]
+          || edges[z & CSZ.BOTTOM]
+          || edges[z & CSZ.LEFT];
         const closestEdgePt = closestPointToSegment(pt, closestEdge.A, closestEdge.B);
 
         // Distance + edge point value must exceed the holeThreshold for this to be a hole.
@@ -264,7 +277,8 @@ export class TileElevationHandler {
         else if ( holeCache._pixelAtLocal(pt.x, pt.y) < targetValue ) isHole = false;
         else {
           const markPixelFn = currPixel => currPixel < targetValue;
-          const edgeDir = PIXI.Point._tmp2.copyFrom(closestEdge.B).subtract(closestEdge.A, PIXI.Point._tmp3).normalize();
+          const edgeDir = PIXI.Point._tmp2.copyFrom(closestEdge.B)
+            .subtract(closestEdge.A, PIXI.Point._tmp3).normalize();
           const res = holeCache._extractNextMarkedPixelValueAlongLocalRay(
             PIXI.Point._tmp.copyFrom(closestEdgePt).subtract(edgeDir.multiplyScalar(holeThreshold_1_2)),
             PIXI.Point._tmp2.copyFrom(closestEdgePt).add(edgeDir.multiplyScalar(holeThreshold_1_2)), markPixelFn);
@@ -300,18 +314,16 @@ export class TileElevationHandler {
   /**
    * Construct the cutaway shapes for a segment that traverses this tile.
    * If no alpha border, this will be based on the tile bounds.
-   * @param {RegionMovementWaypoint} start          Start of the segment
-   * @param {RegionMovementWaypoint} end            End of the segment
-   * @param {Token} [token]                         Token doing the movement; required for holes
+   * @param {Point3d} start          Start of the segment
+   * @param {Point3d} end            End of the segment
+   * @param {Token} [token]          Token doing the movement; required for holes
    * @returns {ClipperPaths|null} The combined Clipper paths for the tile cutaway.
    */
   _cutaway(start, end, token) {
     if ( !this.isElevated ) return null;
-    start = ElevationHandler._toPoint3d(start);
-    end = ElevationHandler._toPoint3d(end);
     const polys = token && this.testHoles
       ? this.#cutawayPolygonsHoles(start, end, this.holeThresholdForToken(token))
-        : this.#cutawayPolygonsNoHoles(start, end);
+      : this.#cutawayPolygonsNoHoles(start, end);
     if ( !polys.length ) return null;
     const regionPath = ClipperPaths.fromPolygons(polys);
     const combined = regionPath.combine().clean();
@@ -347,7 +359,7 @@ export class TileElevationHandler {
   #cutawayPolygonsHoles(start, end, holeThreshold = 1) {
     const gridUnitsToPixels = CONFIG.GeometryLib.utils.gridUnitsToPixels;
     const holePositions = this.holePositions(start, end, holeThreshold);
-    if ( !holePositions.length ) return [];// return this.#cutawayPolygonsNoHoles(start, end);
+    if ( !holePositions.length ) return [];// Return this.#cutawayPolygonsNoHoles(start, end);
 
     // Give tiles a 1-pixel height so they are proper polygons in the cutaway.
     // Use grid units for elevation.
@@ -362,13 +374,15 @@ export class TileElevationHandler {
     let a = holePositions[0];
     let onTile = !a.holeStart;
     if ( holePositions.length === 1 && onTile ) {
-      const quads = bounds.cutaway(ElevationHandler._toPoint3d(a), end, { start, end, topElevationFn, bottomElevationFn });
+      const quads = bounds.cutaway(ElevationHandler._toPoint3d(a), end,
+        { start, end, topElevationFn, bottomElevationFn });
       if ( quads.length ) return quads;
     }
     for ( let i = 1, n = holePositions.length; i < n; i += 1 ) {
       const b = holePositions[i];
       if ( onTile && b.holeStart ) {
-        const quads = bounds.cutaway(ElevationHandler._toPoint3d(a), ElevationHandler._toPoint3d(b), { start, end, topElevationFn, bottomElevationFn });
+        const quads = bounds.cutaway(ElevationHandler._toPoint3d(a), ElevationHandler._toPoint3d(b),
+          { start, end, topElevationFn, bottomElevationFn });
         if ( quads.length ) polys.push(...quads);
         onTile = false;
         a = b;
@@ -406,15 +420,16 @@ export class TileElevationHandler {
     console.group(`${MODULE_ID}|constructHoleCache ${this.tile.id}`);
     const alphaPixelThreshold = tileCache.maximumPixelValue * alphaThreshold;
     if ( CONFIG[MODULE_ID].debug ) {
-      holeCache.pixels = calculateHoleCachePixelsSync(tileCache.pixels, tileCache.width, alphaPixelThreshold)
+      holeCache.pixels = calculateHoleCachePixelsSync(tileCache.pixels, tileCache.width, alphaPixelThreshold);
     } else {
-      holeCache.pixels = await this.constructor.holeDetector.calculateHoleCachePixels(tileCache.pixels, tileCache.width, alphaPixelThreshold);
+      holeCache.pixels = await this.constructor.holeDetector.calculateHoleCachePixels(tileCache.pixels,
+        tileCache.width, alphaPixelThreshold);
     }
 
-    // holeCache.pixels = this.#calculateHoleCachePixels(tileCache.pixels, tileCache.width, alphaPixelThreshold);
+    // HoleCache.pixels = this.#calculateHoleCachePixels(tileCache.pixels, tileCache.width, alphaPixelThreshold);
     console.groupEnd(`${MODULE_ID}|constructHoleCache ${this.tile.id}`);
     return holeCache;
-    // avgPixels(holeCache.pixels); // 1.33
+    // AvgPixels(holeCache.pixels); // 1.33
     // drawPixels(holeCache)
     // drawHoles(holeCache)
     // pixelCounts(holeCache, max = 10)
@@ -456,10 +471,10 @@ export class TileElevationHandler {
     const { right, left, top, bottom } = holeCache;
     const drawFn = local
       ? (x, y, color) => Draw.point({x, y}, { color, alpha: 0.8, radius })
-        : (x, y, color) => {
-          const canvasPt = holeCache._toCanvasCoordinates(x, y, PIXI.Point._tmp);
-          Draw.point(canvasPt, { color, alpha: 0.8, radius });
-        };
+      : (x, y, color) => {
+        const canvasPt = holeCache._toCanvasCoordinates(x, y, PIXI.Point._tmp);
+        Draw.point(canvasPt, { color, alpha: 0.8, radius });
+      };
 
     for ( let x = left; x <= right; x += skip ) {
       for ( let y = top; y <= bottom; y += skip ) {
@@ -549,7 +564,7 @@ function localNeighbors(pixels, currIdx, localWidth, trimBorder = true) {
 
 function calculateHoleCachePixelsSync(tileCachePixels, width, alphaPixelThreshold = 191.25) {
   const res = calculateHoleCachePixels([{ tileCachePixels, width, alphaPixelThreshold }]);
-    return res[0].holeCachePixels;
+  return res[0].holeCachePixels;
 }
 
 /**
@@ -583,7 +598,7 @@ function calculateHoleCachePixels({ tileCachePixels, width, alphaPixelThreshold 
     if ( value === newValue ) return;
     holeCachePixels[idx] = newValue;
     changedIndices.add(idx);
-  }
+  };
 
   // For each pixel that is greater than 0, its value is 1 + min of 8 neighbors.
   // Record changed indices so we can re-process those neighbors.
@@ -622,7 +637,7 @@ function calculateHoleCachePixels({ tileCachePixels, width, alphaPixelThreshold 
  */
 export class HoleDetector extends AsyncWorker {
   constructor(name = `${MODULE_ID}|Hole Detector`, config = {}) {
-    // config.scripts ??= ["Data/modules/terrainmapper/scripts/workers/hole_detector.js"];
+    // Config.scripts ??= ["Data/modules/terrainmapper/scripts/workers/hole_detector.js"];
     config.loadPrimitives ??= false;
     super(name, config);
   }
