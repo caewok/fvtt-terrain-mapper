@@ -151,12 +151,12 @@ export class StairsRegionBehaviorType extends foundry.data.regionBehaviors.Regio
     if ( takeStairs ) {
       await tokenD.update({ elevation: targetElevation });
       await CanvasAnimation.getAnimation(tokenD.object?.animationName)?.promise;
+    } else {
+      // Continue to the actual destination.
+      const lastDestination = this.constructor.lastDestination;
+      if ( !lastDestination ) return;
+      await tokenD.update({ x: lastDestination.x, y: lastDestination.y });
     }
-
-    // Continue to the actual destination.
-    const lastDestination = this.constructor.lastDestination;
-    if ( !lastDestination ) return;
-    await tokenD.update({ x: lastDestination.x, y: lastDestination.y });
     this.constructor.lastDestination = undefined;
   }
 

@@ -104,18 +104,19 @@ export class ElevatorRegionBehaviorType extends foundry.data.regionBehaviors.Reg
       callback: (event, button, dialog) => button.form.elements.choice.value
     }];
     const res = await foundry.applications.api.DialogV2.wait({ rejectClose: false, window, content, buttons });
-    let chosenElevation = Number(res);
+    const chosenElevation = Number(res);
 
     // Update the elevation.
-    if ( chosenElevation !== tokenD.elevation ) {
+    const takeElevator = res != null && chosenElevation !== tokenD.elevation;
+    if ( takeElevator ) {
       await tokenD.update({ elevation: chosenElevation });
       await CanvasAnimation.getAnimation(tokenD.object?.animationName)?.promise;
+    } else {
+      // Continue to the actual destination if elevator not taken.
+      const lastDestination = this.constructor.lastDestination;
+      if ( !lastDestination ) return;
+      await tokenD.update({ x: lastDestination.x, y: lastDestination.y });
     }
-
-    // Continue to the actual destination.
-    const lastDestination = this.constructor.lastDestination;
-    if ( !lastDestination ) return;
-    await tokenD.update({ x: lastDestination.x, y: lastDestination.y });
     this.constructor.lastDestination = undefined;
   }
 
