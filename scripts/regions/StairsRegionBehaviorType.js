@@ -135,7 +135,7 @@ export class StairsRegionBehaviorType extends foundry.data.regionBehaviors.Regio
 
     // Determine the target elevation.
     let targetElevation;
-    if ( this.algorithm === FLAGS.STAIRS_BEHAVIOR.CHOICES.ONE_WAY ) elevation = this.elevation;
+    if ( this.algorithm === FLAGS.STAIRS_BEHAVIOR.CHOICES.ONE_WAY ) targetElevation = this.elevation;
     else {
       // Stairs
       const midPoint = (this.elevation - this.floor) / 2;
