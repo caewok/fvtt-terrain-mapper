@@ -78,35 +78,36 @@ export class StairsRegionBehaviorType extends foundry.data.regionBehaviors.Regio
   static defineSchema() {
     return {
       algorithm: new foundry.data.fields.StringField({
-        label: `${MODULE_ID}.behavior.types.set-elevation.fields.algorithm.name`,
+        label: `${MODULE_ID}.behavior.types.stairs.fields.algorithm.name`,
         initial: FLAGS.STAIRS_BEHAVIOR.CHOICES.ONE_WAY,
         choices: FLAGS.STAIRS_BEHAVIOR.LABELS,
-        blank: false
+        blank: false,
+        required: true
       }),
 
       elevation: new foundry.data.fields.NumberField({
-        label: `${MODULE_ID}.behavior.types.set-elevation.fields.elevation.name`,
-        hint: `${MODULE_ID}.behavior.types.set-elevation.fields.elevation.hint`,
+        label: `${MODULE_ID}.behavior.types.stairs.fields.elevation.name`,
+        hint: `${MODULE_ID}.behavior.types.stairs.fields.elevation.hint`,
         initial: 0
       }),
 
       floor: new foundry.data.fields.NumberField({
-        label: `${MODULE_ID}.behavior.types.set-elevation.fields.floor.name`,
-        hint: `${MODULE_ID}.behavior.types.set-elevation.fields.floor.hint`,
+        label: `${MODULE_ID}.behavior.types.stairs.fields.floor.name`,
+        hint: `${MODULE_ID}.behavior.types.stairs.fields.floor.hint`,
         initial: () => {
           return ElevationHandler.sceneFloor;
         }
       }),
 
       strict: new foundry.data.fields.BooleanField({
-        label: `${MODULE_ID}.behavior.types.set-elevation.fields.strict.name`,
-        hint: `${MODULE_ID}.behavior.types.set-elevation.fields.strict.hint`,
+        label: `${MODULE_ID}.behavior.types.stairs.fields.strict.name`,
+        hint: `${MODULE_ID}.behavior.types.stairs.fields.strict.hint`,
         initial: false
       }),
 
       dialog: new foundry.data.fields.BooleanField({
-        label: `${MODULE_ID}.behavior.types.set-elevation.fields.dialog.name`,
-        hint: `${MODULE_ID}.behavior.types.set-elevation.fields.dialog.hint`,
+        label: `${MODULE_ID}.behavior.types.stairs.fields.dialog.name`,
+        hint: `${MODULE_ID}.behavior.types.stairs.fields.dialog.hint`,
         initial: false
       })
     };

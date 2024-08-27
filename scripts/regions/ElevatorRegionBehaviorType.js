@@ -47,8 +47,8 @@ export class ElevatorRegionBehaviorType extends foundry.data.regionBehaviors.Reg
       */
 
       strict: new fields.BooleanField({
-        label: `${MODULE_ID}.behavior.types.set-elevation.fields.strict.name`,
-        hint: `${MODULE_ID}.behavior.types.set-elevation.fields.strict.hint`,
+        label: `${MODULE_ID}.behavior.types.elevator.fields.strict.name`,
+        hint: `${MODULE_ID}.behavior.types.elevator.fields.strict.hint`,
         initial: false
       }),
     }
