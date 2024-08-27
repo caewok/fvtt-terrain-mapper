@@ -148,16 +148,16 @@ export class StairsRegionBehaviorType extends foundry.data.regionBehaviors.Regio
       const content = game.i18n.localize(targetElevation > tokenD.elevation ? `${MODULE_ID}.phrases.stairs-go-up` : `${MODULE_ID}.phrases.stairs-go-down`);
       takeStairs = await foundry.applications.api.DialogV2.confirm({ content, rejectClose: false, modal: true });
     }
-    if ( takeStairs ) {
-      await tokenD.update({ elevation: targetElevation });
-      await CanvasAnimation.getAnimation(tokenD.object?.animationName)?.promise;
-    } else {
-      // Continue to the actual destination.
-      const lastDestination = this.constructor.lastDestination;
-      if ( !lastDestination ) return;
-      await tokenD.update({ x: lastDestination.x, y: lastDestination.y });
-    }
+
+    // Either change the elevation to take stairs or continue the 2d move.
+    let update;
+    if ( takeStairs ) update = { elevation: targetElevation };
+    else if ( this.constructor.lastDestination ) update = { x: this.constructor.lastDestination.x, y: this.constructor.lastDestination.y };
+    else return;
     this.constructor.lastDestination = undefined;
+    await CanvasAnimation.getAnimation(tokenD.object?.animationName)?.promise;
+    await tokenD.update(update);
+    await CanvasAnimation.getAnimation(tokenD.object?.animationName)?.promise;
   }
 
   /** @type {RegionWaypoint} */

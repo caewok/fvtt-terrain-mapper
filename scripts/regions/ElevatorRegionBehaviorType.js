@@ -87,6 +87,7 @@ export class ElevatorRegionBehaviorType extends foundry.data.regionBehaviors.Reg
 
     // When strict, don't trigger the elevator unless the token is already on a floor.
     let takeElevator = !this.strict || elevations.has(tokenD.elevation);
+    let chosenElevation;
 
     // Ask the user to pick a floor.
     if ( takeElevator ) {
@@ -105,23 +106,21 @@ export class ElevatorRegionBehaviorType extends foundry.data.regionBehaviors.Reg
         callback: (event, button, dialog) => button.form.elements.choice.value
       }];
       const res = await foundry.applications.api.DialogV2.wait({ rejectClose: false, window, content, buttons });
-      const chosenElevation = Number(res);
+      chosenElevation = Number(res);
 
       // Update the elevation.
-      const takeElevator = res != null && chosenElevation !== tokenD.elevation;
+      takeElevator = res != null && chosenElevation !== tokenD.elevation;
     }
 
     // Execute either the elevator elevation move or continue the 2d move.
-    if ( takeElevator ) {
-      await tokenD.update({ elevation: chosenElevation });
-      await CanvasAnimation.getAnimation(tokenD.object?.animationName)?.promise;
-    } else {
-      // Continue to the actual destination if elevator not taken.
-      const lastDestination = this.constructor.lastDestination;
-      if ( !lastDestination ) return;
-      await tokenD.update({ x: lastDestination.x, y: lastDestination.y });
-    }
+    let update;
+    if ( takeElevator ) update = { elevation: chosenElevation };
+    else if ( this.constructor.lastDestination ) update = { x: this.constructor.lastDestination.x, y: this.constructor.lastDestination.y };
+    else return;
     this.constructor.lastDestination = undefined;
+    await CanvasAnimation.getAnimation(tokenD.object?.animationName)?.promise;
+    await tokenD.update(update);
+    await CanvasAnimation.getAnimation(tokenD.object?.animationName)?.promise;
   }
 
   /** @type {RegionWaypoint} */
