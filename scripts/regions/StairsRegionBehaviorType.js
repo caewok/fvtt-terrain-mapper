@@ -132,7 +132,7 @@ export class StairsRegionBehaviorType extends foundry.data.regionBehaviors.Regio
     log(`Token ${data.token.name} entering ${event.region.name}!`);
     if ( event.user !== game.user ) return;
     const tokenD = data.token;
-    if ( this.strict && tokenD.elevation !== this.elevation && tokenD.elevation !== this.floor ) return;
+    let takeStairs = !this.strict || tokenD.elevation === this.elevation || tokenD.elevation === this.floor;
 
     // Determine the target elevation.
     let targetElevation;
@@ -142,7 +142,7 @@ export class StairsRegionBehaviorType extends foundry.data.regionBehaviors.Regio
       const midPoint = (this.elevation - this.floor) / 2;
       targetElevation = tokenD.elevation <= midPoint ? this.elevation : this.floor;
     }
-    let takeStairs = targetElevation !== tokenD.elevation;
+    takeStairs &&= targetElevation !== tokenD.elevation;
     if ( this.dialog && takeStairs ) {
       // Could also await the prior move animation but probably not strictly necessary given the dialog pause.
       const content = game.i18n.localize(targetElevation > tokenD.elevation ? `${MODULE_ID}.phrases.stairs-go-up` : `${MODULE_ID}.phrases.stairs-go-down`);

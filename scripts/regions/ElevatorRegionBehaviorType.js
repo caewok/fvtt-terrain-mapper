@@ -86,28 +86,32 @@ export class ElevatorRegionBehaviorType extends foundry.data.regionBehaviors.Reg
     stops.sort((a, b) => b[Object.keys(b)[0]] - a[Object.keys(a)[0]]); // Sort on elevation low to high
 
     // When strict, don't trigger the elevator unless the token is already on a floor.
-    if ( this.strict && !elevations.has(tokenD.elevation) ) return;
+    let takeElevator = !this.strict || elevations.has(tokenD.elevation);
 
     // Ask the user to pick a floor.
-    const window = { title: game.i18n.localize(`${MODULE_ID}.phrases.elevator`) };
-    let content = "";
-    for ( const stop of stops ) {
-      const floorLabel = Object.keys(stop)[0];
-      const floorElev = stop[floorLabel];
-      const checked = tokenD.elevation.almostEqual(floorElev) ? "checked" : "";
-      content += `\n<label><input type="radio" name="choice" value=" ${floorElev}" ${checked}>${floorLabel}</label>`;
-    }
-    const buttons = [{
-      action: "choice",
-      label: game.i18n.localize(`${MODULE_ID}.phrases.elevator-choice`),
-      default: true,
-      callback: (event, button, dialog) => button.form.elements.choice.value
-    }];
-    const res = await foundry.applications.api.DialogV2.wait({ rejectClose: false, window, content, buttons });
-    const chosenElevation = Number(res);
+    if ( takeElevator ) {
+      const window = { title: game.i18n.localize(`${MODULE_ID}.phrases.elevator`) };
+      let content = "";
+      for ( const stop of stops ) {
+        const floorLabel = Object.keys(stop)[0];
+        const floorElev = stop[floorLabel];
+        const checked = tokenD.elevation.almostEqual(floorElev) ? "checked" : "";
+        content += `\n<label><input type="radio" name="choice" value=" ${floorElev}" ${checked}>${floorLabel}</label>`;
+      }
+      const buttons = [{
+        action: "choice",
+        label: game.i18n.localize(`${MODULE_ID}.phrases.elevator-choice`),
+        default: true,
+        callback: (event, button, dialog) => button.form.elements.choice.value
+      }];
+      const res = await foundry.applications.api.DialogV2.wait({ rejectClose: false, window, content, buttons });
+      const chosenElevation = Number(res);
 
-    // Update the elevation.
-    const takeElevator = res != null && chosenElevation !== tokenD.elevation;
+      // Update the elevation.
+      const takeElevator = res != null && chosenElevation !== tokenD.elevation;
+    }
+
+    // Execute either the elevator elevation move or continue the 2d move.
     if ( takeElevator ) {
       await tokenD.update({ elevation: chosenElevation });
       await CanvasAnimation.getAnimation(tokenD.object?.animationName)?.promise;
