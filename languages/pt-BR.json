@@ -58,33 +58,36 @@
   "terrainmapper.behavior.types.remove-terrain.fields.keepSelected.name": "Manter Selecionados",
   "terrainmapper.behavior.types.remove-terrain.fields.keepSelected.hint": "Habilite para manter os terrenos selecionados e remover todo o resto do token.",
 
-  "terrainmapper.behavior.types.set-elevation.fields.elevation.name": "Elevação",
-  "terrainmapper.behavior.types.set-elevation.fields.elevation.hint": "Ao entrar na região, o token será definido para esta elevação. Para uma cena típica, você deve definir a região superior para esta elevação e a região inferior para infinito negativo.",
+  "terrainmapper.behavior.types.stairs.fields.algorithm.name": "Tipo",
 
-  "terrainmapper.behavior.types.set-elevation.fields.algorithm.name": "Método de Elevação",
+  "terrainmapper.behavior.types.stairs.fields.elevation.name": "Topo das Escadas",
+  "terrainmapper.behavior.types.stairs.fields.elevation.hint": "Elevação para escadas de mão única; topo de escadas de mão dupla.",
 
-  "terrainmapper.elevationAlgorithm.labels.none": "Nenhum",
-  "terrainmapper.elevationAlgorithm.labels.oneWay": "Elevação Única",
-  "terrainmapper.elevationAlgorithm.labels.plateau": "Planalto / Plataforma",
-  "terrainmapper.elevationAlgorithm.labels.ramp": "Rampa / Degraus",
-  "terrainmapper.elevationAlgorithm.labels.stairs": "Escadas",
+  "terrainmapper.behavior.types.stairs.fields.floor.name": "Base das Escadas",
+  "terrainmapper.behavior.types.stairs.fields.floor.hint": "Gatilho para teste estrito de escadas de mão única; base de escadas de mão dupla.",
 
-  "terrainmapper.behavior.types.set-elevation.fields.floor.name": "Parte Inferior da Escada",
-  "terrainmapper.behavior.types.set-elevation.fields.floor.hint": "Para escadas, os tokens na elevação acima do ponto médio desta e no topo da escada, serão definidos para esta elevação ao entrarem.",
+  "terrainmapper.behavior.types.stairs.fields.dialog.name": "Confirmação do Usuário",
+  "terrainmapper.behavior.types.stairs.fields.dialog.hint": "Se ativado, solicita que o usuário confirme. Se o usuário rejeitar, o movimento ocorrerá sem a mudança de elevação.",
 
-  "terrainmapper.behavior.types.set-elevation.fields.rampDirection.name": "Direção da Rampa",
-  "terrainmapper.behavior.types.set-elevation.fields.rampDirection.hint": "0º é para sul; 90º é para oeste. Não faz nada a menos que o método escolhido seja 'Rampa'.",
+  "terrainmapper.behavior.types.stairs.fields.strict.name": "Teste Estrito de Elevação",
+  "terrainmapper.behavior.types.stairs.fields.strict.hint": "Se ativado, o token deve estar na elevação precisa da elevação do topo da escada (para descer) ou da elevação da base da escada (para subir). Para escadas de mão única, o token deve estar na elevação da base da escada.",
 
-  "terrainmapper.behavior.types.set-elevation.fields.rampStepHeight.name": "Tamanho do Degrau da Rampa",
-  "terrainmapper.behavior.types.set-elevation.fields.rampStepHeight.hint": "Qual a altura, em unidades de grade, de cada degrau da rampa. O número de passos será determinado automaticamente com base neste valor. Se definido como 0, a rampa terá uma inclinação aproximada e suave. Não faz nada a menos que o método escolhido seja 'Rampa'.",
+  "terrainmapper.behavior.types.elevator.fields.strict.name": "Teste Estrito de Elevação",
+  "terrainmapper.behavior.types.elevator.fields.strict.hint": "Se ativado, o token deve estar na elevação precisa de um determinado andar para acionar o elevador.",
 
-  "terrainmapper.behavior.types.set-elevation.fields.ignoreOtherElevations.name": "Ignorar Outras Elevações",
-  "terrainmapper.behavior.types.set-elevation.fields.ignoreOtherElevations.hint": "Se ativado, tokens que entrarem na região serão ignorados, a menos que estejam na elevação mínima designada (ou máxima, para escadas).",
-  
+  "terrainmapper.behavior.types.elevator.fields.floors.hint": "Adicione mais de 1 andar para o elevador. O formato é 'número|rótulo', onde 'rótulo' é opcional. Por exemplo: 10|1º Andar.",
+
   "TYPES.RegionBehavior.terrainmapper.addTerrain": "Adicionar Terrenos",
   "TYPES.RegionBehavior.terrainmapper.removeTerrain": "Remover Terrenos",
   "TYPES.RegionBehavior.terrainmapper.setTerrain": "Definir Terreno",
   "TYPES.RegionBehavior.terrainmapper.setElevation": "Definir Elevação",
+  "TYPES.RegionBehavior.terrainmapper.elevator": "Elevador",
+
+  "terrainmapper.elevationAlgorithm.labels.none": "Nenhum",
+  "terrainmapper.elevationAlgorithm.labels.oneWay": "Escada de Mão Única",
+  "terrainmapper.elevationAlgorithm.labels.plateau": "Planalto / Plataforma",
+  "terrainmapper.elevationAlgorithm.labels.ramp": "Rampa / Degraus",
+  "terrainmapper.elevationAlgorithm.labels.stairs": "Escada de Mão Dupla",
 
   "terrainmapper.phrases.terrainLayer": "Camada de Terreno",
   "terrainmapper.phrases.terrain": "Terreno",
@@ -94,5 +97,11 @@
   "terrainmapper.phrases.layer-number": "Camada {layerNumber}",
   "terrainmapper.phrases.difficult_x2": "Dificuldade (x2)",
   "terrainmapper.phrases.water_swimming": "Água (Natação)",
-  "terrainmapper.phrases.cliff_climbing": "Penhasco (Escalada)"
+  "terrainmapper.phrases.cliff_climbing": "Penhasco (Escalada)",
+  "terrainmapper.phrases.stairs-go-up": "Subir as escadas?",
+  "terrainmapper.phrases.stairs-go-down": "Descer as escadas?",
+  "terrainmapper.phrases.elevator": "Elevador",
+  "terrainmapper.phrases.elevator-choice": "Escolha um andar",
+  "terrainmapper.phrases.top": "Topo",
+  "terrainmapper.phrases.bottom": "Base"
 }
