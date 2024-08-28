@@ -132,7 +132,7 @@ export class StairsRegionBehaviorType extends foundry.data.regionBehaviors.Regio
     log(`Token ${data.token.name} entering ${event.region.name}!`);
     if ( event.user !== game.user ) return;
     const tokenD = data.token;
-    if ( this.strict && tokenD.elevation !== this.elevation && tokenD.elevation !== this.floor ) return;
+    let takeStairs = !this.strict || tokenD.elevation === this.elevation || tokenD.elevation === this.floor;
 
     // Determine the target elevation.
     let targetElevation;
@@ -142,22 +142,22 @@ export class StairsRegionBehaviorType extends foundry.data.regionBehaviors.Regio
       const midPoint = (this.elevation - this.floor) / 2;
       targetElevation = tokenD.elevation <= midPoint ? this.elevation : this.floor;
     }
-    let takeStairs = targetElevation !== tokenD.elevation;
+    takeStairs &&= targetElevation !== tokenD.elevation;
     if ( this.dialog && takeStairs ) {
       // Could also await the prior move animation but probably not strictly necessary given the dialog pause.
       const content = game.i18n.localize(targetElevation > tokenD.elevation ? `${MODULE_ID}.phrases.stairs-go-up` : `${MODULE_ID}.phrases.stairs-go-down`);
       takeStairs = await foundry.applications.api.DialogV2.confirm({ content, rejectClose: false, modal: true });
     }
-    if ( takeStairs ) {
-      await tokenD.update({ elevation: targetElevation });
-      await CanvasAnimation.getAnimation(tokenD.object?.animationName)?.promise;
-    } else {
-      // Continue to the actual destination.
-      const lastDestination = this.constructor.lastDestination;
-      if ( !lastDestination ) return;
-      await tokenD.update({ x: lastDestination.x, y: lastDestination.y });
-    }
+
+    // Either change the elevation to take stairs or continue the 2d move.
+    let update;
+    if ( takeStairs ) update = { elevation: targetElevation };
+    else if ( this.constructor.lastDestination ) update = { x: this.constructor.lastDestination.x, y: this.constructor.lastDestination.y };
+    else return;
     this.constructor.lastDestination = undefined;
+    await CanvasAnimation.getAnimation(tokenD.object?.animationName)?.promise;
+    await tokenD.update(update);
+    await CanvasAnimation.getAnimation(tokenD.object?.animationName)?.promise;
   }
 
   /** @type {RegionWaypoint} */
