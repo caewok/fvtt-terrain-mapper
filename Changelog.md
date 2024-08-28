@@ -6,7 +6,6 @@ Fix PF2e error on scene load. Closes #36, #37.
 Fix for incorrectly displayed height. Closes #38.
 Refactor how plateaus and ramps change tokens, to provide better compatibility with Levels and other modules.
 Remove blank stairs type option from the config.
-Fix for longstanding issue with user pathfinding failing once it hits a wall.
 Improve compatibility with Elevation Ruler.
 Update libGeometry to v0.3.9.
 
