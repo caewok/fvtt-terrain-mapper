@@ -1,3 +1,15 @@
+## 0.4.1
+Change `setElevation` region behavior to a `stairs` behavior. Add an `elevator` behavior. Present dialog to user for elevator and optional dialog for stairs.
+Update Brazilian Portuguese translation and add to the module.json. Thanks @Kharmans! Closes #39.
+
+Fix PF2e error on scene load. Closes #36, #37.
+Fix for incorrectly displayed height. Closes #38.
+Refactor how plateaus and ramps change tokens, to provide better compatibility with Levels and other modules.
+Remove blank stairs type option from the config.
+Fix for longstanding issue with user pathfinding failing once it hits a wall.
+Improve compatibility with Elevation Ruler.
+Update libGeometry to v0.3.9.
+
 ## 0.4.0
 Add a Terrain Mapper tab to the region configuration with options to make a 3d region shape:
 1. Plateau: Region treated like a physical plateau with a flat top at a given elevation. Note that the region affected area can continue above the plateau.
