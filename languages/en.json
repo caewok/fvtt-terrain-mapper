@@ -58,33 +58,36 @@
   "terrainmapper.behavior.types.remove-terrain.fields.keepSelected.name": "Keep selected",
   "terrainmapper.behavior.types.remove-terrain.fields.keepSelected.hint": "Enable to keep the selected terrains and remove all the rest from the token.",
 
-  "terrainmapper.behavior.types.set-elevation.fields.elevation.name": "Elevation/Stairs Top",
-  "terrainmapper.behavior.types.set-elevation.fields.elevation.hint": "When moving into the region, the token will be set to this elevation. For stairs, tokens at elevation below the midpoint of this and the stairs bottom will be set to this elevation upon entry.",
+  "terrainmapper.behavior.types.stairs.fields.algorithm.name": "Type",
 
-  "terrainmapper.behavior.types.set-elevation.fields.algorithm.name": "Elevation Method",
+  "terrainmapper.behavior.types.stairs.fields.elevation.name": "Stairs Top",
+  "terrainmapper.behavior.types.stairs.fields.elevation.hint": "Elevation for one-way stairs; top of two-way stairs.",
 
-  "terrainmapper.elevationAlgorithm.labels.none": "None",
-  "terrainmapper.elevationAlgorithm.labels.oneWay": "Single Elevation",
-  "terrainmapper.elevationAlgorithm.labels.plateau": "Plateau / Mesa",
-  "terrainmapper.elevationAlgorithm.labels.ramp": "Ramp / Steps",
-  "terrainmapper.elevationAlgorithm.labels.stairs": "Stairs",
+  "terrainmapper.behavior.types.stairs.fields.floor.name": "Stairs Bottom",
+  "terrainmapper.behavior.types.stairs.fields.floor.hint": "Trigger for the strict test for one-way stairs; bottom of two-way stairs.",
 
-  "terrainmapper.behavior.types.set-elevation.fields.floor.name": "Stairs Bottom",
-  "terrainmapper.behavior.types.set-elevation.fields.floor.hint": "For stairs, tokens at elevation above the midpoint of this and the stairs top will be set to this elevation upon entry.",
+  "terrainmapper.behavior.types.stairs.fields.dialog.name": "User Confirms",
+  "terrainmapper.behavior.types.stairs.fields.dialog.hint": "If enabled, prompt the user to confirm. If the user rejects, the move will occur without the elevation change.",
 
-  "terrainmapper.behavior.types.set-elevation.fields.rampDirection.name": "Ramp Direction",
-  "terrainmapper.behavior.types.set-elevation.fields.rampDirection.hint": "0 is due south; 90 is due west. Does nothing unless method chosen is 'Ramp'.",
+  "terrainmapper.behavior.types.stairs.fields.strict.name": "Strict Elevation Test",
+  "terrainmapper.behavior.types.stairs.fields.strict.hint": "If enabled, the token must be at the precise elevation of the stairs top elevation (to move down) or stairs bottom elevation (to move up). For one-way stairs, token must be at the stairs bottom elevation.",
 
-  "terrainmapper.behavior.types.set-elevation.fields.rampStepHeight.name": "Ramp Step Size",
-  "terrainmapper.behavior.types.set-elevation.fields.rampStepHeight.hint": "How tall, in grid units, to make each step of the ramp. The number of steps will be automatically determined based on this value. If set to 0, the ramp will approximate a smooth incline. Does nothing unless method chosen is 'Ramp'.",
+  "terrainmapper.behavior.types.elevator.fields.strict.name": "Strict Elevation Test",
+  "terrainmapper.behavior.types.elevator.fields.strict.hint": "If enabled, the token must be at the precise elevation of a given floor to trigger the elevator.",
 
-  "terrainmapper.behavior.types.set-elevation.fields.ignoreOtherElevations.name": "Ignore Other Elevations",
-  "terrainmapper.behavior.types.set-elevation.fields.ignoreOtherElevations.hint": "If enabled, tokens entering the region will be ignored unless at the designated minimum elevation (or maximum, for stairs).",
+  "terrainmapper.behavior.types.elevator.fields.floors.hint": "Add 1+ floors for the elevator. The format is 'number|label', where 'label' is optional. For example: 10|1st Floor.",
 
   "TYPES.RegionBehavior.terrainmapper.addTerrain": "Add Terrains",
   "TYPES.RegionBehavior.terrainmapper.removeTerrain": "Remove Terrains",
   "TYPES.RegionBehavior.terrainmapper.setTerrain": "Set Terrain",
-  "TYPES.RegionBehavior.terrainmapper.setElevation": "Set Elevation",
+  "TYPES.RegionBehavior.terrainmapper.setElevation": "Stairs",
+  "TYPES.RegionBehavior.terrainmapper.elevator": "Elevator",
+
+  "terrainmapper.elevationAlgorithm.labels.none": "None",
+  "terrainmapper.elevationAlgorithm.labels.oneWay": "One-Way Stairs",
+  "terrainmapper.elevationAlgorithm.labels.plateau": "Plateau / Mesa",
+  "terrainmapper.elevationAlgorithm.labels.ramp": "Ramp / Steps",
+  "terrainmapper.elevationAlgorithm.labels.stairs": "Two-Way Stairs",
 
   "terrainmapper.phrases.terrainLayer": "Terrain Layer",
   "terrainmapper.phrases.terrain": "Terrain",
@@ -94,5 +97,11 @@
   "terrainmapper.phrases.layer-number": "Layer {layerNumber}",
   "terrainmapper.phrases.difficult_x2": "Difficult (x2)",
   "terrainmapper.phrases.water_swimming": "Water (Swimming)",
-  "terrainmapper.phrases.cliff_climbing": "Cliff (Climbing)"
+  "terrainmapper.phrases.cliff_climbing": "Cliff (Climbing)",
+  "terrainmapper.phrases.stairs-go-up": "Take these stairs up?",
+  "terrainmapper.phrases.stairs-go-down": "Take these stairs down?",
+  "terrainmapper.phrases.elevator": "Elevator",
+  "terrainmapper.phrases.elevator-choice": "Choose a floor",
+  "terrainmapper.phrases.top": "Top",
+  "terrainmapper.phrases.bottom": "Bottom"
 }

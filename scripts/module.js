@@ -21,7 +21,8 @@ import { WallTracerEdge, WallTracerVertex, WallTracer, SCENE_GRAPH } from "./Wal
 // import { AddTerrainRegionBehaviorType } from "./regions/AddTerrainRegionBehaviorType.js";
 // import { RemoveTerrainRegionBehaviorType } from "./regions/RemoveTerrainRegionBehaviorType.js";
 import { SetTerrainRegionBehaviorType } from "./regions/SetTerrainRegionBehaviorType.js";
-import { SetElevationRegionBehaviorType } from "./regions/SetElevationRegionBehaviorType.js";
+import { StairsRegionBehaviorType } from "./regions/StairsRegionBehaviorType.js";
+import { ElevatorRegionBehaviorType } from "./regions/ElevatorRegionBehaviorType.js";
 import { StraightLinePath } from "./StraightLinePath.js";
 
 // Elevation
@@ -54,13 +55,15 @@ Hooks.once("init", function() {
 //     [`${MODULE_ID}.addTerrain`]: AddTerrainRegionBehaviorType,
 //     [`${MODULE_ID}.removeTerrain`]: RemoveTerrainRegionBehaviorType,
     [`${MODULE_ID}.setTerrain`]: SetTerrainRegionBehaviorType,
-    [`${MODULE_ID}.setElevation`]: SetElevationRegionBehaviorType
+    [`${MODULE_ID}.setElevation`]: StairsRegionBehaviorType,
+    [`${MODULE_ID}.elevator`]: ElevatorRegionBehaviorType
   });
 
 //   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.addTerrain`] = FA_ICONS.MODULE;
 //   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.removeTerrain`] = FA_ICONS.MODULE;
   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.setTerrain`] = FA_ICONS.MODULE;
-  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.setElevation`] = FA_ICONS.ELEVATE;
+  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.setElevation`] = FA_ICONS.STAIRS;
+  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.elevator`] = FA_ICONS.ELEVATOR;
 
 
 
@@ -102,7 +105,6 @@ Hooks.on("canvasReady", function(_canvas) {
   setDefaultPlaceablesFlags(); // Async.
 });
 
-
 function initializeAPI() {
   const api = game.modules.get(MODULE_ID).api = {
     Settings,
@@ -128,7 +130,7 @@ function initializeAPI() {
      * @param {number} [opts.endElevation]   Elevation in grid units
      * @returns {RegionMovementSegment}
      */
-    estimateElevationForSegment: SetElevationRegionBehaviorType.estimateElevationForSegment,
+    estimateElevationForSegment: StairsRegionBehaviorType.estimateElevationForSegment,
   };
 }
 

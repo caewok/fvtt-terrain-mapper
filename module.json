@@ -5,10 +5,9 @@
   "version": "#{VERSION}#",
   "library": "false",
   "socket": "true",
-  "manifestPlusVersion": "1.2.0",
   "compatibility": {
     "minimum": "12",
-    "verified": "12.330"
+    "verified": "12.331"
   },
   "authors": [
     {
@@ -36,13 +35,19 @@
       "lang": "en",
       "name": "English",
       "path": "languages/en.json"
+    },
+    {
+        "lang": "pt-BR",
+        "name": "Português (Brasil)",
+        "path": "languages/pt-BR.json"
     }
   ],
 
   "documentTypes": {
     "RegionBehavior": {
       "setElevation": {},
-      "setTerrain": {}
+      "setTerrain": {},
+      "elevator": {}
     }
   },
 

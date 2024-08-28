@@ -59,7 +59,10 @@ export class RegionElevationHandler {
   /** @type {object} */
   #minMax;
 
-  get minMax() { return this.#minMax || (this.#minMax = this.#minMaxRegionPointsAlongAxis(this.region, this.rampDirection)); }
+  get minMax() {
+    return this.#minMax
+       || (this.#minMax = this.#minMaxRegionPointsAlongAxis(this.region, this.rampDirection));
+  }
 
   /** @type {PIXI.Point[]} */
   #rampCutpoints = [];
@@ -105,29 +108,27 @@ export class RegionElevationHandler {
   /**
    * Determine if a line segment intersects this region's plateau or ramp.
    * Note: Does not test if the returned point is within the region.
-   * @param {RegionMovementWaypoint} a      Start position and grid elevation
-   * @param {RegionMovementWaypoint} b      End position and grid elevation
-   * @returns {RegionMovementWaypoint|null} The intersection.
+   * @param {RegionMovementWaypoint3d} a      Start position and grid elevation
+   * @param {RegionMovementWaypoint3d} b      End position and grid elevation
+   * @returns {RegionMovementWaypoint3d|null} The intersection.
    */
   plateauSegmentIntersection(a, b) {
-    if ( regionWaypointsXYEqual(a, b) ) {
-      // a|b is a vertical line in the z direction.
+    if ( !(a instanceof RegionMovementWaypoint3d) ) a = RegionMovementWaypoint3d.fromObject(a);
+    if ( !(b instanceof RegionMovementWaypoint3d) ) b = RegionMovementWaypoint3d.fromObject(b);
+
+    if ( a.equalXY(b) ) {
+      // A|b is a vertical line in the z direction.
       const e = Math.max(ElevationHandler.nearestGroundElevation(a), ElevationHandler.nearestGroundElevation(b));
-      if ( e.between(a.elevation, b.elevation) ) return { ...a, elevation: e };
+      if ( e.between(a.elevation, b.elevation) ) return RegionMovementWaypoint3d.fromLocationWithElevation(a, e);
       return null;
     }
 
     // First intersect the plane, which may be at an angle for a ramp.
-    a.z = CONFIG.GeometryLib.utils.gridUnitsToPixels(a.elevation);
-    b.z = CONFIG.GeometryLib.utils.gridUnitsToPixels(b.elevation);
     const p = this._plateauPlane();
-    a = Point3d._tmp.copyFrom(a);
-    b = Point3d._tmp2.copyFrom(b);
     if ( !p.lineSegmentIntersects(a, b) ) return null;
-    const ix = p.lineSegmentIntersection(a, b);
+    const ix = RegionMovementWaypoint3d.fromObject(p.lineSegmentIntersection(a, b));
 
     // Then get the actual location for the step size.
-    ix.elevation = CONFIG.GeometryLib.utils.pixelsToGridUnits(ix.z);
     ix.elevation = this.elevationUponEntry(ix);
     return ix;
   }
@@ -161,15 +162,13 @@ export class RegionElevationHandler {
 
   /**
    * Construct the cutaway shapes for a segment that traverses this region.
-   * @param {RegionMovementWaypoint} start          Start of the segment
-   * @param {RegionMovementWaypoint} end            End of the segment
-   * @param {object} [opts]                         Options that affect the polygon shape
-   * @param {boolean} [opts.usePlateauElevation=true]   Use the plateau or ramp shape instead of the region top elevation
+   * @param {RegionMovementWaypoint3d} start          Start of the segment
+   * @param {RegionMovementWaypoint3d} end            End of the segment
+   * @param {object} [opts]                           Options that affect the polygon shape
+   * @param {boolean} [opts.usePlateauElevation=true] Use the plateau or ramp shape instead of the region top elevation
    * @returns {ClipperPaths|null} The combined Clipper paths for the region cutaway.
    */
   _cutaway(start, end, { usePlateauElevation = true } = {}) {
-    start = ElevationHandler._toPoint3d(start);
-    end = ElevationHandler._toPoint3d(end);
     const regionPolys = [];
     const opts = this.#cutawayOptionFunctions(start, end, usePlateauElevation);
     let allHoles = true;
@@ -195,15 +194,13 @@ export class RegionElevationHandler {
 
   /**
    * Calculate the cutaway intersections for a segment that traverses this region.
-   * @param {RegionMovementWaypoint} start          Start of the segment
-   * @param {RegionMovementWaypoint} end            End of the segment
-   * @param {object} [opts]                         Options that affect the polygon shape
-   * @param {boolean} [opts.usePlateauElevation=true]   Use the plateau or ramp shape instead of the region top elevation
+   * @param {RegionMovementWaypoint3d} start          Start of the segment
+   * @param {RegionMovementWaypoint3d} end            End of the segment
+   * @param {object} [opts]                           Options that affect the polygon shape
+   * @param {boolean} [opts.usePlateauElevation=true] Use the plateau or ramp shape instead of the region top elevation
    * @returns {PIXI.Point[]}
    */
   _cutawayIntersections(start, end, { usePlateauElevation = true } = {}) {
-    start = ElevationHandler._toPoint3d(start);
-    end = ElevationHandler._toPoint3d(end);
     const regionIxs = [];
     const opts = this.#cutawayOptionFunctions(start, end, usePlateauElevation);
     let allHoles = true;
@@ -223,8 +220,8 @@ export class RegionElevationHandler {
    * @param {RegionMovementSegment[]} segments
    * @param {RegionBehavior} behavior
    */
-   _modifySegments(segments) {
-     if ( !this.isElevated ) return segments;
+  _modifySegments(segments) {
+    if ( !this.isElevated ) return segments;
 
     const { ENTER, MOVE, EXIT } = Region.MOVEMENT_SEGMENT_TYPES;
     const terrainFloor = ElevationHandler.sceneFloor;
@@ -251,11 +248,11 @@ export class RegionElevationHandler {
           const elevation = this.elevationUponEntry(segment.from);
           if ( !entered ) {
             if ( segment.from.elevation === elevation ) entered = true; // At plateau.
-            else if (  segment.from.elevation > elevation && segment.to.elevation < elevation ) { // Crosses plateau.
+            else if ( segment.from.elevation > elevation && segment.to.elevation < elevation ) { // Crosses plateau.
               // Split into two segments.
               const ix = regionWaypointsXYEqual(segment.from, segment.to)
                 ? { ...segment.from, elevation }
-                  : this.plateauSegmentIntersection(segment.from, segment.to);
+                : this.plateauSegmentIntersection(segment.from, segment.to);
               entered = true;
               const fromIx = { type: MOVE, from: ix, to: segment.to };
               segment.to = ix;
@@ -289,7 +286,7 @@ export class RegionElevationHandler {
       }
     }
     return segments;
-   }
+  }
 
   /**
    * Determine the cutpoints of the ramp for a given straight line within the ramp.
@@ -305,7 +302,7 @@ export class RegionElevationHandler {
     const dir = minMax.max.subtract(minMax.min);
     const orthoDir = new PIXI.Point(dir.y, -dir.x); // 2d Orthogonal of {x, y} is {y, -x}
     const cutpoints = [];
-    for ( const idealCutpoint of this.rampCutpoints  ) {
+    for ( const idealCutpoint of this.rampCutpoints ) {
       const orthoPt = idealCutpoint.add(orthoDir);
       const ix = foundry.utils.lineLineIntersection(a, b, idealCutpoint, orthoPt);
       if ( !ix ) break; // If one does not intersect, none will intersect.
@@ -356,7 +353,7 @@ export class RegionElevationHandler {
   /**
    * Determine the elevation of the ramp at a given location.
    * Does not confirm the waypoint is within the region.
-   * @param {Point} location      2d location
+   * @param {RegionMovementWaypoint3d} location      2d location
    * @returns {number} The elevation of the ramp at this location.
    */
   #rampElevation(waypoint) {
@@ -385,7 +382,8 @@ export class RegionElevationHandler {
     const minMax = this.minMax;
     if ( !minMax ) return waypoint.elevation;
     const closestPt = foundry.utils.closestPointToSegment(waypoint, minMax.min, minMax.max);
-    const t0 = Math.clamp(PIXI.Point.distanceBetween(minMax.min, closestPt) / PIXI.Point.distanceBetween(minMax.min, minMax.max), 0, 1);
+    const t0 = Math.clamp(PIXI.Point.distanceBetween(minMax.min, closestPt)
+      / PIXI.Point.distanceBetween(minMax.min, minMax.max), 0, 1);
 
     // Floor (min) --> pt --> elevation (max)
     // If no stepsize, elevation is simply proportional
@@ -420,11 +418,11 @@ export class RegionElevationHandler {
     const numSplits = Math.ceil(delta / rampStepSize);
     const minPt = PIXI.Point.fromObject(minMax.min);
     const maxPt = PIXI.Point.fromObject(minMax.max);
-    const splits = Array.fromRange(numSplits).map(i => (i + 1) / (numSplits + 1))
+    const splits = Array.fromRange(numSplits).map(i => (i + 1) / (numSplits + 1));
     return splits.map((t, idx) => {
       const pt = minPt.projectToward(maxPt, t);
       pt.t = t;
-      pt.elevation = rampFloor + (idx + 1) * rampStepSize;
+      pt.elevation = rampFloor + ((idx + 1) * rampStepSize);
       return pt;
     });
   }
@@ -444,13 +442,13 @@ export class RegionElevationHandler {
     const bottomE = gridUnitsToPixels(this.region.document.elevation.bottom ?? MIN_ELEV); // Note: in grid units to avoid recalculation later.
     const topElevationFn = usePlateauElevation
       ? pt => gridUnitsToPixels(this.elevationUponEntry({ ...pt, elevation: pixelsToGridUnits(pt.z) }))
-        : _pt => topE;
+      : _pt => topE;
     const bottomElevationFn = _pt => bottomE;
     const cutPointsFn = (this.isRamp && this.rampStepSize)
       ? (a, b) => this._rampCutpointsForSegment(
         { ...a, elevation: pixelsToGridUnits(a.z) },
         { ...b, elevation: pixelsToGridUnits(b.z) }).map(pt => ElevationHandler._to2dCutawayCoordinate(pt, start, end))
-        : undefined;
+      : undefined;
     return { topElevationFn, bottomElevationFn, cutPointsFn };
   }
 }
@@ -475,7 +473,7 @@ function constructVerticalMoveSegment(waypoint, targetElevation) {
       y: waypoint.y,
       elevation: targetElevation
     },
-    type: Region.MOVEMENT_SEGMENT_TYPES.MOVE
+    type: CONFIG.Region.objectClass.MOVEMENT_SEGMENT_TYPES.MOVE
   };
 }
 
@@ -510,7 +508,7 @@ function insertVerticalMoveToTerrainFloor(i, segments, floor) {
  * - @prop {PIXI.Point} min    Where polygon first intersects the line orthogonal to direction, moving in direction
  * - @prop {PIXI.Point} max    Where polygon last intersects the line orthogonal to direction, moving in direction
  */
-function minMaxPolygonPointsAlongAxis(poly, direction = 0, centroid) {
+function minMaxPolygonPointsAlongAxis(poly, direction = 0, centroid) { // eslint-disable-line default-param-last
   centroid ??= poly.center;
   if ( direction % 90 ) {
     // Rotate the polygon to direction 0 (due south).
@@ -520,7 +518,10 @@ function minMaxPolygonPointsAlongAxis(poly, direction = 0, centroid) {
     // Rotate back
     const minMaxRotatedPoly = new PIXI.Polygon(centroid.x, bounds.top, centroid.x, bounds.bottom);
     const minMaxPoly = rotatePolygon(minMaxRotatedPoly, -Math.toRadians(360 - direction), centroid);
-    return { min: new PIXI.Point(minMaxPoly.points[0], minMaxPoly.points[1]), max: new PIXI.Point(minMaxPoly.points[2], minMaxPoly.points[3]) };
+    return {
+      min: new PIXI.Point(minMaxPoly.points[0], minMaxPoly.points[1]),
+      max: new PIXI.Point(minMaxPoly.points[2], minMaxPoly.points[3])
+    };
   }
 
   // Tackle the simple cases.
@@ -539,18 +540,18 @@ function minMaxPolygonPointsAlongAxis(poly, direction = 0, centroid) {
  * @param {number} rotation     The amount to rotate clockwise in radians
  * @param {number} [centroid]   Center of the polygon
  */
-function rotatePolygon(poly, rotation = 0, centroid) {
+function rotatePolygon(poly, rotation = 0, centroid) { // eslint-disable-line default-param-last
   if ( !rotation ) return poly;
   centroid ??= poly.center;
 
   // Translate to 0,0, rotate, translate back based on centroid.
-  const rot = Matrix.rotationZ(rotation, false)
+  const rot = Matrix.rotationZ(rotation, false);
   const trans = Matrix.translation(-centroid.x, -centroid.y);
   const revTrans = Matrix.translation(centroid.x, centroid.y);
   const M = trans.multiply3x3(rot).multiply3x3(revTrans);
 
   // Multiply by the points of the polygon.
-  const nPoints = poly.points.length * 0.5
+  const nPoints = poly.points.length * 0.5;
   const arr = new Array(nPoints);
   for ( let i = 0; i < nPoints; i += 1 ) {
     const j = i * 2;
@@ -565,5 +566,5 @@ function rotatePolygon(poly, rotation = 0, centroid) {
     rotatedPoints[j] = rotatedM.arr[i][0];
     rotatedPoints[j+1] = rotatedM.arr[i][1];
   }
-  return new PIXI.Polygon(rotatedPoints)
+  return new PIXI.Polygon(rotatedPoints);
 }

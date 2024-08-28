@@ -101,10 +101,26 @@ Hooks.once("ready", () => {
 
                 Moving tokens across regions with plateaus/ramps/steps automatically adjusts their elevation.
 
-                If you want region stairs/elevator, try using the SetElevation region behavior.
+                If you want region stairs/elevator, try using the Stairs region behavior.
 
                 This release offers better compatibility with Elevation Ruler v0.10 for measuring token movement and move penalties.`
         })
+
+        .addEntry({
+            version: "0.4.1",
+            title: "Elevators and Stairs",
+            body: `\
+                The "setElevation" region behavior is now renamed "stairs". Stairs can be one-way or two-way.
+                Options include presenting a dialog to the user to choose whether or not to take the stairs.
+
+                A new "elevator" region behavior allows the GM to define a region that presents a user with a dialog
+                to choose between multiple elevations.
+
+                If the stairs or elevator result in an elevation change, the token movement will stop at the region entrypoint,
+                because the change in elevation could modify what the token can see. If there is no elevation change
+                (e.g., user canceled) then the token movement will continue across the region.`
+        })
+
         .build()
         ?.render(true);
 });

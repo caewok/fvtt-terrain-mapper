@@ -10,20 +10,25 @@ Region
  */
 class NoDupePointsArray extends Array {
   push(...args) {
-    const prev = this.at(-1);
-    if ( prev && this.constructor.isDuplicate(args[0], prev) ) return;
-    super.push(...args);
+    const newArgs = [];
+    let prev = this.at(-1);
+    if ( !(prev && this.constructor.isDuplicate(args[0], prev) ) ) newArgs.push(args[0]);
+    prev = args[0];
+    for ( let i = 1, n = args.length; i < n; i += 1 ) {
+      const elem = args[i];
+      if ( this.constructor.isDuplicate(elem, prev) ) continue;
+      newArgs.push(elem);
+      prev = elem;
+    }
+    super.push(...newArgs);
   }
   static isDuplicate(a, b) {
     let dupe = true;
-    if ( a.almostEqual ) dupe &&= a.almostEqual(b);
-    else {
-      dupe &&= a.x.almostEqual(b.x);
-      dupe &&= b.y.almostEqual(b.y);
-    }
+    dupe &&= a.x.almostEqual(b.x);
+    dupe &&= a.y.almostEqual(b.y);
     if ( Object.hasOwn(a, "elevation") ) dupe &&= a.elevation.almostEqual(b.elevation);
+    if ( Object.hasOwn(a, "z") ) dupe &&= a.z.almostEqual(b.z);
     return dupe;
-
   }
 
   /**
@@ -35,7 +40,7 @@ class NoDupePointsArray extends Array {
    * @returns {RegionMovementWaypoint[]}
    */
   static fromSegments(segments, { start, end } = {}) {
-    const { ENTER, MOVE, EXIT } = Region.MOVEMENT_SEGMENT_TYPES;
+    const { ENTER, MOVE, EXIT } = CONFIG.Region.objectClass.MOVEMENT_SEGMENT_TYPES;
     const path = new this();
     if ( start ) path.push(start);
     for ( const segment of segments ) {
@@ -104,7 +109,7 @@ export class StraightLinePath extends NoDupePointsArray {
     const E = this.elevationProperty;
     if ( this.start.x.almostEqual(loc.x) && this.start.y.almostEqual(loc.y) ) return this.start[E];
     if ( this.end.x.almostEqual(loc.x) && this.end.y.almostEqual(loc.y) ) return this.end[E];
-    const c =  (this.start.x === this.start.y && this.end.x === this.end.y)
+    const c =  (this.start.x === this.end.x && this.start.y === this.end.y)
       ? this.start :  foundry.utils.closestPointToSegment(loc, this.start, this.end);
 
     const locDist2 = PIXI.Point.distanceSquaredBetween(this.start, c);
