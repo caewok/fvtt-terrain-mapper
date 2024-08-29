@@ -72,10 +72,16 @@
   "terrainmapper.behavior.types.stairs.fields.strict.name": "Strict Elevation Test",
   "terrainmapper.behavior.types.stairs.fields.strict.hint": "If enabled, the token must be at the precise elevation of the stairs top elevation (to move down) or stairs bottom elevation (to move up). For one-way stairs, token must be at the stairs bottom elevation.",
 
+  "terrainmapper.behavior.types.stairs.fields.resetOnExit.name": "Reset on Exit",
+  "terrainmapper.behavior.types.stairs.fields.resetOnExit.hint": "If enabled, the token will be reset to the scene elevation (ground) on exit. This will occur regardless of whether the token took stairs or elevator when entering the region.",
+
   "terrainmapper.behavior.types.elevator.fields.strict.name": "Strict Elevation Test",
   "terrainmapper.behavior.types.elevator.fields.strict.hint": "If enabled, the token must be at the precise elevation of a given floor to trigger the elevator.",
 
   "terrainmapper.behavior.types.elevator.fields.floors.hint": "Add 1+ floors for the elevator. The format is 'number|label', where 'label' is optional. For example: 10|1st Floor.",
+
+  "terrainmapper.behavior.types.elevator.fields.resetOnExit.name": "Reset on Exit",
+  "terrainmapper.behavior.types.elevator.fields.resetOnExit.hint": "If enabled, the token will be reset to the scene elevation (ground) on exit. This will occur regardless of whether the token took stairs or elevator when entering the region.",
 
   "TYPES.RegionBehavior.terrainmapper.addTerrain": "Add Terrains",
   "TYPES.RegionBehavior.terrainmapper.removeTerrain": "Remove Terrains",
@@ -103,5 +109,6 @@
   "terrainmapper.phrases.elevator": "Elevator",
   "terrainmapper.phrases.elevator-choice": "Choose a floor",
   "terrainmapper.phrases.top": "Top",
-  "terrainmapper.phrases.bottom": "Bottom"
+  "terrainmapper.phrases.bottom": "Bottom",
+  "terrainmapper.phrases.resetOnExit": "Return to the ground elevation?"
 }

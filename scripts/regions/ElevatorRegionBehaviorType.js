@@ -5,8 +5,8 @@ foundry
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { MODULE_ID, FLAGS } from "../const.js";
-import { log, isFirstGM } from "../util.js";
+import { MODULE_ID } from "../const.js";
+import { log } from "../util.js";
 import { ElevationHandler } from "../ElevationHandler.js";
 
 export const PATCHES = {};
@@ -17,8 +17,10 @@ PATCHES.REGIONS = {};
  * @typedef RegionPathWaypoint extends RegionMovementWaypoint
  * RegionMovementWaypoint with added features to describe its position along a segment and the regions encountered
  * @prop {object} regions
- *   - @prop {Set<Region>} enter    All regions entered at this location; the region contains this point but not the previous
- *   - @prop {Set<Region>} exit     All regions exited at this location; the region contains this point but not the next
+ *   - @prop {Set<Region>} enter    All regions entered at this location;
+ *                                  the region contains this point but not the previous
+ *   - @prop {Set<Region>} exit     All regions exited at this location;
+ *                                  the region contains this point but not the next
  *   - @prop {Set<Region>} move     All regions were already entered at the start
  * @prop {number} dist2             Distance squared to the start
  * @prop {RegionMovementWaypoint} start   Starting waypoint
@@ -51,39 +53,36 @@ export class ElevatorRegionBehaviorType extends foundry.data.regionBehaviors.Reg
         hint: `${MODULE_ID}.behavior.types.elevator.fields.strict.hint`,
         initial: false
       }),
-    }
+
+      resetOnExit: new foundry.data.fields.BooleanField({
+        label: `${MODULE_ID}.behavior.types.elevator.fields.resetOnExit.name`,
+        hint: `${MODULE_ID}.behavior.types.elevator.fields.resetOnExit.hint`,
+        initial: false
+      }),
+    };
   }
 
   /** @override */
   static events = {
-    [CONST.REGION_EVENTS.TOKEN_ENTER]: this.#onTokenEnter,
+    [CONST.REGION_EVENTS.TOKEN_MOVE_IN]: this.#onTokenMoveIn,
+    [CONST.REGION_EVENTS.TOKEN_MOVE_OUT]: this.#onTokenMoveOut,
     [CONST.REGION_EVENTS.TOKEN_PRE_MOVE]: this.#onTokenPreMove,
   };
 
   /**
    * @type {RegionEvent} event
    *   - @prop {object} data        Data related to the event
-   *     - @prop {Token} token      Token triggering the event
+   *   - @prop {Token} token      Token triggering the event
    *   - @prop {string} name        Name of the event type (e.g., "tokenEnter")
    *   - @prop {RegionDocument}     Region for the event
    *   - @prop {User} user          User that triggered the event
    */
-  static async #onTokenEnter(event) {
+  static async #onTokenMoveIn(event) {
     const data = event.data;
-    log(`Token ${data.token.name} entering ${event.region.name}!`);
+    log(`Token ${data.token.name} moving into ${event.region.name}!`);
     if ( event.user !== game.user ) return;
     const tokenD = data.token;
-    const stops = [];
-    const elevations = new Set();
-    this.floors.forEach(floor => {
-      let [floorElev, floorLabel] = floor.split("|");
-      floorLabel ??= floorElev.trim();
-      floorElev = Number(floorElev);
-      floorLabel = floorLabel.trim();
-      stops.push({ [floorLabel]: floorElev }); // Use the labels as keys so that multiple labels can go to the same place.
-      elevations.add(floorElev);
-    });
-    stops.sort((a, b) => b[Object.keys(b)[0]] - a[Object.keys(a)[0]]); // Sort on elevation low to high
+    const { stops, elevations } = this.getStopsAndElevations();
 
     // When strict, don't trigger the elevator unless the token is already on a floor.
     let takeElevator = !this.strict || elevations.has(tokenD.elevation);
@@ -103,7 +102,7 @@ export class ElevatorRegionBehaviorType extends foundry.data.regionBehaviors.Reg
         action: "choice",
         label: game.i18n.localize(`${MODULE_ID}.phrases.elevator-choice`),
         default: true,
-        callback: (event, button, dialog) => button.form.elements.choice.value
+        callback: (event, button, _dialog) => button.form.elements.choice.value
       }];
       const res = await foundry.applications.api.DialogV2.wait({ rejectClose: false, window, content, buttons });
       chosenElevation = Number(res);
@@ -115,7 +114,51 @@ export class ElevatorRegionBehaviorType extends foundry.data.regionBehaviors.Reg
     // Execute either the elevator elevation move or continue the 2d move.
     let update;
     if ( takeElevator ) update = { elevation: chosenElevation };
-    else if ( this.constructor.lastDestination ) update = { x: this.constructor.lastDestination.x, y: this.constructor.lastDestination.y };
+    else if ( this.constructor.lastDestination ) update = {
+      x: this.constructor.lastDestination.x,
+      y: this.constructor.lastDestination.y
+    };
+    else return;
+    this.constructor.lastDestination = undefined;
+    await CanvasAnimation.getAnimation(tokenD.object?.animationName)?.promise;
+    await tokenD.update(update);
+    await CanvasAnimation.getAnimation(tokenD.object?.animationName)?.promise;
+  }
+
+  /**
+   * @type {RegionEvent} event
+   *   - @prop {object} data        Data related to the event
+   *    - @prop {Token} token      Token triggering the event
+   *   - @prop {string} name        Name of the event type (e.g., "tokenEnter")
+   *   - @prop {RegionDocument}     Region for the event
+   *   - @prop {User} user          User that triggered the event
+   */
+  static async #onTokenMoveOut(event) {
+    const data = event.data;
+    log(`Token ${data.token.name} moving out of ${event.region.name}!`);
+    if ( event.user !== game.user ) return;
+    const tokenD = data.token;
+    const groundElevation = ElevationHandler.sceneFloor;
+    const { elevations } = this.getStopsAndElevations();
+
+    // When strict, don't trigger the elevator unless the token is already on a floor.
+    let resetToGround = this.resetOnExit
+      && tokenD.elevation !== groundElevation
+      && (!this.strict || elevations.has(tokenD.elevation));
+
+    // Confirm with user.
+    if ( resetToGround ) {
+      const content = game.i18n.localize(`${MODULE_ID}.phrases.resetOnExit`);
+      resetToGround = await foundry.applications.api.DialogV2.confirm({ content, rejectClose: false, modal: true });
+    }
+
+    // Either change the elevation to reset to ground or continue the 2d move.
+    let update;
+    if ( resetToGround ) update = { elevation: groundElevation };
+    else if ( this.constructor.lastDestination ) update = {
+      x: this.constructor.lastDestination.x,
+      y: this.constructor.lastDestination.y
+    };
     else return;
     this.constructor.lastDestination = undefined;
     await CanvasAnimation.getAnimation(tokenD.object?.animationName)?.promise;
@@ -142,6 +185,34 @@ export class ElevatorRegionBehaviorType extends foundry.data.regionBehaviors.Reg
         break;
       }
     }
+
+    if ( this.resetOnExit ) {
+      for ( const segment of event.data.segments ) {
+        if ( segment.type === Region.MOVEMENT_SEGMENT_TYPES.EXIT ) {
+          this.constructor.lastDestination = event.data.destination;
+          event.data.destination = segment.to;
+          break;
+        }
+      }
+    }
+  }
+
+  /**
+   * Retrieve the stops and elevations for the floors of this behavior
+   */
+  getStopsAndElevations() {
+    const stops = [];
+    const elevations = new Set();
+    this.floors.forEach(floor => {
+      let [floorElev, floorLabel] = floor.split("|");
+      floorLabel ??= floorElev.trim();
+      floorElev = Number(floorElev);
+      floorLabel = floorLabel.trim();
+      stops.push({ [floorLabel]: floorElev }); // Use the labels as keys so that multiple labels can go to the same place.
+      elevations.add(floorElev);
+    });
+    stops.sort((a, b) => b[Object.keys(b)[0]] - a[Object.keys(a)[0]]); // Sort on elevation low to high
+    return { elevations, stops };
   }
 }
 
@@ -163,8 +234,8 @@ function preCreateRegionBehavior(document, data, _options, _userId) {
   const topLabel = game.i18n.localize(`${MODULE_ID}.phrases.top`);
 
   const floors = [`${bottomE}|${bottomLabel}`];
-  if ( topE ) floors.push(`${topE}|${topLabel}`)
-  document.updateSource({ ["system.floors"]: floors });
+  if ( topE ) floors.push(`${topE}|${topLabel}`);
+  document.updateSource({ "system.floors": floors });
 }
 
 PATCHES.REGIONS.HOOKS = { preCreateRegionBehavior };
