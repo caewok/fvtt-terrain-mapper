@@ -1,3 +1,7 @@
+## 0.4.2
+Add a reset-to-ground option for the stairs and elevator behaviors.
+Update Brazilian Portuguese translation. Thanks @Kharmans!
+
 ## 0.4.1
 Change `setElevation` region behavior to a `stairs` behavior. Add an `elevator` behavior. Present dialog to user for elevator and optional dialog for stairs.
 Update Brazilian Portuguese translation and add to the module.json. Thanks @Kharmans! Closes #39.
