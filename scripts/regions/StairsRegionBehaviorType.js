@@ -6,7 +6,7 @@ foundry
 "use strict";
 
 import { MODULE_ID, FLAGS } from "../const.js";
-import { log, isFirstGM } from "../util.js";
+import { log } from "../util.js";
 import { ElevationHandler } from "../ElevationHandler.js";
 
 export const PATCHES = {};
@@ -68,7 +68,8 @@ PreMove -> Exit -> Move -> MoveOut
 /**
  * Region behavior to set token to specific top/bottom elevation.
  * @property {number} elevation       The elevation at which to set the token
- * @property {number} floor           The elevation at which to reset the token when leaving the region; default scene background
+ * @property {number} floor           The elevation at which to reset the token when leaving the region
+ *                                    Defaults to scene elevation
  * @property {number} rampStepHeight  The vertical size, in grid units, of ramp elevation increments
  * @property {number} rampDirection   The direction of incline for the ramp, in degrees
  * @property {boolean} reset          When enabled, elevation will be reset to floor on exit
@@ -109,13 +110,21 @@ export class StairsRegionBehaviorType extends foundry.data.regionBehaviors.Regio
         label: `${MODULE_ID}.behavior.types.stairs.fields.dialog.name`,
         hint: `${MODULE_ID}.behavior.types.stairs.fields.dialog.hint`,
         initial: false
-      })
+      }),
+
+      resetOnExit: new foundry.data.fields.BooleanField({
+        label: `${MODULE_ID}.behavior.types.stairs.fields.resetOnExit.name`,
+        hint: `${MODULE_ID}.behavior.types.stairs.fields.resetOnExit.hint`,
+        initial: false
+      }),
+
     };
   }
 
   /** @override */
   static events = {
-    [CONST.REGION_EVENTS.TOKEN_ENTER]: this.#onTokenEnter,
+    [CONST.REGION_EVENTS.TOKEN_MOVE_IN]: this.#onTokenMoveIn,
+    [CONST.REGION_EVENTS.TOKEN_MOVE_OUT]: this.#onTokenMoveOut,
     [CONST.REGION_EVENTS.TOKEN_PRE_MOVE]: this.#onTokenPreMove,
   };
 
@@ -127,9 +136,9 @@ export class StairsRegionBehaviorType extends foundry.data.regionBehaviors.Regio
    *   - @prop {RegionDocument}     Region for the event
    *   - @prop {User} user          User that triggered the event
    */
-  static async #onTokenEnter(event) {
+  static async #onTokenMoveIn(event) {
     const data = event.data;
-    log(`Token ${data.token.name} entering ${event.region.name}!`);
+    log(`Token ${data.token.name} moving into ${event.region.name}!`);
     if ( event.user !== game.user ) return;
     const tokenD = data.token;
     let takeStairs = !this.strict || tokenD.elevation === this.elevation || tokenD.elevation === this.floor;
@@ -139,12 +148,11 @@ export class StairsRegionBehaviorType extends foundry.data.regionBehaviors.Regio
     if ( this.algorithm === FLAGS.STAIRS_BEHAVIOR.CHOICES.ONE_WAY ) targetElevation = this.elevation;
     else {
       // Stairs
-      const midPoint = (this.elevation - this.floor) / 2;
+      const midPoint = this.floor + ((this.elevation - this.floor) * 0.5);
       targetElevation = tokenD.elevation <= midPoint ? this.elevation : this.floor;
     }
     takeStairs &&= targetElevation !== tokenD.elevation;
     if ( this.dialog && takeStairs ) {
-      // Could also await the prior move animation but probably not strictly necessary given the dialog pause.
       const content = game.i18n.localize(targetElevation > tokenD.elevation ? `${MODULE_ID}.phrases.stairs-go-up` : `${MODULE_ID}.phrases.stairs-go-down`);
       takeStairs = await foundry.applications.api.DialogV2.confirm({ content, rejectClose: false, modal: true });
     }
@@ -152,12 +160,54 @@ export class StairsRegionBehaviorType extends foundry.data.regionBehaviors.Regio
     // Either change the elevation to take stairs or continue the 2d move.
     let update;
     if ( takeStairs ) update = { elevation: targetElevation };
-    else if ( this.constructor.lastDestination ) update = { x: this.constructor.lastDestination.x, y: this.constructor.lastDestination.y };
+    else if ( this.constructor.lastDestination ) update = {
+      x: this.constructor.lastDestination.x,
+      y: this.constructor.lastDestination.y
+    };
     else return;
     this.constructor.lastDestination = undefined;
     await CanvasAnimation.getAnimation(tokenD.object?.animationName)?.promise;
     await tokenD.update(update);
     await CanvasAnimation.getAnimation(tokenD.object?.animationName)?.promise;
+  }
+
+  /**
+   * @type {RegionEvent} event
+   *   - @prop {object} data        Data related to the event
+   *     - @prop {Token} token      Token triggering the event
+   *   - @prop {string} name        Name of the event type (e.g., "tokenEnter")
+   *   - @prop {RegionDocument}     Region for the event
+   *   - @prop {User} user          User that triggered the event
+   */
+  static async #onTokenMoveOut(event) {
+    const data = event.data;
+    log(`Token ${data.token.name} moving out of ${event.region.name}!`);
+    if ( event.user !== game.user ) return;
+    const tokenD = data.token;
+    const groundElevation = ElevationHandler.sceneFloor;
+    let resetToGround = this.resetOnExit
+      && tokenD.elevation !== groundElevation
+      && (!this.strict || (tokenD.elevation === this.elevation || tokenD.elevation === this.floor));
+
+    // Confirm with user.
+    if ( this.dialog && resetToGround ) {
+      const content = game.i18n.localize(`${MODULE_ID}.phrases.resetOnExit`);
+      resetToGround = await foundry.applications.api.DialogV2.confirm({ content, rejectClose: false, modal: true });
+    }
+
+    // Either change the elevation to take stairs or continue the 2d move.
+    let update;
+    if ( resetToGround ) update = { elevation: groundElevation };
+    else if ( this.constructor.lastDestination ) update = {
+      x: this.constructor.lastDestination.x,
+      y: this.constructor.lastDestination.y
+    };
+    else return;
+    this.constructor.lastDestination = undefined;
+    await CanvasAnimation.getAnimation(tokenD.object?.animationName)?.promise;
+    await tokenD.update(update);
+    await CanvasAnimation.getAnimation(tokenD.object?.animationName)?.promise;
+
   }
 
   /** @type {RegionWaypoint} */
@@ -179,6 +229,16 @@ export class StairsRegionBehaviorType extends foundry.data.regionBehaviors.Regio
         break;
       }
     }
+
+    if ( this.resetOnExit ) {
+      for ( const segment of event.data.segments ) {
+        if ( segment.type === Region.MOVEMENT_SEGMENT_TYPES.EXIT ) {
+          this.constructor.lastDestination = event.data.destination;
+          event.data.destination = segment.to;
+          break;
+        }
+      }
+    }
   }
 }
 
@@ -197,7 +257,7 @@ function preCreateRegionBehavior(document, data, _options, _userId) {
   const topE = document.region.elevation.top;
   const elevation = topE ?? ElevationHandler.sceneFloor;
   const floor = ElevationHandler.sceneFloor;
-  document.updateSource({ ["system.elevation"]: elevation, ["system.floor"]: floor });
+  document.updateSource({ "system.elevation": elevation, "system.floor": floor });
 }
 
 PATCHES.REGIONS.HOOKS = { preCreateRegionBehavior };
