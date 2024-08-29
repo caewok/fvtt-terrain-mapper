@@ -195,7 +195,7 @@ export class StairsRegionBehaviorType extends foundry.data.regionBehaviors.Regio
       resetToGround = await foundry.applications.api.DialogV2.confirm({ content, rejectClose: false, modal: true });
     }
 
-    // Either change the elevation to take stairs or continue the 2d move.
+    // Either change the elevation to reset to ground or continue the 2d move.
     let update;
     if ( resetToGround ) update = { elevation: groundElevation };
     else if ( this.constructor.lastDestination ) update = {
