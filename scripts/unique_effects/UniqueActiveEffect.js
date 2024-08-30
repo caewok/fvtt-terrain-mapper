@@ -1,4 +1,5 @@
 /* globals
+ActiveEffect,
 CONFIG,
 CONST,
 foundry,
@@ -55,18 +56,16 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
    */
   static async _addToToken(token, effects) {
     if ( !token.actor ) return false;
-    const uuids = effects.map(e => e.document.uuid)
-
-    // Force display of the status icon
+    const uuids = effects.map(e => e.document.uuid);
     let data;
     if ( token.document.disposition !== CONST.TOKEN_DISPOSITIONS.SECRET ) {
+      // Force display of the status icon
       data = effects.map(e => {
         const datum = { statuses: [] };
         if ( e.img && e.displayStatusIcon ) datum.statuses.push(e.img);
         return datum;
       });
     }
-
     await createEmbeddedDocuments(token.actor.uuid, "ActiveEffect", uuids, data);
     return true;
   }
@@ -86,7 +85,7 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
       // Force display of the status icon
       if ( token.document.disposition !== CONST.TOKEN_DISPOSITIONS.SECRET
         && effect.img
-        && effect.displayStatusIcon )  doc.statuses = [effect.img];
+        && effect.displayStatusIcon ) doc.statuses = [effect.img];
 
       const ae = token.actor.effects.createDocument(doc);
       token.actor.effects.set(ae.id, ae);
@@ -216,7 +215,7 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
    * @returns {Object<string, string>} Effect id keyed to effect name
    */
   static _mapStoredEffectNames() {
-    const map = {}
+    const map = {};
     const storageData = this._storageMapData;
     const items = game.items ?? game.data.items;
     const item = items.find(item => item.name === storageData.name);
