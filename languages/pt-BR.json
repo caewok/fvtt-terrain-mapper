@@ -72,11 +72,17 @@
   "terrainmapper.behavior.types.stairs.fields.strict.name": "Teste Estrito de Elevação",
   "terrainmapper.behavior.types.stairs.fields.strict.hint": "Se ativado, o token deve estar na elevação precisa da elevação do topo da escada (para descer) ou da elevação da base da escada (para subir). Para escadas de mão única, o token deve estar na elevação da base da escada.",
 
+  "terrainmapper.behavior.types.stairs.fields.resetOnExit.name": "Redefinir ao Sair",
+  "terrainmapper.behavior.types.stairs.fields.resetOnExit.hint": "Se ativado, o token será redefinido para a elevação da cena (chão) na saída. Isso ocorrerá independentemente de o token ter subido escadas ou elevador ao entrar na região.",
+  
   "terrainmapper.behavior.types.elevator.fields.strict.name": "Teste Estrito de Elevação",
   "terrainmapper.behavior.types.elevator.fields.strict.hint": "Se ativado, o token deve estar na elevação precisa de um determinado andar para acionar o elevador.",
 
   "terrainmapper.behavior.types.elevator.fields.floors.hint": "Adicione mais de 1 andar para o elevador. O formato é 'número|rótulo', onde 'rótulo' é opcional. Por exemplo: 10|1º Andar.",
 
+  "terrainmapper.behavior.types.elevator.fields.resetOnExit.name": "Redefinir ao Sair",
+  "terrainmapper.behavior.types.elevator.fields.resetOnExit.hint": "Se ativado, o token será redefinido para a elevação da cena (chão) na saída. Isso ocorrerá independentemente de o token ter subido escadas ou elevador ao entrar na região.",
+  
   "TYPES.RegionBehavior.terrainmapper.addTerrain": "Adicionar Terrenos",
   "TYPES.RegionBehavior.terrainmapper.removeTerrain": "Remover Terrenos",
   "TYPES.RegionBehavior.terrainmapper.setTerrain": "Definir Terreno",
@@ -103,5 +109,6 @@
   "terrainmapper.phrases.elevator": "Elevador",
   "terrainmapper.phrases.elevator-choice": "Escolha um andar",
   "terrainmapper.phrases.top": "Topo",
-  "terrainmapper.phrases.bottom": "Base"
+  "terrainmapper.phrases.bottom": "Base",
+  "terrainmapper.phrases.resetOnExit": "Retornar à elevação do chão?"
 }
