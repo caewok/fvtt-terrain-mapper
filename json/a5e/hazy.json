@@ -17,8 +17,8 @@
   },
   "transfer": false,
   "name": "Hazy",
-  "img": "icons/svg/blind.svg",
-  "_id": "j75gaI4yeK5TpOvk",
+  "img": "icons/environment/wilderness/terrain-forest-gray.webp",
+  "_id": "vCuWqun8RXwRXnqG",
   "type": "base",
   "system": {},
   "changes": [
@@ -52,8 +52,8 @@
     "coreVersion": "12.331",
     "systemId": "a5e",
     "systemVersion": "0.19.25",
-    "createdTime": 1725037010830,
-    "modifiedTime": 1725043791453,
+    "createdTime": 1725044879064,
+    "modifiedTime": 1725050744882,
     "lastModifiedBy": "1DVUp0C2KG3XSVJ0"
   }
 }
