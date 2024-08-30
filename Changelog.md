@@ -3,6 +3,7 @@ When adding active effects, toggle on associated statuses manually so they are p
 Do not strip out AE statuses when adding the terrain icon to the status array. Closes #45.
 Add terrain examples for a5e system. Closes #42.
 Fix hook for a5e so that when a terrain effect is updated, its name and icon are updated in the terrain list.
+Update Brazilian Portuguese translation. Thanks @Kharmans!
 
 ## 0.4.2
 Add a reset-to-ground option for the stairs and elevator behaviors.
