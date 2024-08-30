@@ -9,6 +9,7 @@ import { renderTemplateSync } from "./util.js";
 
 export const PATCHES = {};
 PATCHES.BASIC = {};
+PATCHES.a5e = {};
 
 // ----- NOTE: Hooks ----- //
 
@@ -43,3 +44,7 @@ async function renderActiveEffectConfig(app, html, data) {
 }
 
 PATCHES.BASIC.HOOKS = { closeActiveEffectConfig, renderActiveEffectConfig };
+PATCHES.a5e.HOOKS = {
+  renderActiveEffectConfigA5e: renderActiveEffectConfig,
+  closeActiveEffectConfigA5e: closeActiveEffectConfig
+}
