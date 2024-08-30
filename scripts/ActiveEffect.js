@@ -8,6 +8,7 @@ Terrain
 // Methods related to ActiveEffect
 
 import { MODULE_ID, FLAGS } from "./const.js";
+import { isFirstGM } from "./util.js";
 
 export const PATCHES = {};
 PATCHES.BASIC = {};
@@ -37,4 +38,58 @@ function preCreateActiveEffect(document, data, options, userId) {
   if ( terrain.tokenHasTerrain(token) ) return false;
 }
 
-PATCHES.BASIC.HOOKS = { preCreateActiveEffect };
+/**
+ * Hook createActiveEffect
+ * Upon AE creation, toggle on all the AE statuses.
+ * @param {Document} document                       The new Document instance which has been created
+ * @param {Partial<DatabaseCreateOperation>} options Additional options which modified the creation request
+ * @param {string} userId                           The ID of the User who triggered the creation workflow
+ */
+function createActiveEffect(document, options, userId) {
+  const actor = document.parent;
+  if ( !CONFIG[MODULE_ID].addStandAloneAEs || !document.statuses || !isFirstGM || !(actor instanceof Actor) ) return;
+  if ( isStandAloneEffect(document) ) return;
+
+  const defaultStatusIds = new Set(CONFIG.statusEffects.map(s => s.id));
+  for ( const statusId of document.statuses ) {
+    if ( !defaultStatusIds.has(statusId) ) continue;
+    actor.toggleStatusEffect(statusId, { active: true }); // Async
+  }
+}
+
+function isStandAloneEffect(effect) {
+  if ( effect.statuses.size !== 1 ) return false;
+
+  // ids can change depending on system; name can be localized. Icon seems to work.
+  return Object.values(CONFIG.statusEffects).some(e =>
+    effect.statuses.has(e.id) && e.img === effect._source.img);
+}
+
+/**
+ * Hook deleteActiveEffect
+ * Upon AE deletion, toggle off statuses unless other effects have those statuses.
+ * @param {Document} document                       The new Document instance which has been created
+ * @param {Partial<DatabaseCreateOperation>} options Additional options which modified the creation request
+ * @param {string} userId                           The ID of the User who triggered the creation workflow
+ */
+function deleteActiveEffect(document, options, userId) {
+  const actor = document.parent;
+  if ( !CONFIG[MODULE_ID].addStandAloneAEs || !document.statuses || !isFirstGM || !(actor instanceof Actor) ) return;
+  if ( isStandAloneEffect(document) ) return;
+
+  const otherEffectStatuses = new Set();
+  for ( const effect of actor.allApplicableEffects() ) {
+    if ( isStandAloneEffect(effect) ) continue;
+    effect.statuses.forEach(s => otherEffectStatuses.add(s));
+  }
+
+  const defaultStatusIds = new Set(CONFIG.statusEffects.map(s => s.id));
+  for ( const statusId of document.statuses ) {
+    if ( otherEffectStatuses.has(statusId) ) continue;
+     if ( !defaultStatusIds.has(statusId) ) continue;
+    actor.toggleStatusEffect(statusId, { active: false }); // Async
+  }
+}
+
+
+PATCHES.BASIC.HOOKS = { preCreateActiveEffect, createActiveEffect, deleteActiveEffect };
