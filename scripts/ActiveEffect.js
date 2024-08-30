@@ -59,7 +59,10 @@ function createActiveEffect(document, options, userId) {
 
 function isStandAloneEffect(effect) {
   if ( effect.statuses.size !== 1 ) return false;
-  return Object.values(CONFIG.statusEffects).some(e => e._id === effect._source._id);
+
+  // ids can change depending on system; name can be localized. Icon seems to work.
+  return Object.values(CONFIG.statusEffects).some(e =>
+    effect.statuses.has(e.id) && e.img === effect._source.img);
 }
 
 /**
