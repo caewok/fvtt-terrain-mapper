@@ -91,13 +91,19 @@ export async function createEmbeddedDocuments(containerUuid, embeddedName, uuids
     const uuid = uuids[i];
     const datum = data[i];
     const baseDatum = baseData[i] = exampleDoc ?? datum ?? {};
-    if ( exampleDoc && datum ) foundry.utils.mergeObject(baseDatum, datum);
+    if ( exampleDoc && datum ) {
+      // Fix error with a5e not adding status conditions b/c it is getting overridden.
+      if ( datum.statuses && baseDatum.statuses ) datum.statuses = [...new Set([...baseDatum.statuses, ...datum.statuses])];
+      foundry.utils.mergeObject(baseDatum, datum);
+    }
     baseData[i] = baseDatum;
   }
 
   // Construct the new embeds.
   log("Socket|createEmbeddedDocuments|creating embedded document");
   const newDocs = await container.createEmbeddedDocuments(embeddedName, baseData);
+  // Alternative: foundry.documents.BaseActiveEffect.implementation.create(baseDatum, { parent: token.actor })
+
   log("Socket|createEmbeddedDocuments|finished creating embedded document");
   return newDocs.map(doc => doc.uuid);
 }
