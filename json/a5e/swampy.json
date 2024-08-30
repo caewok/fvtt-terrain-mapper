@@ -1,0 +1,66 @@
+{
+  "flags": {
+    "terrainmapper": {
+      "uniqueEffectType": "Terrain",
+      "uniqueEffectId": "Terrain_BdVYWTTKtOdSKTIt",
+      "duplicatesAllowed": false,
+      "displayStatusIcon": true,
+      "version": "0.4.1"
+    },
+    "exportSource": {
+      "world": "test-advanced-5e",
+      "system": "a5e",
+      "coreVersion": "12.331",
+      "systemVersion": "0.19.25",
+      "terrainMapperVersion": "0.4.2"
+    }
+  },
+  "transfer": false,
+  "name": "Swampy",
+  "img": "icons/environment/wilderness/cave-entrance.webp",
+  "_id": "CaF3DmxyPDVBCLHU",
+  "type": "base",
+  "system": {},
+  "changes": [
+    {
+      "key": "flags.a5e.effects.statusConditions",
+      "value": "[\"restrained\",\"poisoned\"]",
+      "mode": 0,
+      "priority": 0
+    },
+    {
+      "key": "system.attributes.movement.walk.distance",
+      "value": "0.5",
+      "mode": 1,
+      "priority": null
+    }
+  ],
+  "disabled": false,
+  "duration": {
+    "startTime": null,
+    "seconds": null,
+    "combat": null,
+    "rounds": null,
+    "turns": null,
+    "startRound": null,
+    "startTurn": null
+  },
+  "description": "<h3>SWAMPY</h3>\n<ul>\n<li><strong>Thick Trudge.</strong> Area hazard that counts as difficult terrain.</li>\n<li><strong>Tenacious Mud.</strong> When a participant ends their turn in this area hazard, they make a DC 12 Strength <span class=\"freelinking-link\"><a title=\"Click to view a local node.\" href=\"https://a5e.tools/rules/saving-throw\">saving throw</a></span> or are <span class=\"freelinking-link\"><a title=\"Click to view a local node.\" href=\"https://a5e.tools/rules/conditions\">restrained</a></span> until the end of their next turn. They can use their action to break free of this effect.</li>\n</ul>\n<p><strong>World Actions</strong></p>\n<ul>\n<li><strong>Swamp Gas.</strong> Participants in mud make a DC 10 Constitution saving throw or are <span class=\"freelinking-link\"><a title=\"Click to view a local node.\" href=\"https://a5e.tools/rules/conditions\">poisoned</a></span> until the end of their next turn.</li>\n<li><strong>Leeches</strong> (Recharge 6). A <span class=\"freelinking-link\"><a title=\"Click to view a local node.\" href=\"https://a5e.tools/node/1999\">swarm of insects</a></span> (leeches) rises out of the swamp to attack any creature in the marsh.</li>\n</ul>",
+  "origin": null,
+  "tint": "#ffffff",
+  "statuses": [
+    "restrained",
+    "poisoned"
+  ],
+  "sort": 0,
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "coreVersion": "12.331",
+    "systemId": "a5e",
+    "systemVersion": "0.19.25",
+    "createdTime": 1725044879067,
+    "modifiedTime": 1725050855270,
+    "lastModifiedBy": "1DVUp0C2KG3XSVJ0"
+  }
+}

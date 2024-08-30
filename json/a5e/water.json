@@ -1,0 +1,57 @@
+{
+  "flags": {
+    "terrainmapper": {
+      "uniqueEffectType": "Terrain",
+      "uniqueEffectId": "Terrain_cjLbz2TAK1TcIag2",
+      "duplicatesAllowed": false,
+      "displayStatusIcon": true,
+      "version": "0.4.2"
+    },
+    "exportSource": {
+      "world": "test-advanced-5e",
+      "system": "a5e",
+      "coreVersion": "12.331",
+      "systemVersion": "0.19.25",
+      "terrainMapperVersion": "0.4.2"
+    }
+  },
+  "transfer": false,
+  "name": "Water",
+  "img": "icons/svg/waterfall.svg",
+  "_id": "AbAdJY2MIPN6mWkA",
+  "type": "base",
+  "system": {},
+  "changes": [
+    {
+      "key": "system.attributes.movement.walk.distance",
+      "value": "0.5",
+      "mode": 1,
+      "priority": null
+    }
+  ],
+  "disabled": false,
+  "duration": {
+    "startTime": null,
+    "seconds": null,
+    "combat": null,
+    "rounds": null,
+    "turns": null,
+    "startRound": null,
+    "startTurn": null
+  },
+  "description": "<p>Movement using these three methods—climbing, swimming, crawling—is similar to traveling through difficult terrain though there are some key differences. First, it costs a creature an extra foot to move for every foot spent. Worse, if a creature is moving in actual difficult terrain, it costs two feet to move for every foot spent. Moving by climbing or swimming through normal terrain by a creature with the corresponding speed costs no additional movement.</p>",
+  "origin": null,
+  "tint": "#ffffff",
+  "statuses": [],
+  "sort": 0,
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "coreVersion": "12.331",
+    "systemId": "a5e",
+    "systemVersion": "0.19.25",
+    "createdTime": 1725044247142,
+    "modifiedTime": 1725044395838,
+    "lastModifiedBy": "1DVUp0C2KG3XSVJ0"
+  }
+}

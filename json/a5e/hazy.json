@@ -1,0 +1,59 @@
+{
+  "flags": {
+    "terrainmapper": {
+      "uniqueEffectType": "Terrain",
+      "uniqueEffectId": "Terrain_13UbgaO9oHuHrErx",
+      "duplicatesAllowed": false,
+      "displayStatusIcon": true,
+      "version": "0.4.2"
+    },
+    "exportSource": {
+      "world": "test-advanced-5e",
+      "system": "a5e",
+      "coreVersion": "12.331",
+      "systemVersion": "0.19.25",
+      "terrainMapperVersion": "0.4.2"
+    }
+  },
+  "transfer": false,
+  "name": "Hazy",
+  "img": "icons/environment/wilderness/terrain-forest-gray.webp",
+  "_id": "vCuWqun8RXwRXnqG",
+  "type": "base",
+  "system": {},
+  "changes": [
+    {
+      "key": "flags.a5e.effects.statusConditions",
+      "value": "[\"blinded\"]",
+      "mode": 0,
+      "priority": null
+    }
+  ],
+  "disabled": false,
+  "duration": {
+    "startTime": null,
+    "seconds": null,
+    "combat": null,
+    "rounds": null,
+    "turns": null,
+    "startRound": null,
+    "startTurn": null
+  },
+  "description": "<h3>HAZY</h3>\n<ul>\n<li><strong>Blanketed Ground.</strong> Area hazard that may conceal potholes, traps, and other hazards. Participants can perceive what’s under the fog by making a DC 12 Wisdom (Perception) check.</li>\n<li><strong>Thick Fog.</strong> The area is <span class=\"freelinking-link\"><a title=\"Click to view a local node.\" href=\"https://a5e.tools/rules/environment\">heavily obscured</a></span> .</li>\n</ul>\n<p><strong>World Actions</strong></p>\n<ul>\n<li><strong>Shadow Puppet</strong> (Recharge 6). A shadow that looks identical to a random participant in the haze manifests and is hostile to everyone (initiative 20). The shadow can see through the fog clearly.</li>\n<li><strong>Twisting Haze.</strong> All participants in the haze move into randomly determined unoccupied spaces within 5 feet.</li>\n</ul>",
+  "origin": null,
+  "tint": "#ffffff",
+  "statuses": [
+    "blinded"
+  ],
+  "sort": 0,
+  "_stats": {
+    "compendiumSource": "Item.Qut6fcu7TFXK8zo3.ActiveEffect.j75gaI4yeK5TpOvk",
+    "duplicateSource": null,
+    "coreVersion": "12.331",
+    "systemId": "a5e",
+    "systemVersion": "0.19.25",
+    "createdTime": 1725044879064,
+    "modifiedTime": 1725050744882,
+    "lastModifiedBy": "1DVUp0C2KG3XSVJ0"
+  }
+}

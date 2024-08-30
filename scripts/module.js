@@ -158,7 +158,14 @@ function initializeConfig() {
      * closest non-transparent pixel.
      * @type {number} Positive number
      */
-    tokenPercentHoleThreshold: 0.25
+    tokenPercentHoleThreshold: 0.25,
+
+    /**
+     * Hook active effect creation and deletion.
+     * On AE creation, add stand-alone AEs for statuses in the AE.
+     * On AE deletion, remove the stand-alone AEs unless another non-stand-alone AE has that status.
+     */
+    addStandAloneAEs: true
 
   };
 
