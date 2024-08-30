@@ -1,3 +1,9 @@
+## 0.4.3
+When adding active effects, toggle on associated statuses manually so they are properly shown as enabled in the token HUD and actor sheet. When removing active effects, toggle associated statuses off manually unless the statuses are also provided by another active effect. Related #45.
+Do not strip out AE statuses when adding the terrain icon to the status array. Closes #45.
+Add terrain examples for a5e system. Closes #42.
+Fix hook for a5e so that when a terrain effect is updated, its name and icon are updated in the terrain list.
+
 ## 0.4.2
 Add a reset-to-ground option for the stairs and elevator behaviors.
 Update Brazilian Portuguese translation. Thanks @Kharmans!
