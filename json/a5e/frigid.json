@@ -1,0 +1,63 @@
+{
+  "flags": {
+    "terrainmapper": {
+      "uniqueEffectType": "Terrain",
+      "uniqueEffectId": "Terrain_EkT2FNR7cotcGslf",
+      "duplicatesAllowed": false,
+      "displayStatusIcon": true,
+      "version": "0.4.2"
+    },
+    "exportSource": {
+      "world": "test-advanced-5e",
+      "system": "a5e",
+      "coreVersion": "12.331",
+      "systemVersion": "0.19.25",
+      "terrainMapperVersion": "0.4.2"
+    }
+  },
+  "transfer": false,
+  "name": "Frigid",
+  "img": "icons/svg/ice-shield.svg",
+  "_id": "1sxdw48YE8GCnAX0",
+  "type": "base",
+  "system": {},
+  "changes": [
+    {
+      "key": "system.attributes.movement.walk.distance",
+      "value": "0.5",
+      "mode": 1,
+      "priority": null
+    },
+    {
+      "key": "flags.a5e.effects.rollMode.skillCheck.prc",
+      "value": "-1",
+      "mode": 6,
+      "priority": null
+    }
+  ],
+  "disabled": false,
+  "duration": {
+    "startTime": null,
+    "seconds": null,
+    "combat": null,
+    "rounds": null,
+    "turns": null,
+    "startRound": null,
+    "startTurn": null
+  },
+  "description": "<h3>FRIGID</h3>\n<ul>\n<li><strong>Frostbitten Surface.</strong> Touching an unattended object or a surface for the first time on a participant’s turn causes them to take 1d6 cold damage. This effect is nullified if they have <span class=\"freelinking-link\"><a title=\"Click to view a local node.\" href=\"https://a5e.tools/rules/damage-and-recovery\">resistance</a></span> to cold damage or the participant’s skin isn’t exposed to the surface.</li>\n<li><strong>Icy Patch.</strong> When a participant starts moving in a single direction through this area hazard, movement in another direction is considered <span class=\"freelinking-link\"><a title=\"Click to view a local node.\" href=\"https://a5e.tools/rules/world-bonuses-penalties-and-cover\">difficult terrain</a></span> until the start of their next turn.</li>\n<li><strong>Snow. </strong>The area is <span class=\"freelinking-link\"><a title=\"Click to view a local node.\" href=\"https://a5e.tools/rules/environment\">lightly obscured</a></span> .</li>\n</ul>\n<p><strong>World Actions</strong></p>\n<ul>\n<li><strong>Cold Chill </strong>(Recharge 4–6). All participants make a DC 15 Constitution <span class=\"freelinking-link\"><a title=\"Click to view a local node.\" href=\"https://a5e.tools/rules/saving-throw\">saving throw</a></span> or take 2d6 cold damage. This damage is reduced to 1d6 if they are wearing cold weather gear.</li>\n</ul>",
+  "origin": null,
+  "tint": "#ffffff",
+  "statuses": [],
+  "sort": 0,
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "coreVersion": "12.331",
+    "systemId": "a5e",
+    "systemVersion": "0.19.25",
+    "createdTime": 1725043862017,
+    "modifiedTime": 1725043951150,
+    "lastModifiedBy": "1DVUp0C2KG3XSVJ0"
+  }
+}

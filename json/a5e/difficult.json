@@ -1,0 +1,59 @@
+{
+  "flags": {
+    "terrainmapper": {
+      "uniqueEffectType": "Terrain",
+      "uniqueEffectId": "Terrain_90l9SAJ9L98pongN",
+      "duplicatesAllowed": false,
+      "displayStatusIcon": true,
+      "version": "0.4.1"
+    },
+    "exportSource": {
+      "world": "test-advanced-5e",
+      "system": "a5e",
+      "coreVersion": "12.331",
+      "systemVersion": "0.19.25",
+      "terrainMapperVersion": "0.4.2"
+    }
+  },
+  "transfer": false,
+  "name": "Difficult Terrain",
+  "img": "icons/svg/mountain.svg",
+  "_id": "YrLFQ9ZKOvxln7GL",
+  "type": "base",
+  "system": {},
+  "changes": [
+    {
+      "key": "flags.a5e.effects.movement.allDistances",
+      "value": "0.5",
+      "mode": 1,
+      "priority": null
+    }
+  ],
+  "disabled": false,
+  "duration": {
+    "startTime": null,
+    "seconds": null,
+    "combat": null,
+    "rounds": null,
+    "turns": null,
+    "startRound": null,
+    "startTurn": null
+  },
+  "description": "<p>All movement through this terrain is halved.</p>",
+  "origin": null,
+  "tint": "#ffffff",
+  "statuses": [
+    "charmed"
+  ],
+  "sort": 0,
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "coreVersion": "12.331",
+    "systemId": "a5e",
+    "systemVersion": "0.19.25",
+    "createdTime": 1724966877857,
+    "modifiedTime": 1724968894774,
+    "lastModifiedBy": "1DVUp0C2KG3XSVJ0"
+  }
+}

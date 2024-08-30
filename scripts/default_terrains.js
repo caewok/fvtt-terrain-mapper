@@ -24,6 +24,15 @@ export function defaultTerrains() {
       `modules/${MODULE_ID}/json/${systemId}/difficult.json`,
       `modules/${MODULE_ID}/json/${systemId}/water.json`
     ];
+
+    case "a5e": return [
+      `modules/${MODULE_ID}/json/${systemId}/cliff.json`,
+      `modules/${MODULE_ID}/json/${systemId}/difficult.json`,
+      `modules/${MODULE_ID}/json/${systemId}/frigid.json`,
+      `modules/${MODULE_ID}/json/${systemId}/hazy.json`,
+      `modules/${MODULE_ID}/json/${systemId}/swampy.json`,
+      `modules/${MODULE_ID}/json/${systemId}/water.json`
+    ];
   }
   return [];
 }
