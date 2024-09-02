@@ -22,13 +22,15 @@ export const TEMPLATES = {
 // Track certain modules that complement features of this module.
 export const MODULES_ACTIVE = {
   ELEVATED_VISION: false,
-  ELEVATION_RULER: false
+  ELEVATION_RULER: false,
+  LEVELS: false
 };
 
 // Hook init b/c game.modules is not initialized at start.
 Hooks.once("init", function() {
   MODULES_ACTIVE.ELEVATED_VISION = game.modules.get("elevatedvision")?.active;
   MODULES_ACTIVE.ELEVATION_RULER = game.modules.get("elevationruler")?.active;
+  MODULES_ACTIVE.LEVELS = game.modules.get("levels")?.active;
 });
 
 // Flags set on various documents.

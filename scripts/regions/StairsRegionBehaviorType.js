@@ -5,7 +5,7 @@ foundry
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { MODULE_ID, FLAGS } from "../const.js";
+import { MODULE_ID, FLAGS, MODULES_ACTIVE } from "../const.js";
 import { log } from "../util.js";
 import { ElevationHandler } from "../ElevationHandler.js";
 
@@ -158,17 +158,7 @@ export class StairsRegionBehaviorType extends foundry.data.regionBehaviors.Regio
     }
 
     // Either change the elevation to take stairs or continue the 2d move.
-    let update;
-    if ( takeStairs ) update = { elevation: targetElevation };
-    else if ( this.constructor.lastDestination ) update = {
-      x: this.constructor.lastDestination.x,
-      y: this.constructor.lastDestination.y
-    };
-    else return;
-    this.constructor.lastDestination = undefined;
-    await CanvasAnimation.getAnimation(tokenD.object?.animationName)?.promise;
-    await tokenD.update(update);
-    await CanvasAnimation.getAnimation(tokenD.object?.animationName)?.promise;
+    await continueTokenAnimationForBehavior(this, tokenD, takeStairs ? targetElevation : undefined);
   }
 
   /**
@@ -196,18 +186,7 @@ export class StairsRegionBehaviorType extends foundry.data.regionBehaviors.Regio
     }
 
     // Either change the elevation to reset to ground or continue the 2d move.
-    let update;
-    if ( resetToGround ) update = { elevation: groundElevation };
-    else if ( this.constructor.lastDestination ) update = {
-      x: this.constructor.lastDestination.x,
-      y: this.constructor.lastDestination.y
-    };
-    else return;
-    this.constructor.lastDestination = undefined;
-    await CanvasAnimation.getAnimation(tokenD.object?.animationName)?.promise;
-    await tokenD.update(update);
-    await CanvasAnimation.getAnimation(tokenD.object?.animationName)?.promise;
-
+    await continueTokenAnimationForBehavior(this, tokenD, resetToGround ? groundElevation : undefined);
   }
 
   /** @type {RegionWaypoint} */
@@ -240,6 +219,27 @@ export class StairsRegionBehaviorType extends foundry.data.regionBehaviors.Regio
       }
     }
   }
+}
+
+/**
+ * Either change elevation or continue move to the last destination.
+ * @param {StairsRegionBehaviorType|ElevatorRegionBehaviorType} behavior
+ * @param {TokenDocument} tokenD    Document of token to be updated
+ * @param {number} [elevation]      If elevation was chosen, elevation to set
+ */
+export async function continueTokenAnimationForBehavior(behavior, tokenD, elevation) {
+  let update;
+  if ( typeof elevation !== "undefined" ) update = { elevation };
+  else if ( behavior.constructor.lastDestination ) update = {
+    x: this.constructor.lastDestination.x,
+    y: this.constructor.lastDestination.y
+  };
+  else return;
+  behavior.constructor.lastDestination = undefined;
+  await CanvasAnimation.getAnimation(tokenD.object?.animationName)?.promise;
+  const opts = MODULES_ACTIVE.LEVELS ? { teleport: true } : undefined; // Avoid Levels error re going through floors.
+  await tokenD.update(update, opts);
+  await CanvasAnimation.getAnimation(tokenD.object?.animationName)?.promise;
 }
 
 /**

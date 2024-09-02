@@ -5,9 +5,10 @@ foundry
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { MODULE_ID } from "../const.js";
+import { MODULE_ID, MODULES_ACTIVE } from "../const.js";
 import { log } from "../util.js";
 import { ElevationHandler } from "../ElevationHandler.js";
+import { continueTokenAnimationForBehavior } from "./StairsRegionBehaviorType.js";
 
 export const PATCHES = {};
 PATCHES.REGIONS = {};
@@ -112,17 +113,7 @@ export class ElevatorRegionBehaviorType extends foundry.data.regionBehaviors.Reg
     }
 
     // Execute either the elevator elevation move or continue the 2d move.
-    let update;
-    if ( takeElevator ) update = { elevation: chosenElevation };
-    else if ( this.constructor.lastDestination ) update = {
-      x: this.constructor.lastDestination.x,
-      y: this.constructor.lastDestination.y
-    };
-    else return;
-    this.constructor.lastDestination = undefined;
-    await CanvasAnimation.getAnimation(tokenD.object?.animationName)?.promise;
-    await tokenD.update(update);
-    await CanvasAnimation.getAnimation(tokenD.object?.animationName)?.promise;
+    await continueTokenAnimationForBehavior(this, tokenD, takeElevator ? chosenElevation : undefined);
   }
 
   /**
@@ -153,17 +144,7 @@ export class ElevatorRegionBehaviorType extends foundry.data.regionBehaviors.Reg
     }
 
     // Either change the elevation to reset to ground or continue the 2d move.
-    let update;
-    if ( resetToGround ) update = { elevation: groundElevation };
-    else if ( this.constructor.lastDestination ) update = {
-      x: this.constructor.lastDestination.x,
-      y: this.constructor.lastDestination.y
-    };
-    else return;
-    this.constructor.lastDestination = undefined;
-    await CanvasAnimation.getAnimation(tokenD.object?.animationName)?.promise;
-    await tokenD.update(update);
-    await CanvasAnimation.getAnimation(tokenD.object?.animationName)?.promise;
+    await continueTokenAnimationForBehavior(this, tokenD, resetToGround ? groundElevation : undefined);
   }
 
   /** @type {RegionWaypoint} */
