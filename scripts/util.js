@@ -21,6 +21,16 @@ export function log(...args) {
 }
 
 /**
+ * Get the snapped position for a token from a token center point.
+ * @param {Token} token
+ * @param {Point} center
+ */
+export function getSnappedFromTokenCenter(token, center) {
+  center ??= token.center;
+  return token.getSnappedPosition(token.getTopLeft(center.x, center.y));
+}
+
+/**
  * Helper to inject configuration html into the application config.
  */
 export async function injectConfiguration(app, html, data, template, findString, attachMethod = "append") {

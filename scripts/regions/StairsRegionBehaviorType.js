@@ -12,7 +12,7 @@ Region
 "use strict";
 
 import { MODULE_ID, FLAGS, MODULES_ACTIVE } from "../const.js";
-import { log } from "../util.js";
+import { log, getSnappedFromTokenCenter } from "../util.js";
 import { ElevationHandler } from "../ElevationHandler.js";
 
 export const PATCHES = {};
@@ -241,9 +241,6 @@ export async function continueTokenAnimationForBehavior(behavior, tokenD, elevat
   if ( elevate ) update = { elevation };
   else if ( lastDestination ) update = { x: lastDestination.x, y: lastDestination.y };
   else return;
-  await CanvasAnimation.getAnimation(tokenD.object?.animationName)?.promise;
-  const opts = MODULES_ACTIVE.LEVELS ? { teleport: true } : undefined; // Avoid Levels error re going through floors.
-  await tokenD.update(update, opts);
 
   // Attempt to snap to the next grid square.
   if ( elevate && !canvas.grid.isGridless && lastDestination ) {
@@ -252,12 +249,16 @@ export async function continueTokenAnimationForBehavior(behavior, tokenD, elevat
     const a = token.getCenterPoint(tokenD._source);
     const b = findNextGridCenter(a, token.getCenterPoint(lastDestination));
     if ( !token.checkCollision(b, { origin: a }) ) {
-      const tl = token.getSnappedPosition(b);
+      const tl = getSnappedFromTokenCenter(token, b);
       const update = { x: tl.x, y: tl.y };
       await CanvasAnimation.getAnimation(tokenD.object?.animationName)?.promise;
       await tokenD.update(update);
     }
   }
+
+  await CanvasAnimation.getAnimation(tokenD.object?.animationName)?.promise;
+  const opts = MODULES_ACTIVE.LEVELS ? { teleport: true } : undefined; // Avoid Levels error re going through floors.
+  await tokenD.update(update, opts);
   await CanvasAnimation.getAnimation(tokenD.object?.animationName)?.promise;
 }
 
