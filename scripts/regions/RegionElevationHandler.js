@@ -14,6 +14,7 @@ import {
 import { Point3d } from "../geometry/3d/Point3d.js";
 import { Plane } from "../geometry/3d/Plane.js";
 import { ClipperPaths } from "../geometry/ClipperPaths.js";
+import { RegionMovementWaypoint3d } from "../geometry/3d/RegionMovementWaypoint3d.js";
 import { Matrix } from "../geometry/Matrix.js";
 import { ElevationHandler } from "../ElevationHandler.js";
 
@@ -54,7 +55,9 @@ export class RegionElevationHandler {
   get rampStepSize() { return this.region.document.getFlag(MODULE_ID, FLAGS.REGION.RAMP.STEP_SIZE) || 0; }
 
   /** @type {FLAGS.REGION.CHOICES} */
-  get algorithm() { return this.region.document.getFlag(MODULE_ID, FLAGS.REGION.ELEVATION_ALGORITHM) || FLAGS.REGION.CHOICES.PLATEAU; }
+  get algorithm() {
+    return this.region.document.getFlag(MODULE_ID, FLAGS.REGION.ELEVATION_ALGORITHM) || FLAGS.REGION.CHOICES.PLATEAU;
+  }
 
   /** @type {object} */
   #minMax;
@@ -341,7 +344,7 @@ export class RegionElevationHandler {
    * - @prop {Point} max    Where region last intersects the line orthogonal to direction, moving in direction
    */
   #minMaxRegionPointsAlongAxis() {
-    const { region, direction } = this;
+    const { region, rampDirection } = this;
 
     // By definition, holes cannot be the minimum/maximum points.
     const polys = region.polygons.filter(poly => poly._isPositive);
@@ -350,16 +353,16 @@ export class RegionElevationHandler {
 
     // Set the individual min/max per polygon.
     const map = this.#minMaxPolys;
-    for ( const poly of polys ) map.set(poly, minMaxPolygonPointsAlongAxis(poly, direction));
+    for ( const poly of polys ) map.set(poly, minMaxPolygonPointsAlongAxis(poly, rampDirection));
 
     // Determine the min/max for the bounds.
     // For consistency (and speed), rotate the bounds of the region.
     const center = region.bounds.center;
-    const minMax = minMaxPolygonPointsAlongAxis(polys[0], direction, center);
+    const minMax = minMaxPolygonPointsAlongAxis(polys[0], rampDirection, center);
     minMax.min._dist2 = PIXI.Point.distanceSquaredBetween(minMax.min, center);
     minMax.max._dist2 = PIXI.Point.distanceSquaredBetween(minMax.max, center);
     for ( let i = 1; i < nPolys; i += 1 ) {
-      const res = minMaxPolygonPointsAlongAxis(polys[i], direction, center);
+      const res = minMaxPolygonPointsAlongAxis(polys[i], rampDirection, center);
 
       // Find the point that is further from the centroid.
       res.min._dist2 = PIXI.Point.distanceSquaredBetween(res.min, center);
