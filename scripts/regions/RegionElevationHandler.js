@@ -59,10 +59,19 @@ export class RegionElevationHandler {
   /** @type {object} */
   #minMax;
 
-  get minMax() {
-    return this.#minMax
-       || (this.#minMax = this.#minMaxRegionPointsAlongAxis(this.region, this.rampDirection));
+  /** @type {object} */
+  #minMaxPolys = new WeakMap();
+
+  getMinMaxPolys(polys) {
+    polys ??= this.region.polygons.filter(poly => poly._isPositive);
+
+    // Confirm polygons are still valid; if not, redo.
+    // TODO: Is this strictly necessary or will cache invalidation be sufficient?
+    if ( polys.some(poly => !this.#minMaxPolys.has(poly)) ) this.#minMaxRegionPointsAlongAxis();
+    return this.#minMaxPolys;
   }
+
+  get minMax() { return this.#minMax || (this.#minMax = this.#minMaxRegionPointsAlongAxis()); }
 
   /** @type {PIXI.Point[]} */
   #rampCutpoints = [];
@@ -72,7 +81,11 @@ export class RegionElevationHandler {
     return this.#rampCutpoints;
   }
 
-  clearCache() { this.#minMax = undefined; this.#rampCutpoints.length = 0; }
+  clearCache() {
+    this.#minMax = undefined;
+    this.#rampCutpoints.length = 0;
+    this.#minMaxPolys = new WeakMap(); // No clear for WeakMap.
+  }
 
   // Terrain data
   /** @type {boolean} */
@@ -327,12 +340,19 @@ export class RegionElevationHandler {
    * - @prop {Point} min    Where region first intersects the line orthogonal to direction, moving in direction
    * - @prop {Point} max    Where region last intersects the line orthogonal to direction, moving in direction
    */
-  #minMaxRegionPointsAlongAxis(region, direction = 0) {
+  #minMaxRegionPointsAlongAxis() {
+    const { region, direction } = this;
+
     // By definition, holes cannot be the minimum/maximum points.
     const polys = region.polygons.filter(poly => poly._isPositive);
     const nPolys = polys.length;
     if ( !nPolys ) return undefined;
 
+    // Set the individual min/max per polygon.
+    const map = this.#minMaxPolys;
+    for ( const poly of polys ) map.set(poly, minMaxPolygonPointsAlongAxis(poly, direction));
+
+    // Determine the min/max for the bounds.
     // For consistency (and speed), rotate the bounds of the region.
     const center = region.bounds.center;
     const minMax = minMaxPolygonPointsAlongAxis(polys[0], direction, center);
@@ -342,8 +362,8 @@ export class RegionElevationHandler {
       const res = minMaxPolygonPointsAlongAxis(polys[i], direction, center);
 
       // Find the point that is further from the centroid.
-      res.min._dist2 = PIXI.Point.distanceSquaredBetween(minMax.min, center);
-      res.max._dist2 = PIXI.Point.distanceSquaredBetween(minMax.max, center);
+      res.min._dist2 = PIXI.Point.distanceSquaredBetween(res.min, center);
+      res.max._dist2 = PIXI.Point.distanceSquaredBetween(res.max, center);
       if ( res.min._dist2 > minMax.min._dist2 ) minMax.min = res.min;
       if ( res.max._dist2 > minMax.max._dist2 ) minMax.max = res.max;
     }
