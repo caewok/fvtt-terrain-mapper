@@ -67,8 +67,8 @@ export const FLAGS = {
       FLOOR: "rampFloor",
       DIRECTION: "rampDirection",
       STEP_SIZE: "rampStepSize",
+      SPLIT_POLYGONS: "splitPolygons"
     }
-
   },
 
   TILE: {
