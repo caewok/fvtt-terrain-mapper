@@ -1,6 +1,12 @@
 /* globals
+canvas,
+CanvasAnimation,
+CONFIG,
 CONST,
-foundry
+game,
+foundry,
+PIXI,
+Region
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
@@ -228,18 +234,78 @@ export class StairsRegionBehaviorType extends foundry.data.regionBehaviors.Regio
  * @param {number} [elevation]      If elevation was chosen, elevation to set
  */
 export async function continueTokenAnimationForBehavior(behavior, tokenD, elevation) {
-  let update;
-  if ( typeof elevation !== "undefined" ) update = { elevation };
-  else if ( behavior.constructor.lastDestination ) update = {
-    x: this.constructor.lastDestination.x,
-    y: this.constructor.lastDestination.y
-  };
-  else return;
+  const lastDestination = behavior.constructor.lastDestination;
   behavior.constructor.lastDestination = undefined;
+  const elevate = typeof elevation !== "undefined";
+  let update;
+  if ( elevate ) update = { elevation };
+  else if ( lastDestination ) update = { x: lastDestination.x, y: lastDestination.y };
+  else return;
   await CanvasAnimation.getAnimation(tokenD.object?.animationName)?.promise;
   const opts = MODULES_ACTIVE.LEVELS ? { teleport: true } : undefined; // Avoid Levels error re going through floors.
   await tokenD.update(update, opts);
+
+  // Attempt to snap to the next grid square.
+  if ( elevate && !canvas.grid.isGridless && lastDestination ) {
+    // Need the center square in front of the destination, not behind.
+    const token = tokenD.object;
+    const a = token.getCenterPoint(tokenD._source);
+    const b = findNextGridCenter(a, token.getCenterPoint(lastDestination));
+    if ( !token.checkCollision(b, { origin: a }) ) {
+      const tl = token.getSnappedPosition(b);
+      const update = { x: tl.x, y: tl.y };
+      await CanvasAnimation.getAnimation(tokenD.object?.animationName)?.promise;
+      await tokenD.update(update);
+    }
+  }
   await CanvasAnimation.getAnimation(tokenD.object?.animationName)?.promise;
+}
+
+/**
+ * For a given segment, find the next grid center along the line.
+ * Use the current grid square unless its center is behind.
+ * @param {Point} a
+ * @param {Point} b
+ * @returns {GridCoordinates}
+ */
+function findNextGridCenter(a, b) {
+  const GridCoordinates = CONFIG.GeometryLib.GridCoordinates;
+  a = GridCoordinates.fromObject(a);
+  b = GridCoordinates.fromObject(b);
+
+  // If a equals the center, then we don't need to move anywhere.
+  // If b equals the center, then b and a must be in the same grid space
+  const aCenter = a.center;
+  if ( a.almostEqual(aCenter) || b.center.almostEqual(aCenter) ) return aCenter;
+
+  // If the center is ahead of a on a --> b, the closest point to the line will be closer to b than a is to b.
+  // I.e., the closest point will not be a.
+  const closestPoint = foundry.utils.closestPointToSegment(aCenter, a, b);
+  if ( !a.almostEqual(closestPoint) ) return aCenter;
+
+  // Need the next grid space that the line intersects.
+  const brIter = CONFIG.GeometryLib.utils.bresenhamLineIterator(toBresenhamPoint(a), toBresenhamPoint(b));
+  brIter.next(); // Skip a.
+  return fromBreshenhamPoint(brIter.next().value);
+}
+
+/**
+ * Convert offset to { x, y }
+ * @param {GridCoordinates} a
+ * @returns {PIXI.Point} With x set to i and y set to j
+ */
+function toBresenhamPoint(a) {
+  const o = a.offset;
+  return new PIXI.Point(o.i, o.j);
+}
+
+/**
+ * Convert a bresenham point to a canvas point.
+ * @param {PIXI.Point} b      Point from Bresenham where b.x and b.y are assumed to be i and j, respectively.
+ * @returns {GridCoordinates} The point at the offset represented by b
+ */
+function fromBreshenhamPoint(b) {
+  return CONFIG.GeometryLib.GridCoordinates.fromOffset({ i: b.x, j: b.y });
 }
 
 /**
