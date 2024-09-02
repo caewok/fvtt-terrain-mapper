@@ -256,7 +256,7 @@ export class TileElevationHandler {
     const holeThreshold_1_2 = holeThreshold * 0.5;
     for ( const outerS of outerSegments ) {
       let currHole = !holeCache.contains(outerS.a.x, outerS.a.y);
-      for ( const pt of bresenhamLineIterator(outerS.a.x, outerS.a.y, outerS.b.x, outerS.b.y) ) {
+      for ( const pt of bresenhamLineIterator(outerS.a, outerS.b) ) {
         // Either the edge is L/R/T/B or is one of the corners, e.g. TOP_LEFT.
         const z = holeCache._getZone(pt);
         if ( !z ) continue; // Point is inside.
