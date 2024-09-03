@@ -1,3 +1,13 @@
+## 0.4.4
+Add a setting to the region configuration to treat polygons separately when using ramps. With this setting, each non-hole polygon gets its own ramp from low --> high elevation. With this setting disabled, all non-hole polygons are treated as a single ramp.
+
+Correct calculation of ramp when multiple polygons are present. Closes #48.
+Fix testing of tile holes, which was causing the measured elevation of the tile to fail.
+If Levels module is active, use the `{ teleport: true }` option when changing elevations for stairs and elevators to avoid a Levels error re changing floors.
+When taking stairs and elevators on a gridded map, attempt to snap the token to the next grid location (unless the path is blocked).
+Provide sensible defaults for ramp settings to avoid errors if undefined.
+Update libGeometry to 0.3.11.
+
 ## 0.4.3
 When adding active effects, toggle on associated statuses manually so they are properly shown as enabled in the token HUD and actor sheet. When removing active effects, toggle associated statuses off manually unless the statuses are also provided by another active effect. Related #45.
 Do not strip out AE statuses when adding the terrain icon to the status array. Closes #45.

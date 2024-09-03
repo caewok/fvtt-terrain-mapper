@@ -14,6 +14,7 @@ import {
 import { Point3d } from "../geometry/3d/Point3d.js";
 import { Plane } from "../geometry/3d/Plane.js";
 import { ClipperPaths } from "../geometry/ClipperPaths.js";
+import { RegionMovementWaypoint3d } from "../geometry/3d/RegionMovementWaypoint3d.js";
 import { Matrix } from "../geometry/Matrix.js";
 import { ElevationHandler } from "../ElevationHandler.js";
 
@@ -53,26 +54,56 @@ export class RegionElevationHandler {
   /** @type {number} */
   get rampStepSize() { return this.region.document.getFlag(MODULE_ID, FLAGS.REGION.RAMP.STEP_SIZE) || 0; }
 
+  /** @type {boolean} */
+  get splitPolygons() { return this.region.document.getFlag(MODULE_ID, FLAGS.REGION.RAMP.SPLIT_POLYGONS); }
+
   /** @type {FLAGS.REGION.CHOICES} */
-  get algorithm() { return this.region.document.getFlag(MODULE_ID, FLAGS.REGION.ELEVATION_ALGORITHM) || FLAGS.REGION.CHOICES.PLATEAU; }
+  get algorithm() {
+    return this.region.document.getFlag(MODULE_ID, FLAGS.REGION.ELEVATION_ALGORITHM) || FLAGS.REGION.CHOICES.PLATEAU;
+  }
+
+  /** @type {PIXI.Polygon} */
+  get nonHolePolygons() { return this.region.polygons.filter(poly => poly._isPositive); }
 
   /** @type {object} */
   #minMax;
 
-  get minMax() {
-    return this.#minMax
-       || (this.#minMax = this.#minMaxRegionPointsAlongAxis(this.region, this.rampDirection));
+  /** @type {object} */
+  #minMaxPolys = new WeakMap();
+
+  get minMax() { return this.#minMax || (this.#minMax = this.#minMaxRegionPointsAlongAxis()); }
+
+  get minMaxPolys() {
+    // Confirm polygons are still valid; if not, redo.
+    // TODO: Is this strictly necessary or will cache invalidation be sufficient?
+    if ( this.nonHolePolygons.some(poly => !this.#minMaxPolys.has(poly)) ) this.#minMaxRegionPointsAlongAxis();
+    return this.#minMaxPolys;
   }
 
   /** @type {PIXI.Point[]} */
-  #rampCutpoints = [];
+  #rampCutpoints = new WeakMap();
 
-  get rampCutpoints() {
-    if ( !this.#rampCutpoints.length ) this.#rampCutpoints = this.#rampIdealCutpoints();
-    return this.#rampCutpoints;
+  /**
+   * Cutpoints for the ramp.
+   * @param {PIXI.Polygon} [poly]     If provided, will calculate cutpoints for a specific poly in the region
+   * @returns {PIXI.Point[]}
+   */
+  getRampCutpoints(poly) {
+    const usePoly = poly && this.splitPolygons;
+    const key = usePoly ? poly : this;
+    if ( this.#rampCutpoints.has(key) ) return this.#rampCutpoints.get(key);
+
+    const minMax = usePoly ? this.minMaxPolys.get(poly) : this.minMax;
+    const cutpoints = this.#rampIdealCutpoints(minMax);
+    this.#rampCutpoints.set(key, cutpoints);
+    return cutpoints;
   }
 
-  clearCache() { this.#minMax = undefined; this.#rampCutpoints.length = 0; }
+  clearCache() {
+    this.#minMax = undefined;
+    this.#rampCutpoints = new WeakMap();  // No clear for WeakMap.
+    this.#minMaxPolys = new WeakMap(); // No clear for WeakMap.
+  }
 
   // Terrain data
   /** @type {boolean} */
@@ -124,7 +155,14 @@ export class RegionElevationHandler {
     }
 
     // First intersect the plane, which may be at an angle for a ramp.
-    const p = this._plateauPlane();
+    let minMax;
+    if ( this.splitPolygons && this.isRamp ) {
+      const poly = this.nonHolePolygons.find(poly => poly.lineSegmentIntersects(a, b, { inside: true }));
+      minMax = this.minMaxPolys(poly);
+    }
+    minMax ??= this.minMax;
+
+    const p = this._plateauPlane(minMax);
     if ( !p.lineSegmentIntersects(a, b) ) return null;
     const ix = RegionMovementWaypoint3d.fromObject(p.lineSegmentIntersection(a, b));
 
@@ -138,15 +176,16 @@ export class RegionElevationHandler {
 
   /**
    * Calculate the plane of the plateau or ramp.
+   * @param {object} minMax
    * @returns {Plane} If not a ramp, will return the horizontal plane
    */
-  _plateauPlane() {
+  _plateauPlane(minMax) {
     const gridUnitsToPixels = CONFIG.GeometryLib.utils.gridUnitsToPixels;
     const { plateauElevation, rampFloor } = this;
     if ( this.isPlateau ) return new Plane(new Point3d(0, 0, gridUnitsToPixels(plateauElevation)));
 
     // Construct a plane using three points: min/max and a third orthogonal point.
-    const minMax = this.minMax;
+    minMax ??= this.minMax;
     const min = new Point3d(minMax.min.x, minMax.min.y, gridUnitsToPixels(rampFloor));
     const max = new Point3d(minMax.max.x, minMax.max.y, gridUnitsToPixels(plateauElevation));
 
@@ -169,14 +208,7 @@ export class RegionElevationHandler {
    * @returns {ClipperPaths|null} The combined Clipper paths for the region cutaway.
    */
   _cutaway(start, end, { usePlateauElevation = true } = {}) {
-    const regionPolys = [];
-    const opts = this.#cutawayOptionFunctions(start, end, usePlateauElevation);
-    let allHoles = true;
-    for ( const regionPoly of this.region.polygons ) {
-      const quad = regionPoly.cutaway(start, end, opts);
-      regionPolys.push(...quad);
-      allHoles &&= !regionPoly.isPositive;
-    }
+    const { result: regionPolys, allHoles } = this.#applyCutawayMethod("cutaway", start, end, usePlateauElevation);
 
     // If all holes or no polygons, we are done.
     if ( !regionPolys.length || allHoles ) return null;
@@ -201,16 +233,32 @@ export class RegionElevationHandler {
    * @returns {PIXI.Point[]}
    */
   _cutawayIntersections(start, end, { usePlateauElevation = true } = {}) {
-    const regionIxs = [];
-    const opts = this.#cutawayOptionFunctions(start, end, usePlateauElevation);
-    let allHoles = true;
-    for ( const regionPoly of this.region.polygons ) {
-      const ixs = regionPoly.cutawayIntersections(start, end, opts);
-      regionIxs.push(...ixs);
-      allHoles &&= !regionPoly.isPositive;
-    }
+    const { result: regionIxs, allHoles } = this.#applyCutawayMethod("cutawayIntersections", start, end, usePlateauElevation);
     if ( allHoles ) return [];
     return regionIxs;
+  }
+
+  /**
+   * Used by _cutaway and _cutawayIntersections
+   * @param {string} method
+   * @returns {object} { result, allHoles }
+   */
+  #applyCutawayMethod(method, start, end, usePlateauElevation = true) {
+    const result = [];
+    let allHoles = true;
+    const nonHolePolygons = (this.isRamp && this.splitPolygons) ? this.nonHolePolygons : [];
+    for ( const regionPoly of this.region.polygons ) {
+      // If this poly is a hole, need the positive polygon for forming the step coordinates.
+      let poly = regionPoly;
+      if ( !regionPoly.isPositive ) {
+        poly = nonHolePolygons.find(p => p.overlaps(regionPoly));
+      }
+      const opts = this.#cutawayOptionFunctions(poly, start, end, usePlateauElevation);
+      const ixs = regionPoly[method](start, end, opts);
+      result.push(...ixs);
+      allHoles &&= !regionPoly.isPositive;
+    }
+    return { result, allHoles };
   }
 
   /**
@@ -293,16 +341,17 @@ export class RegionElevationHandler {
    * Assumes but does not test that start and end are actually within the ramp region.
    * @param {PIXI.Point} a              Start of the segment
    * @param {PIXI.Point} b              End of the segment
+   * @param {PIXI.Polygon} [poly]       For split polygons, the poly to use
    * @returns {PIXI.Point[]} Array of points from start to end at which elevation changes.
    */
-  _rampCutpointsForSegment(a, b) {
+  _rampCutpointsForSegment(a, b, poly) {
     // For each ideal cutpoint on the ramp, intersect the line orthogonal to the ideal cutpoint line
     // at the ideal cutpoint.
     const minMax = this.minMax;
     const dir = minMax.max.subtract(minMax.min);
     const orthoDir = new PIXI.Point(dir.y, -dir.x); // 2d Orthogonal of {x, y} is {y, -x}
     const cutpoints = [];
-    for ( const idealCutpoint of this.rampCutpoints ) {
+    for ( const idealCutpoint of this.getRampCutpoints(poly) ) {
       const orthoPt = idealCutpoint.add(orthoDir);
       const ix = foundry.utils.lineLineIntersection(a, b, idealCutpoint, orthoPt);
       if ( !ix ) break; // If one does not intersect, none will intersect.
@@ -327,23 +376,30 @@ export class RegionElevationHandler {
    * - @prop {Point} min    Where region first intersects the line orthogonal to direction, moving in direction
    * - @prop {Point} max    Where region last intersects the line orthogonal to direction, moving in direction
    */
-  #minMaxRegionPointsAlongAxis(region, direction = 0) {
+  #minMaxRegionPointsAlongAxis() {
+    const { region, rampDirection } = this;
+
     // By definition, holes cannot be the minimum/maximum points.
-    const polys = region.polygons.filter(poly => poly._isPositive);
+    const polys = this.nonHolePolygons;
     const nPolys = polys.length;
     if ( !nPolys ) return undefined;
 
+    // Set the individual min/max per polygon.
+    this.#minMaxPolys = new WeakMap();
+    for ( const poly of polys ) this.#minMaxPolys.set(poly, minMaxPolygonPointsAlongAxis(poly, rampDirection));
+
+    // Determine the min/max for the bounds.
     // For consistency (and speed), rotate the bounds of the region.
     const center = region.bounds.center;
-    const minMax = minMaxPolygonPointsAlongAxis(polys[0], direction, center);
+    const minMax = minMaxPolygonPointsAlongAxis(polys[0], rampDirection, center);
     minMax.min._dist2 = PIXI.Point.distanceSquaredBetween(minMax.min, center);
     minMax.max._dist2 = PIXI.Point.distanceSquaredBetween(minMax.max, center);
     for ( let i = 1; i < nPolys; i += 1 ) {
-      const res = minMaxPolygonPointsAlongAxis(polys[i], direction, center);
+      const res = minMaxPolygonPointsAlongAxis(polys[i], rampDirection, center);
 
       // Find the point that is further from the centroid.
-      res.min._dist2 = PIXI.Point.distanceSquaredBetween(minMax.min, center);
-      res.max._dist2 = PIXI.Point.distanceSquaredBetween(minMax.max, center);
+      res.min._dist2 = PIXI.Point.distanceSquaredBetween(res.min, center);
+      res.max._dist2 = PIXI.Point.distanceSquaredBetween(res.max, center);
       if ( res.min._dist2 > minMax.min._dist2 ) minMax.min = res.min;
       if ( res.max._dist2 > minMax.max._dist2 ) minMax.max = res.max;
     }
@@ -379,7 +435,12 @@ export class RegionElevationHandler {
     10 --> 17 --> 24 --> 25
     15 / 7 = ~2.14. 3 splits.
     */
-    const minMax = this.minMax;
+    let minMax = this.minMax;
+    let poly;
+    if ( this.splitPolygons ) {
+      poly = this.nonHolePolygons.find(poly => poly.contains(waypoint.x, waypoint.y));
+      minMax = this.minMaxPolys.get(poly);
+    }
     if ( !minMax ) return waypoint.elevation;
     const closestPt = foundry.utils.closestPointToSegment(waypoint, minMax.min, minMax.max);
     const t0 = Math.clamp(PIXI.Point.distanceBetween(minMax.min, closestPt)
@@ -392,11 +453,10 @@ export class RegionElevationHandler {
     if ( t0.almostEqual(0) ) return rampFloor;
     if ( t0.almostEqual(1) ) return plateauElevation;
     if ( this.rampStepSize ) {
-      const cutPoints = this.rampCutpoints;
+      const cutPoints = this.getRampCutpoints(poly);
       const nearestPt = cutPoints.findLast(pt => pt.t.almostEqual(t0) || pt.t < t0);
       if ( !nearestPt ) return rampFloor;
       return nearestPt.elevation;
-
     }
 
     // Ramp is basic incline; no steps.
@@ -407,12 +467,13 @@ export class RegionElevationHandler {
   /**
    * Cutpoints for ramp steps, along the directional line for the ramp.
    * Smallest t follows the ramp floor; largest t is the switch to the plateauElevation.
+   * @param {object} minMax         Uses the provided minMax to calculate the cutpoints.
    * @returns {PIXI.Point[]} Array of points on the ramp direction line. Additional properties:
    *   - @prop {number} elevation   New elevation when ≥ t
    *   - @prop {number} t           Percent distance from minPt
    */
-  #rampIdealCutpoints() {
-    const { rampFloor, plateauElevation, rampStepSize, minMax } = this;
+  #rampIdealCutpoints(minMax) {
+    const { rampFloor, plateauElevation, rampStepSize } = this;
     if ( !rampStepSize ) return [];
     const delta = plateauElevation - rampFloor;
     const numSplits = Math.ceil(delta / rampStepSize);
@@ -434,7 +495,7 @@ export class RegionElevationHandler {
    *   - @prop {function} bottomElevationFn
    *   - @prop {function} cutPointsFn
    */
-  #cutawayOptionFunctions(start, end, usePlateauElevation = true) {
+  #cutawayOptionFunctions(poly, start, end, usePlateauElevation = true) {
     const { gridUnitsToPixels, pixelsToGridUnits } = CONFIG.GeometryLib.utils;
     const MIN_ELEV = -1e06;
     const MAX_ELEV = 1e06;
@@ -447,7 +508,8 @@ export class RegionElevationHandler {
     const cutPointsFn = (this.isRamp && this.rampStepSize)
       ? (a, b) => this._rampCutpointsForSegment(
         { ...a, elevation: pixelsToGridUnits(a.z) },
-        { ...b, elevation: pixelsToGridUnits(b.z) }).map(pt => ElevationHandler._to2dCutawayCoordinate(pt, start, end))
+        { ...b, elevation: pixelsToGridUnits(b.z) },
+        poly).map(pt => ElevationHandler._to2dCutawayCoordinate(pt, start, end))
       : undefined;
     return { topElevationFn, bottomElevationFn, cutPointsFn };
   }

@@ -155,7 +155,7 @@ export class TileElevationHandler {
    * @param {Point} a
    * @param {Point} b
    * @param {number} holeThreshold        In pixel coordinates, how large a hole counts?
-   * @returns {object[]} Array of objects, each of which have:
+   * @returns {PIXI.Point[]} Array of objects, each of which have:
    *   - {number} x           Canvas coordinates
    *   - {number} y           Canvas coordinates
    *   - {number} currPixel   The pixel value (tile pixel value for ending holes; count of hole size for hole starts)
@@ -169,13 +169,21 @@ export class TileElevationHandler {
 
     // Mark every time it moves from solid ground to a hole threshold of a given size.
     const markHoleStartFn = (currPixel, prevPixel) => prevPixel < holeThreshold && currPixel >= holeThreshold;
-    const holeStarts = holeCache._extractAllMarkedPixelValuesAlongCanvasRay(a, b, markHoleStartFn, { skipFirst: true });
-    holeStarts.forEach(pt => pt.holeStart = true);
+    const holeStarts = holeCache._extractAllMarkedPixelValuesAlongCanvasRay(a, b, markHoleStartFn, { skipFirst: true })
+      .map(pt => {
+        const newPt = PIXI.Point.fromObject(pt);
+        newPt.holeStart = true;
+        return newPt;
+      });
 
     // Mark the opposite move, from a hole to solid ground.
     const markHoleEndFn = (currPixel, prevPixel) => prevPixel >= holeThreshold && currPixel < holeThreshold;
-    const holeEnds = holeCache._extractAllMarkedPixelValuesAlongCanvasRay(a, b, markHoleEndFn, { skipFirst: true });
-    holeEnds.forEach(pt => pt.holeStart = false);
+    const holeEnds = holeCache._extractAllMarkedPixelValuesAlongCanvasRay(a, b, markHoleEndFn, { skipFirst: true })
+      .map(pt => {
+        const newPt = PIXI.Point.fromObject(pt);
+        newPt.holeStart = false;
+        return newPt;
+      });
 
     // Locate holes outside the alpha = 0 border.
     const outerHoles = this._findOuterHoles(a, b, holeThreshold);
@@ -189,7 +197,13 @@ export class TileElevationHandler {
     if ( holes.length && regionWaypointsXYAlmostEqual(holes[0], a) ) return holes;
     const startValue = holeCache.pixelAtCanvas(a.x, a.y);
     if ( startValue !== null
-      && startValue < holeThreshold ) holes.unshift({ ...a, holeStart: false, isStart: true, dist2: 0 });
+      && startValue < holeThreshold ) {
+      const pt = PIXI.Point.fromObject(a);
+      pt.holeStart = false;
+      pt.isStart = true;
+      pt.dist2 = 0;
+      holes.unshift(pt);
+    }
     return holes;
   }
 
@@ -256,7 +270,7 @@ export class TileElevationHandler {
     const holeThreshold_1_2 = holeThreshold * 0.5;
     for ( const outerS of outerSegments ) {
       let currHole = !holeCache.contains(outerS.a.x, outerS.a.y);
-      for ( const pt of bresenhamLineIterator(outerS.a.x, outerS.a.y, outerS.b.x, outerS.b.y) ) {
+      for ( const pt of bresenhamLineIterator(outerS.a, outerS.b) ) {
         // Either the edge is L/R/T/B or is one of the corners, e.g. TOP_LEFT.
         const z = holeCache._getZone(pt);
         if ( !z ) continue; // Point is inside.
@@ -371,7 +385,7 @@ export class TileElevationHandler {
     // Starting outside the tile and moving until we hit something.
     const polys = [];
     const bounds = this.alphaBorder;
-    let a = PIXI.Point.fromObject(holePositions[0]);
+    let a = holePositions[0];
     let onTile = !a.holeStart;
     if ( holePositions.length === 1 && onTile ) {
       const quads = bounds.cutaway(a, end,
@@ -379,7 +393,7 @@ export class TileElevationHandler {
       if ( quads.length ) return quads;
     }
     for ( let i = 1, n = holePositions.length; i < n; i += 1 ) {
-      const b = PIXI.Point.fromObject(holePositions[i]);
+      const b = holePositions[i];
       if ( onTile && b.holeStart ) {
         const quads = bounds.cutaway(a, b,
           { start, end, topElevationFn, bottomElevationFn });

@@ -17,22 +17,24 @@
   "terrainmapper.active-effect-config.displayStatusIcon.hint": "When disabled, the terrain status icon will not display on affected tokens.",
 
   "terrainmapper.region-config.algorithm.name": "Region Elevation Shape",
-  "terrainmapper.region-config.algorithm.hint": "Apply a physical shape to the region's elevation. 'None' keeps the Foundry default. 'Plateau' treats the region like a plateau or mesa. Tokens entering the region will move to the plateau elevation and will be considered 'burrowing' if under that elevation. 'Ramp' is similar to 'Plateau' but applies a slope starting at the floor elevation and moving up to the plateau elevation in the given direction. Tokens that leave the region will 'fall' back to the ground unless flying.",
+  "terrainmapper.region-config.algorithm.hint": "Define the 'ground' elevation for a region. Tokens entering the region will move to the defined ground elevation; tokens leaving the region will 'fall' back to the scene elevation unless flying.'None' is the Foundry default. 'Plateau' uses a single 'highest elevation.' Ramp applies a slope starting at the lowest elevation and moving up to the highest elevation in the given direction.",
 
-  "terrainmapper.region-config.plateauElevation.name": "Plateau Elevation",
-  "terrainmapper.region-config.plateauElevation.hint": "When moving into the region, the token will be set to this elevation. For ramps, this is the topmost elevation of the ramp. For a typical scene, try setting the region top to this elevation and the region bottom to negative infinity.",
+  "terrainmapper.region-config.plateauElevation.name": "Highest Elevation",
+  "terrainmapper.region-config.plateauElevation.hint": "Defines the ground level for a plateau or the topmost elevation of a ramp.",
 
-  "terrainmapper.region-config.rampFloor.name": "Lowest Ramp Elevation",
-  "terrainmapper.region-config.rampFloor.hint": "For ramps only. Ramp elevation starts here and goes up to the Plateau Elevation. To create a wedge shape, set this value to the scene elevation.",
+  "terrainmapper.region-config.rampFloor.name": "Ramp: Lowest Elevation",
 
-  "terrainmapper.region-config.rampDirection.name": "Ramp Direction",
-  "terrainmapper.region-config.rampDirection.hint": "0º is due south; 90º is due west. For ramps only.",
+  "terrainmapper.region-config.rampDirection.name": "Ramp: Direction",
+  "terrainmapper.region-config.rampDirection.hint": "0º is due south; 90º is due west.",
 
-  "terrainmapper.region-config.rampStepSize.name": "Step Size",
-  "terrainmapper.region-config.rampStepSize.hint": "How tall, in grid units, to make each step of the ramp. The number of steps will be automatically determined based on this value. If set to 0, the ramp will approximate a smooth incline. For ramps only.",
+  "terrainmapper.region-config.rampStepSize.name": "Ramp: Step Size",
+  "terrainmapper.region-config.rampStepSize.hint": "How tall, in grid units, to make each step of the ramp. The number of steps will be automatically determined based on this value. If set to 0, the ramp will approximate a smooth incline.",
+
+  "terrainmapper.region-config.splitPolygons.name": "Ramp: Separate Polygons",
+  "terrainmapper.region-config.splitPolygons.hint": "When enabled, each non-hole region polygon will be their own ramp, from lowest to highest elevation. When disabled, all non-hole polygons are considered one ramp, defined by their combined bounds.",
 
   "terrainmapper.tile-config.isFloor.name": "Treat as Floor",
-  "terrainmapper.tile-config.isFloor.hint": "When enabled, will be treated as a solid floor (ground) when moving tokens.",
+  "terrainmapper.tile-config.isFloor.hint": "When enabled, tile will be treated as a solid floor (ground) when moving tokens.",
 
   "terrainmapper.tile-config.trimAlphaBorder.name": "Trim Boundary",
   "terrainmapper.tile-config.trimAlphaBorder.hint": "When enabled, the transparent border of the tile will be ignored for purposes of token movement. Only a rectangle, possibly rotated, will be used as the border. For more complex shapes, enable Test for Holes.",

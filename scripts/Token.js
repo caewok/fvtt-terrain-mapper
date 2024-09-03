@@ -306,7 +306,10 @@ async function commitDragLeftDropUpdatesAlongPaths(paths) {
   const updateIds = new Set();
   let pathIdx = 1; // Path[0] is the origin.
   this.layer.clearPreviewContainer();
-  while ( paths.size ) {
+  const MAX_ITER = 10000;
+  let iter = 0;
+  while ( paths.size && iter < MAX_ITER ) {
+    iter += 1;
     const updates = [];
     updateIds.clear();
     // For each token, take the next destination along its path.
@@ -351,6 +354,7 @@ async function commitDragLeftDropUpdatesAlongPaths(paths) {
     }
     pathIdx += 1;
   }
+  if ( iter >= MAX_ITER ) console.error("commitDragLeftDropUpdatesAlongPaths|Max iterations reached!", paths);
 }
 
 
