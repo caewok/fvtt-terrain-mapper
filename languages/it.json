@@ -1,0 +1,116 @@
+{
+  "terrainmapper.name": "Terrain Mapper",
+  "terrainmapper.controls.fill-by-grid.name": "Riempi tramite griglia",
+  "terrainmapper.controls.fill-by-los.name": "Riempi in base alla linea di vista",
+  "terrainmapper.controls.fill-space.name": "Riempi spazio racchiuso da mura",
+
+  "terrainmapper.terrainbook.create-terrain": "Crea Terreno",
+  "terrainmapper.terrainbook.create-defaults": "Ripristina Terreni Predefiniti",
+
+  "terrainmapper.scene-config.backgroundElevation.name": "Elevazione Sfondo",
+  "terrainmapper.scene-config.backgroundElevation.hint": "Elevazione predefinita per i token posizionati sull'area di disegno.",
+
+  "terrainmapper.active-effect-config.duplicatesAllowed.name": "Duplicati consentiti",
+  "terrainmapper.active-effect-config.duplicatesAllowed.hint": "Se abilitato, questo effetto del terreno può essere applicato più volte a un singolo token.",
+
+  "terrainmapper.active-effect-config.displayStatusIcon.name": "Icona di stato",
+  "terrainmapper.active-effect-config.displayStatusIcon.hint": "Quando disabilitato, l'icona dello stato del terreno non verrà visualizzata sui token interessati.",
+
+  "terrainmapper.region-config.algorithm.name": "Forma Elevazione Regione",
+  "terrainmapper.region-config.algorithm.hint": "Definisce l'elevazione del suolo per una regione. I token che entrano nella regione si sposteranno all'elevazione del terreno definita; i token che lasciano la regione ritorneranno all'elevazione della scena a meno che non volino. 'Nessuno' è l'impostazione predefinita di Foundry. 'Altopiano' utilizza un'unica elevazione, quella massima. 'Rampa' applica una pendenza partendo dall'elevazione minima e risalendo fino all'elevazione massima nella direzione indicata.",
+
+  "terrainmapper.region-config.plateauElevation.name": "Elevazione massima",
+  "terrainmapper.region-config.plateauElevation.hint": "Definisce il livello del suolo per un altopiano o l'elevazione massima di una rampa.",
+
+  "terrainmapper.region-config.rampFloor.name": "Rampa: Elevazione minima",
+
+  "terrainmapper.region-config.rampDirection.name": "Rampa: Direzione",
+  "terrainmapper.region-config.rampDirection.hint": "0º è verso sud; 90º è verso ovest.",
+
+  "terrainmapper.region-config.rampStepSize.name": "Rampa: Dimensione Passo",
+  "terrainmapper.region-config.rampStepSize.hint": "Quanto è alto, in unità di griglia, ogni gradino della rampa. Il numero di passaggi verrà determinato automaticamente in base a questo valore. Se impostata su 0, la rampa si avvicinerà ad una pendenza dolce.",
+
+  "terrainmapper.region-config.splitPolygons.name": "Rampa: Poligoni Separati",
+  "terrainmapper.region-config.splitPolygons.hint": "Se abilitato, ogni poligono di regione senza fori avrà la propria rampa, dall'elevazione minima a quella massima. Quando disabilitato, tutti i poligoni non forati vengono considerati una rampa, definita dai loro limiti combinati.",
+
+  "terrainmapper.tile-config.isFloor.name": "Tratta come pavimento",
+  "terrainmapper.tile-config.isFloor.hint": "Se abilitato, la casella verrà trattata come un pavimento solido (terreno) quando si spostano i token.",
+
+  "terrainmapper.tile-config.trimAlphaBorder.name": "Ritaglia Confine",
+  "terrainmapper.tile-config.trimAlphaBorder.hint": "Se abilitato, il bordo trasparente del riquadro verrà ignorato ai fini del movimento dei token. Come bordo verrà utilizzato solo un rettangolo, eventualmente ruotato. Per forme più complesse, abilita Test per Fori.",
+
+  "terrainmapper.tile-config.testHoles.name": "Test per Fori",
+  "terrainmapper.tile-config.testHoles.hint": "I pixel trasparenti verranno considerati buchi su questa casella. Fori sufficientemente grandi faranno cadere il token attraverso la casella.  `CONFIG.terrainmapper.holePercentThreshold` controlla quanto deve essere grande un buco per un dato token. Impostazione predefinita: un buco che supera il 50% della dimensione del token misurata da un dato pixel non sorreggerà il token. Il Test per Fori richiede prestazioni elevate.",
+
+  "terrainmapper.tile-config.alphaThreshold.name": "Soglia Alfa (Trasparenza)",
+  "terrainmapper.tile-config.alphaThreshold.hint": "Quale percentuale di trasparenza conta per trattare un dato pixel come un buco o un confine esterno. Il valore predefinito in Foundry è 0,75.",
+
+  "terrainmapper.behavior.types.add-terrain.fields.terrain.hint": "Seleziona il terreno che verrà aggiunto al token come effetto attivo.",
+
+  "terrainmapper.behavior.types.set-terrain.fields.terrain.hint": "Seleziona il terreno che verrà aggiunto al token come effetto attivo. Quando il token esce dalla regione, il terreno verrà automaticamente rimosso.",
+
+  "terrainmapper.behavior.types.add-terrain.fields.removeOther.name": "Rimuovi Altri",
+  "terrainmapper.behavior.types.add-terrain.fields.removeOther.hint": "Se abilitato, tutti gli altri terreni sul token verranno rimossi.",
+
+  "terrainmapper.behavior.types.add-terrain.fields.secret.name": "Segreto",
+  "terrainmapper.behavior.types.add-terrain.fields.secret.hint": "Quando abilitato, il trascinamento del token non rivelerà agli utenti l'esistenza del terreno.",
+
+  "terrainmapper.behavior.types.remove-terrain.fields.terrain.hint": "Seleziona uno o più terreni che verranno rimossi dal token. Lascia vuoto per rimuovere tutti i terreni.",
+
+  "terrainmapper.behavior.types.remove-terrain.fields.keepSelected.name": "Mantieni Selezionato",
+  "terrainmapper.behavior.types.remove-terrain.fields.keepSelected.hint": "Abilita per mantenere i terreni selezionati e rimuovere tutto il resto dal token.",
+
+  "terrainmapper.behavior.types.stairs.fields.algorithm.name": "Tipo",
+
+  "terrainmapper.behavior.types.stairs.fields.elevation.name": "Cima delle scale",
+  "terrainmapper.behavior.types.stairs.fields.elevation.hint": "Elevazione per scale a senso unico; cima delle scale a doppio senso.",
+
+  "terrainmapper.behavior.types.stairs.fields.floor.name": "Fondo delle scale",
+  "terrainmapper.behavior.types.stairs.fields.floor.hint": "Trigger per il test rigoroso per scale a senso unico; fondo delle scale a doppio senso.",
+
+  "terrainmapper.behavior.types.stairs.fields.dialog.name": "Conferma Utente",
+  "terrainmapper.behavior.types.stairs.fields.dialog.hint": "Se abilitato, richiede all'utente di confermare. Se l'utente rifiuta, lo spostamento avverrà senza la modifica dell'elevazione.",
+
+  "terrainmapper.behavior.types.stairs.fields.strict.name": "Test di elevazione rigoroso",
+  "terrainmapper.behavior.types.stairs.fields.strict.hint": "Se abilitato, il token deve trovarsi all'elevazione precisa della quota superiore delle scale (per scendere) o della quota inferiore delle scale (per salire). Per le scale a senso unico, il token deve trovarsi sul prospetto inferiore della scala.",
+
+  "terrainmapper.behavior.types.stairs.fields.resetOnExit.name": "Reimposta all'uscita",
+  "terrainmapper.behavior.types.stairs.fields.resetOnExit.hint": "Se abilitato, il token verrà ripristinato all'elevazione della scena (terra) all'uscita. Ciò avverrà indipendentemente dal fatto che il token abbia preso le scale o l'ascensore quando entra nella regione.",
+
+  "terrainmapper.behavior.types.elevator.fields.strict.name": "Test di elevazione rigoroso",
+  "terrainmapper.behavior.types.elevator.fields.strict.hint": "Se abilitato, il token deve trovarsi all'elevazione precisa di un determinato piano per attivare l'ascensore.",
+
+  "terrainmapper.behavior.types.elevator.fields.floors.hint": "Aggiungi 1+ piani per l'ascensore. Il formato è 'numero|etichetta', dove 'etichetta' è facoltativa. Ad esempio: 10|1° Piano.",
+
+  "terrainmapper.behavior.types.elevator.fields.resetOnExit.name": "Reimposta all'uscita",
+  "terrainmapper.behavior.types.elevator.fields.resetOnExit.hint": "Se abilitato, il token verrà ripristinato all'elevazione della scena (terra) all'uscita. Ciò avverrà indipendentemente dal fatto che il token abbia preso le scale o l'ascensore quando entra nella regione.",
+
+  "TYPES.RegionBehavior.terrainmapper.addTerrain": "Aggiungi Terreni",
+  "TYPES.RegionBehavior.terrainmapper.removeTerrain": "Rimuovi Terreni",
+  "TYPES.RegionBehavior.terrainmapper.setTerrain": "Imposta Terreno",
+  "TYPES.RegionBehavior.terrainmapper.setElevation": "Scale",
+  "TYPES.RegionBehavior.terrainmapper.elevator": "Ascensore",
+
+  "terrainmapper.elevationAlgorithm.labels.none": "Nessuna",
+  "terrainmapper.elevationAlgorithm.labels.oneWay": "Scale a senso unico",
+  "terrainmapper.elevationAlgorithm.labels.plateau": "Altopiano",
+  "terrainmapper.elevationAlgorithm.labels.ramp": "Rampa / Passi",
+  "terrainmapper.elevationAlgorithm.labels.stairs": "Scale a doppio senso",
+
+  "terrainmapper.phrases.terrainLayer": "Layer Terreno",
+  "terrainmapper.phrases.terrain": "Terreno",
+  "terrainmapper.phrases.terrains": "Terreni",
+  "terrainmapper.phrases.no-terrain": "Nessun Terreno",
+  "terrainmapper.phrases.new-terrain": "Nuovo Terreno",
+  "terrainmapper.phrases.layer-number": "Layer {layerNumber}",
+  "terrainmapper.phrases.difficult_x2": "Difficile (x2)",
+  "terrainmapper.phrases.water_swimming": "Acqua (Nuotare)",
+  "terrainmapper.phrases.cliff_climbing": "Dirupo (Scalare)",
+  "terrainmapper.phrases.stairs-go-up": "Prendi queste scale verso l'alto?",
+  "terrainmapper.phrases.stairs-go-down": "Prendi queste scale verso il basso?",
+  "terrainmapper.phrases.elevator": "Ascensore",
+  "terrainmapper.phrases.elevator-choice": "Scegli un piano",
+  "terrainmapper.phrases.top": "Cima",
+  "terrainmapper.phrases.bottom": "Fondo",
+  "terrainmapper.phrases.resetOnExit": "Ritornare al livello del suolo?"
+}
