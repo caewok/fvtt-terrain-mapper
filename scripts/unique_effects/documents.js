@@ -2,14 +2,11 @@
 foundry,
 fromUuid,
 fromUuidSync,
-game,
-Hooks,
-socketlib
+window
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { MODULE_ID } from "../const.js";
 import { log } from "../util.js";
 
 /**
@@ -82,18 +79,18 @@ export async function createEmbeddedDocuments(containerUuid, embeddedName, uuids
   for ( let i = 0; i < numDocs; i += 1 ) exampleDocs[i] = await fromUuid(uuids[i]);
 
 
-  // const exampleDocs = (await Promise.allSettled(promises)).map(p => p.value);
+  // Const exampleDocs = (await Promise.allSettled(promises)).map(p => p.value);
 
   // Merge the example documents with any additional data.
   const baseData = Array(numDocs);
   for ( let i = 0; i < numDocs; i += 1 ) {
     const exampleDoc = exampleDocs[i]?.toObject();
-    const uuid = uuids[i];
     const datum = data[i];
     const baseDatum = baseData[i] = exampleDoc ?? datum ?? {};
     if ( exampleDoc && datum ) {
       // Fix error with a5e not adding status conditions b/c it is getting overridden.
-      if ( datum.statuses && baseDatum.statuses ) datum.statuses = [...new Set([...baseDatum.statuses, ...datum.statuses])];
+      if ( datum.statuses
+        && baseDatum.statuses ) datum.statuses = [...new Set([...baseDatum.statuses, ...datum.statuses])];
       foundry.utils.mergeObject(baseDatum, datum);
     }
     baseData[i] = baseDatum;

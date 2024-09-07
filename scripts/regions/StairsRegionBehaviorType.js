@@ -243,7 +243,10 @@ export async function continueTokenAnimationForBehavior(behavior, tokenD, elevat
   else return;
 
   // Attempt to snap to the next grid square.
-  if ( elevate && !canvas.grid.isGridless && lastDestination ) {
+  if ( elevate
+    && !canvas.grid.isGridless
+    && lastDestination
+    && !game.keyboard.isModifierActive(KeyboardManager.MODIFIER_KEYS.SHIFT) ) {
     // Need the center square in front of the destination, not behind.
     const token = tokenD.object;
     const a = token.getCenterPoint(tokenD._source);

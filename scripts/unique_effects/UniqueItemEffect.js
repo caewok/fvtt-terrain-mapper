@@ -54,7 +54,7 @@ export class UniqueItemEffect extends AbstractUniqueEffect {
    */
   static async _addToToken(token, effects) {
     if ( !token.actor ) return false;
-    const uuids = effects.map(e => e.document.uuid)
+    const uuids = effects.map(e => e.document.uuid);
     await createEmbeddedDocuments(token.actor.uuid, "Item", uuids);
     return true;
   }
@@ -144,7 +144,7 @@ export class UniqueItemEffect extends AbstractUniqueEffect {
   /** @type {Document[]} */
   static get storageDocuments() {
     // Only those items that have the module flag.
-    return [...this._storageMap.values()].filter(doc => Boolean(doc.flags?.[MODULE_ID]))
+    return [...this._storageMap.values()].filter(doc => Boolean(doc.flags?.[MODULE_ID]));
   }
 
   /**
@@ -180,7 +180,7 @@ export class UniqueItemEffect extends AbstractUniqueEffect {
    * @returns {Object<string, string>} Effect id keyed to effect name
    */
   static _mapStoredEffectNames() {
-    const map = {}
+    const map = {};
     const items = game.items ?? game.data.items;
     items.forEach(item => {
       const id = item.flags?.[MODULE_ID]?.[FLAGS.UNIQUE_EFFECT.ID];

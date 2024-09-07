@@ -1,5 +1,4 @@
 /* globals
-ActiveEffect,
 CONFIG,
 CONST,
 foundry,
@@ -125,6 +124,22 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
   // ----- NOTE: Document-related methods ----- //
 
   /**
+   * Process an attempt to add an effect to the effect book via drop.
+   * @param {object} data     Data that was dropped
+   */
+  static async _processEffectDrop(data) {
+    if ( !data.uuid ) return;
+    const effect = await fromUuid(data.uuid);
+    if ( !(effect instanceof ActiveEffect) ) return;
+    const effectData = effect.toObject()
+    const uniqueEffectId = effect.getFlag("dfreds-convenient-effects", "ceEffectId") ?? this.uniqueEffectId();
+    // foundry.utils.setProperty(data, `flags.${MODULE_ID}.${FLAGS.UNIQUE_EFFECT.ID}`, uniqueEffectId);
+
+    const obj = await this.create(uniqueEffectId);
+    await obj.fromJSON(JSON.stringify(effectData));
+  }
+
+  /**
    * Data used when dragging an effect to an actor sheet or token.
    * @returns {object}
    */
@@ -141,6 +156,7 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
    */
   static async _createNewDocument(data) {
     log("UniqueActiveEffect#_createNewDocument|Creating embedded document");
+
     const res = await createEmbeddedDocuments(this._storageMap.model.uuid, "ActiveEffect", undefined, [data]);
     log("UniqueActiveEffect#_createNewDocument|Finished creating embedded document");
     return await fromUuid(res[0]);

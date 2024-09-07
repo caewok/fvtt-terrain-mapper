@@ -7,9 +7,12 @@
  */
 class Queue {
   #items = [];
+
   enqueue(item) { this.#items.push(item); }
-  dequeue()     { return this.#items.shift(); }
-  get size()    { return this.#items.length; }
+
+  dequeue() { return this.#items.shift(); }
+
+  get size() { return this.#items.length; }
 }
 
 
@@ -38,7 +41,7 @@ export class AsyncQueue extends Queue {
       const payload = await item.action(); // Or item.action(this) ?
       this.#pendingPromise = false;
       item.resolve(payload);
-    } catch (e) {
+    } catch(e) {
       this.#pendingPromise = false;
       item.reject(e);
     } finally {
@@ -59,8 +62,7 @@ export class AsyncQueue extends Queue {
 }
 
 
-
-// item = {
+// Item = {
 //   token: _token,
 //   action: async function() { console.log(this.token); }
 // }
@@ -111,16 +113,12 @@ aQueue.enqueue(p4).then(({ url, data }) => console.log('%s DONE %fms', url, perf
   console.log(res)
 
 
-
-
   let _ = ({ ms, ...foo } = {}) => () => myTimeout(ms, foo)
 
 
   let queueObjectFn = ({ ms, actor } = {}) => () => new Promise(resolve => {
     setTimeout
   })
-
-
 
 
   let _ = ({ ms, ...foo } = {}) => () => new Promise(resolve => setTimeout(resolve, ms, foo));

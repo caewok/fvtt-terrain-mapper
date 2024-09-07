@@ -146,7 +146,7 @@ class TokenFlagUniqueEffectDocument {
    */
   getFlag(scope, key) {
     const tokenFlag = this.token.document.getFlag(scope, key);
-    if ( typeof tokenFlag !== "undefined" )  return tokenFlag;
+    if ( typeof tokenFlag !== "undefined" ) return tokenFlag;
     return this.uniqueEffect.document.getFlag(scope, key);
   }
 
@@ -169,7 +169,7 @@ class TokenFlagUniqueEffectDocument {
 
     for ( const [id, effect] of CONFIG[MODULE_ID].UniqueEffect._instances.entries() ) {
       if ( Object.hasOwn(flags, id) ) m.set(id, new this(token, effect));
-    };
+    }
     return m;
   }
 
@@ -181,9 +181,9 @@ class TokenFlagUniqueEffectDocument {
     log(`UniqueFlagEffect#addToToken|Adding ${this.name} to ${this.token.name}`);
     await this.token.document.setFlag(MODULE_ID, this.uniqueEffectId, true);
     if ( this.displayStatusIcon ) this.token[MODULE_ID].addIcon({
-        id: this.uniqueEffectId,
-        category: this.type,
-        src: this.img });
+      id: this.uniqueEffectId,
+      category: this.type,
+      src: this.img });
   }
 
   /**
@@ -192,21 +192,21 @@ class TokenFlagUniqueEffectDocument {
    */
   addToTokenLocally() {
     log(`UniqueFlagEffect#addToTokenLocally|Adding ${this.name} to ${this.token.name}`);
-    // updateSource will not work with periods. Simpler actually to stop using periods in the id.
+    // UpdateSource will not work with periods. Simpler actually to stop using periods in the id.
     this.token.document.flags[MODULE_ID] ??= {};
     this.token.document.flags[MODULE_ID][this.uniqueEffectId] = "local";
 
-    // this.token.document.updateSource({
-//       flags: {
-//         [MODULE_ID]: {
-//           [this.uniqueEffectId]: "local"
-//         }
-//       }
-//     });
+    // This.token.document.updateSource({
+    //       flags: {
+    //         [MODULE_ID]: {
+    //           [this.uniqueEffectId]: "local"
+    //         }
+    //       }
+    //     });
     if ( this.displayStatusIcon ) this.token[MODULE_ID].addIcon({
-        id: this.uniqueEffectId,
-        category: this.type,
-        src: this.img });
+      id: this.uniqueEffectId,
+      category: this.type,
+      src: this.img });
   }
 
   /**
@@ -217,9 +217,9 @@ class TokenFlagUniqueEffectDocument {
     log(`UniqueFlagEffect#removeFromToken|Removing ${this.name} from ${this.token.name}`);
     this.token.document.unsetFlag(MODULE_ID, this.uniqueEffectId);
     this.token[MODULE_ID].removeIcon({
-        id: this.uniqueEffectId,
-        category: this.type,
-        src: this.img });
+      id: this.uniqueEffectId,
+      category: this.type,
+      src: this.img });
   }
 
   /**
@@ -232,11 +232,10 @@ class TokenFlagUniqueEffectDocument {
     if ( !flags ) return;
     delete flags[`${this.uniqueEffectId}`];
     this.token[MODULE_ID].removeIcon({
-        id: this.uniqueEffectId,
-        category: this.type,
-        src: this.img });
+      id: this.uniqueEffectId,
+      category: this.type,
+      src: this.img });
   }
 }
-
 
 

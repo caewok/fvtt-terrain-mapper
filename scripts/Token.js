@@ -268,7 +268,7 @@ function _prepareDragLeftDropUpdates(wrapped, event) {
     const path = calculatePathForCenterPoints(this, aCentered, bCentered);
 
     // Test for collisions; if any collision along the path, don't move.
-    if ( !game.user.isGM && hasCollisionAlongPath(path, token) ) {
+    if ( !game.user.isGM && hasCollisionAlongPath(path, this) ) {
       ui.notifications.error("RULER.MovementCollision", {localize: true, console: false});
       return null;
     }
