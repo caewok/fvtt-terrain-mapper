@@ -1,3 +1,8 @@
+## 0.4.5
+Fix for token undefined error when user drags token. Closes #52.
+Update Brazilian Portuguese translation. Thanks @Kharmans!
+Update libGeometry to v0.3.13.
+
 ## 0.4.4
 Add a setting to the region configuration to treat polygons separately when using ramps. With this setting, each non-hole polygon gets its own ramp from low --> high elevation. With this setting disabled, all non-hole polygons are treated as a single ramp.
 
