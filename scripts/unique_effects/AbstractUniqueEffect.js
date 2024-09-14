@@ -280,16 +280,17 @@ export class AbstractUniqueEffect {
    * @param {Token } token      Token to add the effect to.
    * @param {object} [opts]     Options to change effects added
    * @param {object} [opts.exclusive=false]   If true, removes all other effects of this type.
+   * @param {object} [opts.data]              Additional data to add to the created effects; usually 1+ flags.
    * @returns {boolean} True if change was made.
    */
-  async addToToken(token, { exclusive = false } = {}) {
+  async addToToken(token, { exclusive = false, data } = {}) {
     const currEffects = new Set(this.constructor.allOnToken(token));
     if ( !this.allowsDuplicates && currEffects.has(this) ) return false;
     if ( exclusive ) {
       currEffects.delete(this);
       await this.constructor.removeFromToken(token, currEffects, true); // Remove all other effects.
     }
-    return this.constructor.addToToken(token, [this]); // Async
+    return this.constructor.addToToken(token, [this], data); // Async
   }
 
   /**
@@ -307,16 +308,18 @@ export class AbstractUniqueEffect {
    * @param {Token } token      Token to remove the effect from.
    * @param {object} [opts]     Options to change effects added
    * @param {object} [opts.exclusive=false]   If true, locally removes all other effects of this type.
+   * @param {boolean} [opts.refresh=true]     Should the token display be refreshed?
+   * @param {object} [opts.data]              Additional data to add to the created effects; usually 1+ flags.
    * @returns {boolean} True if change was made
    */
-  addToTokenLocally(token, { exclusive = false } = {}) {
+  addToTokenLocally(token, { exclusive = false, refresh = true, data } = {}) {
     const currEffects = new Set(this.constructor.allOnToken(token));
     if ( !this.allowsDuplicates && currEffects.has(this) ) return false;
     if ( exclusive ) {
       currEffects.delete(this);
       this.constructor.removeFromTokenLocally(token, currEffects, true); // Remove all other effects.
     }
-    return this.constructor.addToTokenLocally(token, [this]);
+    return this.constructor.addToTokenLocally(token, [this], { refresh, data });
   }
 
   /**
@@ -350,12 +353,13 @@ export class AbstractUniqueEffect {
    * @param {Token } token      Token to add the effects to.
    * @param {AbstractUniqueEffect[]|Set<AbstractUniqueEffect>} effects   Effects to add.
    *   Each unique effect may only be added once each call.
+   * @param {object} [opts.data]              Additional data to add to the created effects; usually 1+ flags.
    * @returns {boolean} True if change was made.
    */
-  static async addToToken(token, effects) {
+  static async addToToken(token, effects, data) {
     const toAdd = this._trimDuplicates(token, effects);
     if ( !toAdd.length ) return false;
-    return await this._addToToken(token, toAdd);
+    return await this._addToToken(token, toAdd, data);
   }
 
   /**
@@ -363,12 +367,14 @@ export class AbstractUniqueEffect {
    * @param {Token } token      Token to add the effect(s) to.
    * @param {AbstractUniqueEffect[]|Set<AbstractUniqueEffect>} effects
    *   Effects to add. Each unique effect may only be added once each call.
+   * @param {boolean} [opts.refresh=true]     Should the token display be refreshed?
+   * @param {object} [opts.data]              Additional data to add to the created effects; usually 1+ flags.
    * @returns {boolean} True if change was made.
    */
-  static addToTokenLocally(token, effects, { refresh = true } = {}) {
+  static addToTokenLocally(token, effects, { refresh = true, data } = {}) {
     const toAdd = this._trimDuplicates(token, effects);
     if ( !toAdd.length ) return false;
-    if ( !this._addToTokenLocally(token, toAdd) ) return false;
+    if ( !this._addToTokenLocally(token, toAdd, data) ) return false;
     if ( refresh ) this.refreshTokenDisplay(token);
     return true;
   }
@@ -381,7 +387,7 @@ export class AbstractUniqueEffect {
    *   Effects to add; effects already on token may be duplicated
    * @returns {boolean} True if change was made
    */
-  static _addToToken(_token, _effects) {
+  static _addToToken(_token, _effects, _data) {
     console.error("AbstractUniqueEffect.addToToken must be implemented by child class.");
     return false;
   }
@@ -392,7 +398,7 @@ export class AbstractUniqueEffect {
    * @param {AbstractUniqueEffect[]} effects   Effects to add; effects already on token may be duplicated
    * @returns {boolean} True if change was made
    */
-  static _addToTokenLocally(_token, _effects) {
+  static _addToTokenLocally(_token, _effects, _data) {
     console.error("AbstractUniqueEffect.addToTokenLocally must be implemented by child class.");
     return false;
   }
@@ -419,26 +425,28 @@ export class AbstractUniqueEffect {
    * Method implemented by child class to add to token.
    * @param {Token } token      Token to remove the effect from.
    * @param {AbstractUniqueEffect[]|Set<AbstractUniqueEffect>} effects   Effects to remove
+   * @param {string} origin     Remove only effects with the provided origin string
    * @returns {boolean} True if change was made
    */
-  static async removeFromToken(token, effects, { removeAllDuplicates = true } = {}) {
+  static async removeFromToken(token, effects, { removeAllDuplicates = true, origin } = {}) {
     if ( !(effects instanceof Set) ) effects = new Set(effects);
     const toRemove = effects.intersection(new Set(this.allOnToken(token)));
     if ( !toRemove.size ) return false;
-    return await this._removeFromToken(token, [...toRemove], removeAllDuplicates);
+    return await this._removeFromToken(token, [...toRemove], removeAllDuplicates, origin);
   }
 
   /**
    * Method implemented by child class to add to token.
    * @param {Token } token      Token to remove the effect from.
    * @param {AbstractUniqueEffect[]|Set<AbstractUniqueEffect>} effects   Effects to remove
+   * @param {string} origin     Remove only effects with the provided origin string
    * @returns {boolean} True if change was made
    */
-  static removeFromTokenLocally(token, effects, { refresh = true, removeAllDuplicates = true } = {}) {
+  static removeFromTokenLocally(token, effects, { refresh = true, removeAllDuplicates = true, origin } = {}) {
     if ( !(effects instanceof Set) ) effects = new Set(effects);
     const toRemove = effects.intersection(new Set(this.allOnToken(token)));
     if ( !toRemove.size ) return false;
-    if ( !this._removeFromTokenLocally(token, [...toRemove], removeAllDuplicates) ) return false;
+    if ( !this._removeFromTokenLocally(token, [...toRemove], removeAllDuplicates, origin) ) return false;
     if ( refresh ) this.refreshTokenDisplay(token);
     return true;
   }
@@ -449,7 +457,7 @@ export class AbstractUniqueEffect {
    * @param {AbstractUniqueEffect[]} effects
    * @returns {boolean} True if change was made
    */
-  static async _removeFromToken(_token, _effects) {
+  static async _removeFromToken(_token, _effects, _origin) {
     console.error("AbstractUniqueEffect.removeFromToken must be implemented by child class.");
     return false;
   }
@@ -460,7 +468,7 @@ export class AbstractUniqueEffect {
    * @param {AbstractUniqueEffect[]} effects
    * @returns {boolean} True if change was made
    */
-  static _removeFromTokenLocally(_token, _effects) {
+  static _removeFromTokenLocally(_token, _effects, _origin) {
     console.error("AbstractUniqueEffect.removeFromTokenLocally must be implemented by child class.");
     return false;
   }
@@ -514,13 +522,15 @@ export class AbstractUniqueEffect {
    *                                                If false, return only the first document that represents the effect
    * @returns {Document[]|Object[]} doc             Array of Document or object on the token
    */
-  static tokenDocumentsForUniqueEffects(token, effects, allDuplicates = true) {
+  static tokenDocumentsForUniqueEffects(token, effects, allDuplicates = true, origin) {
     const effectIds = new Set([...effects.map(effect => effect.uniqueEffectId)]);
     const docs = [];
     for ( const doc of this.getTokenStorage(token) ) {
       const uniqueEffectId = doc.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.ID);
-      if ( effectIds.has(uniqueEffectId) ) docs.push(doc);
-      if ( !allDuplicates ) effectIds.delete(uniqueEffectId);
+      if ( effectIds.has(uniqueEffectId) && (!origin || doc.origin === origin) ) {
+        docs.push(doc);
+        if ( !allDuplicates ) effectIds.delete(uniqueEffectId);
+      }
     }
     return docs;
   }

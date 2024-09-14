@@ -52,10 +52,11 @@ export class UniqueItemEffect extends AbstractUniqueEffect {
    * @param {AbstractUniqueEffect[]} effects   Effects to add; effects already on token may be duplicated
    * @returns {boolean} True if change was made
    */
-  static async _addToToken(token, effects) {
+  static async _addToToken(token, effects, data) {
     if ( !token.actor ) return false;
     const uuids = effects.map(e => e.document.uuid);
-    await createEmbeddedDocuments(token.actor.uuid, "Item", uuids);
+    if ( data ) data = effects.map(_e => data);
+    await createEmbeddedDocuments(token.actor.uuid, "Item", uuids, data);
     return true;
   }
 
@@ -65,12 +66,12 @@ export class UniqueItemEffect extends AbstractUniqueEffect {
    * @param {AbstractUniqueEffect[]} effects   Effects to add; effects already on token may be duplicated
    * @returns {boolean} True if change was made
    */
-  static _addToTokenLocally(token, effects) {
+  static _addToTokenLocally(token, effects, data = {}) {
     if ( !token.actor ) return false;
     for ( const effect of effects ) {
       const doc = effect.document.toObject();
       doc.flags[MODULE_ID][FLAGS.UNIQUE_EFFECT.IS_LOCAL] = true;
-
+      foundry.utils.mergeObject(doc, data);
       effect.document._id = foundry.utils.randomID(); // So duplicate effects can be added.
       const ae = token.actor.items.createDocument(effect.document);
       token.actor.items.set(ae.id, ae);
@@ -86,9 +87,9 @@ export class UniqueItemEffect extends AbstractUniqueEffect {
    * @param {boolean} [removeAll=false] If true, remove all effects that match, not just the first
    * @returns {boolean} True if change was made
    */
-  static async _removeFromToken(token, effects, removeAllDuplicates = true) {
+  static async _removeFromToken(token, effects, removeAllDuplicates = true, origin) {
     if ( !token.actor ) return false;
-    const ids = this.tokenDocumentsForUniqueEffects(token, effects, removeAllDuplicates).map(doc => doc.id);
+    const ids = this.tokenDocumentsForUniqueEffects(token, effects, removeAllDuplicates, origin).map(doc => doc.id);
     if ( !ids.length ) return false;
     await deleteEmbeddedDocuments(token.actor.uuid, "Item", ids);
     return true;
@@ -101,9 +102,9 @@ export class UniqueItemEffect extends AbstractUniqueEffect {
    * @param {boolean} [removeAll=false] If true, remove all effects that match, not just the first
    * @returns {boolean} True if change was made
    */
-  static _removeFromTokenLocally(token, effects, removeAllDuplicates = true) {
+  static _removeFromTokenLocally(token, effects, removeAllDuplicates = true, origin) {
     if ( !token.actor ) return false;
-    const ids = this.tokenDocumentsForUniqueEffects(token, effects, removeAllDuplicates).map(doc => doc.id);
+    const ids = this.tokenDocumentsForUniqueEffects(token, effects, removeAllDuplicates, origin).map(doc => doc.id);
     if ( !ids.length ) return false;
     for ( const id of ids ) token.actor.items.delete(id);
     return true;

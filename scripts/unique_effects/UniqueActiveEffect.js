@@ -53,19 +53,21 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
    * @param {AbstractUniqueEffect[]} effects   Effects to add; effects already on token may be duplicated
    * @returns {boolean} True if change was made
    */
-  static async _addToToken(token, effects) {
+  static async _addToToken(token, effects, data = {}) {
     if ( !token.actor ) return false;
     const uuids = effects.map(e => e.document.uuid);
-    let data;
+
+    let dataArray;
     if ( token.document.disposition !== CONST.TOKEN_DISPOSITIONS.SECRET ) {
       // Force display of the status icon
-      data = effects.map(e => {
-        const datum = { statuses: [] };
+      dataArray = effects.map(e => {
+        const datum = { ...data };
+        datum.statuses ??= [];
         if ( e.img && e.displayStatusIcon ) datum.statuses.push(e.img);
         return datum;
       });
-    }
-    await createEmbeddedDocuments(token.actor.uuid, "ActiveEffect", uuids, data);
+    } else if ( !foundry.utils.isEmpty(data) ) dataArray = effects.map(e => data);
+    await createEmbeddedDocuments(token.actor.uuid, "ActiveEffect", uuids, dataArray);
     return true;
   }
 
@@ -75,12 +77,13 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
    * @param {AbstractUniqueEffect[]} effects   Effects to add; effects already on token may be duplicated
    * @returns {boolean} True if change was made
    */
-  static _addToTokenLocally(token, effects) {
+  static _addToTokenLocally(token, effects, data = {}) {
     if ( !token.actor ) return false;
+
     for ( const effect of effects ) {
       const doc = effect.document.toObject();
       doc.flags[MODULE_ID][FLAGS.UNIQUE_EFFECT.IS_LOCAL] = true;
-
+      foundry.utils.mergeObject(doc, data);
       // Force display of the status icon
       if ( token.document.disposition !== CONST.TOKEN_DISPOSITIONS.SECRET
         && effect.img
@@ -100,9 +103,9 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
    * @param {AbstractUniqueEffect[]} effects
    * @returns {boolean} True if change was made
    */
-  static async _removeFromToken(token, effects, removeAllDuplicates = true) {
+  static async _removeFromToken(token, effects, removeAllDuplicates = true, origin) {
     if ( !token.actor ) return false;
-    const ids = this.tokenDocumentsForUniqueEffects(token, effects, removeAllDuplicates).map(doc => doc.id);
+    let ids = this.tokenDocumentsForUniqueEffects(token, effects, removeAllDuplicates, origin).map(doc => doc.id);
     if ( !ids.length ) return false;
     await deleteEmbeddedDocuments(token.actor.uuid, "ActiveEffect", ids);
     return true;
@@ -114,9 +117,9 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
    * @param {AbstractUniqueEffect[]} effects
    * @returns {boolean} True if change was made
    */
-  static _removeFromTokenLocally(token, effects, removeAllDuplicates = true) {
+  static _removeFromTokenLocally(token, effects, removeAllDuplicates = true, origin) {
     if ( !token.actor ) return false;
-    const ids = this.tokenDocumentsForUniqueEffects(token, effects, removeAllDuplicates).map(doc => doc.id);
+    const ids = this.tokenDocumentsForUniqueEffects(token, effects, removeAllDuplicates, origin).map(doc => doc.id);
     if ( !ids.length ) return false;
     for ( const id of ids ) token.actor.effects.delete(id);
     return true;
