@@ -42,9 +42,7 @@
   "description": "<p>All movement through this terrain is halved.</p>",
   "origin": null,
   "tint": "#ffffff",
-  "statuses": [
-    "charmed"
-  ],
+  "statuses": [],
   "sort": 0,
   "_stats": {
     "compendiumSource": null,
