@@ -342,9 +342,11 @@ export class RegionElevationHandler {
    * @param {PIXI.Point} a              Start of the segment
    * @param {PIXI.Point} b              End of the segment
    * @param {PIXI.Polygon} [poly]       For split polygons, the poly to use
-   * @returns {PIXI.Point[]} Array of points from start to end at which elevation changes.
+   * @returns {PIXI.RegionMovementWaypoint3d[]} Array of points from start to end at which elevation changes.
    */
   _rampCutpointsForSegment(a, b, poly) {
+    const RegionMovementWaypoint3d = CONFIG.GeometryLib.threeD.RegionMovementWaypoint3d;
+
     // For each ideal cutpoint on the ramp, intersect the line orthogonal to the ideal cutpoint line
     // at the ideal cutpoint.
     const minMax = this.minMax;
@@ -356,7 +358,7 @@ export class RegionElevationHandler {
       const ix = foundry.utils.lineLineIntersection(a, b, idealCutpoint, orthoPt);
       if ( !ix ) break; // If one does not intersect, none will intersect.
       if ( ix.t0 < 0 || ix.t0 > 1 ) continue;
-      const cutPoint = PIXI.Point.fromObject(ix);
+      const cutPoint = RegionMovementWaypoint3d.fromObject(ix);
       cutPoint.elevation = idealCutpoint.elevation;
       cutPoint.t0 = ix.t0;
       cutpoints.push(cutPoint);
