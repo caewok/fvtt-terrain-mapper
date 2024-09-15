@@ -619,8 +619,12 @@ export class ElevationHandler {
         }
       }
 
+
+
       waypoints.push(currPosition);
-      currPosition = nextPosition;
+
+      // If the next position does not move our position forward, skip.
+      if ( !currPosition.x.almostEqual(nextPosition.x) ) currPosition = nextPosition;
       currPolyIndex += 1;
     }
     waypoints.push(end2d);

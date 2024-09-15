@@ -509,7 +509,7 @@ export class RegionElevationHandler {
       ? (a, b) => this._rampCutpointsForSegment(
         { ...a, elevation: pixelsToGridUnits(a.z) },
         { ...b, elevation: pixelsToGridUnits(b.z) },
-        poly).map(pt => ElevationHandler._to2dCutawayCoordinate(pt, start, end))
+        poly)//.map(pt => ElevationHandler._to2dCutawayCoordinate(pt, start, end))
       : undefined;
     return { topElevationFn, bottomElevationFn, cutPointsFn };
   }
