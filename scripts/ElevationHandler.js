@@ -15,7 +15,6 @@ import { ClipperPaths } from "./geometry/ClipperPaths.js";
 import { RegionElevationHandler } from "./regions/RegionElevationHandler.js";
 import { StraightLinePath } from "./StraightLinePath.js";
 import { RegionMovementWaypoint3d } from "./geometry/3d/RegionMovementWaypoint3d.js";
-import { Point3d } from "./geometry/3d/Point3d.js";
 
 /**
  * Regions elevation handler
@@ -371,14 +370,15 @@ export class ElevationHandler {
         currPosition = PIXI.Point.fromObject(firstIx);
         currPoly = firstIx.poly;
         currEnd = firstIx.edge.B;
-        currPolyIndex = currPoly._pts.findIndex(pt => pt.almostEqual(currEnd));
+        const currPolyPts = currPoly.pixiPoints({ close: false });
+        currPolyIndex = currPolyPts.findIndex(pt => pt.almostEqual(currEnd));
 
         // Check if we intersected with the point; if so, move to next.
         if ( currPosition.almostEqual(currEnd) ) {
           currPolyIndex += 1;
-          if ( currPolyIndex >= currPoly._pts.length ) currPolyIndex = 0;
+          if ( currPolyIndex >= currPolyPts.length ) currPolyIndex = 0;
           currPosition = currEnd;
-          currEnd = currPoly._pts[currPolyIndex];
+          currEnd = currPolyPts[currPolyIndex];
         }
       }
 
@@ -415,7 +415,8 @@ export class ElevationHandler {
             waypoints.push(currPosition);
             currPoly = firstIx.poly;
             currEnd = firstIx.edge.B;
-            currPolyIndex = currPoly._pts.findIndex(pt => pt.almostEqual(currEnd)); // eslint-disable-line no-loop-func
+            const currPolyPts = currPoly.pixiPoints({ close: false });
+            currPolyIndex = currPolyPts.findIndex(pt => pt.almostEqual(currEnd)); // eslint-disable-line no-loop-func
           } else {
             currEnd = new PIXI.Point(currPosition.x, sceneFloor);
             currPoly = null;
@@ -451,15 +452,16 @@ export class ElevationHandler {
         currPosition = PIXI.Point.fromObject(firstIx);
         currPoly = firstIx.poly;
         currEnd = firstIx.edge.B;
-        currPolyIndex = currPoly._pts.findIndex(pt => pt.almostEqual(currEnd));  // eslint-disable-line no-loop-func
+        const currPolyPts = currPoly.pixiPoints({ close: false });
+        currPolyIndex = currPolyPts.findIndex(pt => pt.almostEqual(currEnd));  // eslint-disable-line no-loop-func
         continue;
       }
 
       // 4. Cycle to the next point along the polygon edge.
       currPolyIndex += 1;
-      if ( currPolyIndex >= currPoly._pts.length ) currPolyIndex = 0;
+      if ( currPolyIndex >= currPoly.pixiPoints({ close: false }).length ) currPolyIndex = 0;
       currPosition = currEnd;
-      currEnd = currPoly._pts[currPolyIndex];
+      currEnd = currPoly.pixiPoints({ close: false })[currPolyIndex];
     }
     if ( iter >= MAX_ITER ) console.error("constructPath|Iteration exceeded max iterations!", start ?? start2d, end ?? end2d);
     waypoints.at(-1).y = Math.round(waypoints.at(-1).y);
@@ -480,51 +482,65 @@ export class ElevationHandler {
    * @returns {PIXI.Polygon[]} Array of polygons representing the cutaway.
    */
   static _cutaway(start, end, { regions = [], tiles = [], token } = {}) {
-    const paths = [];
-    for ( const region of regions ) {
-      const combined = region[MODULE_ID]._cutaway(start, end);
-      if ( combined ) paths.push(combined);
-    }
-    for ( const tile of tiles ) {
-      const combined = tile[MODULE_ID]._cutaway(start, end, token);
-      if ( combined ) paths.push(combined);
-    }
-    if ( !paths.length ) return [];
+    const cutaways = [];
+    regions.forEach(region => cutaways.push(...region[MODULE_ID]._cutaway(start, end)));
+    tiles.forEach(tile => tiles.push(...tile[MODULE_ID]._cutaway(start, end, token)));
+    if ( !cutaways.length ) return [];
 
-    // Add the scene floor.
-    // Build the polygon slightly larger than start and end so that the start and end will
-    // be correctly characterized (float/ground/underground).
+    // Wherever there is no cutaway or the cutaway is above the scene floor, draw a scene floor.
+    // Leave open where cutaway is below to create holes.
+    // Determine by examining the cutaways
     const MIN_ELEV = -1e06;
     const sceneFloor = this.sceneFloor;
-    const pts = [
-      RegionMovementWaypoint3d.fromLocationWithElevation(start, sceneFloor),
-      RegionMovementWaypoint3d.fromLocationWithElevation(start, MIN_ELEV),
-      RegionMovementWaypoint3d.fromLocationWithElevation(end, MIN_ELEV),
-      RegionMovementWaypoint3d.fromLocationWithElevation(end, sceneFloor),
-    ].map(pt => this._to2dCutawayCoordinate(pt, start, end));
-    const floorPoly = new PIXI.Polygon(...pts);
-    paths.push(ClipperPaths.fromPolygons([floorPoly]));
+    const CutawayPolygon = CONFIG.GeometryLib.CutawayPolygon;
 
-    // Union the paths.
-    const combinedPaths = ClipperPaths.combinePaths(paths);
-    const combinedPolys = combinedPaths.clean().toPolygons();
+    // Determine every intersection point with the cutaways.
+    // Intersection here just means the left and right bounds of the cutaway if the cutaway
+    // is below or at the scene floor.
+    const ixs = [];
+    let inside = 0;
+    const end2d = CONFIG.GeometryLib.utils.cutaway.to2d(end, start, end);
+    for ( const cutaway of cutaways ) {
+      const bounds = cutaway.getBounds();
+      if ( bounds.top > sceneFloor ) continue; // Y is reversed, so this is bottom > sceneFloor.
+      const isHole = !cutaway.isPositive;
+      const { left, right } = bounds;
+      if ( left > 0 ) ixs.push({ x: left, movingIn: !isHole });
+      else inside += 1;
+      if ( right < end2d.x ) ixs.push({x: right, movingIn: isHole});
+    }
+
+    // Construct path by walking the intersections, adding scene floor whenever not inside.
+    const sceneFloorPolys = [];
+    ixs.sort((a, b) => a.x - b.x);
+    let prevX = 0;
+    for ( const ix of ixs ) {
+      if ( ix.movingIn ) {
+        if ( !inside ) {
+          // x + 1 so the polygons will combine if touching.
+          const pts = [prevX, sceneFloor, prevX, MIN_ELEV, ix.x, MIN_ELEV, ix.x, sceneFloor];
+          sceneFloorPolys.push(CutawayPolygon.fromCutawayPoints(pts, start, end));
+        }
+        inside += 1;
+      } else {
+        if ( inside === 1 ) prevX = ix.x; // Moving out and going from inside to not inside.
+        inside = Math.max(0, inside -= 1);
+      }
+    }
+
+    // If at end of the segment, can add a scene floor poly if not inside.
+    if ( !inside && prevX < end2d.x) {
+      const pts = [prevX, sceneFloor, prevX, MIN_ELEV, end2d.x, MIN_ELEV, end2d.x, sceneFloor];
+      sceneFloorPolys.push(CutawayPolygon.fromCutawayPoints(pts, start, end));
+    }
+
+    // Combine the cutaway polygons with the scene floor polygons.
+    const path = ClipperPaths.fromPolygons([...cutaways, ...sceneFloorPolys]);
+    const combinedPolys = path.combine().clean().toPolygons();
 
     // If all holes or no polygons, we are done.
-    // TODO: This can never happen if the floor is added first.
     if ( !combinedPolys.length || combinedPolys.every(poly => !poly.isPositive) ) return [];
-
-    // At this point, could be holes but rarely.
-    // Holes go top-to-bottom, so any hole cuts the polygon in two from a cutaway perspective.
-    // But a tile "bridge" between two regions could create a hole in the middle,
-    // b/c the scene floor would also connect them.
-    /*
-    if ( combinedPolys.some(poly => !poly.isPositive) ) {
-      console.error("Combined cutaway polygons still have holes.");
-    }
-    combinedPolys.forEach(poly =>
-      Draw.shape(poly, { color: Draw.COLORS.blue, fill: Draw.COLORS.blue, fillAlpha: 0.5 }))
-    */
-    return combinedPolys;
+    return combinedPolys.map(poly => CutawayPolygon._convertFromPolygon(poly, start, end));
   }
 
 
@@ -547,8 +563,7 @@ export class ElevationHandler {
 
     // Replace the polygon with a convex hull version.
     const ixPoly = ixs[0].poly;
-    ixPoly._pts ??= [...ixPoly.iteratePoints({ close: false })];
-    const hull = PIXI.Polygon.convexHull([start2d, ...ixPoly._pts, end2d]);
+    const hull = PIXI.Polygon.convexHull([start2d, ...ixPoly.pixiPoints({ close: false }), end2d]);
 
     // Walk the convex hull.
     // Orient the hull so that iterating the points or edges will move in the direction we want to go.
@@ -556,8 +571,8 @@ export class ElevationHandler {
     let walkDir = end2d.x > start2d.x ? "ccw" : "cw"; // Reversed b/c y-axis is flipped for purposes of Foundry.
     if ( inverted ) walkDir = walkDir === "ccw" ? "cw" : "ccw";
     if ( hull.isClockwise ^ (walkDir === "cw") ) hull.reverseOrientation();
-    hull._pts = [...hull.iteratePoints({ close: false })];
-    let currPolyIndex = hull._pts.findIndex(pt => pt.almostEqual(start2d));
+    const hullPts = hull.pixiPoints({ close: false });
+    let currPolyIndex = hullPts.findIndex(pt => pt.almostEqual(start2d));
     let currPosition = start2d;
     currPolyIndex += 1;
     if ( !~currPolyIndex ) {
@@ -565,9 +580,9 @@ export class ElevationHandler {
       let minDist2 = Number.POSITIVE_INFINITY;
       let minIndex = -1;
       let closestPoint;
-      for ( let i = 1, n = hull._pts.length; i < n; i += 1 ) {
-        const a = hull._pts[i - 1];
-        const b = hull._pts[i];
+      for ( let i = 1, n = hullPts.length; i < n; i += 1 ) {
+        const a = hullPts[i - 1];
+        const b = hullPts[i];
         const closest = foundry.utils.closestPointToSegment(start2d, a, b);
         const dist2 = PIXI.Point.distanceSquaredBetween(start2d, closest);
         if ( dist2 < minDist2 ) {
@@ -590,8 +605,8 @@ export class ElevationHandler {
     const MAX_ITER = 1e04;
     while ( currPosition.x < end2d.x && iter < MAX_ITER ) {
       iter += 1;
-      if ( currPolyIndex >= hull._pts.length ) currPolyIndex = 0;
-      const nextPosition = hull._pts[currPolyIndex];
+      if ( currPolyIndex >= hullPts.length ) currPolyIndex = 0;
+      const nextPosition = hullPts[currPolyIndex];
 
       // Locate where the end vertical line hits our path.
       if ( nextPosition.x > end2d.x ) {
@@ -606,10 +621,8 @@ export class ElevationHandler {
         if ( ixs.length ) {
           // Create a convex hull for this new polygon.
           const ixPoly = ixs[0].poly;
-          ixPoly._pts ??= [...ixPoly.iteratePoints({ close: false })];
-          const ixHull = PIXI.Polygon.convexHull([currPosition, ...ixPoly._pts, end2d]);
+          const ixHull = PIXI.Polygon.convexHull([currPosition, ...ixPoly.pixiPoints({ close: false }), end2d]);
           if ( ixHull.isClockwise ^ (walkDir === "cw") ) ixHull.reverseOrientation();
-          ixHull._pts = [...ixHull.iteratePoints({ close: false })];
 
           // Combine and redo.
           polys = polys.filter(poly => poly !== ixPoly);
@@ -618,9 +631,6 @@ export class ElevationHandler {
           return this._convexPath(start2d, end2d, combinedPolys, inverted, iter);
         }
       }
-
-
-
       waypoints.push(currPosition);
 
       // If the next position does not move our position forward, skip.
@@ -859,11 +869,9 @@ export class ElevationHandler {
 function segmentIntersectsPolygons(a, b, combinedPolys, skipPoly) {
   for ( const poly of combinedPolys ) {
     if ( poly === skipPoly ) continue;
-    poly._pts ??= [...poly.iteratePoints({close: false})];
-    poly._minMax ??= Math.minMax(...poly._pts.map(pt => pt.x));
+    poly._minMax ??= Math.minMax(...poly.pixiPoints({ close: false }).map(pt => pt.x));
     if ( poly._xMinMax && poly._xMinMax.max <= a.x ) continue;
-    poly._edges ??= [...poly.iterateEdges({ close: true })];
-    if ( poly.lineSegmentIntersects(a, b, { edges: poly._edges }) ) return true;
+    if ( poly.lineSegmentIntersects(a, b) ) return true;
   }
   return false;
 }
@@ -888,16 +896,14 @@ function polygonsIntersections(a, b, combinedPolys, skipPoly) {
   const ixs = [];
   combinedPolys.forEach(poly => {
     if ( poly === skipPoly ) return;
-    poly._pts ??= [...poly.iteratePoints({close: false})];
-    poly._minMax ??= Math.minMax(...poly._pts.map(pt => pt.x));
+    poly._minMax ??= Math.minMax(...poly.pixiPoints({ close: false }).map(pt => pt.x));
     if ( poly._xMinMax && poly._xMinMax.max <= a.x ) return;
-    poly._edges ??= [...poly.iterateEdges({ close: true })];
-    if ( !poly.lineSegmentIntersects(a, b, { edges: poly._edges }) ) return [];
+    if ( !poly.lineSegmentIntersects(a, b) ) return [];
 
     // Retrieve the indices so that the edge can be linked to the intersection, for traversing the poly.
-    const ixIndices = poly.segmentIntersections(a, b, { edges: poly._edges, indices: true });
+    const ixIndices = poly.segmentIntersections(a, b, { indices: true });
     ixIndices.forEach(i => {
-      const edge = poly._edges[i];
+      const edge = poly.pixiEdges()[i];
       const ix = foundry.utils.lineLineIntersection(a, b, edge.A, edge.B);
       if ( !ix.t0 ) return; // Skip intersections that are at the a point.
       ix.edge = edge;
@@ -917,9 +923,8 @@ function polygonsIntersections(a, b, combinedPolys, skipPoly) {
  * @returns {Edge|false} The first edge it is on (more than one if on endpoint)
  */
 function pointOnPolygonEdge(a, poly, epsilon = 1e-08) {
-  poly._edges ??= [...poly.iterateEdges({ close: true })];
   a = PIXI.Point._tmp.copyFrom(a);
-  for ( const edge of poly._edges ) {
+  for ( const edge of poly.pixiEdges() ) {
     const pt = foundry.utils.closestPointToSegment(a, edge.A, edge.B);
     if ( a.almostEqual(pt, epsilon) ) return edge;
   }

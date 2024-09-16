@@ -205,23 +205,34 @@ export class RegionElevationHandler {
    * @param {RegionMovementWaypoint3d} end            End of the segment
    * @param {object} [opts]                           Options that affect the polygon shape
    * @param {boolean} [opts.usePlateauElevation=true] Use the plateau or ramp shape instead of the region top elevation
-   * @returns {ClipperPaths|null} The combined Clipper paths for the region cutaway.
+   * @returns {CutawayPolygon[]} The cutaway polygons for the region, or empty array if all polys are holes.
    */
   _cutaway(start, end, { usePlateauElevation = true } = {}) {
-    const { result: regionPolys, allHoles } = this.#applyCutawayMethod("cutaway", start, end, usePlateauElevation);
-
-    // If all holes or no polygons, we are done.
-    if ( !regionPolys.length || allHoles ) return null;
-
-    /* Debugging
-    Draw.shape(regionPolys[0], { color: Draw.COLORS.blue })
-    Draw.shape(regionPolys[1], { color: Draw.COLORS.red })
-    */
-
-    // Combine the polygons if more than one.
-    const regionPath = ClipperPaths.fromPolygons(regionPolys);
-    const combined = regionPath.combine().clean(); // After this, should not be any holes.
-    return combined;
+    const result = [];
+    let allHoles = true;
+    const nonHolePolygons = (this.isRamp && this.splitPolygons) ? this.nonHolePolygons : [];
+    const opts = this.#cutawayOptionFunctions(usePlateauElevation);
+    const addSteps = this.isRamp && this.rampStepSize;
+    const stepFn = addSteps ? (a, b) => {
+      const cutPoints = this._rampCutpointsForSegment(a, b);
+      if ( !cutPoints.length ) return [];
+      const steps = insertSteps([a, ...cutPoints, b]);
+      // Drop a and b so as not to repeat points.
+      steps.shift();
+      steps.pop();
+      return steps;
+    } : undefined;
+    for ( const regionPoly of this.region.polygons ) {
+      // If this poly is a hole, need the positive polygon for forming the step coordinates.
+      allHoles &&= !regionPoly.isPositive;
+      let poly = regionPoly;
+      if ( !regionPoly.isPositive ) poly = nonHolePolygons.find(p => p.overlaps(regionPoly));
+      const cutaways = poly.cutaway(start, end, opts);
+      if ( addSteps ) cutaways.forEach(cutawayPoly => cutawayPoly.insertTopSteps(stepFn));
+      result.push(...cutaways);
+    }
+    if ( allHoles ) return [];
+    return result;
   }
 
   /**
@@ -233,9 +244,8 @@ export class RegionElevationHandler {
    * @returns {PIXI.Point[]}
    */
   _cutawayIntersections(start, end, { usePlateauElevation = true } = {}) {
-    const { result: regionIxs, allHoles } = this.#applyCutawayMethod("cutawayIntersections", start, end, usePlateauElevation);
-    if ( allHoles ) return [];
-    return regionIxs;
+    const cutaways = this._cutaway(start, end, { usePlateauElevation });
+    return cutaways.flatMap(cutaway => cutaway.intersectSegment3d(start, end));
   }
 
   /**
@@ -497,7 +507,7 @@ export class RegionElevationHandler {
    *   - @prop {function} bottomElevationFn
    *   - @prop {function} cutPointsFn
    */
-  #cutawayOptionFunctions(poly, start, end, usePlateauElevation = true) {
+  #cutawayOptionFunctions(usePlateauElevation = true) {
     const { gridUnitsToPixels, pixelsToGridUnits } = CONFIG.GeometryLib.utils;
     const MIN_ELEV = -1e06;
     const MAX_ELEV = 1e06;
@@ -507,13 +517,7 @@ export class RegionElevationHandler {
       ? pt => gridUnitsToPixels(this.elevationUponEntry({ ...pt, elevation: pixelsToGridUnits(pt.z) }))
       : _pt => topE;
     const bottomElevationFn = _pt => bottomE;
-    const cutPointsFn = (this.isRamp && this.rampStepSize)
-      ? (a, b) => this._rampCutpointsForSegment(
-        { ...a, elevation: pixelsToGridUnits(a.z) },
-        { ...b, elevation: pixelsToGridUnits(b.z) },
-        poly)//.map(pt => ElevationHandler._to2dCutawayCoordinate(pt, start, end))
-      : undefined;
-    return { topElevationFn, bottomElevationFn, cutPointsFn };
+    return { topElevationFn, bottomElevationFn };
   }
 }
 
@@ -631,4 +635,26 @@ function rotatePolygon(poly, rotation = 0, centroid) { // eslint-disable-line de
     rotatedPoints[j+1] = rotatedM.arr[i][1];
   }
   return new PIXI.Polygon(rotatedPoints);
+}
+
+
+/**
+ * Helper function to calculate steps along an a|b segment.
+ * Adds points so that the move between locations is either vertical or 2d but not both.
+ * @param {Point3d[]} cutPoints     Array of points where a step occurs
+ * @returns {Point3d[]} The original cutPoints with additional points added in a new array
+ */
+function insertSteps(cutPoints) {
+  if ( cutPoints.length < 2 ) return cutPoints;
+  const res = [];
+  let prevPt = cutPoints[0];
+  const cl = prevPt.constructor;
+  for ( let i = 1, n = cutPoints.length; i < n; i += 1 ) {
+    const currPt = cutPoints[i];
+    res.push(prevPt);
+    res.push(cl.fromObject({ x: currPt.x, y: currPt.y, z: prevPt.z }));
+    prevPt = currPt;
+  }
+  res.push(cutPoints.at(-1));
+  return res;
 }
