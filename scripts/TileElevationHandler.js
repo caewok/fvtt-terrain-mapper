@@ -335,24 +335,20 @@ export class TileElevationHandler {
    * @param {Point3d} start          Start of the segment
    * @param {Point3d} end            End of the segment
    * @param {Token} [token]          Token doing the movement; required for holes
-   * @returns {ClipperPaths|null} The combined Clipper paths for the tile cutaway.
+   * @returns {CutawayPolygon[]} The combined Clipper paths for the tile cutaway.
    */
   _cutaway(start, end, token) {
     if ( !this.isElevated ) return null;
-    const polys = token && this.testHoles
+    return token && this.testHoles
       ? this.#cutawayPolygonsHoles(start, end, this.holeThresholdForToken(token))
       : this.#cutawayPolygonsNoHoles(start, end);
-    if ( !polys.length ) return null;
-    const regionPath = ClipperPaths.fromPolygons(polys);
-    const combined = regionPath.combine().clean();
-    return combined;
   }
 
   /**
    * Cutaway polygons for a basic border only, no holes.
    * @param {Point3d} start          Start of the segment
    * @param {Point3d} end            End of the segment
-   * @returns {PIXI.Polygon[]} The polygon for the cutaway (if any), in an array.
+   * @returns {CutawayPolygon[]} The polygon for the cutaway (if any), in an array.
    */
   #cutawayPolygonsNoHoles(start, end) {
     const gridUnitsToPixels = CONFIG.GeometryLib.utils.gridUnitsToPixels;
@@ -372,7 +368,7 @@ export class TileElevationHandler {
    * @param {Point3d} start          Start of the segment
    * @param {Point3d} end            End of the segment
    * @param {number} holeThreshold                  The hole threshold to use
-   * @returns {PIXI.Polygon[]} The polygons for the cutaway (if any)
+   * @returns {CutawayPolygon[]} The polygons for the cutaway (if any)
    */
   #cutawayPolygonsHoles(start, end, holeThreshold = 1) {
     const gridUnitsToPixels = CONFIG.GeometryLib.utils.gridUnitsToPixels;
