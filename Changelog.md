@@ -1,3 +1,11 @@
+## 0.4.6
+Add Italian localization. Thanks @GregoryWarn!
+Avoid using the tile hole cache until the workers finish processing to avoid errors when moving tokens immediately on scene load. May address #53.
+Improve performance when measuring the movement penalty in terrains. Closes #58.
+Use active effect origin to track which regions add terrains, to improve how terrains are added and removed when duplicate terrains are applied.
+Handle region ramps or plateaus that move below the scene elevation (i.e., negative elevation values). Closes #57. As a result, you can now create "holes" in a scene using a plateau set to a value lower than the scene background.
+Update libGeometry to v0.3.14 and refactor the cutaway methods.
+
 ## 0.4.5
 Fix for token undefined error when user drags token. Closes #52.
 Update Brazilian Portuguese translation. Thanks @Kharmans!
