@@ -10,7 +10,8 @@ PIXI
 import { MODULE_ID, FLAGS } from "./const.js";
 import {
   elevatedRegions,
-  elevatedTiles } from "./util.js";
+  elevatedTiles,
+  log } from "./util.js";
 import { ClipperPaths } from "./geometry/ClipperPaths.js";
 import { RegionElevationHandler } from "./regions/RegionElevationHandler.js";
 import { StraightLinePath } from "./StraightLinePath.js";
@@ -925,6 +926,10 @@ function polygonsIntersections(a, b, combinedPolys, skipPoly) {
 function pointOnPolygonEdge(a, poly, epsilon = 1e-08) {
   a = PIXI.Point._tmp.copyFrom(a);
   for ( const edge of poly.pixiEdges() ) {
+    if ( edge.A.almostEqual(edge.B) ) {
+      log("pointOnPolygonEdge|A and B are nearly equal");
+      continue;
+    }
     const pt = foundry.utils.closestPointToSegment(a, edge.A, edge.B);
     if ( a.almostEqual(pt, epsilon) ) return edge;
   }

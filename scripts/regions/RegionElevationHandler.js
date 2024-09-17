@@ -216,7 +216,13 @@ export class RegionElevationHandler {
     const stepFn = addSteps ? (a, b) => {
       const cutPoints = this._rampCutpointsForSegment(a, b);
       if ( !cutPoints.length ) return [];
+
+      // Ensure the steps are going in the right direction.
+      const rampDir = a.z > b.z;
+      const stepDir = cutPoints[0].z > cutPoints.at(-1);
+      if ( rampDir ^ stepDir ) cutPoints.reverse();
       const steps = insertSteps([a, ...cutPoints, b]);
+
       // Drop a and b so as not to repeat points.
       steps.shift();
       steps.pop();
