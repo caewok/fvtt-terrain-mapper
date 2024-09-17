@@ -53,19 +53,21 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
    * @param {AbstractUniqueEffect[]} effects   Effects to add; effects already on token may be duplicated
    * @returns {boolean} True if change was made
    */
-  static async _addToToken(token, effects) {
+  static async _addToToken(token, effects, data = {}) {
     if ( !token.actor ) return false;
     const uuids = effects.map(e => e.document.uuid);
-    let data;
+
+    let dataArray;
     if ( token.document.disposition !== CONST.TOKEN_DISPOSITIONS.SECRET ) {
       // Force display of the status icon
-      data = effects.map(e => {
-        const datum = { statuses: [] };
+      dataArray = effects.map(e => {
+        const datum = { ...data };
+        datum.statuses ??= [];
         if ( e.img && e.displayStatusIcon ) datum.statuses.push(e.img);
         return datum;
       });
-    }
-    await createEmbeddedDocuments(token.actor.uuid, "ActiveEffect", uuids, data);
+    } else if ( !foundry.utils.isEmpty(data) ) dataArray = effects.map(e => data);
+    await createEmbeddedDocuments(token.actor.uuid, "ActiveEffect", uuids, dataArray);
     return true;
   }
 
@@ -75,17 +77,19 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
    * @param {AbstractUniqueEffect[]} effects   Effects to add; effects already on token may be duplicated
    * @returns {boolean} True if change was made
    */
-  static _addToTokenLocally(token, effects) {
+  static _addToTokenLocally(token, effects, data = {}) {
     if ( !token.actor ) return false;
+
     for ( const effect of effects ) {
       const doc = effect.document.toObject();
       doc.flags[MODULE_ID][FLAGS.UNIQUE_EFFECT.IS_LOCAL] = true;
-
+      foundry.utils.mergeObject(doc, data);
       // Force display of the status icon
       if ( token.document.disposition !== CONST.TOKEN_DISPOSITIONS.SECRET
         && effect.img
         && effect.displayStatusIcon ) doc.statuses = [effect.img];
 
+      doc._id = foundry.utils.randomID(); // So duplicate effects can be added.
       const ae = token.actor.effects.createDocument(doc);
       token.actor.effects.set(ae.id, ae);
     }
@@ -99,9 +103,9 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
    * @param {AbstractUniqueEffect[]} effects
    * @returns {boolean} True if change was made
    */
-  static async _removeFromToken(token, effects, removeAllDuplicates = true) {
+  static async _removeFromToken(token, effects, removeAllDuplicates = true, origin) {
     if ( !token.actor ) return false;
-    const ids = this.tokenDocumentsForUniqueEffects(token, effects, removeAllDuplicates).map(doc => doc.id);
+    let ids = this.tokenDocumentsForUniqueEffects(token, effects, removeAllDuplicates, origin).map(doc => doc.id);
     if ( !ids.length ) return false;
     await deleteEmbeddedDocuments(token.actor.uuid, "ActiveEffect", ids);
     return true;
@@ -113,9 +117,9 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
    * @param {AbstractUniqueEffect[]} effects
    * @returns {boolean} True if change was made
    */
-  static _removeFromTokenLocally(token, effects, removeAllDuplicates = true) {
+  static _removeFromTokenLocally(token, effects, removeAllDuplicates = true, origin) {
     if ( !token.actor ) return false;
-    const ids = this.tokenDocumentsForUniqueEffects(token, effects, removeAllDuplicates).map(doc => doc.id);
+    const ids = this.tokenDocumentsForUniqueEffects(token, effects, removeAllDuplicates, origin).map(doc => doc.id);
     if ( !ids.length ) return false;
     for ( const id of ids ) token.actor.effects.delete(id);
     return true;
@@ -283,63 +287,6 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
 
     // Re-create the effects as necessary.
     for ( const key of defaultMap.keys() ) { await this.create(key); }
-  }
-
-  // ----- NOTE: Other methods specific to AEs ----- //
-
-
-  /**
-   * Apply this ActiveEffect to a provided Actor temporarily.
-   * Same as ActiveEffect.prototype.apply but does not change the actor.
-   * @param {Actor} actor                   The Actor to whom this effect should be applied
-   * @param {EffectChangeData} change       The change data being applied
-   */
-  applyEffectTemporarily(actor, change) {
-    const ae = this.activeEffect;
-    // Determine the data type of the target field
-    const current = foundry.utils.getProperty(actor, change.key) ?? null;
-    let target = current;
-    if ( current === null ) {
-      const model = game.model.Actor[actor.type] || {};
-      target = foundry.utils.getProperty(model, change.key) ?? null;
-    }
-    let targetType = foundry.utils.getType(target);
-
-    // Cast the effect change value to the correct type
-    let delta;
-    try {
-      if ( targetType === "Array" ) {
-        const innerType = target.length ? foundry.utils.getType(target[0]) : "string";
-        delta = ae._castArray(change.value, innerType);
-      }
-      else delta = ae._castDelta(change.value, targetType);
-    } catch(_err) { // eslint-disable-line no-unused-vars
-      console.warn(`Actor [${actor.id}] | Unable to parse active effect change for ${change.key}: "${change.value}"`);
-      return;
-    }
-
-    // Apply the change depending on the application mode
-    const modes = CONST.ACTIVE_EFFECT_MODES;
-    const changes = {};
-    switch ( change.mode ) {
-      case modes.ADD:
-        ae._applyAdd(actor, change, current, delta, changes);
-        break;
-      case modes.MULTIPLY:
-        ae._applyMultiply(actor, change, current, delta, changes);
-        break;
-      case modes.OVERRIDE:
-        ae._applyOverride(actor, change, current, delta, changes);
-        break;
-      case modes.UPGRADE:
-      case modes.DOWNGRADE:
-        ae._applyUpgrade(actor, change, current, delta, changes);
-        break;
-      default:
-        ae._applyCustom(actor, change, current, delta, changes);
-        break;
-    }
-    return changes;
   }
 }
 

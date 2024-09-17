@@ -146,6 +146,8 @@ export class TileElevationHandler {
       && !this.tile.evPixelCache.getThresholdCanvasBoundingBox(this.alphaThreshold).contains(a.x, a.y) ) return false;
     if ( !(token && this.testHoles) ) return true;
     const holeCache = this.tile[MODULE_ID].holeCache;
+    if ( !holeCache ) return true;
+
     const holeThreshold = this.holeThresholdForToken(token);
     return holeCache.pixelAtCanvas(a.x, a.y) < holeThreshold;
   }
@@ -166,6 +168,7 @@ export class TileElevationHandler {
   holePositions(a, b, holeThreshold = 1) {
     if ( !this.isElevated || !this.testHoles ) return [];
     const holeCache = this.tile[MODULE_ID].holeCache;
+    if ( !holeCache ) return [];
 
     // Mark every time it moves from solid ground to a hole threshold of a given size.
     const markHoleStartFn = (currPixel, prevPixel) => prevPixel < holeThreshold && currPixel >= holeThreshold;
@@ -220,6 +223,7 @@ export class TileElevationHandler {
   _findOuterHoles(a, b, holeThreshold = 1) {
     if ( !this.isElevated || !this.testHoles ) return [];
     const holeCache = this.tile[MODULE_ID].holeCache;
+    if ( !holeCache ) return [];
 
     // Easiest to do this in local space, to take advantage of the rectangle.
     a = holeCache._fromCanvasCoordinates(a.x, a.y);
@@ -331,24 +335,20 @@ export class TileElevationHandler {
    * @param {Point3d} start          Start of the segment
    * @param {Point3d} end            End of the segment
    * @param {Token} [token]          Token doing the movement; required for holes
-   * @returns {ClipperPaths|null} The combined Clipper paths for the tile cutaway.
+   * @returns {CutawayPolygon[]} The combined Clipper paths for the tile cutaway.
    */
   _cutaway(start, end, token) {
     if ( !this.isElevated ) return null;
-    const polys = token && this.testHoles
+    return token && this.testHoles
       ? this.#cutawayPolygonsHoles(start, end, this.holeThresholdForToken(token))
       : this.#cutawayPolygonsNoHoles(start, end);
-    if ( !polys.length ) return null;
-    const regionPath = ClipperPaths.fromPolygons(polys);
-    const combined = regionPath.combine().clean();
-    return combined;
   }
 
   /**
    * Cutaway polygons for a basic border only, no holes.
    * @param {Point3d} start          Start of the segment
    * @param {Point3d} end            End of the segment
-   * @returns {PIXI.Polygon[]} The polygon for the cutaway (if any), in an array.
+   * @returns {CutawayPolygon[]} The polygon for the cutaway (if any), in an array.
    */
   #cutawayPolygonsNoHoles(start, end) {
     const gridUnitsToPixels = CONFIG.GeometryLib.utils.gridUnitsToPixels;
@@ -368,7 +368,7 @@ export class TileElevationHandler {
    * @param {Point3d} start          Start of the segment
    * @param {Point3d} end            End of the segment
    * @param {number} holeThreshold                  The hole threshold to use
-   * @returns {PIXI.Polygon[]} The polygons for the cutaway (if any)
+   * @returns {CutawayPolygon[]} The polygons for the cutaway (if any)
    */
   #cutawayPolygonsHoles(start, end, holeThreshold = 1) {
     const gridUnitsToPixels = CONFIG.GeometryLib.utils.gridUnitsToPixels;
@@ -460,6 +460,7 @@ export class TileElevationHandler {
     const countsArr = Array.fromRange(max + 1);
     const out = {};
     const holeCache = this.holeCache;
+    if ( !holeCache ) return { numPixels: null };
     for ( const ct of countsArr ) {
       const fn = holeCache.constructor.pixelAggregator("count_eq_threshold", ct);
       out[ct] = fn(holeCache.pixels).count;
@@ -482,6 +483,7 @@ export class TileElevationHandler {
    */
   drawPixelsAtThreshold(threshold = 1, { skip = 10, radius = 2, local=true } = {}) {
     const holeCache = this.holeCache;
+    if ( !holeCache ) return console.warn("drawPixelsAtThreshold|holeCache not found.");
     const { right, left, top, bottom } = holeCache;
     const drawFn = local
       ? (x, y, color) => Draw.point({x, y}, { color, alpha: 0.8, radius })

@@ -22,8 +22,7 @@
   "terrainmapper.region-config.plateauElevation.name": "Elevação do Planalto",
   "terrainmapper.region-config.plateauElevation.hint": "Ao entrar na região, o token será definido para esta elevação. Para rampas, esta é a elevação mais alta da rampa. Para uma cena típica, tente definir a região superior para esta elevação e a região inferior para infinito negativo.",
 
-  "terrainmapper.region-config.rampFloor.name": "Elevação Mais Baixa da Rampa",
-  "terrainmapper.region-config.rampFloor.hint": "Apenas para rampas. A elevação da rampa começa aqui e sobe até a Elevação do Planalto. Para criar uma forma de cunha, defina este valor para a elevação da cena.",
+  "terrainmapper.region-config.rampFloor.name": "Rampa: Elevação Mais Baixa",
 
   "terrainmapper.region-config.rampDirection.name": "Direção da Rampa",
   "terrainmapper.region-config.rampDirection.hint": "0º é para sul; 90º é para oeste. Apenas para rampas.",
@@ -31,6 +30,9 @@
   "terrainmapper.region-config.rampStepSize.name": "Tamanho do Degrau",
   "terrainmapper.region-config.rampStepSize.hint": "Qual a altura, em unidades de grade, de cada degrau da rampa. O número de passos será determinado automaticamente com base neste valor. Se definido como 0, a rampa terá uma inclinação aproximada e suave. Apenas para rampas.",
 
+  "terrainmapper.region-config.splitPolygons.name": "Rampa: Polígonos Separados",
+  "terrainmapper.region-config.splitPolygons.hint": "Quando ativado, cada polígono de Região sem Furo terá sua própria rampa, da elevação mais baixa para a mais alta. Quando desabilitado, todos os polígonos que não sejam buracos são considerados uma rampa, definida por seus limites combinados.",
+  
   "terrainmapper.tile-config.isFloor.name": "Tratar como Chão",
   "terrainmapper.tile-config.isFloor.hint": "Quando habilitado, será tratado como piso sólido (chão) ao mover tokens.",
 
