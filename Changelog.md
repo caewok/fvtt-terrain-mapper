@@ -1,3 +1,7 @@
+## 0.4.7
+Allow application of duplicate terrain effects when dragging tokens into regions.
+Update libGeometry to v0.3.16.
+
 ## 0.4.6
 Add Italian localization. Thanks @GregoryWarn!
 Avoid using the tile hole cache until the workers finish processing to avoid errors when moving tokens immediately on scene load. May address #53.
