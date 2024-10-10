@@ -506,9 +506,9 @@ export class ElevationHandler {
       if ( bounds.top > sceneFloor ) continue; // Y is reversed, so this is bottom > sceneFloor.
       const isHole = !cutaway.isPositive;
       const { left, right } = bounds;
-      if ( left > 0 ) ixs.push({ x: left, movingIn: !isHole });
-      else inside += 1;
-      if ( right < end2d.x ) ixs.push({x: right, movingIn: isHole});
+      if ( left > 0 ) ixs.push({ x: left, movingIn: true, isHole });
+      else inside += (isHole ? -1 : 1); // Already inside cutaway.
+      if ( right < end2d.x ) ixs.push({x: right, movingIn: false, isHole }); // Will exit before end.
     }
 
     // Construct path by walking the intersections, adding scene floor whenever not inside.
@@ -517,20 +517,22 @@ export class ElevationHandler {
     let prevX = 0;
     for ( const ix of ixs ) {
       if ( ix.movingIn ) {
-        if ( !inside ) {
+        // Moving into a polygon.
+        if ( inside <= 0 ) {
           // x + 1 so the polygons will combine if touching.
           const pts = [prevX, sceneFloor, prevX, MIN_ELEV, ix.x, MIN_ELEV, ix.x, sceneFloor];
           sceneFloorPolys.push(CutawayPolygon.fromCutawayPoints(pts, start, end));
         }
-        inside += 1;
+        inside += (ix.isHole ? -1 : 1);
       } else {
-        if ( inside === 1 ) prevX = ix.x; // Moving out and going from inside to not inside.
-        inside = Math.max(0, inside -= 1);
+        // Leaving a polygon.
+        inside += (ix.isHole ? 1 : -1);
+        if ( !inside ) prevX = ix.x; // Moving out and going from inside to not inside.
       }
     }
 
     // If at end of the segment, can add a scene floor poly if not inside.
-    if ( !inside && prevX < end2d.x) {
+    if ( !inside && prevX < end2d.x ) {
       const pts = [prevX, sceneFloor, prevX, MIN_ELEV, end2d.x, MIN_ELEV, end2d.x, sceneFloor];
       sceneFloorPolys.push(CutawayPolygon.fromCutawayPoints(pts, start, end));
     }
