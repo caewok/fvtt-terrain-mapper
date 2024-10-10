@@ -13,7 +13,6 @@ import {
   regionWaypointsXYEqual } from "../util.js";
 import { Point3d } from "../geometry/3d/Point3d.js";
 import { Plane } from "../geometry/3d/Plane.js";
-import { ClipperPaths } from "../geometry/ClipperPaths.js";
 import { RegionMovementWaypoint3d } from "../geometry/3d/RegionMovementWaypoint3d.js";
 import { Matrix } from "../geometry/Matrix.js";
 import { ElevationHandler } from "../ElevationHandler.js";
@@ -210,7 +209,6 @@ export class RegionElevationHandler {
   _cutaway(start, end, { usePlateauElevation = true } = {}) {
     const result = [];
     let allHoles = true;
-    const nonHolePolygons = (this.isRamp && this.splitPolygons) ? this.nonHolePolygons : [];
     const opts = this.#cutawayOptionFunctions(usePlateauElevation);
     const addSteps = this.isRamp && this.rampStepSize;
     const stepFn = addSteps ? (a, b) => {
@@ -229,12 +227,9 @@ export class RegionElevationHandler {
       return steps;
     } : undefined;
     for ( const regionPoly of this.region.polygons ) {
-      // If this poly is a hole, need the positive polygon for forming the step coordinates.
       allHoles &&= !regionPoly.isPositive;
-      let poly = regionPoly;
-      if ( !regionPoly.isPositive ) poly = nonHolePolygons.find(p => p.overlaps(regionPoly));
-      const cutaways = poly.cutaway(start, end, opts);
-      if ( addSteps ) cutaways.forEach(cutawayPoly => cutawayPoly.insertTopSteps(stepFn));
+      const cutaways = regionPoly.cutaway(start, end, opts);
+      if ( addSteps && regionPoly.isPositive ) cutaways.forEach(cutawayPoly => cutawayPoly.insertTopSteps(stepFn));
       result.push(...cutaways);
     }
     if ( allHoles ) return [];
