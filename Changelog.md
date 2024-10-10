@@ -1,3 +1,6 @@
+## 0.4.8
+Address issues with moving through plateaus with holes. Fix handling of scene floor for regions with holes so that tokens do not "fall through" to large negative elevations and then back. Addresses #64.
+
 ## 0.4.7
 Allow application of duplicate terrain effects when dragging tokens into regions.
 Update libGeometry to v0.3.16.
