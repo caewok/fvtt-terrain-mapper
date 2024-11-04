@@ -1,9 +1,11 @@
 /* globals
 canvas,
+CanvasAnimation,
 CONFIG,
 CONST,
 game,
 PIXI,
+Ruler,
 ui
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
@@ -49,6 +51,30 @@ function preCreateToken(tokenD, data, _options, _userId) {
 
 /**
  * Hook preUpdateToken
+ * Adjust elevation if teleporting into a region.
+ * @param {Document} document                       The Document instance being updated
+ * @param {object} changed                          Differential data that will be used to update the document
+ * @param {Partial<DatabaseUpdateOperation>} options Additional options which modify the update request
+ * @param {string} userId                           The ID of the requesting user, always game.user.id
+ * @returns {boolean|void}                          Explicitly return false to prevent update of this Document
+*/
+function preUpdateToken(tokenD, changed, options, _userId) {
+  if ( !(Object.hasOwn(changed, "x") || Object.hasOwn(changed, "y")) ) return;
+
+  // If teleporting to another elevated region, set the elevation of the destination accordingly.
+  if ( options.teleport ) {
+    const dest = tokenD.object.getCenterPoint({ x: changed.x ?? tokenD.x, y: changed.y ?? tokenD.y });
+    dest.elevation = changed.elevation ?? tokenD.elevation;
+    for ( const region of canvas.regions.placeables ) {
+      const tm = region.terrainmapper;
+      if ( !(tm.isElevated && region.testPoint(dest, dest.elevation)) ) continue;
+      changed.elevation = tm.elevationUponEntry(dest);
+    }
+  }
+}
+
+/**
+ * Hook updateToken
  * If disposition changes, change actor's unique effect status icon display.
  * @param {Document} document                       The Document instance being updated
  * @param {object} changed                          Differential data that will be used to update the document
@@ -127,7 +153,8 @@ function refreshToken(token, flags) {
 PATCHES.BASIC.HOOKS = {
   preCreateToken,
   refreshToken,
-  updateToken
+  updateToken,
+  preUpdateToken
 };
 
 // ----- NOTE: Wraps ----- //
