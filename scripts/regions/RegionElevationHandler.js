@@ -212,19 +212,14 @@ export class RegionElevationHandler {
     const opts = this.#cutawayOptionFunctions(usePlateauElevation);
     const addSteps = this.isRamp && this.rampStepSize;
     const stepFn = addSteps ? (a, b) => {
-      const cutPoints = this._rampCutpointsForSegment(a, b);
-      if ( !cutPoints.length ) return [];
+      const cutpoints = this._rampCutpointsForSegment(a, b);
+      if ( !cutpoints.length ) return [];
 
       // Ensure the steps are going in the right direction.
       const rampDir = a.z > b.z;
-      const stepDir = cutPoints[0].z > cutPoints.at(-1);
-      if ( rampDir ^ stepDir ) cutPoints.reverse();
-      const steps = insertSteps([a, ...cutPoints, b]);
-
-      // Drop a and b so as not to repeat points.
-      steps.shift();
-      steps.pop();
-      return steps;
+      const stepDir = cutpoints[0].z > cutpoints.at(-1);
+      if ( rampDir ^ stepDir ) cutpoints.reverse();
+      return [a, ...cutpoints, b];
     } : undefined;
     for ( const regionPoly of this.region.polygons ) {
       allHoles &&= !regionPoly.isPositive;
@@ -364,16 +359,28 @@ export class RegionElevationHandler {
     const dir = minMax.max.subtract(minMax.min);
     const orthoDir = new PIXI.Point(dir.y, -dir.x); // 2d Orthogonal of {x, y} is {y, -x}
     const cutpoints = [];
-    for ( const idealCutpoint of this.getRampCutpoints(poly) ) {
+
+    // Create steps where position is same but elevation changes.
+    // Start at the elevation for a—before the first cutpoint.
+    const idealCutpoints = this.getRampCutpoints(poly);
+    let startingElevation = this.rampFloor;
+    for ( let i = 0, n = idealCutpoints.length; i < n; i += 1 ) {
+      const idealCutpoint = idealCutpoints[i];
       const orthoPt = idealCutpoint.add(orthoDir);
       const ix = foundry.utils.lineLineIntersection(a, b, idealCutpoint, orthoPt);
       if ( !ix ) break; // If one does not intersect, none will intersect.
-      if ( ix.t0 < 0 || ix.t0 > 1 ) continue;
-      const cutPoint = RegionMovementWaypoint3d.fromObject(ix);
-      cutPoint.elevation = idealCutpoint.elevation;
-      cutPoint.t0 = ix.t0;
-      cutpoints.push(cutPoint);
+      if ( ix.t0 < 0 || ix.t0 > 1 ) {
+        startingElevation = idealCutpoint.elevation;
+        continue;
+      }
+      const cutpoint0 = RegionMovementWaypoint3d.fromLocationWithElevation(ix, startingElevation);
+      const cutpoint1 = RegionMovementWaypoint3d.fromLocationWithElevation(ix, idealCutpoint.elevation);
+      cutpoint0.t0 = ix.t0;
+      cutpoint1.t0 = ix.t0;
+      cutpoints.push(cutpoint0, cutpoint1);
+      startingElevation = idealCutpoint.elevation;
     }
+
     return cutpoints;
   }
 
@@ -636,26 +643,4 @@ function rotatePolygon(poly, rotation = 0, centroid) { // eslint-disable-line de
     rotatedPoints[j+1] = rotatedM.arr[i][1];
   }
   return new PIXI.Polygon(rotatedPoints);
-}
-
-
-/**
- * Helper function to calculate steps along an a|b segment.
- * Adds points so that the move between locations is either vertical or 2d but not both.
- * @param {Point3d[]} cutPoints     Array of points where a step occurs
- * @returns {Point3d[]} The original cutPoints with additional points added in a new array
- */
-function insertSteps(cutPoints) {
-  if ( cutPoints.length < 2 ) return cutPoints;
-  const res = [];
-  let prevPt = cutPoints[0];
-  const cl = prevPt.constructor;
-  for ( let i = 1, n = cutPoints.length; i < n; i += 1 ) {
-    const currPt = cutPoints[i];
-    res.push(prevPt);
-    res.push(cl.fromObject({ x: currPt.x, y: currPt.y, z: prevPt.z }));
-    prevPt = currPt;
-  }
-  res.push(cutPoints.at(-1));
-  return res;
 }

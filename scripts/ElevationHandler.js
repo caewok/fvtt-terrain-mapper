@@ -543,7 +543,19 @@ export class ElevationHandler {
 
     // If all holes or no polygons, we are done.
     if ( !combinedPolys.length || combinedPolys.every(poly => !poly.isPositive) ) return [];
-    return combinedPolys.map(poly => CutawayPolygon._convertFromPolygon(poly, start, end));
+    return combinedPolys.map(poly => {
+      // Strip duplicate points, which will cause problems later.
+      const pts = [...poly.iteratePoints({ close: false })];
+      let lastPt = pts[0];
+      const deduped = [lastPt];
+      for (let i = 1, n = pts.length; i < n; i += 1 ) {
+        const pt = pts[i];
+        if ( pt.almostEqual(lastPt) ) continue;
+        deduped.push(pt);
+        lastPt = pt;
+      }
+      return CutawayPolygon.fromCutawayPoints(deduped, start, end);
+    });
   }
 
 
