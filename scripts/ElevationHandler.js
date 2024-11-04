@@ -498,9 +498,10 @@ export class ElevationHandler {
     // Determine every intersection point with the cutaways.
     // Intersection here just means the left and right bounds of the cutaway if the cutaway
     // is below or at the scene floor.
+
+    const end2d = CONFIG.GeometryLib.utils.cutaway.to2d(end, start, end);
     const ixs = [];
     let inside = 0;
-    const end2d = CONFIG.GeometryLib.utils.cutaway.to2d(end, start, end);
     for ( const cutaway of cutaways ) {
       const bounds = cutaway.getBounds();
       if ( bounds.top > sceneFloor ) continue; // Y is reversed, so this is bottom > sceneFloor.
@@ -516,18 +517,17 @@ export class ElevationHandler {
     ixs.sort((a, b) => a.x - b.x);
     let prevX = 0;
     for ( const ix of ixs ) {
-      if ( ix.movingIn ) {
-        // Moving into a polygon.
+      if ( ix.isHole ^ ix.movingIn ) {
+        // Moving into a normal polygon or moving out of a hole; implied move into a normal polygon..
         if ( inside <= 0 ) {
-          // x + 1 so the polygons will combine if touching.
           const pts = [prevX, sceneFloor, prevX, MIN_ELEV, ix.x, MIN_ELEV, ix.x, sceneFloor];
           sceneFloorPolys.push(CutawayPolygon.fromCutawayPoints(pts, start, end));
         }
-        inside += (ix.isHole ? -1 : 1);
+        inside += 1;
       } else {
-        // Leaving a polygon.
-        inside += (ix.isHole ? 1 : -1);
-        if ( !inside ) prevX = ix.x; // Moving out and going from inside to not inside.
+        // Moving into a hole or moving out of a normal polygon.
+        inside -= 1;
+        if ( !inside ) prevX = ix.x;
       }
     }
 
@@ -543,7 +543,19 @@ export class ElevationHandler {
 
     // If all holes or no polygons, we are done.
     if ( !combinedPolys.length || combinedPolys.every(poly => !poly.isPositive) ) return [];
-    return combinedPolys.map(poly => CutawayPolygon._convertFromPolygon(poly, start, end));
+    return combinedPolys.map(poly => {
+      // Strip duplicate points, which will cause problems later.
+      const pts = [...poly.iteratePoints({ close: false })];
+      let lastPt = pts[0];
+      const deduped = [lastPt];
+      for (let i = 1, n = pts.length; i < n; i += 1 ) {
+        const pt = pts[i];
+        if ( pt.almostEqual(lastPt) ) continue;
+        deduped.push(pt);
+        lastPt = pt;
+      }
+      return CutawayPolygon.fromCutawayPoints(deduped, start, end);
+    });
   }
 
 

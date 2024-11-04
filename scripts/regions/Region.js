@@ -208,18 +208,21 @@ function _refreshTerrainMapperMesh() {
   let hatchY = 1;
   let insetPercentage = 0;
   let insetBorderThickness = hatchThickness;
+  let variableHatchThickness = false;
   if ( this[MODULE_ID].isPlateau ) {
     // Set a striped inset border.
     // Inside the border is solid.
     insetPercentage = 0.1;
     hatchThickness = 0;
   } else if ( this[MODULE_ID].isRamp ) {
-    // Set a striped inset border.
-    // Direction stripes within the border.
-    insetPercentage = 0.1;
+    // Stripe across with no inset.
+    // Direction controls stripes, which get wider as the ramp increases.
+    insetPercentage = 0.0;
     const res = calculateHatchXY(this[MODULE_ID].rampDirection);
     hatchX = res.hatchX;
     hatchY = res.hatchY;
+    variableHatchThickness = true;
+    hatchThickness *= 2;
   }
   const { left, top, right, bottom } = this.bounds;
   mesh.shader.uniforms.border = [left, top, right, bottom];
@@ -228,6 +231,7 @@ function _refreshTerrainMapperMesh() {
   mesh.shader.uniforms.hatchThickness = hatchThickness;
   mesh.shader.uniforms.insetPercentage = insetPercentage;
   mesh.shader.uniforms.insetBorderThickness = insetBorderThickness
+  mesh.shader.uniforms.variableHatchThickness = variableHatchThickness;
 }
 
 PATCHES.REGIONS.METHODS = { _refreshTerrainMapperMesh };

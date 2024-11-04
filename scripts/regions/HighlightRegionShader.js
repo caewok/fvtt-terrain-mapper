@@ -34,9 +34,10 @@ Hooks.on("init", function() {
     uniform mediump float hatchY;
     uniform vec4 border; // Region border: s: left, t: top, p: right, q: bottom
     uniform mediump float insetBorderThickness;
-    varying vec2 percentFromBorder;
+    varying vec2 vPercentFromBorder;
     varying float vHatchHorizontal;
     varying float vHatchVertical;
+    varying vec2 vSquarePercentFromBorder;
 
     void main() {
       vec2 pixelCoord = aVertexPosition;
@@ -48,10 +49,15 @@ Hooks.on("init", function() {
 
       // Added by Terrain Mapper.
       // Determine where we are as a percent of the region border.
-      percentFromBorder = (pixelCoord - border.st) / (border.pq - border.st);
-      vHatchOffset = ((pixelCoord.x * hatchX) + (pixelCoord.y * hatchY)) / (SQRT2 * 2.0 * hatchThickness);
+      vPercentFromBorder = (pixelCoord - border.st) / (border.pq - border.st);
+      vHatchOffset = ((pixelCoord.x * hatchX) + (pixelCoord.y * hatchY)) / (SQRT2 * 2.0);
       vHatchHorizontal = pixelCoord.y / (SQRT2 * 2.0 * insetBorderThickness); // hatchX = 0, hatchY = 1
       vHatchVertical =   pixelCoord.x / (SQRT2 * 2.0 * insetBorderThickness); // hatchX = 1, hatchY = 0
+
+      // Determine how far along the ramp path we are.
+      // stpq
+      float size = max(border.p - border.s, border.q - border.t);
+      vSquarePercentFromBorder = (pixelCoord - border.st) / size;
     }
   `;
 
@@ -66,25 +72,42 @@ Hooks.on("init", function() {
     uniform mediump float hatchThickness;
 
     // Added by Terrain Mapper
+    uniform mediump float hatchX;
+    uniform mediump float hatchY;
     uniform mediump float insetPercentage;
     uniform mediump float insetBorderThickness;
-    varying vec2 percentFromBorder;
+    uniform bool variableHatchThickness;
+    varying vec2 vPercentFromBorder;
     varying float vHatchHorizontal;
     varying float vHatchVertical;
+    varying vec2 vSquarePercentFromBorder;
 
     void main() {
       gl_FragColor = tintAlpha;
       if ( !hatchEnabled ) return;
 
-      // Added by Terrain Mapper.
-      float hatchOffset = vHatchOffset;
       float thisHatchThickness = hatchThickness;
+      if ( variableHatchThickness ) {
+        // hatchX and hatchY are between -1.0 and 1.0
+        // vSquarePercentFromBorder are between 0.0 and 1.0.
+        float xPortion = (hatchX >= 0.0 ? vSquarePercentFromBorder.x : (1.0 - vSquarePercentFromBorder.x)) * abs(hatchX);
+        float yPortion = (hatchY <= 0.0 ? vSquarePercentFromBorder.y : (1.0 - vSquarePercentFromBorder.y)) * abs(hatchY);
+        float ratio = clamp(xPortion + yPortion, 0.0, 1.0);
+        // (thisHatchThickness * xPortion) + (thisHatchThickness * yPortion)
+        thisHatchThickness = hatchThickness + (hatchThickness * ratio * 3.0);
+        // gl_FragColor = vec4(vSquarePercentFromBorder.x, vSquarePercentFromBorder.y, 0.0, 0.8);
+        // return;
+      }
+
+      // Added by Terrain Mapper.
+      float hatchOffset = vHatchOffset / thisHatchThickness;
+
       if ( insetPercentage != 0.0 ) {
         bvec4 isInset = bvec4(
-          percentFromBorder.x < insetPercentage,
-          percentFromBorder.y < insetPercentage,
-          percentFromBorder.x > 1.0 - insetPercentage,
-          percentFromBorder.y > 1.0 - insetPercentage
+          vPercentFromBorder.x < insetPercentage,
+          vPercentFromBorder.y < insetPercentage,
+          vPercentFromBorder.x > 1.0 - insetPercentage,
+          vPercentFromBorder.y > 1.0 - insetPercentage
         );
 
         // s: left, t: top, p: right, q: bottom
@@ -93,27 +116,30 @@ Hooks.on("init", function() {
 
         // Split the corners along the diagonal.
         if ( all(isInset.st) ) {
-          if ( percentFromBorder.x < percentFromBorder.y ) hatchOffset = vHatchVertical;
+          if ( vPercentFromBorder.x < vPercentFromBorder.y ) hatchOffset = vHatchVertical;
           else hatchOffset = vHatchHorizontal;
         }
 
         if ( all(isInset.pq) ) {
-          if ( percentFromBorder.x > percentFromBorder.y ) hatchOffset = vHatchVertical;
+          if ( vPercentFromBorder.x > vPercentFromBorder.y ) hatchOffset = vHatchVertical;
           else hatchOffset = vHatchHorizontal;
         }
 
         if ( all(isInset.sq) ) {
-          if ( percentFromBorder.x < (1.0 - percentFromBorder.y) ) hatchOffset = vHatchVertical;
+          if ( vPercentFromBorder.x < (1.0 - vPercentFromBorder.y) ) hatchOffset = vHatchVertical;
           else hatchOffset = vHatchHorizontal;
         }
 
         if ( all(isInset.tp) ) {
-          if ( (1.0 - percentFromBorder.x) < percentFromBorder.y ) hatchOffset = vHatchVertical;
+          if ( (1.0 - vPercentFromBorder.x) < vPercentFromBorder.y ) hatchOffset = vHatchVertical;
           else hatchOffset = vHatchHorizontal;
         }
 
         if ( any(isInset) ) thisHatchThickness = insetBorderThickness;
       }
+
+
+
 
       // From original HighlightRegionShader.
       float x = abs(hatchOffset - floor(hatchOffset + 0.5)) * 2.0;
@@ -130,7 +156,6 @@ Hooks.on("init", function() {
   HighlightRegionShader.defaultUniforms.insetPercentage = 0;
   HighlightRegionShader.defaultUniforms.border = [0, 0, 0, 0];
   HighlightRegionShader.defaultUniforms.insetBorderThickness = 1;
-
-
+  HighlightRegionShader.defaultUniforms.variableHatchThickness = false;
 });
 
