@@ -8,6 +8,7 @@ CONST,
 import { MODULE_ID, FLAGS } from "../const.js";
 import { log } from "../util.js";
 import { UniqueActiveEffect } from "./UniqueActiveEffect.js";
+import { UniqueItemEffect } from "./UniqueItemEffect.js";
 
 /**
  * Represent a unique effect that is applied to tokens. E.g., cover, terrain.
@@ -101,6 +102,92 @@ export class UniqueFlagEffect extends UniqueActiveEffect {
     token.renderFlags.set({ redrawEffects: true });
   }
 }
+
+export class UniqueFlagItemEffect extends UniqueItemEffect {
+
+  // ----- NOTE: Document-related methods ----- //
+  toDragData() {
+    console.error("UniqueFlagItemEffect|toDragData not yet implemented.");
+    return super.toDragData();
+  }
+
+  // ----- NOTE: Token-related methods ----- //
+
+  /**
+   * The token storage for this class
+   * @param {Token} token
+   * @returns {DocumentCollection|Map} The collection for this token
+   */
+  static getTokenStorage(token) {
+    // Tokens do not have a map of effect docs, so this is effectively a map of flag documents "on" the token.
+    return TokenFlagUniqueEffectDocument.allDocumentsOnToken(token);
+  }
+
+  /**
+   * Method implemented by child class to add 1+ effects to the token.
+   * Does not consider whether the effect is already present.
+   * @param {Token } token      Token to remove the effect from.
+   * @param {AbstractUniqueEffect[]} effects   Effects to add; effects already on token may be duplicated
+   * @returns {boolean} True if change was made
+   */
+  static async _addToToken(token, effects) {
+    const docs = effects.map(effect => new TokenFlagUniqueEffectDocument(token, effect));
+    const promises = [];
+    for ( const doc of docs ) promises.push(doc.addToToken());
+    await Promise.allSettled(promises);
+    return true;
+  }
+
+  /**
+   * Method implemented by child class to add 1+ effects to token locally.
+   * @param {Token } token      Token to add the effect(s) to.
+   * @param {AbstractUniqueEffect[]} effects   Effects to add; effects already on token may be duplicated
+   * @returns {boolean} True if change was made
+   */
+  static _addToTokenLocally(token, effects) {
+    const docs = effects.map(effect => new TokenFlagUniqueEffectDocument(token, effect));
+    for ( const doc of docs ) doc.addToTokenLocally();
+    return true;
+  }
+
+  /**
+   * Method implemented by child class to remove from token.
+   * If duplicates, only the first effect present will be removed
+   * @param {Token } token      Token to remove the effect from.
+   * @param {AbstractUniqueEffect[]} effects
+   * @returns {boolean} True if change was made
+   */
+  static async _removeFromToken(token, effects) {
+    const docs = effects.map(effect => new TokenFlagUniqueEffectDocument(token, effect));
+    const promises = [];
+    for ( const doc of docs ) promises.push(doc.removeFromToken());
+    await Promise.allSettled(promises);
+    return true;
+  }
+
+  /**
+   * Method implemented by child class to remove from token.
+   * @param {Token } token      Token to remove the effect from.
+   * @param {AbstractUniqueEffect[]} effects
+   * @returns {boolean} True if change was made
+   */
+  static _removeFromTokenLocally(token, effects) {
+    const docs = effects.map(effect => new TokenFlagUniqueEffectDocument(token, effect));
+    for ( const doc of docs ) doc.removeFromTokenLocally();
+    return true;
+  }
+
+  /**
+   * Refresh the token display and sheet when adding a local effect.
+   * @param {Token} token
+   */
+  static refreshTokenDisplay(token) {
+    // Drop refreshing the actor sheet as there is none for cover flags.
+    // Also don't need to reset the actor as no effects applied.
+    token.renderFlags.set({ redrawEffects: true });
+  }
+}
+
 
 /**
  * Represents a unique effect document stored on a token flag.

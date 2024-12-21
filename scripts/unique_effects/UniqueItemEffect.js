@@ -72,8 +72,12 @@ export class UniqueItemEffect extends AbstractUniqueEffect {
       const doc = effect.document.toObject();
       doc.flags[MODULE_ID][FLAGS.UNIQUE_EFFECT.IS_LOCAL] = true;
       foundry.utils.mergeObject(doc, data);
-      effect.document._id = foundry.utils.randomID(); // So duplicate effects can be added.
-      const ae = token.actor.items.createDocument(effect.document);
+
+      // Remove the _id b/c the property might be locked. See PR #44.
+      // Have to define it manually b/c for local docs, foundry will not assign random id. See #46.
+      delete doc._id;
+      doc._id = foundry.utils.randomID();
+      const ae = token.actor.items.createDocument(doc);
       token.actor.items.set(ae.id, ae);
     }
     return true;

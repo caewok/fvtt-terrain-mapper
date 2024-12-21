@@ -411,6 +411,7 @@ export class AbstractUniqueEffect {
    * @returns {AbstractUniqueEffect[]} The trimmed set as an array
    */
   static _trimDuplicates(token, effects) {
+    if ( !(effects instanceof Set) ) effects = new Set(effects);
     const currEffects = new Set(this.allOnToken(token));
     const toAdd = [];
     for ( const effect of effects ) {
@@ -575,7 +576,9 @@ export class AbstractUniqueEffect {
    */
   static allOnToken(token) {
     const instances = [];
-    for ( const doc of this.getTokenStorage(token).values() ) {
+    const store = this.getTokenStorage(token);
+    if ( !store ) return instances;
+    for ( const doc of store.values() ) {
       const uniqueEffectId = doc.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.ID);
       if ( !uniqueEffectId ) continue;
       const instance = this._instances.get(uniqueEffectId);
