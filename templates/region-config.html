@@ -63,7 +63,7 @@
     <label>{{ localize "terrainmapper.region-config.wallRestrictions.name" }}</label>
     <div class="form-fields">
       <multi-checkbox name="flags.terrainmapper.wallRestrictions">
-        {{selectOptions terrainmapper.wallRestrictionChoices sort=true localize=true}}
+        {{selectOptions terrainmapper.wallRestrictionChoices selected=source.flags.terrainmapper.wallRestrictions sort=true localize=true}}
       </multi-checkbox>
     </div>
     <p class="hint">{{ localize "terrainmapper.region-config.wallRestrictions.hint"}}
