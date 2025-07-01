@@ -25,12 +25,14 @@ import { PATCHES as PATCHES_RegionConfig } from "./regions/RegionConfig.js";
 import { PATCHES as PATCHES_Ruler } from "./Ruler.js";
 import { PATCHES as PATCHES_Tile } from "./Tile.js";
 import { PATCHES as PATCHES_TileConfig } from "./TileConfig.js";
+import { PATCHES as PATCHES_ClockwiseSweepPolygon } from "./regions/ClockwiseSweepPolygon.js";
 
 export const PATCHES = {
   ActiveEffect: PATCHES_ActiveEffect,
   ActiveEffectConfig: PATCHES_ActiveEffectConfig,
   "foundry.canvas.edges.CanvasEdges": PATCHES_CanvasEdges,
   ClientSettings: PATCHES_ModuleSettingsAbstract,
+  ClockwiseSweepPolygon: PATCHES_ClockwiseSweepPolygon,
   ItemDirectory: PATCHES_ItemDirectory,
   ItemSheet: PATCHES_ItemSheet,
   Region: PATCHES_Region,
