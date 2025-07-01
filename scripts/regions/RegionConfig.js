@@ -65,9 +65,13 @@ async function _preparePartContext(wrapper, partId, context, options) {
     await context.region.setFlag(MODULE_ID, FLAGS.REGION.TELEPORT, true);
   }
 
-  // Add in shapes
+  // Add in shapes and restriction types.
+  const wallRestrictionChoices = {};
+  CONST.WALL_RESTRICTION_TYPES.forEach(type => wallRestrictionChoices[type] = type);
+
   context[MODULE_ID] = {
-    algorithmChoices: FLAGS.REGION.LABELS
+    algorithmChoices: FLAGS.REGION.LABELS,
+    wallRestrictionChoices,
   }
   return context;
 }
