@@ -88,6 +88,7 @@ function addEdgesForRegion(region) {
   if ( !restrictions.length ) return;
   const restrictionsObj = {};
   restrictions.forEach(type => restrictionsObj[type] = CONST.WALL_SENSE_TYPES.NORMAL);
+  delete restrictions.cover;
   const object = region;
   const type = "region";
 
@@ -114,6 +115,7 @@ function updateRegionEdgeRestrictions(region) {
   if ( !restrictions.length ) removeEdgesForRegionId(region.id);
   const restrictionsObj = {};
   restrictions.forEach(type => restrictionsObj[type] = CONST.WALL_SENSE_TYPES.NORMAL);
+  delete restrictions.cover;
   region.shapes.forEach((shape, idx) => {
     const poly = polygonForRegionShape(shape);
     for ( let i = 0, iMax = poly.points.length * 0.5; i < iMax; i += 1 ) {

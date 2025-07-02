@@ -70,7 +70,7 @@ async function _preparePartContext(wrapper, partId, context, options) {
 
 
   // Add in shapes and restriction types.
-  const wallRestrictionChoices = {};
+  const wallRestrictionChoices = { cover: "cover" };
   CONST.WALL_RESTRICTION_TYPES.forEach(type => wallRestrictionChoices[type] = type);
 
   context[MODULE_ID] = {
