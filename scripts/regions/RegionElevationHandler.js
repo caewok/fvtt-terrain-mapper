@@ -432,7 +432,7 @@ export class RegionElevationHandler {
    * @param {RegionMovementWaypoint3d} location      2d location
    * @returns {number} The elevation of the ramp at this location.
    */
-  _rampElevation(waypoint, useSteps = true) {
+  _rampElevation(waypoint, useSteps = true, round = true) {
     /* Example
     10 --> 25
     stepsize 5:
@@ -481,7 +481,8 @@ export class RegionElevationHandler {
 
     // Ramp is basic incline; no steps.
     const delta = plateauElevation - rampFloor;
-    return Math.round(rampFloor + (t0 * delta));
+    const out = rampFloor + (t0 * delta);
+    return round ? Math.round(out) : out;
   }
 
   /**
