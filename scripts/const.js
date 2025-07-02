@@ -68,7 +68,8 @@ export const FLAGS = {
       DIRECTION: "rampDirection",
       STEP_SIZE: "rampStepSize",
       SPLIT_POLYGONS: "splitPolygons"
-    }
+    },
+    WALL_RESTRICTIONS: "wallRestrictions",
   },
 
   TILE: {

@@ -131,7 +131,7 @@ export class RegionElevationHandler {
     switch ( this.algorithm ) {
       case NONE: return location.elevation;
       case PLATEAU: return this.plateauElevation;
-      case RAMP: return this.#rampElevation(location);
+      case RAMP: return this._rampElevation(location);
     }
   }
 
@@ -432,7 +432,7 @@ export class RegionElevationHandler {
    * @param {RegionMovementWaypoint3d} location      2d location
    * @returns {number} The elevation of the ramp at this location.
    */
-  #rampElevation(waypoint) {
+  _rampElevation(waypoint, useSteps = true) {
     /* Example
     10 --> 25
     stepsize 5:
@@ -472,7 +472,7 @@ export class RegionElevationHandler {
     const { rampFloor, plateauElevation } = this;
     if ( t0.almostEqual(0) ) return rampFloor;
     if ( t0.almostEqual(1) ) return plateauElevation;
-    if ( this.rampStepSize ) {
+    if ( useSteps && this.rampStepSize ) {
       const cutPoints = this.getRampCutpoints(poly);
       const nearestPt = cutPoints.findLast(pt => pt.t.almostEqual(t0) || pt.t < t0);
       if ( !nearestPt ) return rampFloor;
