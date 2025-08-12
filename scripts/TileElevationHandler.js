@@ -107,11 +107,13 @@ export class TileElevationHandler {
 
     // Handle 3d case.
     const gridUnitsToPixels = CONFIG.GeometryLib.utils.gridUnitsToPixels;
-    const a = Point3d._tmp.copyFrom(start);
+    const a = Point3d.tmp.copyFrom(start);
     a.z = gridUnitsToPixels(start.elevation);
-    const b = Point3d._tmp2.copyFrom(end);
+    const b = Point3d.tmp.copyFrom(end);
     b.z = gridUnitsToPixels(end.elevation);
-    return this.plane.lineSegmentIntersects(a, b);
+    const out = this.plane.lineSegmentIntersects(a, b);
+    Point3d.release(a, b);
+    return out;
   }
 
   /**
@@ -123,11 +125,13 @@ export class TileElevationHandler {
    */
   lineIntersection(start, end) {
     const gridUnitsToPixels = CONFIG.GeometryLib.utils.gridUnitsToPixels;
-    const a = Point3d._tmp.copyFrom(start);
+    const a = Point3d.tmp.copyFrom(start);
     a.z = gridUnitsToPixels(start.elevation);
-    const b = Point3d._tmp2.copyFrom(end);
+    const b = Point3d.tmp.copyFrom(end);
     b.z = gridUnitsToPixels(end.elevation);
-    return this.plane.lineSegmentIntersection(a, b);
+    const out = this.plane.lineSegmentIntersection(a, b);
+    Point3d.release(a, b);
+    return out;
   }
 
   /**
@@ -295,11 +299,14 @@ export class TileElevationHandler {
         else if ( holeCache._pixelAtLocal(pt.x, pt.y) < targetValue ) isHole = false;
         else {
           const markPixelFn = currPixel => currPixel < targetValue;
-          const edgeDir = PIXI.Point._tmp2.copyFrom(closestEdge.B)
-            .subtract(closestEdge.A, PIXI.Point._tmp3).normalize();
-          const res = holeCache._extractNextMarkedPixelValueAlongLocalRay(
-            PIXI.Point._tmp.copyFrom(closestEdgePt).subtract(edgeDir.multiplyScalar(holeThreshold_1_2)),
-            PIXI.Point._tmp2.copyFrom(closestEdgePt).add(edgeDir.multiplyScalar(holeThreshold_1_2)), markPixelFn);
+          const edgeDir = PIXI.Point.tmp;
+          const tmpA = PIXI.Point.tmp;
+          const tmpB = PIXI.Point.tmp;
+          closestEdge.B.subtract(closestEdge.A, edgeDir).normalize(edgeDir);
+          edgeDir.multiplyScalar(holeThreshold_1_2, edgeDir);
+          closestEdgePt.subtract(edgeDir, tmpA);
+          closestEdgePt.add(edgeDir, tmpB);
+          const res = holeCache._extractNextMarkedPixelValueAlongLocalRay(tmpA, tmpB, markPixelFn);
           isHole = !res;
         }
         if ( !(currHole ^ isHole) ) continue;
@@ -488,8 +495,9 @@ export class TileElevationHandler {
     const drawFn = local
       ? (x, y, color) => Draw.point({x, y}, { color, alpha: 0.8, radius })
       : (x, y, color) => {
-        const canvasPt = holeCache._toCanvasCoordinates(x, y, PIXI.Point._tmp);
+        const canvasPt = holeCache._toCanvasCoordinates(x, y, PIXI.Point.tmp);
         Draw.point(canvasPt, { color, alpha: 0.8, radius });
+        canvasPt.release();
       };
 
     for ( let x = left; x <= right; x += skip ) {

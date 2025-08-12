@@ -33,14 +33,16 @@ async function _animateSegment(wrapped, token, segment, destination, updateOptio
   // Move each piece of the path in turn.
   const delta = PIXI.Point.fromObject(destination).subtract(segment.ray.B);
   let prev = path[0];
+  const newDest = RegionMovementWaypoint3d.tmp;
   for ( let i = 1, n = path.length; i < n; i += 1 ) {
     const curr = path[i];
     segment.ray.A = prev;
     segment.ray.B = curr;
-    const newDest = curr.add(delta, RegionMovementWaypoint3d._tmp);  // Set the path to the top left so token updating works.
+    curr.add(delta, newDest);  // Set the path to the top left so token updating works.
     await wrapped(token, segment, { x: newDest.x, y: newDest.y, elevation: newDest.elevation }, updateOptions);
     prev = curr;
   }
+  newDest.release();
 }
 
 PATCHES.RULER.WRAPS = { _animateSegment };

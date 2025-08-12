@@ -938,15 +938,21 @@ function polygonsIntersections(a, b, combinedPolys, skipPoly) {
  * @returns {Edge|false} The first edge it is on (more than one if on endpoint)
  */
 function pointOnPolygonEdge(a, poly, epsilon = 1e-08) {
-  a = PIXI.Point._tmp.copyFrom(a);
+  a = PIXI.Point.tmp.copyFrom(a);
   for ( const edge of poly.pixiEdges() ) {
     if ( edge.A.almostEqual(edge.B) ) {
       log("pointOnPolygonEdge|A and B are nearly equal");
+      PIXI.Point.release(edge.A, edge.B);
       continue;
     }
     const pt = foundry.utils.closestPointToSegment(a, edge.A, edge.B);
-    if ( a.almostEqual(pt, epsilon) ) return edge;
+    if ( a.almostEqual(pt, epsilon) ) {
+      a.release();
+      return edge;
+    }
+    PIXI.Point.release(edge.A, edge.B);
   }
+  a.release();
   return false;
 }
 

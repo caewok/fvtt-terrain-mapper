@@ -231,7 +231,9 @@ class TrackAndDrawGridSpaces {
    */
   _addPosition(position) {
     const gridCoords = canvas.grid.getOffset(position);
-    const key = PIXI.Point._tmp.copyFrom({ x: gridCoords.i, y: gridCoords.j}).key;
+    const tmpPt = PIXI.Point.tmp.copyFrom({ x: gridCoords.i, y: gridCoords.j});
+    const key = tmpPt.key;
+    tmpPt.release();
     if ( this.gridKeys.has(key) ) return false;
     this.gridKeys.add(key);
     return true;
