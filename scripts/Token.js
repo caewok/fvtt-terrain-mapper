@@ -196,11 +196,11 @@ function _onAnimationUpdate(wrapped, changed, context) {
     : Math.floor(elevDelta * animPercent);
 
   const targetElev = context.to.elevation || 0;
-  // console.log(`_onAnimationUpdate|Document elevation ${this.document.elevation} | targetElevation ${targetElev} | elevDelta ${elevDelta} | elevStep ${elevStep}`);
+  // debug.log(`_onAnimationUpdate|Document elevation ${this.document.elevation} | targetElevation ${targetElev} | elevDelta ${elevDelta} | elevStep ${elevStep}`);
 
   if ( !this.document.elevation.almostEqual(targetElev) ) {
     this.document.elevation = this.document.elevation.toNearest(elevStep);
-    // console.log(`_onAnimationUpdate|\tSet document elevation to ${this.document.elevation}`);
+    // debug.log(`_onAnimationUpdate|\tSet document elevation to ${this.document.elevation}`);
     this.renderFlags.set({ refreshElevation: true });
   } else {
     // Visibility refresh for the token at the new elevation.
