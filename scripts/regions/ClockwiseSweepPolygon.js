@@ -4,6 +4,8 @@ CONFIG,
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
+import { gridUnitsToPixels } from "../geometry/util.js";
+
 /*
 Methods and hooks related to tokens.
 Hook token movement to add/remove terrain effects and pause tokens dependent on settings.
@@ -44,7 +46,6 @@ function _testEdgeInclusion(wrapper, edge, edgeTypes, bounds) {
   if ( elev.a.top == null && elev.a.bottom == null && elev.b.top == null && elev.b.bottom == null ) return true;
 
   // Take the lowest point of the edge top; highest of edge bottom (only relevant when region is a ramp or step).
-  const gridUnitsToPixels = CONFIG.GeometryLib.utils.gridUnitsToPixels;
   const edgeTopZ = gridUnitsToPixels(Math.min(
     elev.a.top ?? Number.POSITIVE_INFINITY,
     elev.b.top ?? Number.POSITIVE_INFINITY

@@ -16,7 +16,10 @@ import { ClipperPaths } from "./geometry/ClipperPaths.js";
 import { RegionElevationHandler } from "./regions/RegionElevationHandler.js";
 import { StraightLinePath } from "./StraightLinePath.js";
 import { RegionMovementWaypoint3d } from "./geometry/3d/RegionMovementWaypoint3d.js";
-import { instanceOrTypeOf } from "./geometry/util.js";
+import { instanceOrTypeOf, gridUnitsToPixels, cutaway } from "./geometry/util.js";
+import { CutawayPolygon } from "./geometry/CutawayPolygon.js";
+import { Draw } from "./geometry/Draw.js";
+import { MatrixFlat } from "./geometry/MatrixFlat.js";
 
 /**
  * Regions elevation handler
@@ -174,11 +177,11 @@ export class ElevationHandler {
     const fnName = flying ? "_constructPathFlying" : burrowing ? "_constructPathBurrowing" : "_constructPathWalking";
     if ( flying && endType !== FLOATING ) {
       const endE = this.nearestGroundElevation(end, { regions, samples });
-      end2d.y = CONFIG.GeometryLib.utils.gridUnitsToPixels(endE);
+      end2d.y = gridUnitsToPixels(endE);
     }
     if ( burrowing && endType !== UNDERGROUND ) {
       const endE = this.nearestGroundElevation(end, { regions, samples });
-      end2d.y = CONFIG.GeometryLib.utils.gridUnitsToPixels(endE);
+      end2d.y = gridUnitsToPixels(endE);
     }
     const waypoints = this[fnName](start2d, end2d, combinedPolys, { start, end });
 
@@ -355,7 +358,7 @@ export class ElevationHandler {
     // If it intersects a polygon to move towards end2d, set that as currEnd.
     // Otherwise move to terrain floor.
     const startType = cutawayElevationType(start2d, combinedPolys);
-    const sceneFloor = CONFIG.GeometryLib.utils.gridUnitsToPixels(this.sceneFloor);
+    const sceneFloor = gridUnitsToPixels(this.sceneFloor);
     let currPosition = start2d;
     let currEnd = end2d;
     let currPoly = null;
@@ -494,13 +497,12 @@ export class ElevationHandler {
     // Determine by examining the cutaways
     const MIN_ELEV = -1e06;
     const sceneFloor = this.sceneFloor;
-    const CutawayPolygon = CONFIG.GeometryLib.CutawayPolygon;
 
     // Determine every intersection point with the cutaways.
     // Intersection here just means the left and right bounds of the cutaway if the cutaway
     // is below or at the scene floor.
 
-    const end2d = CONFIG.GeometryLib.utils.cutaway.to2d(end, start, end);
+    const end2d = cutaway.to2d(end, start, end);
     const ixs = [];
     let inside = 0;
     for ( const cutaway of cutaways ) {
@@ -679,7 +681,7 @@ export class ElevationHandler {
     if ( !instanceOrTypeOf(waypoint, RegionMovementWaypoint3d) ) waypoint = RegionMovementWaypoint3d.fromObject(waypoint);
     if ( !instanceOrTypeOf(start, RegionMovementWaypoint3d) ) start = RegionMovementWaypoint3d.fromObject(start);
     if ( !instanceOrTypeOf(end, RegionMovementWaypoint3d) ) end = RegionMovementWaypoint3d.fromObject(end);
-    return CONFIG.GeometryLib.utils.cutaway.to2d(waypoint, start, end, outPoint);
+    return cutaway.to2d(waypoint, start, end, outPoint);
   }
 
   /**
@@ -694,7 +696,7 @@ export class ElevationHandler {
     if ( !instanceOrTypeOf(start, RegionMovementWaypoint3d) ) start = RegionMovementWaypoint3d.fromObject(start);
     if ( !instanceOrTypeOf(end, RegionMovementWaypoint3d) ) end = RegionMovementWaypoint3d.fromObject(end);
     outPoint ??= new RegionMovementWaypoint3d();
-    CONFIG.GeometryLib.utils.cutaway.from2d(cutawayPt, start, end, outPoint);
+    cutaway.from2d(cutawayPt, start, end, outPoint);
     return outPoint;
   }
 
@@ -711,13 +713,12 @@ export class ElevationHandler {
    * Set min elevation to one grid unit below the scene.
    */
   static drawCutawayPolygon(poly, opts = {}) {
-    const Draw = CONFIG.GeometryLib.Draw;
-    const { convertToDistance, convertToElevation } = CONFIG.GeometryLib.utils.cutaway;
+    const { convertToDistance, convertToElevation } = cutaway;
     opts.color ??= Draw.COLORS.red;
     opts.fill ??= Draw.COLORS.red;
     opts.fillAlpha ??= 0.3;
     const invertedPolyPoints = [];
-    const floor = CONFIG.GeometryLib.utils.gridUnitsToPixels(ElevationHandler.sceneFloor - canvas.dimensions.distance);
+    const floor = gridUnitsToPixels(ElevationHandler.sceneFloor - canvas.dimensions.distance);
     for ( let i = 0, n = poly.points.length; i < n; i += 2 ) {
       const x = poly.points[i];
       const y = poly.points[i+1];
@@ -737,8 +738,7 @@ export class ElevationHandler {
    * For debugging against the cutaway polygon.
    */
   static drawCutawayPath(path, opts = {}) {
-    const Draw = CONFIG.GeometryLib.Draw;
-    const { convertToDistance, convertToElevation } = CONFIG.GeometryLib.utils.cutaway;
+    const { convertToDistance, convertToElevation } = cutaway;
     opts.color ??= Draw.COLORS.blue;
     const start = path[0];
     const end = path.at(-1);
@@ -768,7 +768,6 @@ export class ElevationHandler {
 
   static #drawRegionSegment(segment) {
     const TYPES = CONFIG.Region.objectClass.MOVEMENT_SEGMENT_TYPES;
-    const Draw = CONFIG.GeometryLib.Draw;
     const color = segment.type === TYPES.ENTER
       ? Draw.COLORS.green
       : segment.type === TYPES.MOVE ? Draw.COLORS.orange
@@ -794,7 +793,6 @@ export class ElevationHandler {
    * @param {PathArray<RegionMoveWaypoint>} path
    */
   static drawRegionPath(path, { color } = {}) {
-    const Draw = CONFIG.GeometryLib.Draw;
     color ??= Draw.COLORS.blue;
     for ( let i = 1; i < path.length; i += 1 ) {
       const A = path[i - 1];
@@ -812,9 +810,8 @@ export class ElevationHandler {
    * @param {PathArray<RegionMoveWaypoint>} path
    */
   static drawRegionPathCutaway(path) {
-    const color = CONFIG.GeometryLib.Draw.COLORS.red;
+    const color = Draw.COLORS.red;
     const start = path[0];
-    const gridUnitsToPixels = CONFIG.GeometryLib.utils.gridUnitsToPixels;
     const nSegments = path.length;
     const cutaway = Array(nSegments);
     for ( let i = 0; i < nSegments; i += 1 ) {
@@ -829,7 +826,7 @@ export class ElevationHandler {
       cutaway.forEach(p => p.y = -p.y);
     }
 
-    const mRot = CONFIG.GeometryLib.Matrix.rotationZ(angle, false);
+    const mRot = MatrixFlat.rotationZ(angle, false);
     const delta = {...path[0]};
     cutaway.forEach(p => {
       const tmp = mRot.multiplyPoint2d(p).add(delta);

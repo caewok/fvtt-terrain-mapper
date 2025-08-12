@@ -16,7 +16,7 @@ import { Plane } from "../geometry/3d/Plane.js";
 import { RegionMovementWaypoint3d } from "../geometry/3d/RegionMovementWaypoint3d.js";
 import { Matrix } from "../geometry/Matrix.js";
 import { ElevationHandler } from "../ElevationHandler.js";
-import { instanceOrTypeOf } from "../geometry/util.js";
+import { instanceOrTypeOf, gridUnitsToPixels, pixelsToGridUnits } from "../geometry/util.js";
 
 /**
  * Single region elevation handler
@@ -180,7 +180,6 @@ export class RegionElevationHandler {
    * @returns {Plane} If not a ramp, will return the horizontal plane
    */
   _plateauPlane(minMax) {
-    const gridUnitsToPixels = CONFIG.GeometryLib.utils.gridUnitsToPixels;
     const { plateauElevation, rampFloor } = this;
     if ( this.isPlateau ) return new Plane(new Point3d(0, 0, gridUnitsToPixels(plateauElevation)));
 
@@ -354,8 +353,6 @@ export class RegionElevationHandler {
    * @returns {PIXI.RegionMovementWaypoint3d[]} Array of points from start to end at which elevation changes.
    */
   _rampCutpointsForSegment(a, b, poly) {
-    const RegionMovementWaypoint3d = CONFIG.GeometryLib.threeD.RegionMovementWaypoint3d;
-
     // For each ideal cutpoint on the ramp, intersect the line orthogonal to the ideal cutpoint line
     // at the ideal cutpoint.
     const minMax = this.minMax;
@@ -520,7 +517,6 @@ export class RegionElevationHandler {
    *   - @prop {function} cutPointsFn
    */
   #cutawayOptionFunctions(usePlateauElevation = true) {
-    const { gridUnitsToPixels, pixelsToGridUnits } = CONFIG.GeometryLib.utils;
     const MIN_ELEV = -1e06;
     const MAX_ELEV = 1e06;
     const topE = gridUnitsToPixels(this.region.document.elevation.top ?? MAX_ELEV);
