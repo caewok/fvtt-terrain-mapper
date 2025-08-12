@@ -123,6 +123,26 @@ Hooks.once("ready", () => {
                 (e.g., user canceled) then the token movement will continue across the region.`
         })
 
+        .addEntry({
+            version: "0.4.10",
+            title: "Region walling",
+            body: `\
+                In the region configuration, you now have the option to have regions block
+                sight/sound/light/move/cover. This is mostly intended as a shortcut to walling around
+                regions. Region walls will be set to the region top/bottom elevation or the top plateau
+                if enabled. Use the Wall Height module for now to use these limited height walls.
+
+                I do expect to update Alternative Token Visibility to work with the terrain region walls.
+
+                This version also adds 'CONFIG.terrainmapper.elevationAnimationPercent'
+                (from the browser console or macro), to let you adjust how quickly the elevation animation
+                cycles through the elevation numbers.
+
+                I tried to fix what bugs I could in v12, but many of the more complicated interactions will
+                have to wait until this module is updated for v13, which is next on my list!
+                `
+        })
+
         .build()
         ?.render(true);
 });
