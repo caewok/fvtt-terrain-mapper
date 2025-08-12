@@ -164,8 +164,20 @@ function initializeConfig() {
      * Hook active effect creation and deletion.
      * On AE creation, add stand-alone AEs for statuses in the AE.
      * On AE deletion, remove the stand-alone AEs unless another non-stand-alone AE has that status.
+     * @type {boolean}
      */
-    addStandAloneAEs: true
+    addStandAloneAEs: true,
+
+    /**
+     * When animating an elevation change, what percent of the elevation to move in one frame.
+     * Rounds to nearest integer unless the elevation delta is smaller than 1.
+     *
+     * Example: If moving 30' up, 10% at a time, the elevation counter on the token
+     *          would display 0', 3', 6',... 30'.
+     * Higher percentages make the elevation counter move faster.
+     * @type {number} Between 0 and 1. 0 will be treated as one.
+     */
+    elevationAnimationPercent: 0.25,
 
   };
 
