@@ -1,5 +1,6 @@
 ## 0.4.10
 Fix for permissions error when users load a scene with new tiles. Issue #82.
+Fix wall deletion for the WallTracker. Issue #78.
 
 Update to libGeometry v0.4.1.
 
