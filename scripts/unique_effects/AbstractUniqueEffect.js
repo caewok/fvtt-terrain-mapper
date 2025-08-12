@@ -240,7 +240,12 @@ export class AbstractUniqueEffect {
    */
   async duplicate() {
     const newObj = await this.constructor.create();
-    await newObj.fromJSON(JSON.stringify(this.toJSON()));
+
+    // To avoid having this duplicate be ignored in favor of original, change its uniqueID to match.
+    // Addresses #75.
+    const data = this.toJSON();
+    data.flags[MODULE_ID][FLAGS.UNIQUE_EFFECT.ID] = newObj.uniqueEffectId;
+    await newObj.fromJSON(JSON.stringify(data));
     return newObj;
   }
 
