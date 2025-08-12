@@ -102,7 +102,7 @@ Hooks.on("ready", function(_canvas) {
  */
 Hooks.on("canvasReady", function(_canvas) {
   CONFIG[MODULE_ID].Terrain.transitionTokens(); // Async
-  setDefaultPlaceablesFlags(); // Async.
+  if ( game.user.isGM ) setDefaultPlaceablesFlags(); // Async.
 });
 
 function initializeAPI() {
