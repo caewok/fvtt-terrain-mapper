@@ -1,8 +1,5 @@
 /* globals
-CONFIG,
-FormDataExtended,
-foundry,
-renderTemplate
+game,
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
@@ -67,6 +64,6 @@ function insertPF2e(html, data) {
 /**
  * Insert the html for a SFRPG effect item.
  */
-function insertSFRPG(html, data) {
+function insertSFRPG(_html, _data) {
 
 }

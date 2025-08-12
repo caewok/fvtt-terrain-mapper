@@ -1,6 +1,7 @@
 /* globals
 canvas,
 CONFIG,
+game,
 PIXI,
 PreciseText,
 ui

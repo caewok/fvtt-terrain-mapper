@@ -16,6 +16,7 @@ import { Plane } from "../geometry/3d/Plane.js";
 import { RegionMovementWaypoint3d } from "../geometry/3d/RegionMovementWaypoint3d.js";
 import { Matrix } from "../geometry/Matrix.js";
 import { ElevationHandler } from "../ElevationHandler.js";
+import { instanceOrTypeOf, gridUnitsToPixels, pixelsToGridUnits } from "../geometry/util.js";
 
 /**
  * Single region elevation handler
@@ -131,7 +132,7 @@ export class RegionElevationHandler {
     switch ( this.algorithm ) {
       case NONE: return location.elevation;
       case PLATEAU: return this.plateauElevation;
-      case RAMP: return this.#rampElevation(location);
+      case RAMP: return this._rampElevation(location);
     }
   }
 
@@ -143,8 +144,8 @@ export class RegionElevationHandler {
    * @returns {RegionMovementWaypoint3d|null} The intersection.
    */
   plateauSegmentIntersection(a, b) {
-    if ( !(a instanceof RegionMovementWaypoint3d) ) a = RegionMovementWaypoint3d.fromObject(a);
-    if ( !(b instanceof RegionMovementWaypoint3d) ) b = RegionMovementWaypoint3d.fromObject(b);
+    if ( !instanceOrTypeOf(a, RegionMovementWaypoint3d) ) a = RegionMovementWaypoint3d.fromObject(a);
+    if ( !instanceOrTypeOf(b, RegionMovementWaypoint3d) ) b = RegionMovementWaypoint3d.fromObject(b);
 
     if ( a.equalXY(b) ) {
       // A|b is a vertical line in the z direction.
@@ -179,7 +180,6 @@ export class RegionElevationHandler {
    * @returns {Plane} If not a ramp, will return the horizontal plane
    */
   _plateauPlane(minMax) {
-    const gridUnitsToPixels = CONFIG.GeometryLib.utils.gridUnitsToPixels;
     const { plateauElevation, rampFloor } = this;
     if ( this.isPlateau ) return new Plane(new Point3d(0, 0, gridUnitsToPixels(plateauElevation)));
 
@@ -249,6 +249,7 @@ export class RegionElevationHandler {
    * @param {string} method
    * @returns {object} { result, allHoles }
    */
+  /* Currnetly unusued
   #applyCutawayMethod(method, start, end, usePlateauElevation = true) {
     const result = [];
     let allHoles = true;
@@ -266,6 +267,7 @@ export class RegionElevationHandler {
     }
     return { result, allHoles };
   }
+  */
 
   /**
    * Adjust region movement segments for plateau regions
@@ -351,8 +353,6 @@ export class RegionElevationHandler {
    * @returns {PIXI.RegionMovementWaypoint3d[]} Array of points from start to end at which elevation changes.
    */
   _rampCutpointsForSegment(a, b, poly) {
-    const RegionMovementWaypoint3d = CONFIG.GeometryLib.threeD.RegionMovementWaypoint3d;
-
     // For each ideal cutpoint on the ramp, intersect the line orthogonal to the ideal cutpoint line
     // at the ideal cutpoint.
     const minMax = this.minMax;
@@ -432,7 +432,7 @@ export class RegionElevationHandler {
    * @param {RegionMovementWaypoint3d} location      2d location
    * @returns {number} The elevation of the ramp at this location.
    */
-  #rampElevation(waypoint) {
+  _rampElevation(waypoint, useSteps = true, round = true) {
     /* Example
     10 --> 25
     stepsize 5:
@@ -472,7 +472,7 @@ export class RegionElevationHandler {
     const { rampFloor, plateauElevation } = this;
     if ( t0.almostEqual(0) ) return rampFloor;
     if ( t0.almostEqual(1) ) return plateauElevation;
-    if ( this.rampStepSize ) {
+    if ( useSteps && this.rampStepSize ) {
       const cutPoints = this.getRampCutpoints(poly);
       const nearestPt = cutPoints.findLast(pt => pt.t.almostEqual(t0) || pt.t < t0);
       if ( !nearestPt ) return rampFloor;
@@ -481,7 +481,8 @@ export class RegionElevationHandler {
 
     // Ramp is basic incline; no steps.
     const delta = plateauElevation - rampFloor;
-    return Math.round(rampFloor + (t0 * delta));
+    const out = rampFloor + (t0 * delta);
+    return round ? Math.round(out) : out;
   }
 
   /**
@@ -516,7 +517,6 @@ export class RegionElevationHandler {
    *   - @prop {function} cutPointsFn
    */
   #cutawayOptionFunctions(usePlateauElevation = true) {
-    const { gridUnitsToPixels, pixelsToGridUnits } = CONFIG.GeometryLib.utils;
     const MIN_ELEV = -1e06;
     const MAX_ELEV = 1e06;
     const topE = gridUnitsToPixels(this.region.document.elevation.top ?? MAX_ELEV);
@@ -584,7 +584,7 @@ function insertVerticalMoveToTerrainFloor(i, segments, floor) {
  * - @prop {PIXI.Point} min    Where polygon first intersects the line orthogonal to direction, moving in direction
  * - @prop {PIXI.Point} max    Where polygon last intersects the line orthogonal to direction, moving in direction
  */
-function minMaxPolygonPointsAlongAxis(poly, direction = 0, centroid) { // eslint-disable-line default-param-last
+function minMaxPolygonPointsAlongAxis(poly, direction = 0, centroid) {
   centroid ??= poly.center;
   if ( direction % 90 ) {
     // Rotate the polygon to direction 0 (due south).
@@ -616,7 +616,7 @@ function minMaxPolygonPointsAlongAxis(poly, direction = 0, centroid) { // eslint
  * @param {number} rotation     The amount to rotate clockwise in radians
  * @param {number} [centroid]   Center of the polygon
  */
-function rotatePolygon(poly, rotation = 0, centroid) { // eslint-disable-line default-param-last
+function rotatePolygon(poly, rotation = 0, centroid) {
   if ( !rotation ) return poly;
   centroid ??= poly.center;
 

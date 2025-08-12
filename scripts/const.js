@@ -17,7 +17,7 @@ export const TEMPLATES = {
   ITEM_PF2e: `modules/${MODULE_ID}/templates/item-config-pf2e.html`,
   REGION: `modules/${MODULE_ID}/templates/region-config.html`,
   TILE: `modules/${MODULE_ID}/templates/tile-config.html`
-}
+};
 
 // Track certain modules that complement features of this module.
 export const MODULES_ACTIVE = {
@@ -68,7 +68,8 @@ export const FLAGS = {
       DIRECTION: "rampDirection",
       STEP_SIZE: "rampStepSize",
       SPLIT_POLYGONS: "splitPolygons"
-    }
+    },
+    WALL_RESTRICTIONS: "wallRestrictions",
   },
 
   TILE: {
@@ -114,7 +115,7 @@ export const FA_ICONS = {
 
 export const ICONS = {
   MODULE: "icons/svg/mountain.svg"
-}
+};
 
 export const DEFAULT_FLAGS = {
   TILE: {

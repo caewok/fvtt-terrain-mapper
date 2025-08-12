@@ -57,4 +57,15 @@
     </div>
     <p class="hint">{{ localize "terrainmapper.region-config.splitPolygons.hint" }}</p>
   </div>
+
+  <!-- Wall restriction types used with ATV -->
+  <div class="form-group">
+    <label>{{ localize "terrainmapper.region-config.wallRestrictions.name" }}</label>
+    <div class="form-fields">
+      <multi-checkbox name="flags.terrainmapper.wallRestrictions">
+        {{selectOptions terrainmapper.wallRestrictionChoices selected=source.flags.terrainmapper.wallRestrictions sort=true localize=true}}
+      </multi-checkbox>
+    </div>
+    <p class="hint">{{ localize "terrainmapper.region-config.wallRestrictions.hint"}}
+  </div>
 </section>

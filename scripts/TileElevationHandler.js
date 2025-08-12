@@ -11,9 +11,9 @@ import { Point3d } from "./geometry/3d/Point3d.js";
 import { Plane } from "./geometry/3d/Plane.js";
 import { RegionMovementWaypoint3d } from "./geometry/3d/RegionMovementWaypoint3d.js";
 import { ElevationHandler } from "./ElevationHandler.js";
-import { ClipperPaths } from "./geometry/ClipperPaths.js";
 import { regionWaypointsXYAlmostEqual } from "./util.js";
 import { Draw } from "./geometry/Draw.js";
+import { instanceOrTypeOf, gridUnitsToPixels } from "./geometry/util.js";
 
 /**
  * Single tile elevation handler
@@ -45,7 +45,7 @@ export class TileElevationHandler {
 
   /** @type {Plane} */
   get plane() {
-    return new Plane(new Point3d(0, 0, CONFIG.GeometryLib.utils.gridUnitsToPixels(this.elevation)));
+    return new Plane(new Point3d(0, 0, gridUnitsToPixels(this.elevation)));
   }
 
   /** @type {number} */
@@ -90,8 +90,8 @@ export class TileElevationHandler {
    * @returns {boolean}
    */
   lineSegmentIntersects(start, end) {
-    if ( !(start instanceof RegionMovementWaypoint3d) ) start = RegionMovementWaypoint3d.fromObject(start);
-    if ( !(end instanceof RegionMovementWaypoint3d) ) end = RegionMovementWaypoint3d.fromObject(end);
+    if ( !instanceOrTypeOf(start, RegionMovementWaypoint3d) ) start = RegionMovementWaypoint3d.fromObject(start);
+    if ( !instanceOrTypeOf(end, RegionMovementWaypoint3d) ) end = RegionMovementWaypoint3d.fromObject(end);
 
     // Handle the 2d case.
     if ( start.elevation === end.elevation ) {
@@ -106,12 +106,13 @@ export class TileElevationHandler {
     }
 
     // Handle 3d case.
-    const gridUnitsToPixels = CONFIG.GeometryLib.utils.gridUnitsToPixels;
-    const a = Point3d._tmp.copyFrom(start);
+    const a = Point3d.tmp.copyFrom(start);
     a.z = gridUnitsToPixels(start.elevation);
-    const b = Point3d._tmp2.copyFrom(end);
+    const b = Point3d.tmp.copyFrom(end);
     b.z = gridUnitsToPixels(end.elevation);
-    return this.plane.lineSegmentIntersects(a, b);
+    const out = this.plane.lineSegmentIntersects(a, b);
+    Point3d.release(a, b);
+    return out;
   }
 
   /**
@@ -122,12 +123,13 @@ export class TileElevationHandler {
    * @returns {Point|null}
    */
   lineIntersection(start, end) {
-    const gridUnitsToPixels = CONFIG.GeometryLib.utils.gridUnitsToPixels;
-    const a = Point3d._tmp.copyFrom(start);
+    const a = Point3d.tmp.copyFrom(start);
     a.z = gridUnitsToPixels(start.elevation);
-    const b = Point3d._tmp2.copyFrom(end);
+    const b = Point3d.tmp.copyFrom(end);
     b.z = gridUnitsToPixels(end.elevation);
-    return this.plane.lineSegmentIntersection(a, b);
+    const out = this.plane.lineSegmentIntersection(a, b);
+    Point3d.release(a, b);
+    return out;
   }
 
   /**
@@ -136,7 +138,7 @@ export class TileElevationHandler {
    * @returns {boolean}
    */
   waypointOnTile(a, token) {
-    if ( !(a instanceof RegionMovementWaypoint3d) ) a = RegionMovementWaypoint3d.fromObject(a);
+    if ( !instanceOrTypeOf(a, RegionMovementWaypoint3d) ) a = RegionMovementWaypoint3d.fromObject(a);
     if ( a.elevation !== this.tile.elevationE ) return false;
     if ( !this.tile.bounds.contains(a.x, a.y) ) return false;
     if ( !this.lineSegmentIntersects(
@@ -260,7 +262,6 @@ export class TileElevationHandler {
     // For each pixel along that line, need to get its distance from the perpendicular intersection with the border.
     // Could use a full pixel offset window but that would test a lot of unnecessary pixels.
     // Instead, get perpendicular border intersection and minimum hole value along the border.
-    const bresenhamLineIterator = CONFIG.GeometryLib.utils.bresenhamLineIterator;
     const closestPointToSegment = foundry.utils.closestPointToSegment;
     const CSZ = PIXI.Rectangle.CS_ZONES;
     const edges = {
@@ -295,11 +296,14 @@ export class TileElevationHandler {
         else if ( holeCache._pixelAtLocal(pt.x, pt.y) < targetValue ) isHole = false;
         else {
           const markPixelFn = currPixel => currPixel < targetValue;
-          const edgeDir = PIXI.Point._tmp2.copyFrom(closestEdge.B)
-            .subtract(closestEdge.A, PIXI.Point._tmp3).normalize();
-          const res = holeCache._extractNextMarkedPixelValueAlongLocalRay(
-            PIXI.Point._tmp.copyFrom(closestEdgePt).subtract(edgeDir.multiplyScalar(holeThreshold_1_2)),
-            PIXI.Point._tmp2.copyFrom(closestEdgePt).add(edgeDir.multiplyScalar(holeThreshold_1_2)), markPixelFn);
+          const edgeDir = PIXI.Point.tmp;
+          const tmpA = PIXI.Point.tmp;
+          const tmpB = PIXI.Point.tmp;
+          closestEdge.B.subtract(closestEdge.A, edgeDir).normalize(edgeDir);
+          edgeDir.multiplyScalar(holeThreshold_1_2, edgeDir);
+          closestEdgePt.subtract(edgeDir, tmpA);
+          closestEdgePt.add(edgeDir, tmpB);
+          const res = holeCache._extractNextMarkedPixelValueAlongLocalRay(tmpA, tmpB, markPixelFn);
           isHole = !res;
         }
         if ( !(currHole ^ isHole) ) continue;
@@ -351,7 +355,6 @@ export class TileElevationHandler {
    * @returns {CutawayPolygon[]} The polygon for the cutaway (if any), in an array.
    */
   #cutawayPolygonsNoHoles(start, end) {
-    const gridUnitsToPixels = CONFIG.GeometryLib.utils.gridUnitsToPixels;
     const bounds = this.trimBorder ? this.alphaBorder : this.tile.bounds;
 
     // Give tiles a 1-pixel height so they are proper polygons in the cutaway.
@@ -371,7 +374,6 @@ export class TileElevationHandler {
    * @returns {CutawayPolygon[]} The polygons for the cutaway (if any)
    */
   #cutawayPolygonsHoles(start, end, holeThreshold = 1) {
-    const gridUnitsToPixels = CONFIG.GeometryLib.utils.gridUnitsToPixels;
     const holePositions = this.holePositions(start, end, holeThreshold);
     if ( !holePositions.length ) return [];// Return this.#cutawayPolygonsNoHoles(start, end);
 
@@ -488,8 +490,9 @@ export class TileElevationHandler {
     const drawFn = local
       ? (x, y, color) => Draw.point({x, y}, { color, alpha: 0.8, radius })
       : (x, y, color) => {
-        const canvasPt = holeCache._toCanvasCoordinates(x, y, PIXI.Point._tmp);
+        const canvasPt = holeCache._toCanvasCoordinates(x, y, PIXI.Point.tmp);
         Draw.point(canvasPt, { color, alpha: 0.8, radius });
+        canvasPt.release();
       };
 
     for ( let x = left; x <= right; x += skip ) {

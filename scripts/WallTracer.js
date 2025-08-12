@@ -1,6 +1,5 @@
 /* globals
 CanvasQuadtree,
-ClipperPaths,
 CONFIG,
 CONST,
 foundry,
@@ -19,7 +18,7 @@ import { Draw } from "./geometry/Draw.js";
 import { Graph, GraphVertex, GraphEdge } from "./geometry/Graph.js";
 import { ClipperPaths } from "./geometry/ClipperPaths.js";
 import { Settings } from "./settings.js";
-import { doSegmentsOverlap, IX_TYPES, segmentCollision } from "./geometry/util.js";
+import { doSegmentsOverlap, IX_TYPES, segmentCollision, roundDecimals } from "./geometry/util.js";
 import { MODULE_ID } from "./const.js";
 
 /* WallTracerVertex
@@ -284,7 +283,7 @@ export class WallTracerEdge extends GraphEdge {
    * @returns {PIXI.Point} The point along the wall line. Ratio 0: endpoint A; 1: endpoint B.
    */
   static pointAtEdgeRatio(edgeA, edgeB, edgeT) {
-    edgeT = CONFIG.GeometryLib.utils.roundDecimals(edgeT, WallTracerEdge.PLACES);
+    edgeT = roundDecimals(edgeT, WallTracerEdge.PLACES);
     if ( edgeT.almostEqual(0) ) return edgeA;
     if ( edgeT.almostEqual(1) ) return edgeB;
     return edgeA.projectToward(edgeB, edgeT);
@@ -437,7 +436,7 @@ export class WallTracer extends Graph {
    * @param {WallTracerCollision} c   Collision to group
    * @returns {number} The t0 property, rounded.
    */
-  static _keyGetter(c) { return CONFIG.GeometryLib.utils.roundDecimals(c.t0, WallTracer.PLACES); }
+  static _keyGetter(c) { return roundDecimals(c.t0, WallTracer.PLACES); }
 
   /**
    * Map of a set of edges, keyed to the placeable's id.
@@ -1093,6 +1092,7 @@ function prorateTSplit(firstT, secondT) {
  *   No points are returned if A|B and C|D are not collinear, or if they do not overlap.
  *   A single point is returned if a single endpoint is shared.
  */
+/* Currently unused; keeping incase needed for now.
 function findOverlappingPoints(a, b, c, d) {
   if ( !foundry.utils.orient2dFast(a, b, c).almostEqual(0)
     || !foundry.utils.orient2dFast(a, b, d).almostEqual(0) ) return [];
@@ -1121,4 +1121,5 @@ function findOverlappingPoints(a, b, c, d) {
 
   return [];
 }
+*/
 

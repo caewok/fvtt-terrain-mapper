@@ -103,7 +103,7 @@ export class AbstractUniqueEffect {
 
     // Enforce singleton.
     const instances = this.constructor._instances;
-    if ( instances.has(uniqueEffectId) ) return instances.get(uniqueEffectId); // eslint-disable-line no-constructor-return
+    if ( instances.has(uniqueEffectId) ) return instances.get(uniqueEffectId);
     instances.set(this.uniqueEffectId, this);
   }
 
@@ -240,7 +240,12 @@ export class AbstractUniqueEffect {
    */
   async duplicate() {
     const newObj = await this.constructor.create();
-    await newObj.fromJSON(JSON.stringify(this.toJSON()));
+
+    // To avoid having this duplicate be ignored in favor of original, change its uniqueID to match.
+    // Addresses #75.
+    const data = this.toJSON();
+    data.flags[MODULE_ID][FLAGS.UNIQUE_EFFECT.ID] = newObj.uniqueEffectId;
+    await newObj.fromJSON(JSON.stringify(data));
     return newObj;
   }
 
@@ -411,6 +416,7 @@ export class AbstractUniqueEffect {
    * @returns {AbstractUniqueEffect[]} The trimmed set as an array
    */
   static _trimDuplicates(token, effects) {
+    if ( !(effects instanceof Set) ) effects = new Set(effects);
     const currEffects = new Set(this.allOnToken(token));
     const toAdd = [];
     for ( const effect of effects ) {
@@ -575,7 +581,9 @@ export class AbstractUniqueEffect {
    */
   static allOnToken(token) {
     const instances = [];
-    for ( const doc of this.getTokenStorage(token).values() ) {
+    const store = this.getTokenStorage(token);
+    if ( !store ) return instances;
+    for ( const doc of store.values() ) {
       const uniqueEffectId = doc.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.ID);
       if ( !uniqueEffectId ) continue;
       const instance = this._instances.get(uniqueEffectId);
@@ -835,7 +843,7 @@ export class AbstractUniqueEffect {
  * Handle multiple sheet refreshes by using an async queue.
  * If the actor sheet is rendering, wait for it to finish.
  */
-const sleep = delay => new Promise(resolve => setTimeout(resolve, delay)); // eslint-disable-line no-promise-executor-return
+const sleep = delay => new Promise(resolve => setTimeout(resolve, delay));
 
 const renderQueue = new AsyncQueue();
 

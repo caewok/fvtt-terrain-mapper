@@ -1,4 +1,5 @@
 /* globals
+ActiveEffect,
 CONFIG,
 CONST,
 foundry,
@@ -66,7 +67,7 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
         if ( e.img && e.displayStatusIcon ) datum.statuses.push(e.img);
         return datum;
       });
-    } else if ( !foundry.utils.isEmpty(data) ) dataArray = effects.map(e => data);
+    } else if ( !foundry.utils.isEmpty(data) ) dataArray = effects.map(() => data);
     await createEmbeddedDocuments(token.actor.uuid, "ActiveEffect", uuids, dataArray);
     return true;
   }
@@ -85,11 +86,15 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
       doc.flags[MODULE_ID][FLAGS.UNIQUE_EFFECT.IS_LOCAL] = true;
       foundry.utils.mergeObject(doc, data);
       // Force display of the status icon
+      doc.statuses ??= [];
       if ( token.document.disposition !== CONST.TOKEN_DISPOSITIONS.SECRET
         && effect.img
-        && effect.displayStatusIcon ) doc.statuses = [effect.img];
+        && effect.displayStatusIcon ) doc.statuses.push(effect.img);
 
-      doc._id = foundry.utils.randomID(); // So duplicate effects can be added.
+      // Remove the _id b/c the property might be locked. See PR #44.
+      // Have to define it manually b/c for local docs, foundry will not assign random id. See #46.
+      delete doc._id;
+      doc._id = foundry.utils.randomID();
       const ae = token.actor.effects.createDocument(doc);
       token.actor.effects.set(ae.id, ae);
     }

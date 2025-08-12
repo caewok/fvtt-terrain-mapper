@@ -231,7 +231,9 @@ class TrackAndDrawGridSpaces {
    */
   _addPosition(position) {
     const gridCoords = canvas.grid.getOffset(position);
-    const key = PIXI.Point._tmp.copyFrom({ x: gridCoords.i, y: gridCoords.j}).key;
+    const tmpPt = PIXI.Point.tmp.copyFrom({ x: gridCoords.i, y: gridCoords.j});
+    const key = tmpPt.key;
+    tmpPt.release();
     if ( this.gridKeys.has(key) ) return false;
     this.gridKeys.add(key);
     return true;
@@ -299,9 +301,9 @@ function addShapesToRegion(shapeData, region, color) {
  * @returns {object[]|[]}
  */
 function createRegionShapeData(shape, opts) {
-  if ( shape instanceof ClipperPaths ) {
+  if ( shape.constructor.classTypes && shape.inheritsClassType("Clipper") ) {
     shape = shape.simplify();
-    if ( shape instanceof ClipperPaths ) {
+    if ( shape.constructor.classTypes && shape.inheritsClassType("Clipper") ) {
       const data = [];
       const polyOpts = foundry.utils.duplicate(opts);
       for ( const poly of shape.toPolygons() ) {

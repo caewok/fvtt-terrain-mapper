@@ -1,3 +1,15 @@
+## 0.4.10
+Fix for permissions error when users load a scene with new tiles. Issue #82.
+Fix wall deletion for the WallTracker. Issue #78.
+When duplicating terrain effects, give each a new unique id to avoid having them ignored in favor of original. Issue #75.
+
+### New Features
+Add `CONFIG.terrainmapper.animPercentelevationAnimationPercent` to allow the user to decide how fast the elevation animation should go. Also avoid refreshing visibility in the middle of elevation changes to attempt to speed it up. Issue #75.
+
+Add options to the region config to treat the terrain as having walls that block light/sight/sound/move or provide physical cover.
+
+Update to libGeometry v0.4.2.
+
 ## 0.4.9
 Correct issue preventing editing of multiple wall heights when Wall Height module is active.
 Prevent elevation from dropping to a large negative value when moving into and out of a region hole in one movement. Addresses #61.
@@ -5,7 +17,7 @@ Improvements to how region steps are measured to avoid having the token elevatio
 Change the overlay legend for region steps to vertical bars that slightly increase in width as the steps move up. Addresses #59.
 When a token teleports into a plateau or ramp, set the token elevation to the plateau/ramp height at that location. Will only cause the token to change elevation if the region is active at the starting elevation of the token. Closes #63.
 
-Update to libGeomtry v0.3.17.
+Update to libGeometry v0.3.17.
 
 ## 0.4.8
 Address issues with moving through plateaus with holes. Fix handling of scene floor for regions with holes so that tokens do not "fall through" to large negative elevations and then back. Addresses #64.

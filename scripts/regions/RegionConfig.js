@@ -1,6 +1,7 @@
 /* globals
+CONST,
 foundry,
-Hooks
+Hooks,
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
@@ -64,10 +65,18 @@ async function _preparePartContext(wrapper, partId, context, options) {
   if ( typeof context.region.getFlag(MODULE_ID, FLAGS.REGION.TELEPORT) === "undefined" ) {
     await context.region.setFlag(MODULE_ID, FLAGS.REGION.TELEPORT, true);
   }
+  if ( typeof context.region.getFlag(MODULE_ID, FLAGS.REGION.WALL_RESTRICTIONS) === "undefined" ) {
+    await context.region.setFlag(MODULE_ID, FLAGS.REGION.WALL_RESTRICTIONS, []);
+  }
 
-  // Add in shapes
+
+  // Add in shapes and restriction types.
+  const wallRestrictionChoices = { cover: "cover" };
+  CONST.WALL_RESTRICTION_TYPES.forEach(type => wallRestrictionChoices[type] = type);
+
   context[MODULE_ID] = {
-    algorithmChoices: FLAGS.REGION.LABELS
+    algorithmChoices: FLAGS.REGION.LABELS,
+    wallRestrictionChoices,
   }
   return context;
 }

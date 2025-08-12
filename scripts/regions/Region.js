@@ -1,8 +1,10 @@
 /* globals
 canvas,
+CONFIG,
+CONST,
 foundry,
 Hooks,
-Region
+PIXI,
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
@@ -15,6 +17,7 @@ Hook token movement to add/remove terrain effects and pause tokens dependent on 
 
 import { MODULE_ID, FLAGS } from "../const.js";
 import { RegionElevationHandler } from "./RegionElevationHandler.js";
+import { Ellipse } from "../geometry/Ellipse.js";
 
 export const PATCHES = {};
 PATCHES.REGIONS = {};
@@ -63,6 +66,111 @@ Hooks.on("init", function() {
 });
 
 /**
+ * On initializeEdges, add edges for existing regions.
+ */
+Hooks.on("initializeEdges", function() {
+  canvas.regions.placeables.forEach(region => addEdgesForRegion(region));
+
+  // TODO: Are the canvas regions present by now?
+
+});
+
+/* Region walls
+
+Based on move/sight/light/sound restriction settings.
+Store edges with special types in canvas.edges to label as region walls.
+Any region shape or any region hole shape should have vertical edges.
+For now, assume all region edges block both directions.
+Edges have height set by the region shape and ramp settings. Use wall-height flags.
+*/
+
+function addEdgesForRegion(region) {
+  const restrictions = region.document.getFlag(MODULE_ID, FLAGS.REGION.WALL_RESTRICTIONS) || [];
+  if ( !restrictions.length ) return;
+  const restrictionsObj = {};
+  restrictions.forEach(type => restrictionsObj[type] = CONST.WALL_SENSE_TYPES.NORMAL);
+  delete restrictions.cover;
+  const object = region;
+  const type = "region";
+
+  // Add every edge from every shape in this region to canvas.edges.
+  region.shapes.forEach((shape, shapeIdx) => {
+    const poly = polygonForRegionShape(shape);
+    poly.iterateEdges({ close: true }).forEach((e, edgeIdx) => {
+      const id = `region_${region.id}_shape${shapeIdx}_edge${edgeIdx}`;
+      const edge = new foundry.canvas.edges.Edge(e.A, e.B, { id, type, object, ...restrictionsObj });
+      canvas.edges.set(edge.id, edge);
+    });
+  });
+  canvas.edges.refresh();
+}
+
+function removeEdgesForRegionId(regionId) {
+  for ( const id of canvas.edges.keys() ) {
+    if ( id.startsWith(`region_${regionId}`) ) canvas.edges.delete(id);
+  }
+}
+
+function updateRegionEdgeRestrictions(region) {
+  const restrictions = new Set(region.document.getFlag(MODULE_ID, FLAGS.REGION.WALL_RESTRICTIONS) || []);
+  if ( !restrictions.length ) removeEdgesForRegionId(region.id);
+  const restrictionsObj = {};
+  restrictions.forEach(type => restrictionsObj[type] = CONST.WALL_SENSE_TYPES.NORMAL);
+  delete restrictions.cover;
+  region.shapes.forEach((shape, idx) => {
+    const poly = polygonForRegionShape(shape);
+    for ( let i = 0, iMax = poly.points.length * 0.5; i < iMax; i += 1 ) {
+      const id = `region_${region.id}_shape${idx}_edge${i}`;
+      const edge = canvas.edges.get(id);
+      if ( !edge ) {
+        // 1 or more edges were never entered. Redo all.
+        removeEdgesForRegionId(region.id);
+        addEdgesForRegion(region);
+        return;
+      };
+      for ( const type of CONST.WALL_RESTRICTION_TYPES ) {
+        const value = restrictions.has(type) ? CONST.WALL_SENSE_TYPES.NORMAL : CONST.WALL_SENSE_TYPES.NONE;
+        edge[type] = value;
+      }
+    }
+  });
+}
+
+function polygonForRegionShape(shape) {
+  const pixi = pixiShapeForRegionShape(shape);
+  const poly = pixi.toPolygon();
+  poly.isHole = shape.data.isHole;
+  if ( poly.isHole ^ poly.isClockwise ) poly.reverseOrientation();
+  return poly;
+}
+
+function pixiShapeForRegionShape(shape) {
+  const { type, x, y, width, height, radius, points, radiusX, radiusY } = shape.data;
+  switch ( type ) {
+    case "rectangle": return new PIXI.Rectangle(x, y, width, height);
+    case "circle": return new PIXI.Circle(x, y, radius);
+    case "ellipse": return new Ellipse(x, y, radiusX, radiusY);
+    case "polygon": return new PIXI.Polygon(points);
+    default: console.error(`pixiShapeForRegionShape|shape ${type} not recognized.`);
+  }
+}
+
+/**
+ * Hook createRegion
+ * When the region is constructed, add walls for any shapes.
+ * @event createDocument
+ * @category Document
+ * @param {Document} document                       The new Document instance which has been created
+ * @param {Partial<DatabaseCreateOperation>} options Additional options which modified the creation request
+ * @param {string} userId                           The ID of the User who triggered the creation workflow
+ */
+function createRegion(regionDoc, _options, _userId) {
+  const region = regionDoc.object;
+  if ( !region ) return;
+  addEdgesForRegion(region);
+}
+
+/**
  * Hook updateRegion
  * If the region changes, clear the region cache and update the mesh.
  * @param {Document} document                       The existing Document which was updated
@@ -74,17 +182,32 @@ function updateRegion(regionDoc, changed, _options, _userId) {
   // Refresh the hashing display for the region.
   const region = regionDoc.object;
   if ( !region ) return;
-  if ( foundry.utils.hasProperty(changed, `flags.${MODULE_ID}`) ) region.renderFlags.set({ "refreshTerrainMapperMesh": true });
+  if ( foundry.utils.hasProperty(changed, `flags.${MODULE_ID}`) ) region.renderFlags.set({ refreshTerrainMapperMesh: true });
 
   // Clear the cache used to calculate ramp properties.
   if ( Object.hasOwn(changed, "shapes")
-      || foundry.utils.hasProperty(changed, `flags.${MODULE_ID}.${FLAGS.REGION.RAMP.DIRECTION}`) ) region[MODULE_ID].clearCache();;
+    || foundry.utils.hasProperty(changed, `flags.${MODULE_ID}.${FLAGS.REGION.RAMP.DIRECTION}`) ) region[MODULE_ID].clearCache();
 
+  if ( Object.hasOwn(changed, "shapes") ) {
+    removeEdgesForRegionId(region.id); // No way to easily determine if some shapes have not changed.
+    addEdgesForRegion(region);
+  } else if ( foundry.utils.hasProperty(changed, `flags.${MODULE_ID}.${FLAGS.REGION.WALL_RESTRICTIONS}`) ) updateRegionEdgeRestrictions(region);
 }
 
-PATCHES.REGIONS.HOOKS = { updateRegion };
+/**
+ * Hook deleteRegion.
+ * Remove edges associated with the region.
+ * @event deleteDocument
+ * @category Document
+ * @param {Document} document                       The existing Document which was deleted
+ * @param {Partial<DatabaseDeleteOperation>} options Additional options which modified the deletion request
+ * @param {string} userId                           The ID of the User who triggered the deletion workflow
+ */
+function deleteRegion(regionDoc, _options, _userId) {
+  removeEdgesForRegionId(regionDoc.id);
+}
 
-
+PATCHES.REGIONS.HOOKS = { createRegion, updateRegion, deleteRegion };
 
 // ----- NOTE: Wraps ----- //
 
@@ -129,6 +252,7 @@ async function _draw(wrapped, options) {
  * - @prop {number} hatchY
  */
 function calculateHatchXY(direction) {
+  // Examples:
   // hatchX = 1, hatchY = 0: vertical stripes.
   // hatchX = 0, hatchY = 1: horizontal stripes.
   // hatchX === hatchY: 45º stripes, running SW to NE
@@ -200,6 +324,7 @@ function _refreshTerrainMapperMesh() {
   // Only change the mesh for plateaus and ramps.
   if ( !this[MODULE_ID].isElevated ) return;
 
+  // Definitions:
   // insetPercentage: Rectangular edge portion. 0.5 covers the entire space (inset from region border on each side).
   // hatchX, hatchY: Controls direction of the hatching except for the inset border.
   // insetBorderThickness: Separate control over the inset border hatching.
@@ -230,7 +355,7 @@ function _refreshTerrainMapperMesh() {
   mesh.shader.uniforms.hatchY = hatchY;
   mesh.shader.uniforms.hatchThickness = hatchThickness;
   mesh.shader.uniforms.insetPercentage = insetPercentage;
-  mesh.shader.uniforms.insetBorderThickness = insetBorderThickness
+  mesh.shader.uniforms.insetBorderThickness = insetBorderThickness;
   mesh.shader.uniforms.variableHatchThickness = variableHatchThickness;
 }
 
