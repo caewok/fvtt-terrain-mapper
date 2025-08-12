@@ -1,4 +1,5 @@
 /* globals
+HighlightRegionShader,
 Hooks,
 PIXI,
 */
@@ -9,7 +10,6 @@ PIXI,
 // Modify HighlightRegionShader so the hatch direction can be manipulated
 
 Hooks.on("init", function() {
-  const HighlightRegionShader = {};
 
   HighlightRegionShader.vertexShader = `\
     precision ${PIXI.settings.PRECISION_VERTEX} float;
@@ -151,7 +151,7 @@ Hooks.on("init", function() {
     }
   `;
 
-
+  HighlightRegionShader.defaultUniforms ??= {};
   HighlightRegionShader.defaultUniforms.hatchX = 1;
   HighlightRegionShader.defaultUniforms.hatchY = 1;
   HighlightRegionShader.defaultUniforms.insetPercentage = 0;
