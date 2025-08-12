@@ -34,7 +34,7 @@
   "terrainmapper.region-config.splitPolygons.hint": "When enabled, each non-hole region polygon will be their own ramp, from lowest to highest elevation. When disabled, all non-hole polygons are considered one ramp, defined by their combined bounds.",
 
   "terrainmapper.region-config.wallRestrictions.name": "Wall Restriction Types",
-  "terrainmapper.region-config.wallRestrictions.hint": "When enabled, the region will act like a wall, blocking the selected type(s) of source. This also affects Alternative Token Visibility and Alternative Token Cover, if those modules are enabled. The 'move' type is used by those modules but does not prevent token movement into the region.",
+  "terrainmapper.region-config.wallRestrictions.hint": "When enabled, the region will act like a wall, blocking the selected type(s) of sources. 'Cover' is meant to allow modules to treat the region like physical cover without actually blocking token movement.",
 
   "terrainmapper.tile-config.isFloor.name": "Treat as Floor",
   "terrainmapper.tile-config.isFloor.hint": "When enabled, tile will be treated as a solid floor (ground) when moving tokens.",
