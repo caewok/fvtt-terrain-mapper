@@ -186,10 +186,7 @@ function _onAnimationUpdate(wrapped, changed, context) {
 
   // Determine the total elevation delta and target elevation in order to set an appropriate elevation shift.
   const anim = CanvasAnimation.animations[this.animationName];
-  if ( !anim ) {
-    console.log("_onAnimationUpdate|No animation but elevation changed.");
-    return;
-  }
+  if ( !anim ) return;
 
   // Prefer integers unless elevation delta is very small. Prefer stepping by canvas grid if sufficiently large delta.
   const animPercent = CONFIG[MODULE_ID].elevationAnimationPercent || 1;
@@ -199,11 +196,11 @@ function _onAnimationUpdate(wrapped, changed, context) {
     : Math.floor(elevDelta * animPercent);
 
   const targetElev = context.to.elevation || 0;
-  console.log(`_onAnimationUpdate|Document elevation ${this.document.elevation} | targetElevation ${targetElev} | elevDelta ${elevDelta} | elevStep ${elevStep}`);
+  // console.log(`_onAnimationUpdate|Document elevation ${this.document.elevation} | targetElevation ${targetElev} | elevDelta ${elevDelta} | elevStep ${elevStep}`);
 
   if ( !this.document.elevation.almostEqual(targetElev) ) {
     this.document.elevation = this.document.elevation.toNearest(elevStep);
-    console.log(`_onAnimationUpdate|\tSet document elevation to ${this.document.elevation}`);
+    // console.log(`_onAnimationUpdate|\tSet document elevation to ${this.document.elevation}`);
     this.renderFlags.set({ refreshElevation: true });
   } else {
     // Visibility refresh for the token at the new elevation.
