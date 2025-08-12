@@ -1,6 +1,6 @@
 /* globals
-canvas,
-Terrain
+Actor,
+CONFIG,
 */
 "use strict";
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
@@ -22,7 +22,7 @@ PATCHES.BASIC = {};
  * @param {string} userId                         The ID of the requesting user, always game.user.id
  * @returns {boolean|void}                        Explicitly return false to prevent creation of this Document
  */
-function preCreateActiveEffect(document, data, options, userId) {
+function preCreateActiveEffect(document, _data, _options, _userId) {
   const uniqueEffectId = document.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.ID);
   if ( !uniqueEffectId
     || document.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.TYPE) !== "Terrain"
@@ -45,7 +45,7 @@ function preCreateActiveEffect(document, data, options, userId) {
  * @param {Partial<DatabaseCreateOperation>} options Additional options which modified the creation request
  * @param {string} userId                           The ID of the User who triggered the creation workflow
  */
-function createActiveEffect(document, options, userId) {
+function createActiveEffect(document, _options, _userId) {
   const actor = document.parent;
   if ( !CONFIG[MODULE_ID].addStandAloneAEs || !document.statuses || !isFirstGM || !(actor instanceof Actor) ) return;
   if ( isStandAloneEffect(document) ) return;
@@ -72,7 +72,7 @@ function isStandAloneEffect(effect) {
  * @param {Partial<DatabaseCreateOperation>} options Additional options which modified the creation request
  * @param {string} userId                           The ID of the User who triggered the creation workflow
  */
-function deleteActiveEffect(document, options, userId) {
+function deleteActiveEffect(document, _options, _userId) {
   const actor = document.parent;
   if ( !CONFIG[MODULE_ID].addStandAloneAEs || !document.statuses || !isFirstGM || !(actor instanceof Actor) ) return;
   if ( isStandAloneEffect(document) ) return;

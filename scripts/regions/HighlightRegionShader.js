@@ -1,7 +1,6 @@
 /* globals
-canvas,
+Hooks,
 PIXI,
-Region
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
@@ -10,6 +9,8 @@ Region
 // Modify HighlightRegionShader so the hatch direction can be manipulated
 
 Hooks.on("init", function() {
+  const HighlightRegionShader = {};
+
   HighlightRegionShader.vertexShader = `\
     precision ${PIXI.settings.PRECISION_VERTEX} float;
 

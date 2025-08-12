@@ -5,6 +5,7 @@ CONFIG,
 CONST,
 game,
 foundry,
+KeyboardManager,
 PIXI,
 Region
 */

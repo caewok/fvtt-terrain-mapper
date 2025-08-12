@@ -44,7 +44,7 @@ export function defaultTerrains() {
  */
 export async function loadDefaultTerrainJSONs(paths) {
   // Load the JSONs
-  const promises = []
+  const promises = [];
   for ( const path of paths ) promises.push(foundry.utils.fetchJsonWithTimeout(path));
   const jsonData = (await Promise.allSettled(promises)).map(p => p.value);
 

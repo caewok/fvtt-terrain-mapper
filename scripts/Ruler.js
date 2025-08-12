@@ -1,7 +1,7 @@
 /* globals
-CanvasAnimation,
 game,
-ui
+PIXI,
+ui,
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 

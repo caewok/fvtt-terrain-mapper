@@ -4,7 +4,6 @@ CONFIG,
 game,
 Handlebars,
 PIXI,
-renderTemplate
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
@@ -100,8 +99,7 @@ export function groupBy(list, keyGetter) {
 export function gridShapeFromGridCoords(gridCoords) {
   const tl = canvas.grid.getTopLeftPoint(gridCoords);
   if ( canvas.grid.isHexagonal ) return hexGridShape(tl.x, tl.y);
-  return squareGridShape(tl.x, tl.y)
-
+  return squareGridShape(tl.x, tl.y);
 }
 
 /**
@@ -169,7 +167,7 @@ export function renderTemplateSync(path, data) {
  * Locates a single active gm.
  * @returns {User|undefined}
  */
-export function firstGM() { return game.users?.find((u) => u.isGM && u.active); }
+export function firstGM() { return game.users?.find(u => u.isGM && u.active); }
 
 /**
  * Is the current user the first active GM user?
@@ -243,7 +241,6 @@ export function elevatedTiles(tiles) {
  */
 export function tokenIsFlying(token, loc) {
   const actor = token.actor;
-  const types = new Set();
   if ( game.system.id === "dnd5e" && actor ) return actor.statuses.has("flying") || actor.statuses.has("hovering");
   return ElevationHandler.elevationType(loc, token) === ElevationHandler.ELEVATION_LOCATIONS.FLOATING;
 }
@@ -256,7 +253,6 @@ export function tokenIsFlying(token, loc) {
  */
 export function tokenIsBurrowing(token, loc) {
   const actor = token.actor;
-  const types = new Set();
   if ( game.system.id === "dnd5e" && actor ) return actor.statuses.has("burrowing");
   return ElevationHandler.elevationType(loc, token) === ElevationHandler.ELEVATION_LOCATIONS.BURROWING;
 }

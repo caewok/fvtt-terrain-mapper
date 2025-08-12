@@ -111,7 +111,7 @@ function removeEdgesForRegionId(regionId) {
 }
 
 function updateRegionEdgeRestrictions(region) {
-  const restrictions = new Set(region.document.getFlag(MODULE_ID, FLAGS.REGION.WALL_RESTRICTIONS)) || [];
+  const restrictions = new Set(region.document.getFlag(MODULE_ID, FLAGS.REGION.WALL_RESTRICTIONS) || []);
   if ( !restrictions.length ) removeEdgesForRegionId(region.id);
   const restrictionsObj = {};
   restrictions.forEach(type => restrictionsObj[type] = CONST.WALL_SENSE_TYPES.NORMAL);

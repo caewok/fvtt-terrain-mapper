@@ -11,7 +11,6 @@ import { Point3d } from "./geometry/3d/Point3d.js";
 import { Plane } from "./geometry/3d/Plane.js";
 import { RegionMovementWaypoint3d } from "./geometry/3d/RegionMovementWaypoint3d.js";
 import { ElevationHandler } from "./ElevationHandler.js";
-import { ClipperPaths } from "./geometry/ClipperPaths.js";
 import { regionWaypointsXYAlmostEqual } from "./util.js";
 import { Draw } from "./geometry/Draw.js";
 

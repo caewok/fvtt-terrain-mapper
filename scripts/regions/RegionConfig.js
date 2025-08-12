@@ -1,6 +1,7 @@
 /* globals
+CONST,
 foundry,
-Hooks
+Hooks,
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";

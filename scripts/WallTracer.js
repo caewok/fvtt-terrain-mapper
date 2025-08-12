@@ -1,6 +1,5 @@
 /* globals
 CanvasQuadtree,
-ClipperPaths,
 CONFIG,
 CONST,
 foundry,
@@ -1093,6 +1092,7 @@ function prorateTSplit(firstT, secondT) {
  *   No points are returned if A|B and C|D are not collinear, or if they do not overlap.
  *   A single point is returned if a single endpoint is shared.
  */
+/* Currently unused; keeping incase needed for now.
 function findOverlappingPoints(a, b, c, d) {
   if ( !foundry.utils.orient2dFast(a, b, c).almostEqual(0)
     || !foundry.utils.orient2dFast(a, b, d).almostEqual(0) ) return [];
@@ -1121,4 +1121,5 @@ function findOverlappingPoints(a, b, c, d) {
 
   return [];
 }
+*/
 

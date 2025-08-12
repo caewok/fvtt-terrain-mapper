@@ -417,7 +417,7 @@ export class ElevationHandler {
             currPoly = firstIx.poly;
             currEnd = firstIx.edge.B;
             const currPolyPts = currPoly.pixiPoints({ close: false });
-            currPolyIndex = currPolyPts.findIndex(pt => pt.almostEqual(currEnd)); // eslint-disable-line no-loop-func
+            currPolyIndex = currPolyPts.findIndex(pt => pt.almostEqual(currEnd));
           } else {
             currEnd = new PIXI.Point(currPosition.x, sceneFloor);
             currPoly = null;
@@ -454,7 +454,7 @@ export class ElevationHandler {
         currPoly = firstIx.poly;
         currEnd = firstIx.edge.B;
         const currPolyPts = currPoly.pixiPoints({ close: false });
-        currPolyIndex = currPolyPts.findIndex(pt => pt.almostEqual(currEnd));  // eslint-disable-line no-loop-func
+        currPolyIndex = currPolyPts.findIndex(pt => pt.almostEqual(currEnd));
         continue;
       }
 

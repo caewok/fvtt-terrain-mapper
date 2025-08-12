@@ -1,11 +1,13 @@
 /* globals
 CONST,
-foundry
+foundry,
+game,
+Region,
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { MODULE_ID, MODULES_ACTIVE } from "../const.js";
+import { MODULE_ID } from "../const.js";
 import { log } from "../util.js";
 import { ElevationHandler } from "../ElevationHandler.js";
 import { continueTokenAnimationForBehavior } from "./StairsRegionBehaviorType.js";

@@ -1,6 +1,8 @@
 /* globals
+Dialog,
 Hooks,
-game
+game,
+showdown,
 */
 "use strict";
 

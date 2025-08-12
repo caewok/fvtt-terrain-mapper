@@ -1,5 +1,4 @@
 /* globals
-CONFIG,
 game,
 ItemDirectory
 */
@@ -64,7 +63,6 @@ export class Settings extends ModuleSettingsAbstract {
    */
   static registerAll() {
     const KEYS = this.KEYS;
-    const localize = key => game.i18n.localize(`${MODULE_ID}.settings.${key}`);
 
     // ----- NOTE: Hidden settings ----- //
     this.register(KEYS.UNIQUE_EFFECTS_FLAGS_DATA, {

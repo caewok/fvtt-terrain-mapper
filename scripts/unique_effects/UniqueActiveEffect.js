@@ -1,4 +1,5 @@
 /* globals
+ActiveEffect,
 CONFIG,
 CONST,
 foundry,
@@ -66,7 +67,7 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
         if ( e.img && e.displayStatusIcon ) datum.statuses.push(e.img);
         return datum;
       });
-    } else if ( !foundry.utils.isEmpty(data) ) dataArray = effects.map(e => data);
+    } else if ( !foundry.utils.isEmpty(data) ) dataArray = effects.map(() => data);
     await createEmbeddedDocuments(token.actor.uuid, "ActiveEffect", uuids, dataArray);
     return true;
   }

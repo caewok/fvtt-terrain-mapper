@@ -249,6 +249,7 @@ export class RegionElevationHandler {
    * @param {string} method
    * @returns {object} { result, allHoles }
    */
+  /* Currnetly unusued
   #applyCutawayMethod(method, start, end, usePlateauElevation = true) {
     const result = [];
     let allHoles = true;
@@ -266,6 +267,7 @@ export class RegionElevationHandler {
     }
     return { result, allHoles };
   }
+  */
 
   /**
    * Adjust region movement segments for plateau regions
@@ -585,7 +587,7 @@ function insertVerticalMoveToTerrainFloor(i, segments, floor) {
  * - @prop {PIXI.Point} min    Where polygon first intersects the line orthogonal to direction, moving in direction
  * - @prop {PIXI.Point} max    Where polygon last intersects the line orthogonal to direction, moving in direction
  */
-function minMaxPolygonPointsAlongAxis(poly, direction = 0, centroid) { // eslint-disable-line default-param-last
+function minMaxPolygonPointsAlongAxis(poly, direction = 0, centroid) {
   centroid ??= poly.center;
   if ( direction % 90 ) {
     // Rotate the polygon to direction 0 (due south).
@@ -617,7 +619,7 @@ function minMaxPolygonPointsAlongAxis(poly, direction = 0, centroid) { // eslint
  * @param {number} rotation     The amount to rotate clockwise in radians
  * @param {number} [centroid]   Center of the polygon
  */
-function rotatePolygon(poly, rotation = 0, centroid) { // eslint-disable-line default-param-last
+function rotatePolygon(poly, rotation = 0, centroid) {
   if ( !rotation ) return poly;
   centroid ??= poly.center;
 
