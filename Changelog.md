@@ -1,7 +1,8 @@
 ## 0.4.10
 Fix for permissions error when users load a scene with new tiles. Issue #82.
 Fix wall deletion for the WallTracker. Issue #78.
-Add `CONFIG.terrainmapper.animPercentelevationAnimationPercent` to allow the user to decide how fast the elevation animation should go. Issue #75.
+Add `CONFIG.terrainmapper.animPercentelevationAnimationPercent` to allow the user to decide how fast the elevation animation should go. Also avoid refreshing visibility in the middle of elevation changes to attempt to speed it up. Issue #75.
+When duplicating terrain effects, give each a new unique id to avoid having them ignored in favor of original. Issue #75.
 
 Update to libGeometry v0.4.2.
 
