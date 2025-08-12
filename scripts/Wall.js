@@ -72,7 +72,7 @@ function updateWall(wallD, changes, _options, _userId) {
  */
 function deleteWall(wallD, _options, _userId) {
   // The document.object is now null; use the id to remove the wall.
-  SCENE_GRAPH.removeWall(document.id);
+  SCENE_GRAPH.removeWall(wallD.id);
   SCENE_GRAPH.updateCyclePolygons();
 }
 
