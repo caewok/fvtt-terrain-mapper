@@ -186,22 +186,23 @@ function _onAnimationUpdate(wrapped, changed, context) {
 
   // Determine the total elevation delta and target elevation in order to set an appropriate elevation shift.
   const anim = CanvasAnimation.animations[this.animationName];
+  if ( !anim ) return;
+
+  // Prefer integers unless elevation delta is very small. Prefer stepping by canvas grid if sufficiently large delta.
+  const animPercent = CONFIG[MODULE_ID].elevationAnimationPercent || 1;
+  const elevDelta = Math.abs(anim.attributes.find(a => a.attribute === "elevation")?.delta ?? 1);
+  const elevStep = elevDelta < 1
+    ? Math.floor(elevDelta * animPercent * 10) / 10 // Round to nearest 0.1.
+    : Math.floor(elevDelta * animPercent);
+
   const targetElev = context.to.elevation || 0;
-  let elevStep = 1;
-  if ( anim ) {
-    // Prefer integers unless elevation delta is very small. Prefer stepping by canvas grid if sufficiently large delta.
-    const elevDelta = Math.abs(anim.attributes.find(a => a.attribute === "elevation")?.delta ?? 1);
-    if ( elevDelta < 1 ) elevStep = 0.1;
-    else if ( elevDelta < canvas.grid.distance ) elevStep = 1;
-    else elevStep = Math.floor(canvas.grid.distance);
-  }
   if ( !this.document.elevation.almostEqual(targetElev) ) {
     this.document.elevation = this.document.elevation.toNearest(elevStep);
-  }
 
-  // Visibility refresh for the token at the new elevation.
-  this.renderFlags.set({ refreshElevation: true, refreshVisibility: true });
-  this.initializeSources();
+    // Visibility refresh for the token at the new elevation.
+    this.renderFlags.set({ refreshElevation: true, refreshVisibility: true });
+    this.initializeSources();
+  }
 }
 
 /**
