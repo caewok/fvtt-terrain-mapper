@@ -17,6 +17,7 @@ Hook token movement to add/remove terrain effects and pause tokens dependent on 
 
 import { MODULE_ID, FLAGS } from "../const.js";
 import { RegionElevationHandler } from "./RegionElevationHandler.js";
+import { Ellipse } from "../geometry/Ellipse.js";
 
 export const PATCHES = {};
 PATCHES.REGIONS = {};
@@ -111,7 +112,7 @@ function removeEdgesForRegionId(regionId) {
 }
 
 function updateRegionEdgeRestrictions(region) {
-  const restrictions = new Set(region.document.getFlag(MODULE_ID, FLAGS.REGION.WALL_RESTRICTIONS)) || [];
+  const restrictions = new Set(region.document.getFlag(MODULE_ID, FLAGS.REGION.WALL_RESTRICTIONS) || []);
   if ( !restrictions.length ) removeEdgesForRegionId(region.id);
   const restrictionsObj = {};
   restrictions.forEach(type => restrictionsObj[type] = CONST.WALL_SENSE_TYPES.NORMAL);
@@ -148,7 +149,7 @@ function pixiShapeForRegionShape(shape) {
   switch ( type ) {
     case "rectangle": return new PIXI.Rectangle(x, y, width, height);
     case "circle": return new PIXI.Circle(x, y, radius);
-    case "ellipse": return new CONFIG.GeometryLib.Ellipse(x, y, radiusX, radiusY);
+    case "ellipse": return new Ellipse(x, y, radiusX, radiusY);
     case "polygon": return new PIXI.Polygon(points);
     default: console.error(`pixiShapeForRegionShape|shape ${type} not recognized.`);
   }

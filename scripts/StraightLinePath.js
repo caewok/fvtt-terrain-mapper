@@ -1,6 +1,7 @@
 /* globals
+CONFIG,
+foundry,
 PIXI,
-Region
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 

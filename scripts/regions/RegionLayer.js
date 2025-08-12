@@ -301,9 +301,9 @@ function addShapesToRegion(shapeData, region, color) {
  * @returns {object[]|[]}
  */
 function createRegionShapeData(shape, opts) {
-  if ( shape instanceof ClipperPaths ) {
+  if ( shape.constructor.classTypes && shape.inheritsClassType("Clipper") ) {
     shape = shape.simplify();
-    if ( shape instanceof ClipperPaths ) {
+    if ( shape.constructor.classTypes && shape.inheritsClassType("Clipper") ) {
       const data = [];
       const polyOpts = foundry.utils.duplicate(opts);
       for ( const poly of shape.toPolygons() ) {

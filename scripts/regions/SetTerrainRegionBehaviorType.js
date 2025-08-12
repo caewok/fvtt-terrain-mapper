@@ -67,8 +67,6 @@ export class SetTerrainRegionBehaviorType extends TerrainRegionBehaviorType {
     await Terrain.addToToken(token, terrainsToAdd, { origin: this.behavior.uuid });
   }
 
-  static #pendingRemovals = new Set();
-
   static async #onTokenExit(event) {
     log(`Token ${event.data.token.name} exiting ${event.region.name}!`);
     if ( !isFirstGM() ) return;
@@ -102,6 +100,7 @@ export class SetTerrainRegionBehaviorType extends TerrainRegionBehaviorType {
  * @param {Token } token
  * @returns {Set<Terrain>}
  */
+ /* Currently unused
 function getAllRegionTerrainsForToken(token) {
   const Terrain = CONFIG[MODULE_ID].Terrain;
   const terrains = new Set();
@@ -116,3 +115,4 @@ function getAllRegionTerrainsForToken(token) {
   }
   return terrains;
 }
+*/

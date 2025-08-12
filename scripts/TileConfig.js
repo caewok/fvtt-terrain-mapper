@@ -1,10 +1,10 @@
 /* globals
-Hooks
+
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { MODULE_ID, FLAGS, TEMPLATES } from "./const.js";
+import { TEMPLATES } from "./const.js";
 import { injectConfigurationSync } from "./util.js";
 
 

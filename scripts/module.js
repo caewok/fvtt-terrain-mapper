@@ -27,14 +27,10 @@ import { StraightLinePath } from "./StraightLinePath.js";
 
 // Elevation
 import { ElevationHandler } from "./ElevationHandler.js";
-import { HoleDetector } from "./TileElevationHandler.js";
 
 // Unique Terrain Effects
 import { TerrainActiveEffect, TerrainItemEffect, TerrainFlagEffect, TerrainPF2E } from "./terrain_unique_effects.js";
 import { defaultTerrains } from "./default_terrains.js";
-
-// import { BlendFilter } from "./pixi-picture/BlendFilter.js";
-// import { applyMixins } from "./pixi-picture/FilterSystemMixin.js";
 
 // Self-executing hooks.
 import "./changelog.js";
@@ -52,23 +48,21 @@ Hooks.once("init", function() {
   Settings.registerAll();
 
   Object.assign(CONFIG.RegionBehavior.dataModels, {
-//     [`${MODULE_ID}.addTerrain`]: AddTerrainRegionBehaviorType,
-//     [`${MODULE_ID}.removeTerrain`]: RemoveTerrainRegionBehaviorType,
+  //     [`${MODULE_ID}.addTerrain`]: AddTerrainRegionBehaviorType,
+  //     [`${MODULE_ID}.removeTerrain`]: RemoveTerrainRegionBehaviorType,
     [`${MODULE_ID}.setTerrain`]: SetTerrainRegionBehaviorType,
     [`${MODULE_ID}.setElevation`]: StairsRegionBehaviorType,
     [`${MODULE_ID}.elevator`]: ElevatorRegionBehaviorType
   });
 
-//   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.addTerrain`] = FA_ICONS.MODULE;
-//   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.removeTerrain`] = FA_ICONS.MODULE;
+  //   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.addTerrain`] = FA_ICONS.MODULE;
+  //   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.removeTerrain`] = FA_ICONS.MODULE;
   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.setTerrain`] = FA_ICONS.MODULE;
   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.setElevation`] = FA_ICONS.STAIRS;
   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.elevator`] = FA_ICONS.ELEVATOR;
 
-
-
   // Must go at end?
-  loadTemplates(Object.values(TEMPLATES)).then(_value => log(`Templates loaded.`));
+  loadTemplates(Object.values(TEMPLATES)).then(_value => log("Templates loaded."));
 });
 
 /**
@@ -106,7 +100,7 @@ Hooks.on("canvasReady", function(_canvas) {
 });
 
 function initializeAPI() {
-  const api = game.modules.get(MODULE_ID).api = {
+  game.modules.get(MODULE_ID).api = {
     Settings,
     PATCHER,
     WallTracerEdge,
@@ -225,7 +219,7 @@ function regionElevationAtPoint(location, {
   });
   if ( isFinite(maxElevation) ) elevationRegions = elevationRegions.filter(region => {
     const bottom = region.document?.elevation?.bottom;
-    bottom == null || bottom >= minElevation;
+    return bottom == null || bottom >= minElevation;
   });
   elevationRegions = elevationRegions.filter(region => region.testPoint(location, fixedElevation));
   if ( !elevationRegions.length ) return undefined;
@@ -257,7 +251,6 @@ async function setDefaultPlaceablesFlags() {
   const promises = [];
   for ( const tile of canvas.tiles.placeables ) {
     for ( const [key, defaultValue] of Object.entries(DEFAULT_FLAGS.TILE) ) {
-      const flag = `flags.${MODULE_ID}.${key}`;
       if ( typeof tile.document.getFlag(MODULE_ID, key) !== "undefined" ) continue;
       promises.push(tile.document.setFlag(MODULE_ID, key, defaultValue));
     }

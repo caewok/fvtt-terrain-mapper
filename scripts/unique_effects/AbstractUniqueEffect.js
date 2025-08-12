@@ -103,7 +103,7 @@ export class AbstractUniqueEffect {
 
     // Enforce singleton.
     const instances = this.constructor._instances;
-    if ( instances.has(uniqueEffectId) ) return instances.get(uniqueEffectId); // eslint-disable-line no-constructor-return
+    if ( instances.has(uniqueEffectId) ) return instances.get(uniqueEffectId);
     instances.set(this.uniqueEffectId, this);
   }
 
@@ -843,7 +843,7 @@ export class AbstractUniqueEffect {
  * Handle multiple sheet refreshes by using an async queue.
  * If the actor sheet is rendering, wait for it to finish.
  */
-const sleep = delay => new Promise(resolve => setTimeout(resolve, delay)); // eslint-disable-line no-promise-executor-return
+const sleep = delay => new Promise(resolve => setTimeout(resolve, delay));
 
 const renderQueue = new AsyncQueue();
 

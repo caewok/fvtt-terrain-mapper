@@ -5,6 +5,7 @@ CONFIG,
 CONST,
 game,
 foundry,
+KeyboardManager,
 PIXI,
 Region
 */
@@ -14,6 +15,8 @@ Region
 import { MODULE_ID, FLAGS, MODULES_ACTIVE } from "../const.js";
 import { log, getSnappedFromTokenCenter } from "../util.js";
 import { ElevationHandler } from "../ElevationHandler.js";
+import { GridCoordinates } from "../geometry/GridCoordinates.js";
+import { bresenhamLineIterator } from "../geometry/util.js";
 
 export const PATCHES = {};
 PATCHES.REGIONS = {};
@@ -273,7 +276,6 @@ export async function continueTokenAnimationForBehavior(behavior, tokenD, elevat
  * @returns {GridCoordinates}
  */
 function findNextGridCenter(a, b) {
-  const GridCoordinates = CONFIG.GeometryLib.GridCoordinates;
   a = GridCoordinates.fromObject(a);
   b = GridCoordinates.fromObject(b);
 
@@ -288,7 +290,7 @@ function findNextGridCenter(a, b) {
   if ( !a.almostEqual(closestPoint) ) return aCenter;
 
   // Need the next grid space that the line intersects.
-  const brIter = CONFIG.GeometryLib.utils.bresenhamLineIterator(toBresenhamPoint(a), toBresenhamPoint(b));
+  const brIter = bresenhamLineIterator(toBresenhamPoint(a), toBresenhamPoint(b));
   brIter.next(); // Skip a.
   return fromBreshenhamPoint(brIter.next().value);
 }
@@ -308,9 +310,7 @@ function toBresenhamPoint(a) {
  * @param {PIXI.Point} b      Point from Bresenham where b.x and b.y are assumed to be i and j, respectively.
  * @returns {GridCoordinates} The point at the offset represented by b
  */
-function fromBreshenhamPoint(b) {
-  return CONFIG.GeometryLib.GridCoordinates.fromOffset({ i: b.x, j: b.y });
-}
+function fromBreshenhamPoint(b) { return GridCoordinates.fromOffset({ i: b.x, j: b.y }); }
 
 /**
  * Hook preCreateRegionBehavior

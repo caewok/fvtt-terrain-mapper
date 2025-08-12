@@ -1,11 +1,11 @@
 /* globals
-RegionBehaviorType
+CONFIG,
+foundry,
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
 import { MODULE_ID } from "../const.js";
-import { log } from "../util.js";
 
 /**
  * Abstract Region behavior re terrains
