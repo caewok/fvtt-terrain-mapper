@@ -13,6 +13,7 @@ import { RegionMovementWaypoint3d } from "./geometry/3d/RegionMovementWaypoint3d
 import { ElevationHandler } from "./ElevationHandler.js";
 import { regionWaypointsXYAlmostEqual } from "./util.js";
 import { Draw } from "./geometry/Draw.js";
+import { instanceOrTypeOf } from "./geometry/util.js";
 
 /**
  * Single tile elevation handler
@@ -89,8 +90,8 @@ export class TileElevationHandler {
    * @returns {boolean}
    */
   lineSegmentIntersects(start, end) {
-    if ( !(start instanceof RegionMovementWaypoint3d) ) start = RegionMovementWaypoint3d.fromObject(start);
-    if ( !(end instanceof RegionMovementWaypoint3d) ) end = RegionMovementWaypoint3d.fromObject(end);
+    if ( !instanceOrTypeOf(start, RegionMovementWaypoint3d) ) start = RegionMovementWaypoint3d.fromObject(start);
+    if ( !instanceOrTypeOf(end, RegionMovementWaypoint3d) ) end = RegionMovementWaypoint3d.fromObject(end);
 
     // Handle the 2d case.
     if ( start.elevation === end.elevation ) {
@@ -139,7 +140,7 @@ export class TileElevationHandler {
    * @returns {boolean}
    */
   waypointOnTile(a, token) {
-    if ( !(a instanceof RegionMovementWaypoint3d) ) a = RegionMovementWaypoint3d.fromObject(a);
+    if ( !instanceOrTypeOf(a, RegionMovementWaypoint3d) ) a = RegionMovementWaypoint3d.fromObject(a);
     if ( a.elevation !== this.tile.elevationE ) return false;
     if ( !this.tile.bounds.contains(a.x, a.y) ) return false;
     if ( !this.lineSegmentIntersects(

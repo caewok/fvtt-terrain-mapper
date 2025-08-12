@@ -16,6 +16,7 @@ import { ClipperPaths } from "./geometry/ClipperPaths.js";
 import { RegionElevationHandler } from "./regions/RegionElevationHandler.js";
 import { StraightLinePath } from "./StraightLinePath.js";
 import { RegionMovementWaypoint3d } from "./geometry/3d/RegionMovementWaypoint3d.js";
+import { instanceOrTypeOf } from "./geometry/util.js";
 
 /**
  * Regions elevation handler
@@ -122,8 +123,8 @@ export class ElevationHandler {
    * @returns {StraightLinePath<RegionMovementWaypoint3d>}   Sorted points by distance from start.
    */
   static constructPath(start, end, { regions, tiles, flying, burrowing, samples, token } = {}) {
-    if ( !(start instanceof RegionMovementWaypoint3d) ) start = RegionMovementWaypoint3d.fromObject(start);
-    if ( !(end instanceof RegionMovementWaypoint3d) ) end = RegionMovementWaypoint3d.fromObject(end);
+    if ( !instanceOrTypeOf(start, RegionMovementWaypoint3d) ) start = RegionMovementWaypoint3d.fromObject(start);
+    if ( !instanceOrTypeOf(end, RegionMovementWaypoint3d) ) end = RegionMovementWaypoint3d.fromObject(end);
 
     // If the start and end are equal, we are done.
     // If flying and burrowing, essentially a straight shot would work.
@@ -202,7 +203,7 @@ export class ElevationHandler {
    * @returns {ELEVATION_LOCATIONS}
    */
   static elevationType(waypoint, token, regions, tiles) {
-    if ( !(waypoint instanceof RegionMovementWaypoint3d) ) waypoint = RegionMovementWaypoint3d.fromObject(waypoint);
+    if ( !instanceOrTypeOf(waypoint, RegionMovementWaypoint3d) ) waypoint = RegionMovementWaypoint3d.fromObject(waypoint);
 
     const locs = this.ELEVATION_LOCATIONS;
     tiles = elevatedTiles(tiles);
@@ -243,7 +244,7 @@ export class ElevationHandler {
    * @returns {number} The elevation for the nearest ground, in grid units
    */
   static nearestGroundElevation(waypoint, { regions, tiles, samples, burrowing = false, token } = {}) {
-    if ( !(waypoint instanceof RegionMovementWaypoint3d) ) waypoint = RegionMovementWaypoint3d.fromObject(waypoint);
+    if ( !instanceOrTypeOf(waypoint, RegionMovementWaypoint3d) ) waypoint = RegionMovementWaypoint3d.fromObject(waypoint);
 
     const teleport = false;
     samples ??= [{x: 0, y: 0}];
@@ -675,9 +676,9 @@ export class ElevationHandler {
    * @returns {CutawayPoint}
    */
   static _to2dCutawayCoordinate(waypoint, start, end, outPoint) {
-    if ( !(waypoint instanceof RegionMovementWaypoint3d) ) waypoint = RegionMovementWaypoint3d.fromObject(waypoint);
-    if ( !(start instanceof RegionMovementWaypoint3d) ) start = RegionMovementWaypoint3d.fromObject(start);
-    if ( !(end instanceof RegionMovementWaypoint3d) ) end = RegionMovementWaypoint3d.fromObject(end);
+    if ( !instanceOrTypeOf(waypoint, RegionMovementWaypoint3d) ) waypoint = RegionMovementWaypoint3d.fromObject(waypoint);
+    if ( !instanceOrTypeOf(start, RegionMovementWaypoint3d) ) start = RegionMovementWaypoint3d.fromObject(start);
+    if ( !instanceOrTypeOf(end, RegionMovementWaypoint3d) ) end = RegionMovementWaypoint3d.fromObject(end);
     return CONFIG.GeometryLib.utils.cutaway.to2d(waypoint, start, end, outPoint);
   }
 
@@ -690,8 +691,8 @@ export class ElevationHandler {
    * @returns {RegionMovementWaypoint3d} The outPoint
    */
   static _from2dCutawayCoordinate(cutawayPt, start, end, outPoint) {
-    if ( !(start instanceof RegionMovementWaypoint3d) ) start = RegionMovementWaypoint3d.fromObject(start);
-    if ( !(end instanceof RegionMovementWaypoint3d) ) end = RegionMovementWaypoint3d.fromObject(end);
+    if ( !instanceOrTypeOf(start, RegionMovementWaypoint3d) ) start = RegionMovementWaypoint3d.fromObject(start);
+    if ( !instanceOrTypeOf(end, RegionMovementWaypoint3d) ) end = RegionMovementWaypoint3d.fromObject(end);
     outPoint ??= new RegionMovementWaypoint3d();
     CONFIG.GeometryLib.utils.cutaway.from2d(cutawayPt, start, end, outPoint);
     return outPoint;

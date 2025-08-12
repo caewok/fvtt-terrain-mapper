@@ -16,6 +16,7 @@ import { Plane } from "../geometry/3d/Plane.js";
 import { RegionMovementWaypoint3d } from "../geometry/3d/RegionMovementWaypoint3d.js";
 import { Matrix } from "../geometry/Matrix.js";
 import { ElevationHandler } from "../ElevationHandler.js";
+import { instanceOrTypeOf } from "../geometry/util.js";
 
 /**
  * Single region elevation handler
@@ -143,8 +144,8 @@ export class RegionElevationHandler {
    * @returns {RegionMovementWaypoint3d|null} The intersection.
    */
   plateauSegmentIntersection(a, b) {
-    if ( !(a instanceof RegionMovementWaypoint3d) ) a = RegionMovementWaypoint3d.fromObject(a);
-    if ( !(b instanceof RegionMovementWaypoint3d) ) b = RegionMovementWaypoint3d.fromObject(b);
+    if ( !instanceOrTypeOf(a, RegionMovementWaypoint3d) ) a = RegionMovementWaypoint3d.fromObject(a);
+    if ( !instanceOrTypeOf(b, RegionMovementWaypoint3d) ) b = RegionMovementWaypoint3d.fromObject(b);
 
     if ( a.equalXY(b) ) {
       // A|b is a vertical line in the z direction.
