@@ -1,3 +1,8 @@
+## 0.4.10
+Fix for permissions error when users load a scene with new tiles. Issue #82.
+
+Update to libGeometry v0.4.1.
+
 ## 0.4.9
 Correct issue preventing editing of multiple wall heights when Wall Height module is active.
 Prevent elevation from dropping to a large negative value when moving into and out of a region hole in one movement. Addresses #61.
