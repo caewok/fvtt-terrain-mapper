@@ -16,7 +16,7 @@ import { MODULE_ID, FLAGS, MODULES_ACTIVE } from "../const.js";
 import { log, getSnappedFromTokenCenter } from "../util.js";
 import { ElevationHandler } from "../ElevationHandler.js";
 import { GridCoordinates } from "../geometry/GridCoordinates.js";
-import { bresenhamLineIterator } from "../geometry/util/bresenhamLineIterators.js";
+import { bresenhamLineIterator } from "../geometry/util.js";
 
 export const PATCHES = {};
 PATCHES.REGIONS = {};
