@@ -1,8 +1,9 @@
 ## 0.4.10
 Fix for permissions error when users load a scene with new tiles. Issue #82.
 Fix wall deletion for the WallTracker. Issue #78.
+Add `CONFIG.terrainmapper.animPercentelevationAnimationPercent` to allow the user to decide how fast the elevation animation should go. Issue #75.
 
-Update to libGeometry v0.4.1.
+Update to libGeometry v0.4.2.
 
 ## 0.4.9
 Correct issue preventing editing of multiple wall heights when Wall Height module is active.
