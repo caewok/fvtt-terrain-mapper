@@ -1,9 +1,9 @@
 /* globals
 canvas,
 CONFIG,
+foundry,
 Hooks,
 game,
-loadTemplates
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
@@ -62,7 +62,7 @@ Hooks.once("init", function() {
   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.elevator`] = FA_ICONS.ELEVATOR;
 
   // Must go at end?
-  loadTemplates(Object.values(TEMPLATES)).then(_value => log("Templates loaded."));
+  foundry.applications.handlebars.loadTemplates(Object.values(TEMPLATES)).then(_value => log("Templates loaded."));
 });
 
 /**

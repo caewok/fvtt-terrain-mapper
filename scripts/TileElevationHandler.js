@@ -1,5 +1,4 @@
 /* globals
-AsyncWorker,
 CONFIG,
 foundry,
 PIXI,
@@ -654,7 +653,7 @@ function calculateHoleCachePixels({ tileCachePixels, width, alphaPixelThreshold 
  * @param {object} [config={}]                     Worker initialization options
  * @param {boolean} [config.debug=false]           Should the worker run in debug mode?
  */
-export class HoleDetector extends AsyncWorker {
+export class HoleDetector extends foundry.helpers.AsyncWorker {
   constructor(name = `${MODULE_ID}|Hole Detector`, config = {}) {
     // Config.scripts ??= ["Data/modules/terrainmapper/scripts/workers/hole_detector.js"];
     config.loadPrimitives ??= false;

@@ -25,7 +25,7 @@ function initializeEdges() {
   SCENE_GRAPH.clear();
   let numWalls = 0;
   for ( const edge of canvas.edges.values() ) {
-    if ( (edge.object instanceof Wall) && !edge.object.isOpen ) {
+    if ( (edge.object instanceof foundry.canvas.placeables.Wall) && !edge.object.isOpen ) {
       SCENE_GRAPH.addWall(edge.object);
       numWalls += 1;
     } else if ( edge.type === "outerBounds"

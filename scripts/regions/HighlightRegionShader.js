@@ -10,6 +10,7 @@ PIXI,
 // Modify HighlightRegionShader so the hatch direction can be manipulated
 
 Hooks.on("init", function() {
+  const HighlightRegionShader = foundry.canvas.rendering.shaders.HighlightRegionShader;
 
   HighlightRegionShader.vertexShader = `\
     precision ${PIXI.settings.PRECISION_VERTEX} float;

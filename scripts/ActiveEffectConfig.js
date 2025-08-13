@@ -22,11 +22,13 @@ function closeActiveEffectConfig(_app, _html) {
 
 /**
  * On active effect render, add the additional terrain settings.
- * @param {Application} application     The Application instance being rendered
- * @param {jQuery} html                 The inner HTML of the document that will be displayed and may be modified
- * @param {object} data                 The object of data used when rendering the application
+ * @category ApplicationV2
+ * @param {ApplicationV2} application          The Application instance being rendered
+ * @param {HTMLElement} element                The inner HTML of the document that will be displayed and may be modified
+ * @param {ApplicationRenderContext} context   The application rendering context data
+ * @param {ApplicationRenderOptions} options   The application rendering options
  */
-async function renderActiveEffectConfig(app, html, data) {
+async function renderActiveEffectConfig(app, element, context, options) {
   // Avoid changing all active effects everywhere.
   if ( app.object.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.TYPE) !== "Terrain" ) return;
 
