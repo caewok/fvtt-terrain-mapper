@@ -1,6 +1,6 @@
 /* globals
+foundry,
 game,
-ItemDirectory
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
@@ -19,7 +19,7 @@ PATCHES_ItemDirectory.BASIC = {};
  * @param {ItemDirectory} dir
  */
 function removeTerrainsItemFromSidebar(dir) {
-  if ( !(dir instanceof ItemDirectory) ) return;
+  if ( !(dir instanceof foundry.applications.sidebar.tabs.ItemDirectory) ) return;
   if ( !game.items ) return;
   for ( const item of game.items ) {
     if ( !(item.name === "Terrains" || item.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.ID)) ) continue;

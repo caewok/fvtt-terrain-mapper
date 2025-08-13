@@ -57,7 +57,9 @@ let wallDisplay;
  * @param {object} data                 The object of data used when rendering the application
  */
 function renderSceneControls(sceneControls, _html, _data) {
-  const fillWallsEnabled = sceneControls.activeControl === "regions" && sceneControls.activeTool === "fill-by-walls";
+  const activeControl = sceneControls.control.name;
+  const activeTool = sceneControls.tool.name;
+  const fillWallsEnabled = activeControl === "regions" && activeTool === "fill-by-walls";
   if ( fillWallsEnabled && !wallDisplay ) {
     wallDisplay = new WallDisplay();
     wallDisplay.render();
