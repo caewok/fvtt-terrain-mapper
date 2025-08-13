@@ -69,7 +69,7 @@ export class ElevatorRegionBehaviorType extends foundry.data.regionBehaviors.Reg
   static events = {
     [CONST.REGION_EVENTS.TOKEN_MOVE_IN]: this.#onTokenMoveIn,
     [CONST.REGION_EVENTS.TOKEN_MOVE_OUT]: this.#onTokenMoveOut,
-    [CONST.REGION_EVENTS.TOKEN_PRE_MOVE]: this.#onTokenPreMove,
+//    [CONST.REGION_EVENTS.TOKEN_PRE_MOVE]: this.#onTokenPreMove,
   };
 
   /**
@@ -158,27 +158,27 @@ export class ElevatorRegionBehaviorType extends foundry.data.regionBehaviors.Reg
    * @param {RegionEvent} event
    * @this {PauseGameRegionBehaviorType}
    */
-  static async #onTokenPreMove(event) {
-    if ( event.data.forced ) return;
-
-    for ( const segment of event.data.segments ) {
-      if ( segment.type === Region.MOVEMENT_SEGMENT_TYPES.ENTER ) {
-        this.constructor.lastDestination = event.data.destination;
-        event.data.destination = segment.to;
-        break;
-      }
-    }
-
-    if ( this.resetOnExit ) {
-      for ( const segment of event.data.segments ) {
-        if ( segment.type === Region.MOVEMENT_SEGMENT_TYPES.EXIT ) {
-          this.constructor.lastDestination = event.data.destination;
-          event.data.destination = segment.to;
-          break;
-        }
-      }
-    }
-  }
+//   static async #onTokenPreMove(event) {
+//     if ( event.data.forced ) return;
+//
+//     for ( const segment of event.data.segments ) {
+//       if ( segment.type === Region.MOVEMENT_SEGMENT_TYPES.ENTER ) {
+//         this.constructor.lastDestination = event.data.destination;
+//         event.data.destination = segment.to;
+//         break;
+//       }
+//     }
+//
+//     if ( this.resetOnExit ) {
+//       for ( const segment of event.data.segments ) {
+//         if ( segment.type === Region.MOVEMENT_SEGMENT_TYPES.EXIT ) {
+//           this.constructor.lastDestination = event.data.destination;
+//           event.data.destination = segment.to;
+//           break;
+//         }
+//       }
+//     }
+//   }
 
   /**
    * Retrieve the stops and elevations for the floors of this behavior
