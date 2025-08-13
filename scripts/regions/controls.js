@@ -83,9 +83,9 @@ function getSceneControlButtons(controls, _html, _data) {
   if ( !regionTools ) return;
   if ( !canvas.grid.isGridless ) {
     const selectIdx = regionTools.tools.select.order;
-    TOOLS.FILL_BY_GRID.order = selectIdx;
+    TOOLS.FILL_BY_GRID.order = selectIdx + 1;
     Object.values(regionTools.tools)
-      .filter(tool => tool.order >= selectIdx)
+      .filter(tool => tool.order >= selectIdx + 1)
       .forEach(tool => tool.order += 1);
     regionTools.tools[TOOLS.FILL_BY_GRID.name] = TOOLS.FILL_BY_GRID;
   }
