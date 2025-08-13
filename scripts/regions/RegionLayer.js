@@ -258,7 +258,7 @@ class TrackAndDrawGridSpaces {
    */
   constructShape() {
     const polygons = [...this.gridKeys].map(key => {
-      const { x, y } = PIXI.Point._invertKey(key);
+      const { x, y } = PIXI.Point.invertKey(key);
       const offset = { i: x, j: y };
       const pts = canvas.grid.getVertices(offset);
       return new PIXI.Polygon(pts);
