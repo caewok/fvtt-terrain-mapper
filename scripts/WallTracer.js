@@ -1,5 +1,4 @@
 /* globals
-CanvasQuadtree,
 CONFIG,
 CONST,
 foundry,
@@ -457,7 +456,7 @@ export class WallTracer extends Graph {
    * @property {PIXI.Polygons} most
    * @property {PIXI.Polygons} combined
    */
-  cyclePolygonsQuadtree = new CanvasQuadtree();
+  cyclePolygonsQuadtree = new foundry.canvas.geometry.CanvasQuadtree();
 
   /**
    * Set of wall ids represented in this graph.
@@ -472,7 +471,7 @@ export class WallTracer extends Graph {
   tokenIds = new Set();
 
   /** @type {CanvasQuadtree} */
-  edgesQuadtree = new CanvasQuadtree();
+  edgesQuadtree = new foundry.canvas.geometry.CanvasQuadtree();
 
   /**
    * Clear all cached edges, etc. used in the graph.
