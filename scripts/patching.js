@@ -22,7 +22,6 @@ import { PATCHES as PATCHES_ModuleSettingsAbstract } from "./ModuleSettingsAbstr
 import { PATCHES as PATCHES_ItemSheet } from "./ItemSheet.js";
 import { PATCHES as PATCHES_Region } from "./regions/Region.js";
 import { PATCHES as PATCHES_RegionConfig } from "./regions/RegionConfig.js";
-import { PATCHES as PATCHES_Ruler } from "./Ruler.js";
 import { PATCHES as PATCHES_Tile } from "./Tile.js";
 import { PATCHES as PATCHES_TileConfig } from "./TileConfig.js";
 import { PATCHES as PATCHES_ClockwiseSweepPolygon } from "./regions/ClockwiseSweepPolygon.js";
@@ -38,7 +37,6 @@ export const PATCHES = {
   Region: PATCHES_Region,
   "foundry.applications.sheets.RegionConfig": PATCHES_RegionConfig,
   RegionLayer: PATCHES_RegionLayer,
-  Ruler: PATCHES_Ruler,
   SceneConfig: PATCHES_SceneConfig,
   SidebarTab: PATCHES_SidebarTab,
   Tile: PATCHES_Tile,
