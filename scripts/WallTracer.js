@@ -3,8 +3,6 @@ CONFIG,
 CONST,
 foundry,
 PIXI,
-Token,
-Wall
 */
 "use strict";
 
@@ -204,12 +202,12 @@ export class WallTracerEdge extends GraphEdge {
   /**
    * Filter set for walls.
    */
-  get walls() { return this.objects.filter(o => o instanceof Wall); }
+  get walls() { return this.objects.filter(o => o instanceof foundry.canvas.placeables.Wall); }
 
   /**
    * Filter set for tokens.
    */
-  get tokens() { return this.objects.filter(o => o instanceof Token); }
+  get tokens() { return this.objects.filter(o => o instanceof foundry.canvas.placeables.Token); }
 
   /**
    * Filter set for CanvasEdges
@@ -344,8 +342,8 @@ export class WallTracerEdge extends GraphEdge {
    */
   edgeBlocks(origin, moveToken, tokenBlockType, elevation = 0) {
     return this.objects.some(obj =>
-        (obj instanceof Wall) ? this.constructor.wallBlocks(obj, origin, elevation)
-          : (obj instanceof Token) ? this.constructor.tokenEdgeBlocks(obj, moveToken, tokenBlockType, elevation)
+        (obj instanceof foundry.canvas.placeables.Wall) ? this.constructor.wallBlocks(obj, origin, elevation)
+          : (obj instanceof foundry.canvas.placeables.Token) ? this.constructor.tokenEdgeBlocks(obj, moveToken, tokenBlockType, elevation)
             : false);
   }
 
@@ -728,9 +726,9 @@ export class WallTracer extends Graph {
     // This will remove unnecessary vertices and recombine edges.
     if ( _recurse ) {
       const remainingObjects = edgesArr.reduce((acc, curr) => acc = acc.union(curr.objects), new Set());
-      remainingObjects.forEach(obj => obj instanceof Wall
+      remainingObjects.forEach(obj => obj instanceof foundry.canvas.placeables.Wall
         ? this.removeWall(obj.id, false) : this.removeToken(obj.id, false));
-      remainingObjects.forEach(obj => obj instanceof Wall
+      remainingObjects.forEach(obj => obj instanceof foundry.canvas.placeables.Wall
         ? this.addWall(obj) : this.addToken(obj));
     }
   }
@@ -740,7 +738,7 @@ export class WallTracer extends Graph {
    * @param {string|Wall} wallId    Id of the wall to remove, or the wall itself.
    */
   removeWall(wallId, _recurse = true) {
-    if ( wallId instanceof Wall ) wallId = wallId.id;
+    if ( wallId instanceof foundry.canvas.placeables.Wall ) wallId = wallId.id;
     this.wallIds.delete(wallId);
     return this.removeObject(wallId, _recurse);
   }
@@ -750,7 +748,7 @@ export class WallTracer extends Graph {
    * @param {string|Token} tokenId    Id of the token to remove, or the token itself.
    */
   removeToken(tokenId, _recurse = true) {
-    if ( tokenId instanceof Token ) tokenId = tokenId.id;
+    if ( tokenId instanceof foundry.canvas.placeables.Token ) tokenId = tokenId.id;
     this.tokenIds.delete(tokenId);
     return this.removeObject(tokenId, _recurse);
   }

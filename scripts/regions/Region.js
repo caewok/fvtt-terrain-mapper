@@ -235,7 +235,7 @@ function segmentizeMovement(wrapper, waypoints, samples, opts) {
  */
 async function _draw(wrapped, options) {
   wrapped(options);
-  const mesh = this.children.find(c => c instanceof foundry.canvas.regions.RegionMesh);
+  const mesh = this.children.find(c => c instanceof foundry.canvas.placeables.regions.RegionMesh);
   if ( !mesh ) return;
 
   // Must be defined for all region meshes.
@@ -315,7 +315,7 @@ PATCHES.REGIONS.WRAPS = { segmentizeMovement, _draw, _applyRenderFlags};
  * Update the mesh uniforms depending on region elevation settings.
  */
 function _refreshTerrainMapperMesh() {
-  const mesh = this.children.find(c => c instanceof foundry.canvas.regions.RegionMesh);
+  const mesh = this.children.find(c => c instanceof foundry.canvas.placeables.regions.RegionMesh);
   if ( !mesh ) return;
 
   let hatchThickness = canvas.dimensions.size / 10;
