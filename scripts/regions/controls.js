@@ -30,6 +30,7 @@ TOOLS.FILL_BY_LOS = {
   title: `${MODULE_ID}.controls.fill-by-los.name`,
   icon: FA_ICONS.FILL_BY_LOS,
   toggle: false,
+  onChange: toggleWallDisplay,
   order: 0,
 }
 
@@ -38,7 +39,7 @@ TOOLS.FILL_BY_WALLS = {
   title: `${MODULE_ID}.controls.fill-space.name`,
   icon: FA_ICONS.FILL_BY_WALLS,
   toggle: false,
-  onClick: toggleWallDisplay,
+  onChange: toggleWallDisplay,
   order: 0,
 }
 
@@ -46,7 +47,7 @@ TOOLS.TERRAIN_BOOK = {
   name: "terrain-book",
   title: `${MODULE_ID}.phrases.terrains`,
   icon: FA_ICONS.TERRAIN_BOOK,
-  onClick: () => { new TerrainEffectsApp().render(true); },
+  onChange: () => { new TerrainEffectsApp().render(true); },
   button: true,
   order: 0,
 }
@@ -120,8 +121,17 @@ PATCHES.REGIONS.HOOKS = {
  * @param {PIXI.InteractionEvent} event
  */
 function toggleWallDisplay() {
-  const enabled = ui.controls.control.name == "regions" && ui.controls.control.activeTool !== "fill-by-walls";
-  console.log(`Fill by walls ${enabled ? "enabled" : "disabled"}!`);
+  const enabled = ui.controls.control.name == "regions"
+    && ( ui.controls.tool.name === "fill-by-walls"
+      || ui.controls.tool.name === "fill-by-los" );
+  // console.log(`Fill by walls ${enabled ? "enabled" : "disabled"}!`);
+  if ( enabled && !wallDisplay ) {
+    wallDisplay = new WallDisplay();
+    wallDisplay.render();
+  } else if ( !enabled && wallDisplay ) {
+    wallDisplay.destroy();
+    wallDisplay = undefined;
+  }
 }
 
 /**
