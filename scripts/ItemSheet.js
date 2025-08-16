@@ -5,7 +5,7 @@ game,
 "use strict";
 
 import { MODULE_ID, FLAGS, TEMPLATES } from "./const.js";
-import { TerrainEffectsApp } from "./TerrainEffectsApp.js";
+import { TerrainEffectsAppV2 } from "./TerrainEffectsAppV2.js";
 import { renderTemplateSync } from "./util.js";
 
 export const PATCHES = {};
@@ -17,7 +17,7 @@ PATCHES.COVER_ITEM = {};
  * Rerender the cover control app if it is open when the active effect configuration is closed.
  */
 function closeItemSheet(_app, _html) {
-  TerrainEffectsApp.rerender();
+  TerrainEffectsAppV2.rerender();
 }
 
 /**

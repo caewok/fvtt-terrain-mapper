@@ -24,7 +24,7 @@ function removeTerrainsItemFromSidebar(dir) {
   for ( const item of game.items ) {
     if ( !(item.name === "Terrains" || item.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.ID)) ) continue;
     const li = dir.element.querySelector(`[data-entry-id="${item.id}"]`)
-    // li.remove();
+    li.remove();
   }
 }
 
@@ -38,6 +38,15 @@ function removeTerrainItemHook(directory) {
 PATCHES_SidebarTab.BASIC.HOOKS = { changeSidebarTab: removeTerrainItemHook };
 PATCHES_ItemDirectory.BASIC.HOOKS = { renderItemDirectory: removeTerrainItemHook };
 
+/**
+ * @typedef {object} TMFolder
+ * Data that describes a folder in the Terrain Book. Stored in settings.
+ *
+ * @param {string} id         Folder id
+ * @param {string} name       Folder name or a localizable string
+ * @param {string} color      Folder color
+ * @param {string[]} effects  uniqueEffectId of effects stored in the folder.
+ */
 
 export class Settings extends ModuleSettingsAbstract {
 
@@ -49,7 +58,8 @@ export class Settings extends ModuleSettingsAbstract {
     // Configuration of the application that controls the terrain listings.
     CONTROL_APP: {
       FAVORITES: "favorites", // Array of favorite terrains, by effect id.
-      EXPANDED_FOLDERS: "app_expanded_folders"
+      EXPANDED_FOLDERS: "app_expanded_folders", // Array of folders that are expanded, by id
+      FOLDERS: "app_folders",
     },
 
     UNIQUE_EFFECTS_FLAGS_DATA: "uniqueEffectsFlagsData",
@@ -68,7 +78,7 @@ export class Settings extends ModuleSettingsAbstract {
     this.register(KEYS.UNIQUE_EFFECTS_FLAGS_DATA, {
       scope: "world",
       config: false,
-      default: {}
+      default: {},
     });
 
     this.register(KEYS.CONTROL_APP.FAVORITES, {
@@ -76,7 +86,7 @@ export class Settings extends ModuleSettingsAbstract {
       scope: "client",
       config: false,
       default: [],
-      type: Array
+      type: Array,
     });
 
     this.register(KEYS.CONTROL_APP.EXPANDED_FOLDERS, {
@@ -84,7 +94,15 @@ export class Settings extends ModuleSettingsAbstract {
       scope: "client",
       config: false,
       default: [],
-      type: Array
+      type: Array,
+    });
+
+    this.register(KEYS.CONTROL_APP.FOLDERS, {
+      name: "Folders",
+      scope: "client",
+      config: false,
+      default: [],
+      type: Array,
     });
   }
 
@@ -99,6 +117,90 @@ export class Settings extends ModuleSettingsAbstract {
   static get terrainEffectsItem() {
     if ( !game.items ) return this.terrainEffectsDataItem;
     return game.items.get(this.get(this.KEYS.TERRAINS_ITEM));
+  }
+
+  static #folders = new Map();
+
+  static get folders() {
+    const folderArray = this.get(this.KEYS.CONTROL_APP.FOLDERS);
+    this.#folders.clear();
+    folderArray.forEach(folder => this.#folders.set(folder.id, folder));
+    return this.#folders;
+  }
+
+  static async setFolders(value) {
+    if ( value instanceof Map ) value = [...value.values()];
+    await this.set(this.KEYS.CONTROL_APP.FOLDERS, value);
+  }
+
+  static async #saveFolders() { return this.set(this.KEYS.CONTROL_APP.FOLDERS, [...this.#folders.values()]); }
+
+  static getFolderById(id) { return this.folders.get(id); }
+
+  /**
+   * Add a folder if not yet present. Update otherwise.
+   */
+  static async addFolder(data = {}) {
+    data.id ??= foundry.utils.randomID();
+    const folders = this.folders;
+    if ( folders.has(data.id) ) {
+      const folder = folders.get(data.id);
+      if ( data.effects ) folder.effects = [...(new Set(folder.effects)).union(new Set(data.effects ?? []))]; // Combine the effects set.
+      delete data.effects;
+      foundry.utils.mergeObject(folders.get(data.id), data);
+    }
+    else {
+      data.name ??= game.i18n.localize("FOLDER.ExportNewFolder");
+      data.color ??= "black";
+      data.effects ??= [];
+      folders.set(data.id, data);
+    }
+    return this.#saveFolders();
+  }
+
+  static async deleteFolder(id) {
+    const folders = this.folders;
+    folders.delete(id);
+    return this.#saveFolders();
+  }
+
+  static async addEffectToFolder(folderId, effectId) {
+    const folders = this.folders;
+    if ( !folders.has(folderId) ) this.addFolder({ id: folderId });
+    const folder = folders.get(folderId);
+    if ( folder.effects.includes(effectId) ) return;
+    folder.effects.push(effectId);
+    return this.#saveFolders();
+  }
+
+  static async removeEffectFromFolder(folderId, effectId) {
+    const folders = this.folders;
+    if ( !folders.has(folderId) ) return;
+    const folder = folders.get(folderId);
+    const idx = folder.effects.findIndex(effectId);
+    if ( !~idx ) return;
+    folder.effects.splice(idx, 1);
+    return this.#saveFolders;
+  }
+
+  static async removeEffectFromAllFolders(effectId) {
+    const folders = this.folders;
+    let needsSave = false;
+    for ( const folder of folders.values() ) {
+      const idx = folder.effects.findIndex(effectId);
+      if ( !~idx ) continue;
+      folder.effects.splice(idx, 1);
+      needsSave ||= true;
+    }
+    if ( needsSave ) await this.#saveFolders;
+  }
+
+  static findFoldersForEffect(effectId) {
+    const out = new Set();
+    this.folders.forEach(folder => {
+      if ( folder.effects.include(effectId) ) out.add(folder);
+    });
+    return out;
   }
 
   /** @type {string[]} */

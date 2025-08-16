@@ -4,7 +4,7 @@
 "use strict";
 
 import { TEMPLATES, MODULE_ID, FLAGS } from "./const.js";
-import { TerrainEffectsApp } from "./TerrainEffectsApp.js";
+import { TerrainEffectsAppV2 } from "./TerrainEffectsAppV2.js";
 import { renderTemplateSync } from "./util.js";
 
 export const PATCHES = {};
@@ -17,7 +17,7 @@ PATCHES.a5e = {};
  * Rerender the terrain control app if it is open when the active effect configuration is closed.
  */
 function closeActiveEffectConfig(_app, _html) {
-  TerrainEffectsApp.rerender();
+  TerrainEffectsAppV2.rerender();
 }
 
 /**
@@ -30,18 +30,18 @@ function closeActiveEffectConfig(_app, _html) {
  */
 async function renderActiveEffectConfig(app, element, context, options) {
   // Avoid changing all active effects everywhere.
-  if ( app.object.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.TYPE) !== "Terrain" ) return;
+  if ( context.document.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.TYPE) !== "Terrain" ) return;
 
-  const myHTML = renderTemplateSync(TEMPLATES.ACTIVE_EFFECT, data);
+  const myHTML = renderTemplateSync(TEMPLATES.ACTIVE_EFFECT, context);
   if ( !myHTML ) return;
 
   const div = document.createElement("div");
   div.innerHTML = myHTML;
 
-  // Place in the basic tab at the end of the form groups.
-  const basicTab = html.find(`.tab[data-tab="details"]`)[0];
-  if ( !basicTab ) return;
-  basicTab.appendChild(div);
+  // Place in the tab at the end of the form groups.
+  const tab = element.querySelector('.tab[data-tab="details"]');
+  if ( !tab ) return;
+  tab.appendChild(div);
   app.setPosition(app.position);
 }
 
