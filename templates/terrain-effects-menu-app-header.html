@@ -1,0 +1,54 @@
+<!-- Directory Header -->
+<header class='directory-header'>
+
+
+  <div class="header-actions action-buttons flexrow">
+    <!-- Create Terrain Button -->
+    <div class='header-actions action-buttons flexrow'>
+      <button type="button" class="create-effect" data-action="createEffect">
+        <i class='fas fa-person-hiking'></i>
+        <span>{{ localize "terrainmapper.terrainbook.create-terrain" }}</span>
+      </button>
+    </div>
+
+    <!-- Create Folder Button -->
+    <div class='header-actions action-buttons flexrow'>
+      <button type="button" class="create-folder" data-action="createFolder">
+        <i class='fas fa-folder-plus'></i>
+        <span>{{ localize "terrainmapper.terrainbook.create-folder" }}</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Reset to Defaults Button -->
+  {{#if hasDefaults}}
+  <div class='header-actions action-buttons flexrow'>
+    <button type="button" class="reset-defaults" data-action="resetDefaults">
+      <i class='fas fa-file-image'></i>
+       {{ localize "terrainmapper.terrainbook.reset-defaults" }}
+    </button>
+  </div>
+  {{/if}}
+
+  <!-- Search bar -->
+  <search>
+    <input
+      type="search"
+      name="search"
+      placeholder="{{ localize 'terrainmapper.terrainbook.search' }}"
+      autocomplete='off'
+      aria-label="{{ localize 'terrainmapper.terrainbook.search' }}"
+    />
+
+    <!-- Collapse All Folders -->
+    <button
+      type="button"
+      class="inline-control collapse-all icon fa-solid fa-folder-tree"
+      data-action="collapseFolders"
+      data-tooltip
+      aria-label="{{localize 'FOLDER.Collapse'}}"
+    ></button>
+
+  </search>
+
+</header>

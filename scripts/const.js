@@ -91,6 +91,12 @@ export const FLAGS = {
     }
   },
 
+  // Terrain Book
+  TERRAIN_BOOK: {
+    FOLDER_COLOR: "folderColor",
+    FOLDERS: "folders",
+  },
+
   VERSION: "version"
 };
 

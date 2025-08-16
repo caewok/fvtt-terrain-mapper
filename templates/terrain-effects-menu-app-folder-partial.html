@@ -1,0 +1,30 @@
+<li
+  class="directory-item folder flexcol terrainmapper-folder"
+  data-folder-id="{{ data.folder.id }}"
+  data-folder-depth="1"
+  draggable="false"
+>
+
+  <!-- Folder Control -->
+  <header class="folder-header" style="background-color: {{ data.folder.color }};" data-action="toggleFolder">
+    <i class="fa solid fa-folder-open fa-fw" inert></i>
+    <span class="folder-name ellipsis">{{ localize data.folder.name }}</span>
+        <button
+          type="button"
+          class="create-button create-entry icon icon-plus {{ @root.sideBarIcon }}"
+          data-tooltip data-action="createEffectInFolder"
+          aria-label="{{ localize 'terrainmapper.terrainbook.create-terrain' }}">
+        </button>
+  </header>
+
+  <!-- Folder Contents -->
+  <ol
+    class="subdirectory plain"
+    style="border-left-color: {{ data.folder.color }};"
+  >
+    {{~#each data.effects}}
+      {{> (lookup @root "entryPartial") effect=this }}
+    {{/each}}
+  </ol>
+
+</li>

@@ -11,7 +11,7 @@ ui
 
 import { MODULE_ID, FA_ICONS } from "../const.js";
 import { Draw } from "../geometry/Draw.js";
-import { TerrainEffectsApp } from "../TerrainEffectsApp.js";
+import { TerrainEffectsAppV2 } from "../TerrainEffectsAppV2.js";
 
 export const PATCHES = {};
 PATCHES.REGIONS = {};
@@ -47,7 +47,7 @@ TOOLS.TERRAIN_BOOK = {
   name: "terrain-book",
   title: `${MODULE_ID}.phrases.terrains`,
   icon: FA_ICONS.TERRAIN_BOOK,
-  onChange: () => { new TerrainEffectsApp().render(true); },
+  onChange: () => { new TerrainEffectsAppV2().render(true); },
   button: true,
   order: 0,
 }

@@ -407,7 +407,7 @@ export class TerrainEffectsController {
 
   _findNearestEffectId(event) {
     return event.target
-      .closest("[data-effect-id], .terrainmapper-effect")
+      .closest("[data-entry-id], .terrainmapper-effect")
       .data()?.effectId;
   }
 

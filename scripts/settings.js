@@ -24,7 +24,7 @@ function removeTerrainsItemFromSidebar(dir) {
   for ( const item of game.items ) {
     if ( !(item.name === "Terrains" || item.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.ID)) ) continue;
     const li = dir.element.querySelector(`[data-entry-id="${item.id}"]`)
-    // li.remove();
+    li.remove();
   }
 }
 
@@ -38,6 +38,15 @@ function removeTerrainItemHook(directory) {
 PATCHES_SidebarTab.BASIC.HOOKS = { changeSidebarTab: removeTerrainItemHook };
 PATCHES_ItemDirectory.BASIC.HOOKS = { renderItemDirectory: removeTerrainItemHook };
 
+/**
+ * @typedef {object} TMFolder
+ * Data that describes a folder in the Terrain Book. Stored in settings.
+ *
+ * @param {string} id         Folder id
+ * @param {string} name       Folder name or a localizable string
+ * @param {string} color      Folder color
+ * @param {string[]} effects  uniqueEffectId of effects stored in the folder.
+ */
 
 export class Settings extends ModuleSettingsAbstract {
 
@@ -49,7 +58,8 @@ export class Settings extends ModuleSettingsAbstract {
     // Configuration of the application that controls the terrain listings.
     CONTROL_APP: {
       FAVORITES: "favorites", // Array of favorite terrains, by effect id.
-      EXPANDED_FOLDERS: "app_expanded_folders"
+      EXPANDED_FOLDERS: "app_expanded_folders", // Array of folders that are expanded, by id
+      FOLDERS: "app_folders",
     },
 
     UNIQUE_EFFECTS_FLAGS_DATA: "uniqueEffectsFlagsData",
@@ -68,7 +78,7 @@ export class Settings extends ModuleSettingsAbstract {
     this.register(KEYS.UNIQUE_EFFECTS_FLAGS_DATA, {
       scope: "world",
       config: false,
-      default: {}
+      default: {},
     });
 
     this.register(KEYS.CONTROL_APP.FAVORITES, {
@@ -76,7 +86,7 @@ export class Settings extends ModuleSettingsAbstract {
       scope: "client",
       config: false,
       default: [],
-      type: Array
+      type: Array,
     });
 
     this.register(KEYS.CONTROL_APP.EXPANDED_FOLDERS, {
@@ -84,7 +94,15 @@ export class Settings extends ModuleSettingsAbstract {
       scope: "client",
       config: false,
       default: [],
-      type: Array
+      type: Array,
+    });
+
+    this.register(KEYS.CONTROL_APP.FOLDERS, {
+      name: "Folders",
+      scope: "client",
+      config: false,
+      default: [],
+      type: Array,
     });
   }
 
@@ -100,6 +118,8 @@ export class Settings extends ModuleSettingsAbstract {
     if ( !game.items ) return this.terrainEffectsDataItem;
     return game.items.get(this.get(this.KEYS.TERRAINS_ITEM));
   }
+
+
 
   /** @type {string[]} */
   static get expandedFolders() { return this.get(this.KEYS.CONTROL_APP.EXPANDED_FOLDERS); }
@@ -139,15 +159,14 @@ export class Settings extends ModuleSettingsAbstract {
    */
   static isFolderExpanded(id) { return this.expandedFolders.includes(id); }
 
+  static get favorites() { return new Set(this.get(this.KEYS.CONTROL_APP.FAVORITES)); }
+
   /**
    * Check if a given effect id is in the favorites set.
    * @param {string} id     Active effect id
    * @returns {boolean}
    */
-  static isFavorite(id) {
-    const favorites = new Set(this.get(this.KEYS.CONTROL_APP.FAVORITES));
-    return favorites.has(id);
-  }
+  static isFavorite(id) { return this.favorites.has(id); }
 
   /**
    * Add effect id to favorites.
@@ -155,7 +174,7 @@ export class Settings extends ModuleSettingsAbstract {
    */
   static async addToFavorites(id) {
     const key = this.KEYS.CONTROL_APP.FAVORITES;
-    const favorites = new Set(this.get(key));
+    const favorites = this.favorites;
     favorites.add(id); // Avoids duplicates.
     await this.set(key, [...favorites]);
   }
@@ -166,7 +185,7 @@ export class Settings extends ModuleSettingsAbstract {
    */
   static async removeFromFavorites(id) {
     const key = this.KEYS.CONTROL_APP.FAVORITES;
-    const favorites = new Set(this.get(key));
+    const favorites = this.favorites;
     favorites.delete(id); // Avoids duplicates.
     await this.set(key, [...favorites]);
   }
