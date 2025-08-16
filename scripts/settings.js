@@ -119,89 +119,7 @@ export class Settings extends ModuleSettingsAbstract {
     return game.items.get(this.get(this.KEYS.TERRAINS_ITEM));
   }
 
-  static #folders = new Map();
 
-  static get folders() {
-    const folderArray = this.get(this.KEYS.CONTROL_APP.FOLDERS);
-    this.#folders.clear();
-    folderArray.forEach(folder => this.#folders.set(folder.id, folder));
-    return this.#folders;
-  }
-
-  static async setFolders(value) {
-    if ( value instanceof Map ) value = [...value.values()];
-    await this.set(this.KEYS.CONTROL_APP.FOLDERS, value);
-  }
-
-  static async #saveFolders() { return this.set(this.KEYS.CONTROL_APP.FOLDERS, [...this.#folders.values()]); }
-
-  static getFolderById(id) { return this.folders.get(id); }
-
-  /**
-   * Add a folder if not yet present. Update otherwise.
-   */
-  static async addFolder(data = {}) {
-    data.id ??= foundry.utils.randomID();
-    const folders = this.folders;
-    if ( folders.has(data.id) ) {
-      const folder = folders.get(data.id);
-      if ( data.effects ) folder.effects = [...(new Set(folder.effects)).union(new Set(data.effects ?? []))]; // Combine the effects set.
-      delete data.effects;
-      foundry.utils.mergeObject(folders.get(data.id), data);
-    }
-    else {
-      data.name ??= game.i18n.localize("FOLDER.ExportNewFolder");
-      data.color ??= "black";
-      data.effects ??= [];
-      folders.set(data.id, data);
-    }
-    return this.#saveFolders();
-  }
-
-  static async deleteFolder(id) {
-    const folders = this.folders;
-    folders.delete(id);
-    return this.#saveFolders();
-  }
-
-  static async addEffectToFolder(folderId, effectId) {
-    const folders = this.folders;
-    if ( !folders.has(folderId) ) this.addFolder({ id: folderId });
-    const folder = folders.get(folderId);
-    if ( folder.effects.includes(effectId) ) return;
-    folder.effects.push(effectId);
-    return this.#saveFolders();
-  }
-
-  static async removeEffectFromFolder(folderId, effectId) {
-    const folders = this.folders;
-    if ( !folders.has(folderId) ) return;
-    const folder = folders.get(folderId);
-    const idx = folder.effects.findIndex(effectId);
-    if ( !~idx ) return;
-    folder.effects.splice(idx, 1);
-    return this.#saveFolders;
-  }
-
-  static async removeEffectFromAllFolders(effectId) {
-    const folders = this.folders;
-    let needsSave = false;
-    for ( const folder of folders.values() ) {
-      const idx = folder.effects.findIndex(effectId);
-      if ( !~idx ) continue;
-      folder.effects.splice(idx, 1);
-      needsSave ||= true;
-    }
-    if ( needsSave ) await this.#saveFolders;
-  }
-
-  static findFoldersForEffect(effectId) {
-    const out = new Set();
-    this.folders.forEach(folder => {
-      if ( folder.effects.include(effectId) ) out.add(folder);
-    });
-    return out;
-  }
 
   /** @type {string[]} */
   static get expandedFolders() { return this.get(this.KEYS.CONTROL_APP.EXPANDED_FOLDERS); }
@@ -241,15 +159,14 @@ export class Settings extends ModuleSettingsAbstract {
    */
   static isFolderExpanded(id) { return this.expandedFolders.includes(id); }
 
+  static get favorites() { return new Set(this.get(this.KEYS.CONTROL_APP.FAVORITES)); }
+
   /**
    * Check if a given effect id is in the favorites set.
    * @param {string} id     Active effect id
    * @returns {boolean}
    */
-  static isFavorite(id) {
-    const favorites = new Set(this.get(this.KEYS.CONTROL_APP.FAVORITES));
-    return favorites.has(id);
-  }
+  static isFavorite(id) { return this.favorites.has(id); }
 
   /**
    * Add effect id to favorites.
@@ -257,7 +174,7 @@ export class Settings extends ModuleSettingsAbstract {
    */
   static async addToFavorites(id) {
     const key = this.KEYS.CONTROL_APP.FAVORITES;
-    const favorites = new Set(this.get(key));
+    const favorites = this.favorites;
     favorites.add(id); // Avoids duplicates.
     await this.set(key, [...favorites]);
   }
@@ -268,7 +185,7 @@ export class Settings extends ModuleSettingsAbstract {
    */
   static async removeFromFavorites(id) {
     const key = this.KEYS.CONTROL_APP.FAVORITES;
-    const favorites = new Set(this.get(key));
+    const favorites = this.favorites;
     favorites.delete(id); // Avoids duplicates.
     await this.set(key, [...favorites]);
   }

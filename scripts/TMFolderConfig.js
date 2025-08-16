@@ -1,4 +1,5 @@
 /* globals
+CONFIG,
 foundry,
 game,
 */
@@ -6,7 +7,6 @@ game,
 "use strict";
 
 import { MODULE_ID } from "./const.js";
-import { Settings } from "./settings.js";
 
 
 // See https://github.com/DFreds/dfreds-convenient-effects/blob/fc4a43ed11bffb4a09731e2b9a149b4b25690b30/src/ts/ui/ce-config/convenient-folder-config.ts#L17
@@ -69,10 +69,11 @@ export class TMFolderConfig extends HandlebarsApplicationMixin(ApplicationV2) {
    * @returns {Promise<object>} The context object.
    */
   async _prepareContext(options) {
+    const Terrain = CONFIG[MODULE_ID].Terrain;
     const context = await super._prepareContext(options);
-    const folders = Settings.folders;
-    if ( !folders.has(this.folderId) ) await Settings.addFolder({ id: this.folderId });
-    const folder = Settings.folders.get(this.folderId);
+    const folders = Terrain.folders;
+    if ( !folders.has(this.folderId) ) await Terrain.addFolder({ id: this.folderId });
+    const folder = Terrain.folders.get(this.folderId);
     Object.assign(context, {
       folder,
       namePlaceholder: game.i18n.localize("DOCUMENT.Folder"),
@@ -118,7 +119,7 @@ export class TMFolderConfig extends HandlebarsApplicationMixin(ApplicationV2) {
    */
   async #processSubmitData(_event, _form, submitData, _options) {
     if ( !submitData || !submitData.folder ) return;
-    return Settings.addFolder(submitData.folder);
+    return CONFIG[MODULE_ID].Terrain.addFolder(submitData.folder);
   }
 
   /**

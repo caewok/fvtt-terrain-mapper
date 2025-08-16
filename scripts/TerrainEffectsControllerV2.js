@@ -89,7 +89,7 @@ export class TerrainEffectsControllerV2 {
     });
 
     // User-defined folders
-    Settings.folders.forEach(folder => {
+    CONFIG[MODULE_ID].Terrain.folders.forEach(folder => {
       folderData.push({
         folder,
         effects: folder.effects.map(id => CONFIG[MODULE_ID].Terrain._instances.get(id)),
@@ -106,7 +106,7 @@ export class TerrainEffectsControllerV2 {
 
   _fetchFavorites(terrains) {
     log("TerrainEffectsController|_fetchFavorites");
-    const favorites = new Set(Settings.get(Settings.KEYS.CONTROL_APP.FAVORITES));
+    const favorites = Settings.favorites;
     return terrains.filter(t => favorites.has(t.uniqueEffectId));
   }
 
@@ -229,7 +229,7 @@ export class TerrainEffectsControllerV2 {
 
   async onDeleteFolder(folderId) {
     if ( !folderId ) return;
-    await Settings.deleteFolder(folderId);
+    await CONFIG[MODULE_ID].Terrain.deleteFolder(folderId);
     this.rerender();
   }
 
@@ -440,7 +440,7 @@ export class TerrainEffectsControllerV2 {
         const folderId = elHTML.dataset.folderId;
         if ( !folderId ) continue;
 
-        const match = Settings.folders.has(folderId);
+        const match = CONFIG[MODULE_ID].Terrain.folders.has(folderId);
         elHTML.style.display = !query || match ? "flex" : "none";
         if ( autoExpandIds.has(folderId ?? "")) {
           if ( query && match ) elHTML.classList.add("expanded");
@@ -457,7 +457,7 @@ export class TerrainEffectsControllerV2 {
    */
   _matchSearchFolders(query, folderIds, autoExpandIds, _options) {
     const SearchFilter = foundry.applications.ux.SearchFilter;
-    const folders = Settings.folders;
+    const folders = CONFIG[MODULE_ID].Terrain.folders;
     folders.forEach(folder => {
       if ( query?.test(SearchFilter.cleanQuery(folder.name)) ) {
         this.#onMatchFolder(folder, folderIds, autoExpandIds, { autoExpand: false });
@@ -490,7 +490,7 @@ export class TerrainEffectsControllerV2 {
     const nameOnlySearch = true;
 
     // If we matched a folder, add its child entries
-    const folders = Settings.folders;
+    const folders = CONFIG[MODULE_ID].Terrain.folders;
     for ( const folderId of folderIds ) {
       const folder = folders.get(folderId);
       folder.effects.forEach(id => entryIds.add(id));
@@ -502,7 +502,7 @@ export class TerrainEffectsControllerV2 {
         // If searching by name, match the entry name.
         if ( query?.test(SearchFilter.cleanQuery(entry.name)) ) {
           entryIds.add(entry.uniqueEffectId);
-          const entryFolders = Settings.findFoldersForEffect(entry.uniqueEffectId);
+          const entryFolders = CONFIG[MODULE_ID].Terrain.findFoldersForEffect(entry.uniqueEffectId);
           entryFolders.forEach(folder => this.#onMatchFolder(folder, folderIds, autoExpandIds));
         }
       }
@@ -513,7 +513,7 @@ export class TerrainEffectsControllerV2 {
     for ( const entry of CONFIG[MODULE_ID].Terrain._instances ) {
       if ( query?.test(SearchFilter.cleanQuery(entry.document.description)) ) {
         entryIds.add(entry.uniqueEffectId);
-        const entryFolders = Settings.findFoldersForEffect(entry.uniqueEffectId);
+        const entryFolders = CONFIG[MODULE_ID].Terrain.findFoldersForEffect(entry.uniqueEffectId);
         entryFolders.forEach(folder => this.#onMatchFolder(folder, folderIds, autoExpandIds));
       }
     }
