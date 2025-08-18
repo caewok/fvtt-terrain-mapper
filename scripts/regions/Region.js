@@ -221,13 +221,13 @@ PATCHES.REGIONS.HOOKS = { createRegion, updateRegion, deleteRegion };
  * @param {boolean} [options.freefall=false]      Should elevation changes follow the ramp/plateau when moving down?
  * @returns {RegionMovementSegment[]}             The movement split into its segments.
  */
-function segmentizeMovement(wrapper, waypoints, samples, opts) {
-  const segments = wrapper(waypoints, samples, opts);
-  if ( !segments.length ) return segments;
-
-  // Modify segments if moving through plateau or ramp regions.
-  return this[MODULE_ID]._modifySegments(segments);
-}
+// function segmentizeMovement(wrapper, waypoints, samples, opts) {
+//   const segments = wrapper(waypoints, samples, opts);
+//   if ( !segments.length ) return segments;
+//
+//   // Modify segments if moving through plateau or ramp regions.
+//   return this[MODULE_ID]._modifySegments(segments);
+// }
 
 /**
  * Wrap Region#_draw
@@ -305,7 +305,11 @@ function _applyRenderFlags(wrapper, flags) {
 }
 
 
-PATCHES.REGIONS.WRAPS = { segmentizeMovement, _draw, _applyRenderFlags};
+PATCHES.REGIONS.WRAPS = {
+  // segmentizeMovement,
+  _draw,
+  _applyRenderFlags,
+};
 
 
 // ----- NOTE: Methods ----- //
