@@ -8,7 +8,7 @@ PIXI,
 import { MODULE_ID, FLAGS } from "./const.js";
 import { Point3d } from "./geometry/3d/Point3d.js";
 import { Plane } from "./geometry/3d/Plane.js";
-import { RegionMovementWaypoint3d } from "./geometry/3d/RegionMovementWaypoint3d.js";
+import { ElevatedPoint } from "./geometry/3d/ElevatedPoint.js";
 import { ElevationHandler } from "./ElevationHandler.js";
 import { regionWaypointsXYAlmostEqual } from "./util.js";
 import { Draw } from "./geometry/Draw.js";
@@ -84,13 +84,13 @@ export class TileElevationHandler {
    * Does this segment intersect the tile?
    * TODO: Segments that touch the border only do not intersect the tile.
    * TODO: Segments that are inside a hole only do not intersect the tile.
-   * @param {RegionMovementWaypoint3d} start          Start of the segment
-   * @param {RegionMovementWaypoint3d} end            End of the segment
+   * @param {ElevatedPoint} start          Start of the segment
+   * @param {ElevatedPoint} end            End of the segment
    * @returns {boolean}
    */
   lineSegmentIntersects(start, end) {
-    if ( !instanceOrTypeOf(start, RegionMovementWaypoint3d) ) start = RegionMovementWaypoint3d.fromObject(start);
-    if ( !instanceOrTypeOf(end, RegionMovementWaypoint3d) ) end = RegionMovementWaypoint3d.fromObject(end);
+    if ( !instanceOrTypeOf(start, ElevatedPoint) ) start = ElevatedPoint.fromObject(start);
+    if ( !instanceOrTypeOf(end, ElevatedPoint) ) end = ElevatedPoint.fromObject(end);
 
     // Handle the 2d case.
     if ( start.elevation === end.elevation ) {
@@ -133,11 +133,11 @@ export class TileElevationHandler {
 
   /**
    * Does a point lie on the tile?
-   * @param {RegionMovementWaypoint3d} a
+   * @param {ElevatedPoint} a
    * @returns {boolean}
    */
   waypointOnTile(a, token) {
-    if ( !instanceOrTypeOf(a, RegionMovementWaypoint3d) ) a = RegionMovementWaypoint3d.fromObject(a);
+    if ( !instanceOrTypeOf(a, ElevatedPoint) ) a = ElevatedPoint.fromObject(a);
     if ( a.elevation !== this.tile.elevationE ) return false;
     if ( !this.tile.bounds.contains(a.x, a.y) ) return false;
     if ( !this.lineSegmentIntersects(

@@ -13,7 +13,7 @@ import {
   regionWaypointsXYEqual } from "../util.js";
 import { Point3d } from "../geometry/3d/Point3d.js";
 import { Plane } from "../geometry/3d/Plane.js";
-import { RegionMovementWaypoint3d } from "../geometry/3d/RegionMovementWaypoint3d.js";
+import { ElevatedPoint } from "../geometry/3d/ElevatedPoint.js";
 import { Matrix } from "../geometry/Matrix.js";
 import { ElevationHandler } from "../ElevationHandler.js";
 import { instanceOrTypeOf, gridUnitsToPixels, pixelsToGridUnits } from "../geometry/util.js";
@@ -139,18 +139,18 @@ export class RegionElevationHandler {
   /**
    * Determine if a line segment intersects this region's plateau or ramp.
    * Note: Does not test if the returned point is within the region.
-   * @param {RegionMovementWaypoint3d} a      Start position and grid elevation
-   * @param {RegionMovementWaypoint3d} b      End position and grid elevation
-   * @returns {RegionMovementWaypoint3d|null} The intersection.
+   * @param {ElevatedPoint} a      Start position and grid elevation
+   * @param {ElevatedPoint} b      End position and grid elevation
+   * @returns {ElevatedPoint|null} The intersection.
    */
   plateauSegmentIntersection(a, b) {
-    if ( !instanceOrTypeOf(a, RegionMovementWaypoint3d) ) a = RegionMovementWaypoint3d.fromObject(a);
-    if ( !instanceOrTypeOf(b, RegionMovementWaypoint3d) ) b = RegionMovementWaypoint3d.fromObject(b);
+    if ( !instanceOrTypeOf(a, ElevatedPoint) ) a = ElevatedPoint.fromObject(a);
+    if ( !instanceOrTypeOf(b, ElevatedPoint) ) b = ElevatedPoint.fromObject(b);
 
     if ( a.equalXY(b) ) {
       // A|b is a vertical line in the z direction.
       const e = Math.max(ElevationHandler.nearestGroundElevation(a), ElevationHandler.nearestGroundElevation(b));
-      if ( e.between(a.elevation, b.elevation) ) return RegionMovementWaypoint3d.fromLocationWithElevation(a, e);
+      if ( e.between(a.elevation, b.elevation) ) return ElevatedPoint.fromLocationWithElevation(a, e);
       return null;
     }
 
@@ -164,7 +164,7 @@ export class RegionElevationHandler {
 
     const p = this._plateauPlane(minMax);
     if ( !p.lineSegmentIntersects(a, b) ) return null;
-    const ix = RegionMovementWaypoint3d.fromObject(p.lineSegmentIntersection(a, b));
+    const ix = ElevatedPoint.fromObject(p.lineSegmentIntersection(a, b));
 
     // Then get the actual location for the step size.
     ix.elevation = this.elevationUponEntry(ix);
@@ -200,8 +200,8 @@ export class RegionElevationHandler {
 
   /**
    * Construct the cutaway shapes for a segment that traverses this region.
-   * @param {RegionMovementWaypoint3d} start          Start of the segment
-   * @param {RegionMovementWaypoint3d} end            End of the segment
+   * @param {ElevatedPoint} start          Start of the segment
+   * @param {ElevatedPoint} end            End of the segment
    * @param {object} [opts]                           Options that affect the polygon shape
    * @param {boolean} [opts.usePlateauElevation=true] Use the plateau or ramp shape instead of the region top elevation
    * @returns {CutawayPolygon[]} The cutaway polygons for the region, or empty array if all polys are holes.
@@ -233,8 +233,8 @@ export class RegionElevationHandler {
 
   /**
    * Calculate the cutaway intersections for a segment that traverses this region.
-   * @param {RegionMovementWaypoint3d} start          Start of the segment
-   * @param {RegionMovementWaypoint3d} end            End of the segment
+   * @param {ElevatedPoint} start          Start of the segment
+   * @param {ElevatedPoint} end            End of the segment
    * @param {object} [opts]                           Options that affect the polygon shape
    * @param {boolean} [opts.usePlateauElevation=true] Use the plateau or ramp shape instead of the region top elevation
    * @returns {PIXI.Point[]}
@@ -350,7 +350,7 @@ export class RegionElevationHandler {
    * @param {PIXI.Point} a              Start of the segment
    * @param {PIXI.Point} b              End of the segment
    * @param {PIXI.Polygon} [poly]       For split polygons, the poly to use
-   * @returns {PIXI.RegionMovementWaypoint3d[]} Array of points from start to end at which elevation changes.
+   * @returns {PIXI.ElevatedPoint[]} Array of points from start to end at which elevation changes.
    */
   _rampCutpointsForSegment(a, b, poly) {
     // For each ideal cutpoint on the ramp, intersect the line orthogonal to the ideal cutpoint line
@@ -373,8 +373,8 @@ export class RegionElevationHandler {
         startingElevation = idealCutpoint.elevation;
         continue;
       }
-      const cutpoint0 = RegionMovementWaypoint3d.fromLocationWithElevation(ix, startingElevation);
-      const cutpoint1 = RegionMovementWaypoint3d.fromLocationWithElevation(ix, idealCutpoint.elevation);
+      const cutpoint0 = ElevatedPoint.fromLocationWithElevation(ix, startingElevation);
+      const cutpoint1 = ElevatedPoint.fromLocationWithElevation(ix, idealCutpoint.elevation);
       cutpoint0.t0 = ix.t0;
       cutpoint1.t0 = ix.t0;
       cutpoints.push(cutpoint0, cutpoint1);
@@ -429,7 +429,7 @@ export class RegionElevationHandler {
   /**
    * Determine the elevation of the ramp at a given location.
    * Does not confirm the waypoint is within the region.
-   * @param {RegionMovementWaypoint3d} location      2d location
+   * @param {ElevatedPoint} location      2d location
    * @returns {number} The elevation of the ramp at this location.
    */
   _rampElevation(waypoint, useSteps = true, round = true) {

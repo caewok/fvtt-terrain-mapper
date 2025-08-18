@@ -15,7 +15,7 @@ import {
 import { ClipperPaths } from "./geometry/ClipperPaths.js";
 import { RegionElevationHandler } from "./regions/RegionElevationHandler.js";
 import { StraightLinePath } from "./StraightLinePath.js";
-import { RegionMovementWaypoint3d } from "./geometry/3d/RegionMovementWaypoint3d.js";
+import { ElevatedPoint } from "./geometry/3d/ElevatedPoint.js";
 import { instanceOrTypeOf, gridUnitsToPixels, cutaway } from "./geometry/util.js";
 import { CutawayPolygon } from "./geometry/CutawayPolygon.js";
 import { Draw } from "./geometry/Draw.js";
@@ -125,11 +125,11 @@ export class ElevationHandler {
    * @param {boolean} [opts.flying]                 If true, token is assumed to fly, not fall, between regions
    * @param {boolean} [opts.burrowing]              If true, token is assumed to burrow straight through regions
    * @param {Point[]} [opts.samples]                Passed to Region#segmentizeMovement
-   * @returns {StraightLinePath<RegionMovementWaypoint3d>}   Sorted points by distance from start.
+   * @returns {StraightLinePath<ElevatedPoint>}   Sorted points by distance from start.
    */
   static constructPath(start, end, { regions, tiles, flying, burrowing, samples, token } = {}) {
-    if ( !instanceOrTypeOf(start, RegionMovementWaypoint3d) ) start = RegionMovementWaypoint3d.fromObject(start);
-    if ( !instanceOrTypeOf(end, RegionMovementWaypoint3d) ) end = RegionMovementWaypoint3d.fromObject(end);
+    if ( !instanceOrTypeOf(start, ElevatedPoint) ) start = ElevatedPoint.fromObject(start);
+    if ( !instanceOrTypeOf(end, ElevatedPoint) ) end = ElevatedPoint.fromObject(end);
 
     // If the start and end are equal, we are done.
     // If flying and burrowing, essentially a straight shot would work.
@@ -201,14 +201,14 @@ export class ElevationHandler {
    * To be on the ground, it has to be on the region's plateau and not within another region unless it
    * is also on that other region's plateau.
    * Or at a tile elevation.
-   * @param {RegionMovementWaypoint3d} waypoint     Location to test
+   * @param {ElevatedPoint} waypoint     Location to test
    * @param {Token} [token]                       Token doing the movement; used to test tile holes
    * @param {Region[]} [regions]                  Regions to consider; otherwise entire canvas
    * @param {Tile[]} [tiles]                      Tiles to consider; otherwise entire canvas
    * @returns {ELEVATION_LOCATIONS}
    */
   static elevationType(waypoint, token, regions, tiles) {
-    if ( !instanceOrTypeOf(waypoint, RegionMovementWaypoint3d) ) waypoint = RegionMovementWaypoint3d.fromObject(waypoint);
+    if ( !instanceOrTypeOf(waypoint, ElevatedPoint) ) waypoint = ElevatedPoint.fromObject(waypoint);
 
     const locs = this.ELEVATION_LOCATIONS;
     tiles = elevatedTiles(tiles);
@@ -223,7 +223,7 @@ export class ElevationHandler {
     let inside = false;
     let highestElevation = Number.NEGATIVE_INFINITY;
     for ( const region of regions ) {
-      if ( !region.testPoint(waypoint) ) continue; // No elevation test.
+      if ( !region.document.testPoint(waypoint) ) continue; // No elevation test.
       inside ||= true;
       highestElevation = Math.max(highestElevation, region[MODULE_ID].elevationUponEntry(waypoint));
     }
@@ -239,7 +239,7 @@ export class ElevationHandler {
   /**
    * From the provided position, determine the highest supporting "floor".
    * This could be a plateau, ramp, or the scene floor.
-   * @param {RegionMovementWaypoint3d} waypoint     The location to test
+   * @param {ElevatedPoint} waypoint     The location to test
    * @param {Region[]} regions                    Regions to consider
    * @param {object} [opts]                       Options that affect the movement
    * @param {Region[]} [opts.regions]             Regions to test; if undefined all on canvas will be tested
@@ -249,7 +249,7 @@ export class ElevationHandler {
    * @returns {number} The elevation for the nearest ground, in grid units
    */
   static nearestGroundElevation(waypoint, { regions, tiles, samples, burrowing = false, token } = {}) {
-    if ( !instanceOrTypeOf(waypoint, RegionMovementWaypoint3d) ) waypoint = RegionMovementWaypoint3d.fromObject(waypoint);
+    if ( !instanceOrTypeOf(waypoint, ElevatedPoint) ) waypoint = ElevatedPoint.fromObject(waypoint);
 
     const teleport = false;
     samples ??= [{x: 0, y: 0}];
@@ -262,7 +262,8 @@ export class ElevationHandler {
     if ( tiles.some(tile => tile[MODULE_ID].waypointOnTile(waypoint, token)) ) return waypoint.elevation;
 
     // Option 2: Waypoint is currently in a region.
-    const currRegions = regions.filter(region => region.testPoint(waypoint, currElevation));
+    const currRegions = regions.filter(region => region.document.testPoint(waypoint));
+
     if ( burrowing && currRegions.length ) return currElevation;
 
     // Option 3: Fall to ground and locate intersecting regions and tiles. If below ground, move up to ground.
@@ -270,7 +271,7 @@ export class ElevationHandler {
       if ( waypoint.elevation === terrainFloor ) return terrainFloor;
       const ixs = [];
       const start = waypoint;
-      const end = RegionMovementWaypoint3d.fromLocationWithElevation(waypoint, terrainFloor);
+      const end = ElevatedPoint.fromLocationWithElevation(waypoint, terrainFloor);
       const waypoints = [start, end];
       for ( const region of regions ) {
         // Given the previous test, it would have to be an entry at this point.
@@ -305,21 +306,24 @@ export class ElevationHandler {
     // If the entry elevation changes the current elevation, repeat.
     const MAX_ITER = 1e04;
     let iter = 0;
-    let currRegionElevation = currElevation;
-    let maxElevation = currElevation;
+    const testPt = ElevatedPoint.fromLocationWithElevation(waypoint, currElevation);
+    let maxElevation = testPt.elevation;
     do {
       iter += 1;
-      currRegionElevation = maxElevation;
+      testPt.elevation = maxElevation;
+      // currRegionElevation = maxElevation;
       maxElevation = Number.NEGATIVE_INFINITY;
       for ( const region of regions ) {
-        if ( !region.testPoint(waypoint, currRegionElevation) ) continue;
+        if ( !region.testPoint(testPt) ) continue;
         const newE = region[MODULE_ID].elevationUponEntry(waypoint);
         maxElevation = Math.max(maxElevation, newE);
       }
-    } while ( maxElevation !== currRegionElevation && iter < MAX_ITER );
+    } while ( maxElevation !== testPt.elevation && iter < MAX_ITER );
     if ( iter >= MAX_ITER ) console.error("nearestGroundElevation|Max iterations reached!", waypoint);
 
-    return isFinite(currRegionElevation) ? currRegionElevation : currElevation;
+    const out = isFinite(testPt.elevation) ? testPt.elevation : currElevation;
+    testPt.release();
+    return out;
   }
 
 
@@ -481,8 +485,8 @@ export class ElevationHandler {
    * X-axis is the distance from the start point.
    * Y-axis is elevation. Note y increases as moving up, which is opposite of Foundry.
    * Only handles plateaus and ramps; ignores stairs.
-   * @param {RegionMovementWaypoint3d} start        Start of the path; cutaway will be extended 2 pixels before.
-   * @param {RegionMovementWaypoint3d} end          End of the path; cutaway will be extended 2 pixels after
+   * @param {ElevatedPoint} start        Start of the path; cutaway will be extended 2 pixels before.
+   * @param {ElevatedPoint} end          End of the path; cutaway will be extended 2 pixels after
    * @param {Region[]} regions                      Regions to test
    * @param {Tile[]} tiles                          Tiles to test
    * @param {Token} token                           Token doing the movement
@@ -674,15 +678,15 @@ export class ElevationHandler {
 
   /**
    * Convert a RegionMovementWaypoint to a cutaway coordinate.
-   * @param {RegionMovementWaypoint3d} waypoint
-   * @param {RegionMovementWaypoint3d} start
-   * @param {RegionMovementWaypoint3d} end
+   * @param {ElevatedPoint} waypoint
+   * @param {ElevatedPoint} start
+   * @param {ElevatedPoint} end
    * @returns {CutawayPoint}
    */
   static _to2dCutawayCoordinate(waypoint, start, end, outPoint) {
-    if ( !instanceOrTypeOf(waypoint, RegionMovementWaypoint3d) ) waypoint = RegionMovementWaypoint3d.fromObject(waypoint);
-    if ( !instanceOrTypeOf(start, RegionMovementWaypoint3d) ) start = RegionMovementWaypoint3d.fromObject(start);
-    if ( !instanceOrTypeOf(end, RegionMovementWaypoint3d) ) end = RegionMovementWaypoint3d.fromObject(end);
+    if ( !instanceOrTypeOf(waypoint, ElevatedPoint) ) waypoint = ElevatedPoint.fromObject(waypoint);
+    if ( !instanceOrTypeOf(start, ElevatedPoint) ) start = ElevatedPoint.fromObject(start);
+    if ( !instanceOrTypeOf(end, ElevatedPoint) ) end = ElevatedPoint.fromObject(end);
     return cutaway.to2d(waypoint, start, end, outPoint);
   }
 
@@ -691,13 +695,13 @@ export class ElevationHandler {
    * @param {CutawayPoint} cutawayPt
    * @param {RegionMovementWaypoint} start
    * @param {RegionMovementWaypoint} end
-   * @param {RegionMovementWaypoint3d} outPoint                  Point to use for the return
-   * @returns {RegionMovementWaypoint3d} The outPoint
+   * @param {ElevatedPoint} outPoint                  Point to use for the return
+   * @returns {ElevatedPoint} The outPoint
    */
   static _from2dCutawayCoordinate(cutawayPt, start, end, outPoint) {
-    if ( !instanceOrTypeOf(start, RegionMovementWaypoint3d) ) start = RegionMovementWaypoint3d.fromObject(start);
-    if ( !instanceOrTypeOf(end, RegionMovementWaypoint3d) ) end = RegionMovementWaypoint3d.fromObject(end);
-    outPoint ??= new RegionMovementWaypoint3d();
+    if ( !instanceOrTypeOf(start, ElevatedPoint) ) start = ElevatedPoint.fromObject(start);
+    if ( !instanceOrTypeOf(end, ElevatedPoint) ) end = ElevatedPoint.fromObject(end);
+    outPoint ??= new ElevatedPoint();
     cutaway.from2d(cutawayPt, start, end, outPoint);
     return outPoint;
   }

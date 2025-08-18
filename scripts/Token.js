@@ -26,7 +26,7 @@ Hook token movement to add/remove terrain effects and pause tokens dependent on 
 import { MODULE_ID, FLAGS, MODULES_ACTIVE } from "./const.js";
 import { log } from "./util.js";
 import { ElevationHandler } from "./ElevationHandler.js";
-import { RegionMovementWaypoint3d } from "./geometry/3d/RegionMovementWaypoint3d.js";
+import { ElevatedPoint } from "./geometry/3d/ElevatedPoint.js";
 
 export const PATCHES = {};
 PATCHES.BASIC = {};
@@ -223,8 +223,8 @@ PATCHES.BASIC.HOOKS = {
 //   if ( this.document._source.x === shifted.x && this.document._source.y === shifted.y ) return shifted;
 //
 //   // Determine the full path but only use the last point.
-//   const aTL = RegionMovementWaypoint3d.fromObject(this.document._source);
-//   const bTL = RegionMovementWaypoint3d.fromObject(shifted);
+//   const aTL = ElevatedPoint.fromObject(this.document._source);
+//   const bTL = ElevatedPoint.fromObject(shifted);
 //   bTL.elevation = aTL.elevation;
 //   const path = calculatePathForTopLeftPoints(this, aTL, bTL);
 //   const lastPoint = path.at(-1);
@@ -235,8 +235,8 @@ PATCHES.BASIC.HOOKS = {
 /**
  * Determine the path for top left start and end.
  * @param {Token} token
- * @param {RegionMovementWaypoint3d} aTL
- * @param {RegionMovementWaypoint3d} bTL
+ * @param {ElevatedPoint} aTL
+ * @param {ElevatedPoint} bTL
  */
 function calculatePathForTopLeftPoints(token, aTL, bTL) {
   const aCentered = aTL.centerPointToToken(token);
@@ -248,8 +248,8 @@ function calculatePathForTopLeftPoints(token, aTL, bTL) {
 /**
  * Determine the path for a given start and end. Must be center points.
  * @param {Token} token
- * @param {RegionMovementWaypoint3d} aCenter
- * @param {RegionMovementWaypoint3d} bCenter
+ * @param {ElevatedPoint} aCenter
+ * @param {ElevatedPoint} bCenter
  */
 export function calculatePathForCenterPoints(token, aCenter, bCenter) {
   const flying = ElevationHandler.tokenIsFlying(token, aCenter, bCenter);
@@ -261,10 +261,10 @@ export function calculatePathForCenterPoints(token, aCenter, bCenter) {
 
 /**
  * Shift the path from center points to top left points. Used when updating token position.
- * @param {RegionMovementWaypoint3d[]} path
- * @param {RegionMovementWaypoint3d} topLeftPosition
- * @param {RegionMovementWaypoint3d} centeredPosition
- * @returns {RegionMovementWaypoint3d[]} The path, modified in place.
+ * @param {ElevatedPoint[]} path
+ * @param {ElevatedPoint} topLeftPosition
+ * @param {ElevatedPoint} centeredPosition
+ * @returns {ElevatedPoint[]} The path, modified in place.
  */
 function shiftPathToTopLeft(path, topLeftPosition, centeredPosition) {
   const delta = topLeftPosition.to2d().subtract(centeredPosition);
@@ -294,13 +294,13 @@ PATCHES.BASIC.WRAPS = {
 //   const paths = new Map();
 //   for ( const clone of event.interactionData.clones ) {
 //     const {_original: original} = clone;
-//     const dest = RegionMovementWaypoint3d.fromObject(clone.getSnappedPosition());
+//     const dest = ElevatedPoint.fromObject(clone.getSnappedPosition());
 //     const bCentered = dest.centerPointToToken(clone); // I.e., target
 //     if ( !canvas.dimensions.rect.contains(bCentered.x, bCentered.y) ) continue;
 //
 //     // Determine the full path for the clone.
 //     // Keep the path as center points so collisions can be easily tested.
-//     const aCentered = RegionMovementWaypoint3d.fromObject(original.center);
+//     const aCentered = ElevatedPoint.fromObject(original.center);
 //     aCentered.elevation = original.elevationE;
 //     bCentered.elevation = aCentered.elevation;
 //     const path = calculatePathForCenterPoints(this, aCentered, bCentered);
@@ -320,7 +320,7 @@ PATCHES.BASIC.WRAPS = {
 
 /**
  * Test for collisions along a path.
- * @param {RegionMovementWaypoint3d[]} path
+ * @param {ElevatedPoint[]} path
  * @param {Token} token
  * @returns {boolean}
  */
@@ -338,7 +338,7 @@ export function hasCollisionAlongPath(path, token) {
  * Replicates Token.prototype.#commitDragLeftDropUpdates
  * But commits the updates in order and confirms the destination was reached.
  * On not reaching the destination, stops further updates
- * @param {Map<string, RegionMovementWaypoint3d[]>} paths     Path for each token id; map will be modified.
+ * @param {Map<string, ElevatedPoint[]>} paths     Path for each token id; map will be modified.
  */
 // async function commitDragLeftDropUpdatesAlongPaths(paths) {
 //   const updateIds = new Set();
@@ -448,11 +448,11 @@ PATCHES.BASIC.METHODS = {
  */
 function identifyRegions(token) {
   const regions = new Set();
-  const center = token.getCenterPoint();
-  const elevation = token.elevation;
+  const testPt = ElevatedPoint.fromLocationWithElevation(token.getCenterPoint(), token.elevation);
   for ( const region of canvas.regions.placeables ) {
-    if ( region.testPoint(center, elevation) ) regions.add(region);
+    if ( region.testPoint(testPt) ) regions.add(region);
   }
+  testPt.release();
   return regions;
 }
 
