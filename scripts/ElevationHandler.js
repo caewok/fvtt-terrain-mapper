@@ -96,6 +96,8 @@ export class ElevationHandler {
       region[MODULE_ID].hasTerrain && region.bounds.lineSegmentIntersects(start, end, { inside: true }));
   }
 
+  // TODO: New version that uses 3d path, getting the surface path for each region along the way.
+
   /**
    * Create a path for a given straight line segment that may move through regions.
    * Unless flying or burrowing, the path will run along the "top" of any ramp or plateau,
@@ -545,7 +547,7 @@ export class ElevationHandler {
     const combinedPolys = path.combine().clean().toPolygons();
 
     // If all holes or no polygons, we are done.
-    if ( !combinedPolys.length || combinedPolys.every(poly => !poly.isPositive) ) return [];
+    if ( !combinedPolys.length || combinedPolys.every(poly => poly.isHole) ) return [];
     return combinedPolys.map(poly => {
       // Strip duplicate points, which will cause problems later.
       const pts = [...poly.iteratePoints({ close: false })];
