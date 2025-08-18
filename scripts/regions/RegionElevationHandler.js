@@ -63,7 +63,7 @@ export class RegionElevationHandler {
   }
 
   /** @type {PIXI.Polygon} */
-  get nonHolePolygons() { return this.region.polygons.filter(poly => poly._isPositive); }
+  get nonHolePolygons() { return this.region.document.polygons.filter(poly => poly._isPositive); }
 
   /** @type {object} */
   #minMax;
@@ -221,7 +221,7 @@ export class RegionElevationHandler {
       if ( rampDir ^ stepDir ) cutpoints.reverse();
       return [a, ...cutpoints, b];
     } : undefined;
-    for ( const regionPoly of this.region.polygons ) {
+    for ( const regionPoly of this.region.document.polygons ) {
       allHoles &&= !regionPoly.isPositive;
       const cutaways = regionPoly.cutaway(start, end, opts);
       if ( addSteps && regionPoly.isPositive ) cutaways.forEach(cutawayPoly => cutawayPoly.insertTopSteps(stepFn));
@@ -254,7 +254,7 @@ export class RegionElevationHandler {
     const result = [];
     let allHoles = true;
     const nonHolePolygons = (this.isRamp && this.splitPolygons) ? this.nonHolePolygons : [];
-    for ( const regionPoly of this.region.polygons ) {
+    for ( const regionPoly of this.region.document.polygons ) {
       // If this poly is a hole, need the positive polygon for forming the step coordinates.
       let poly = regionPoly;
       if ( !regionPoly.isPositive ) {
