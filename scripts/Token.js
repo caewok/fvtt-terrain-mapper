@@ -151,10 +151,10 @@ function refreshToken(token, flags) {
 
 
 PATCHES.BASIC.HOOKS = {
-  preCreateToken,
-  refreshToken,
-  updateToken,
-  preUpdateToken
+//   preCreateToken,
+//   refreshToken,
+//   updateToken,
+//   preUpdateToken
 };
 
 // ----- NOTE: Wraps ----- //
@@ -272,7 +272,7 @@ function shiftPathToTopLeft(path, topLeftPosition, centeredPosition) {
   return path;
 }
 
-PATCHES.BASIC.WRAPS = { _getAnimationData, _onAnimationUpdate, _getShiftedPosition };
+// PATCHES.BASIC.WRAPS = { _getAnimationData, _onAnimationUpdate, _getShiftedPosition };
 
 
 // ----- NOTE: Mixed Wraps ----- //
@@ -392,7 +392,7 @@ async function commitDragLeftDropUpdatesAlongPaths(paths) {
 }
 
 
-PATCHES.RULER.MIXES = { _prepareDragLeftDropUpdates };
+// PATCHES.RULER.MIXES = { _prepareDragLeftDropUpdates };
 
 // ----- NOTE: Methods ----- //
 

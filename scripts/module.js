@@ -23,6 +23,7 @@ import { WallTracerEdge, WallTracerVertex, WallTracer, SCENE_GRAPH } from "./Wal
 import { SetTerrainRegionBehaviorType } from "./regions/SetTerrainRegionBehaviorType.js";
 import { StairsRegionBehaviorType } from "./regions/StairsRegionBehaviorType.js";
 import { ElevatorRegionBehaviorType } from "./regions/ElevatorRegionBehaviorType.js";
+import { PlateauRegionBehaviorType } from "./regions/PlateauRegionBehaviorType.js";
 import { StraightLinePath } from "./StraightLinePath.js";
 
 // Elevation
@@ -48,18 +49,16 @@ Hooks.once("init", function() {
   Settings.registerAll();
 
   Object.assign(CONFIG.RegionBehavior.dataModels, {
-  //     [`${MODULE_ID}.addTerrain`]: AddTerrainRegionBehaviorType,
-  //     [`${MODULE_ID}.removeTerrain`]: RemoveTerrainRegionBehaviorType,
     [`${MODULE_ID}.setTerrain`]: SetTerrainRegionBehaviorType,
     [`${MODULE_ID}.setElevation`]: StairsRegionBehaviorType,
-    [`${MODULE_ID}.elevator`]: ElevatorRegionBehaviorType
+    [`${MODULE_ID}.elevator`]: ElevatorRegionBehaviorType,
+    [`${MODULE_ID}.plateau`]: PlateauRegionBehaviorType,
   });
 
-  //   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.addTerrain`] = FA_ICONS.MODULE;
-  //   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.removeTerrain`] = FA_ICONS.MODULE;
   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.setTerrain`] = FA_ICONS.MODULE;
   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.setElevation`] = FA_ICONS.STAIRS;
   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.elevator`] = FA_ICONS.ELEVATOR;
+  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.plateau`] = FA_ICONS.PLATEAU;
 
   // Must go at end?
   foundry.applications.handlebars.loadTemplates(Object.values(TEMPLATES)).then(_value => log("Templates loaded."));
@@ -172,6 +171,27 @@ function initializeConfig() {
      * @type {number} Between 0 and 1. 0 will be treated as one.
      */
     elevationAnimationPercent: 0.25,
+
+    /**
+     * Token actions that are affected by plateaus/ramps
+     * both entering and exiting.
+     * For example, if at the region edge, the next move is "crawl" and it would take the token
+     * into the plateau, the token elevation is adjusted to the top of the plateau before
+     * continuing the movement. Similarly, if the token moves off the plateau, its elevation is
+     * adjusted to the next supporting level. If the token action was to fly, its elevation would
+     * not be changed.
+     * @type {Set<foundry.CONFIG.Token.movement.actions>}
+     */
+    terrainSurfaceActions: new Set(["walk", "climb", "crawl"]),
+
+    /**
+     * Token actions that are affected by plateaus/ramps to prevent them from crashing into them.
+     * For example, if at the region edge, the next move is "fly" and it would take the token
+     * below the plateau elevation, the token elevation is adjusted to the top of the plateau before
+     * continuing the movement. But if the token elevation takes it above the plateau, it is unchanged.
+     * @type {Set<foundry.CONFIG.Token.movement.actions>}
+     */
+    terrainFlightActions: new Set(["fly", "blink", "jump"]),
 
   };
 

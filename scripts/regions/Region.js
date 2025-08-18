@@ -305,7 +305,11 @@ function _applyRenderFlags(wrapper, flags) {
 }
 
 
-PATCHES.REGIONS.WRAPS = { segmentizeMovement, _draw, _applyRenderFlags};
+PATCHES.REGIONS.WRAPS = {
+  // segmentizeMovement,
+  _draw,
+  _applyRenderFlags,
+};
 
 
 // ----- NOTE: Methods ----- //

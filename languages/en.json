@@ -103,11 +103,29 @@
   "terrainmapper.behavior.types.elevator.fields.resetOnExit.name": "Reset on Exit",
   "terrainmapper.behavior.types.elevator.fields.resetOnExit.hint": "If enabled, the token will be reset to the scene elevation (ground) on exit. This will occur regardless of whether the token took stairs or elevator when entering the region.",
 
-  "TYPES.RegionBehavior.terrainmapper.addTerrain": "Add Terrains",
-  "TYPES.RegionBehavior.terrainmapper.removeTerrain": "Remove Terrains",
+  "terrainmapper.behavior.types.plateau.fields.algorithm.name": "Shape",
+  "terrainmapper.behavior.types.plateau.fields.algorithm.hint": "Define the 'ground' elevation for a region. Tokens entering the region will move to the defined ground elevation; tokens leaving the region will 'fall' back to the scene elevation unless flying. 'Plateau' uses a single 'highest elevation.' Ramp applies a slope starting at the lowest elevation and moving up to the highest elevation in the given direction.",
+
+  "terrainmapper.behavior.types.plateau.fields.plateauElevation.name": "Highest Elevation",
+  "terrainmapper.behavior.types.plateau.fields.plateauElevation.hint": "Defines the ground level for a plateau or the topmost elevation of a ramp.",
+
+  "terrainmapper.behavior.types.plateau.fields.rampFloor.name": "Ramp: Lowest Elevation",
+  "terrainmapper.behavior.types.plateau.fields.rampFloor.hint": "Defines the bottom elevation of a ramp.",
+
+  "terrainmapper.behavior.types.plateau.fields.rampDirection.name": "Ramp: Direction",
+  "terrainmapper.behavior.types.plateau.fields.rampDirection.hint": "0º is due south; 90º is due west.",
+  "terrainmapper.behavior.types.plateau.fields.rampDirection.validation": "Ramp direction must be a value between 0º and 360º.",
+
+  "terrainmapper.behavior.types.plateau.fields.rampStepSize.name": "Ramp: Step Size",
+  "terrainmapper.behavior.types.plateau.fields.rampStepSize.hint": "How tall, in grid units, to make each step of the ramp. The number of steps will be automatically determined based on this value. If set to 0, the ramp will approximate a smooth incline.",
+
+  "terrainmapper.behavior.types.plateau.fields.splitPolygons.name": "Ramp: Separate Polygons",
+  "terrainmapper.behavior.types.plateau.fields.splitPolygons.hint": "When enabled, each non-hole region polygon will be their own ramp, from lowest to highest elevation. When disabled, all non-hole polygons are considered one ramp, defined by their combined bounds.",
+
   "TYPES.RegionBehavior.terrainmapper.setTerrain": "Set Terrain",
   "TYPES.RegionBehavior.terrainmapper.setElevation": "Stairs",
   "TYPES.RegionBehavior.terrainmapper.elevator": "Elevator",
+  "TYPES.RegionBehavior.terrainmapper.plateau": "Plateau",
 
   "terrainmapper.elevationAlgorithm.labels.none": "None",
   "terrainmapper.elevationAlgorithm.labels.oneWay": "One-Way Stairs",
