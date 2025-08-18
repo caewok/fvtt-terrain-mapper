@@ -249,7 +249,7 @@ export class RegionElevationHandler {
    * @param {string} method
    * @returns {object} { result, allHoles }
    */
-  /* Currnetly unusued
+  /* Currently unusued
   #applyCutawayMethod(method, start, end, usePlateauElevation = true) {
     const result = [];
     let allHoles = true;
@@ -517,10 +517,11 @@ export class RegionElevationHandler {
    *   - @prop {function} cutPointsFn
    */
   #cutawayOptionFunctions(usePlateauElevation = true) {
+    // Note: in grid units to avoid recalculation later.
     const MIN_ELEV = -1e06;
     const MAX_ELEV = 1e06;
-    const topE = gridUnitsToPixels(this.region.document.elevation.top ?? MAX_ELEV);
-    const bottomE = gridUnitsToPixels(this.region.document.elevation.bottom ?? MIN_ELEV); // Note: in grid units to avoid recalculation later.
+    const topE = Math.min(this.region.topE, MAX_ELEV);
+    const bottomE = Math.max(this.region.bottomE, MIN_ELEV);
     const topElevationFn = usePlateauElevation
       ? pt => gridUnitsToPixels(this.elevationUponEntry({ ...pt, elevation: pixelsToGridUnits(pt.z) }))
       : _pt => topE;
