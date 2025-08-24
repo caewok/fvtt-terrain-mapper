@@ -11,6 +11,7 @@ PIXI,
 import { MODULE_ID, FLAGS } from "./const.js";
 import { ElevationHandler } from "./ElevationHandler.js";
 
+
 export function log(...args) {
   try {
     if ( CONFIG[MODULE_ID].debug ) console.debug(MODULE_ID, "|", ...args);

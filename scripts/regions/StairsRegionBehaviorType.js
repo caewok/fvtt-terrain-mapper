@@ -137,6 +137,11 @@ export class StairsRegionBehaviorType extends foundry.data.regionBehaviors.Regio
 //    [CONST.REGION_EVENTS.TOKEN_PRE_MOVE]: this.#onTokenPreMove,
   };
 
+  // TODO: Testing
+  _getTerrainEffects(token, segment) {
+    log(`_getTerrainEffects`, { token, segment});
+  }
+
   /**
    * @type {RegionEvent} event
    *   - @prop {object} data        Data related to the event

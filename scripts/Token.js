@@ -272,7 +272,97 @@ function shiftPathToTopLeft(path, topLeftPosition, centeredPosition) {
   return path;
 }
 
+/** TokenGetTerrainMovementPathWaypoint
+ * @property {number} [x]                       The top-left x-coordinate in pixels (integer).
+ *                                              Default: the previous or source x-coordinate.
+ * @property {number} [y]                       The top-left y-coordinate in pixels (integer).
+ *                                              Default: the previous or source y-coordinate.
+ * @property {number} [elevation]               The elevation in grid units.
+ *                                              Default: the previous or source elevation.
+ * @property {number} [width]                   The width in grid spaces (positive).
+ *                                              Default: the previous or source width.
+ * @property {number} [height]                  The height in grid spaces (positive).
+ *                                              Default: the previous or source height.
+ * @property {TokenShapeType} [shape]           The shape type (see {@link CONST.TOKEN_SHAPES}).
+ *                                              Default: the previous or source shape.
+ * @property {string} [action]                  The movement action from the previous to this waypoint.
+ *                                              Default: the previous or prepared movement action.
+ * @property {boolean} [snapped=false]          Was this waypoint snapped to the grid? Default: `false`.
+ * @property {boolean} [explicit=false]         Was this waypoint explicitly placed by the user? Default: `false`.
+ * @property {boolean} [checkpoint=false]       Is this waypoint a checkpoint? Default: `false`.
+ * @property {boolean} [intermediate=false]     Is this waypoint intermediate? Default: `false`.
+ */
+
+/**
+ * Wrap Token#createTerrainMovementPath
+ * Add in waypoints for plateaus/ramps
+ *
+ * ----
+ * @param {TokenGetTerrainMovementPathWaypoint[]} waypoints    The waypoints of movement
+ * @param {object} [options]                                   Additional options
+ * @param {boolean} [options.preview=false]                    Is preview?
+ * @returns {TokenTerrainMovementWaypoint[]}                   The movement path with terrain data
+ */
+function createTerrainMovementPath(wrapped, waypoints, options) {
+  if ( waypoints.length < 2 ) return wrapped(waypoints, options);
+
+  const initialElevChange = waypoints.at(-1).elevation - waypoints.at(0).elevation;
+  if ( initialElevChange > 50 ) console.log("createTerrainMovementPath", { initialElevChange });
+
+  // Testing
+  const dist = PIXI.Point.distanceBetween(waypoints[0], waypoints[1]);
+  if ( CONFIG.GeometryLib.utils.pixelsToGridUnits(dist) > 50 ) console.log("createTerrainMovementPath", { waypoints, options });
+
+  const newWaypoints = [waypoints[0]];
+  let start = waypoints[0];
+  for ( let i = 1, maxI = waypoints.length; i < maxI; i += 1 ) {
+    const next = waypoints[i];
+    const flying = CONFIG[MODULE_ID].terrainFlightActions.has(next.action);
+    const burrowing = !(flying || CONFIG[MODULE_ID].terrainSurfaceActions.has(next.action));
+    const path = ElevationHandler.constructPath(start, next, { flying, burrowing });
+
+    const elevChange = path.at(-1).elevation - path.at(0).elevation;
+    if ( elevChange > 50 ) console.log("createTerrainMovementPath", { elevChange });
+
+    // Use the next waypoint parameters, changing only what is necessary.
+    for ( let j = 1, maxJ = path.length - 1; j < maxJ; j += 1 ) {
+      const pathPt = path[j];
+      const waypoint = Object.assign({}, next, {
+        checkpoint: false,
+        intermediate: false,
+        snapped: false,
+        explicit: false,
+        x: pathPt.x,
+        y: pathPt.y,
+        elevation: pathPt.elevation,
+      });
+      newWaypoints.push(waypoint);
+    }
+
+    // Update the next waypoint with the last path point.
+    if ( path.length > 1 ) {
+      const pathPt = path.at(-1);
+      const waypoint = Object.assign({}, next, {
+        x: pathPt.x,
+        y: pathPt.y,
+        elevation: pathPt.elevation,
+      });
+      newWaypoints.push(waypoint);
+      start = waypoint;
+    } else start = next;
+
+  }
+
+  // Testing
+  const elevChange = newWaypoints.at(-1).elevation - newWaypoints.at(0).elevation;
+  if ( elevChange > 50 ) console.log("createTerrainMovementPath", { elevChange });
+
+  return wrapped(newWaypoints, options);
+}
+
+
 PATCHES.BASIC.WRAPS = {
+  createTerrainMovementPath,
 //   _getAnimationData,
 //   _onAnimationUpdate,
 //   _getShiftedPosition,

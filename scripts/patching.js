@@ -25,6 +25,7 @@ import { PATCHES as PATCHES_RegionConfig } from "./regions/RegionConfig.js";
 import { PATCHES as PATCHES_Tile } from "./Tile.js";
 import { PATCHES as PATCHES_TileConfig } from "./TileConfig.js";
 import { PATCHES as PATCHES_ClockwiseSweepPolygon } from "./regions/ClockwiseSweepPolygon.js";
+import { PATCHES as PATCHES_Scene } from "./Scene.js";
 
 export const PATCHES = {
   "foundry.documents.ActiveEffect": PATCHES_ActiveEffect,
@@ -42,6 +43,7 @@ export const PATCHES = {
   "foundry.applications.sheets.TileConfig": PATCHES_TileConfig,
   "foundry.canvas.placeables.Token": PATCHES_Token,
   "foundry.canvas.placeables.Wall": PATCHES_Wall,
+  "foundry.documents.Scene": PATCHES_Scene,
 
   // Only hooks
   SidebarTab: PATCHES_SidebarTab,

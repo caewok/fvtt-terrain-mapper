@@ -27,6 +27,7 @@ import { StraightLinePath } from "./StraightLinePath.js";
 
 // Elevation
 import { ElevationHandler } from "./ElevationHandler.js";
+import { ElevationHandlerV2 } from "./ElevationHandlerV2.js";
 
 // Unique Terrain Effects
 import { TerrainActiveEffect, TerrainItemEffect, TerrainFlagEffect, TerrainPF2E } from "./terrain_unique_effects.js";
@@ -196,6 +197,7 @@ function initializeAPI() {
     regionElevationAtPoint,
     StraightLinePath,
     ElevationHandler,
+    ElevationHandlerV2,
 
 
     /**
@@ -325,7 +327,10 @@ function regionElevationAtPoint(location, {
     const bottom = region.document?.elevation?.bottom;
     return bottom == null || bottom >= minElevation;
   });
-  elevationRegions = elevationRegions.filter(region => region.testPoint(location, fixedElevation));
+
+  const testPt = ElevatedPoint.fromLocationWithElevation(location, fixedElevation);
+  elevationRegions = elevationRegions.filter(region => region.testPoint(testPt));
+  testPt.release();
   if ( !elevationRegions.length ) return undefined;
 
   // Locate the highest remaining region. This sets the elevation.
