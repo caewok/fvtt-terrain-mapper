@@ -228,19 +228,23 @@ export class ElevationHandlerV3 {
     */
   _constructBurrowingPath(start, end) {
     const { ABOVE, BELOW, GROUND } = this.constructor.ELEVATION_LOCATIONS;
-    const waypoints = [start];
-    let currWaypoint = start;
-    const finished = () => currWaypoint.almostEqualXY(end);
+    const start2d = cutaway.to2d(start, start, end);
+    const end2d = cutaway.to2d(end, start, end);
+
+    const waypoints = [start2d];
+    let currWaypoint = start2d;
+    const finished = () => almostGreaterThan(currWaypoint.x, end2d.x); // waypoint ≥ end
 
     // Move start to ground elevation if necessary.
-    if ( this.elevationType(start) === ABOVE ) {
-      const support = this.nearestSupport(start);
-      currWaypoint = ElevatedPoint.fromLocationWithElevation(end, support.elevation);
+    if ( this._cutawayElevationType(start2d) === ABOVE ) {
+      const support = this._nearestCutawaySupport(start2d);
+      currWaypoint = PIXI.Point.tmp.set(start2d.x, support.elevation);
       waypoints.push(currWaypoint);
     }
 
-    const support = this.nearestSupport(currWaypoint);
+    const support = this._nearestCutawaySupport(currWaypoint);
     let currRegion = support.controllingRegion;
+    let cutawayHandler = this.regionCutaways.get(currRegion);
 
     /* Can we get there faster by burrowing?
     Track elevation changes:
@@ -258,15 +262,15 @@ export class ElevationHandlerV3 {
 
     const MAX_ITER = 1000;
     let nIters = 0;
-    while ( !finished() && nIters < MAX_ITER ) {
+    whileLoop: while ( !finished() && nIters < MAX_ITER ) {
       nIters += 1;
 
-      let type = this.elevationType(currWaypoint);
+      let type = cutawayHandler.elevationType(currWaypoint)
       // if ( type === GROUND && end.elevation <= currWaypoint.elevation ) type = BELOW;
 
       switch ( type ) {
         case BELOW: {
-          currWaypoint = ElevatedPoint.fromLocationWithElevation(currWaypoint, currRegion[MODULE_ID].elevationUponEntry(currWaypoint)); // Move up.
+          currWaypoint = PIXI.Point.tmp.set(currWaypoint.x, cutawayHandler.elevationUponEntry(currWaypoint)); // Move up.
           waypoints.push(currWaypoint);
           anchors.push(waypoints.length - 1);
           break;
@@ -288,27 +292,27 @@ export class ElevationHandlerV3 {
         }
         case GROUND: {
           // Follow region surface until hitting another region or falling.
-          const walkResult = this._walkTerrainSurface(currWaypoint, end, currRegion, waypoints);
+          const walkResult = this._walkTerrainSurfaceCutaway(currWaypoint, end2d, currRegion, waypoints);
           if ( walkResult ) {
-            const walkIx = this._walkIntersection(walkResult);
+            const walkIx = this._walkCutawayIntersection(walkResult);
             if ( walkIx.region ) {  // Shouldn't this always be defined?
               currRegion = walkIx.region;
+              cutawayHandler = this.regionCutaways.get(currRegion);
               currWaypoint = walkIx.ix;
-              waypoints.push(currWaypoint);
               anchors.push(waypoints.length - 1);
             }
           } else {
             currWaypoint = waypoints.at(-1);
-            if ( !finished() ) {
-              const support = this.nearestSupport(currWaypoint);
-              currRegion = support.controllingRegion;
-            }
+            if ( finished() ) break whileLoop;
+            const support = this._nearestCutawaySupport(currWaypoint, currRegion);
+            currRegion = support.controllingRegion;
+            cutawayHandler = this.regionCutaways.get(currRegion);
           }
           break;
         }
         case ABOVE: {
           // Fall to nearest support.
-          currWaypoint = ElevatedPoint.fromLocationWithElevation(currWaypoint, currRegion[MODULE_ID].elevationUponEntry(currWaypoint)); // Move down.
+          currWaypoint = PIXI.Point.tmp.set(currWaypoint.x, cutawayHandler.elevationUponEntry(currWaypoint)); // Move down.
           waypoints.push(currWaypoint);
 
           // Test anchors.
@@ -317,17 +321,17 @@ export class ElevationHandlerV3 {
             const a = waypoints[anchor];
             // Must remain within at least one region at all times.
             const regions = [...this.regions, canvas.scene].filter(r => {
-              const loc = r[MODULE_ID].pointLocation(a);
+              const cutawayHandler = this.regionCutaways.get(r);
+              const loc = cutawayHandler.elevationType(a);
               return loc === GROUND || loc === BELOW;
             });
 
             // Test each intersection to see if we are still within a region.
             // _cutawayIntersections will return the currWaypoint if it is within the region. Must test all between.
-            const cutawayIxs = regions.flatMap(r => r[MODULE_ID]._cutawayIntersections(a, currWaypoint));
+            const cutawayIxs = regions.flatMap(r => this.regionCutaways.get(r).segmentIntersections(a, currWaypoint));
             cutawayIxs.sort((a, b) => a.x - b.x); // For cutaways, the x value functions as t0.
-            // cutawayIxs.map(ix => cutaway.from2d(ix, a, currWaypoint))
 
-            if ( !cutaway.from2d(cutawayIxs.at(-1), a, currWaypoint).almostEqual(currWaypoint) ) continue;
+            if ( !cutawayIxs.at(-1).almostEqual(currWaypoint) ) continue;
             let numInside = 0;
             for ( let i = 0, iMax = cutawayIxs.length - 1; i < iMax; i += 1 ) {
               cutawayIxs[i].movingInto ? numInside++ : numInside--;
@@ -343,22 +347,7 @@ export class ElevationHandlerV3 {
         }
       }
     }
-
-    // Add in move vertically to end if we can.
-    // Can span multiple regions.
-//     if ( !currWaypoint.almostEqual(end) && this.elevationType(currWaypoint) !== ABOVE ) {
-//       const support = this.nearestSupport(currWaypoint);
-//       const cutawayIxs = support.controllingRegion[MODULE_ID]._cutawayIntersections(currWaypoint, end);
-//
-//       // Test each intersection to see if we are still within a region.
-//
-//
-//       if ( cutawayIxs.length > 1 ) {
-//         currWaypoint = ixs[0];
-//         waypoints.push(currWaypoint);
-//       }
-//     }
-    return waypoints;
+    return waypoints.map(pt => cutaway.from2d(pt, start, end));
   }
 
   /* Flying
@@ -368,19 +357,23 @@ export class ElevationHandlerV3 {
   */
   _constructFlyingPath(start, end) {
     const { ABOVE, BELOW, GROUND } = this.constructor.ELEVATION_LOCATIONS;
-    const waypoints = [start];
-    let currWaypoint = start;
-    const finished = () => currWaypoint.almostEqualXY(end);
+    const start2d = cutaway.to2d(start, start, end);
+    const end2d = cutaway.to2d(end, start, end);
+
+    const waypoints = [start2d];
+    let currWaypoint = start2d;
+    const finished = () => almostGreaterThan(currWaypoint.x, end2d.x); // waypoint ≥ end
 
     // Move start to ground elevation if necessary.
-    if ( this.elevationType(start) === BELOW ) {
-      const res = this.nearestSupport(start);
-      currWaypoint = ElevatedPoint.fromLocationWithElevation(end, res.supportElevation);
+    if ( this._cutawayElevationType(start) === BELOW ) {
+      const support = this._nearestCutawaySupport(start);
+      currWaypoint = PIXI.Point.tmp.set(start2d.x, support.elevation);
       waypoints.push(currWaypoint);
     }
 
-    const support = this.nearestSupport(currWaypoint);
+    const support = this._nearestCutawaySupport(currWaypoint);
     let currRegion = support.controllingRegion;
+    let cutawayHandler = this.regionCutaways.get(currRegion);
 
     /* Can we get there faster by flying?
     Track elevation changes:
@@ -397,9 +390,9 @@ export class ElevationHandlerV3 {
 
     const MAX_ITER = 1000;
     let nIters = 0;
-    while ( !finished() && nIters < MAX_ITER ) {
+    whileLoop: while ( !finished() && nIters < MAX_ITER ) {
       nIters += 1;
-      let type = this.elevationType(currWaypoint);
+      let type = cutawayHandler.elevationType(currWaypoint)
 
       // If there is a direct path to the end, take it.
       // This addresses when the destination is above a ramp but below the current elevation.
@@ -411,13 +404,13 @@ export class ElevationHandlerV3 {
         waypoints.push(end);
         break;
       } */
-      if ( type === GROUND
-        && !this.regions.some(region => region[MODULE_ID].lineSegmentIntersects(currWaypoint, end)) ) type = ABOVE;
+      // if ( type === GROUND
+//         && !this.regions.some(region => region[MODULE_ID].lineSegmentIntersects(currWaypoint, end)) ) type = ABOVE;
 
       switch ( type ) {
         case ABOVE: {
           // Get the next region intersection.
-          const flightResult = this._flightIntersection(currWaypoint, end);
+          const flightResult = this._flightIntersectionCutaway(currWaypoint, end);
           if ( flightResult.region ) currWaypoint = flightResult.ix;
           else currWaypoint = end;
           waypoints.push(currWaypoint);
@@ -425,32 +418,33 @@ export class ElevationHandlerV3 {
         }
         case GROUND: {
           // Follow region surface until hitting another region or falling.
-          const walkResult = this._walkTerrainSurface(currWaypoint, end, currRegion, waypoints);
+          const walkResult = this._walkTerrainSurfaceCutaway(currWaypoint, end2d, currRegion, waypoints);
           if ( walkResult ) {
-            const walkIx = this._walkIntersection(walkResult);
+            const walkIx = this._walkCutawayIntersection(walkResult);
             if ( walkIx.region ) {  // Shouldn't this always be defined?
               currRegion = walkIx.region;
+              cutawayHandler = this.regionCutaways.get(currRegion);
               currWaypoint = walkIx.ix;
               waypoints.push(currWaypoint);
             }
           } else {
             currWaypoint = waypoints.at(-1);
-            if ( !finished() ) {
-              const support = this.nearestSupport(currWaypoint);
-              currRegion = support.controllingRegion;
+            if ( finished() ) break whileLoop;
+            const support = this._nearestCutawaySupport(currWaypoint, currRegion);
+            currRegion = support.controllingRegion;
+            cutawayHandler = this.regionCutaways.get(currRegion);
 
-              // At end of terrain surface; add anchor.
-              anchors.push(waypoints.length - 1);
-            }
+            // At end of terrain surface; add anchor.
+            anchors.push(waypoints.length - 1);
           }
           break;
         }
         case BELOW: {
-          currWaypoint = ElevatedPoint.fromLocationWithElevation(currWaypoint, currRegion[MODULE_ID].elevationUponEntry(currWaypoint)); // Move up.
+          currWaypoint = PIXI.Point.tmp.set(currWaypoint.x, cutawayHandler.elevationUponEntry(currWaypoint)); // Move up.
 
           // Test if an anchor will get us there faster. Use the first viable anchor.
           for ( const [idx, anchor] of anchors.entries() ) {
-            if ( this._flightIntersects(waypoints[anchor], currWaypoint, currRegion) ) return;
+            if ( this._flightIntersectsCutaway(waypoints[anchor], currWaypoint, currRegion) ) return;
             waypoints.splice(anchor+1);
             anchors.splice(idx);
             break;
@@ -471,7 +465,7 @@ export class ElevationHandlerV3 {
 //         waypoints.push(currWaypoint);
 //       }
 //     }
-    return waypoints;
+    return waypoints.map(pt => cutaway.from2d(pt, start, end));
   }
 
 
@@ -543,7 +537,7 @@ export class ElevationHandlerV3 {
       const regionIx = ixs[0];
       if ( regionIx.t0 >= ix.t0 ) return;
       closestRegion = region;
-      ix = regionIx.t0;
+      ix = regionIx;
     });
     return { region: closestRegion, ix };
   }
@@ -558,7 +552,7 @@ export class ElevationHandlerV3 {
       const regionIx = ixs[0];
       if ( regionIx.t0 >= ix.t0 ) return;
       closestRegion = region;
-      ix = regionIx.t0;
+      ix = regionIx;
     });
     return { region: closestRegion, ix };
   }
