@@ -28,6 +28,7 @@ import { StraightLinePath } from "./StraightLinePath.js";
 // Elevation
 import { ElevationHandler } from "./ElevationHandler.js";
 import { ElevationHandlerV2 } from "./ElevationHandlerV2.js";
+import { ElevationHandlerV3 } from "./ElevationHandlerV3.js";
 
 // Unique Terrain Effects
 import { TerrainActiveEffect, TerrainItemEffect, TerrainFlagEffect, TerrainPF2E } from "./terrain_unique_effects.js";
@@ -198,6 +199,7 @@ function initializeAPI() {
     StraightLinePath,
     ElevationHandler,
     ElevationHandlerV2,
+    ElevationHandlerV3,
 
 
     /**

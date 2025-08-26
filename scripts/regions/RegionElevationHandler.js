@@ -17,7 +17,7 @@ import { Plane } from "../geometry/3d/Plane.js";
 import { ElevatedPoint } from "../geometry/3d/ElevatedPoint.js";
 import { Matrix } from "../geometry/Matrix.js";
 import { ElevationHandler } from "../ElevationHandler.js";
-import { instanceOrTypeOf, gridUnitsToPixels, pixelsToGridUnits } from "../geometry/util.js";
+import { instanceOrTypeOf, gridUnitsToPixels, pixelsToGridUnits, cutaway } from "../geometry/util.js";
 import { AABB3d } from "../geometry/AABB.js";
 import { Polygons3d } from "../geometry/3d/Polygon3d.js";
 import { almostGreaterThan, almostLessThan, almostBetween } from "../geometry/util.js";
@@ -110,7 +110,7 @@ export class RegionElevationHandler {
     const nShapes = solidShapes.length;
     const aabbs = new Array(nShapes);
     for ( let i = 0; i < nShapes; i += 1 ) aabbs[i] = this.getTerrainAABBForShape(solidShapes[i]);
-    const aabb = AABB3d.union(...aabbs);
+    const aabb = AABB3d.union(aabbs);
     this.#terrainAABB.set(this.region, aabb);
     return aabb;
   }
@@ -353,7 +353,7 @@ export class RegionElevationHandler {
   elevationUponEntry(pt) {
     const { PLATEAU, RAMP, NONE } = FLAGS.REGION.CHOICES;
     switch ( this.algorithm ) {
-      case NONE: return a.elevation;
+      case NONE: return this.elevation;
       case PLATEAU: return this.plateauElevation;
       case RAMP: return this._rampElevation(pt);
     }
@@ -576,10 +576,34 @@ export class RegionElevationHandler {
   }
 
   /**
+   * For a given 2d line, get the 3d points representing travel along the surface of this region.
+   * @param {PIXI.Point} a      A point on the line
+   * @param {PIXI.Point} b      A second point on the line, not equal to the first
+   * @returns {ElevatedPoint[]} Points on the top of the cutaway polygon for the region.
+   */
+  surfaceWaypoints(a, b) {
+    const cutPolys = this._cutaway(a, b);
+
+    // To get the surface points, we need the top part of the cutaway polygon.
+    // cutaway returns TL - BL - BR - TR -- ?steps where a is left and b is right.
+    // Drop BL and BR.
+    return cutPolys.map(cutPoly => {
+      const vertices = [...cutPoly.iteratePoints({ close: false})];
+      vertices.splice(1, 2);
+
+      // Reverse direction, keeping point 0.
+      const start = vertices.shift();
+      vertices.reverse();
+      vertices.unshift(start);
+      return vertices.map(v => cutaway.from2d(v, a, b));
+    });
+  }
+
+  /**
    * For a given 2d line, get the 3d segments representing traveling along the surface of this region.
    * @param {PIXI.Point} a      A point on the line
    * @param {PIXI.Point} b      A second point on the line, not equal to the first
-   * @returns {ElevatedPoint[]}
+   * @returns {Segment[]}
    */
   surfaceSegments(a, b) {
     const segments2d = this.allIntersectingSegmentsForLineSegment(a, b);
@@ -675,6 +699,8 @@ export class RegionElevationHandler {
   _cutawayIntersections(start, end, { usePlateauElevation = true } = {}) {
     const cutaways = this._cutaway(start, end, { usePlateauElevation });
     return cutaways.flatMap(cutaway => cutaway.intersectSegment3d(start, end));
+
+
   }
 
   /**
