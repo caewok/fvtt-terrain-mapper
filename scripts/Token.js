@@ -25,12 +25,13 @@ Hook token movement to add/remove terrain effects and pause tokens dependent on 
 
 import { MODULE_ID, FLAGS, MODULES_ACTIVE } from "./const.js";
 import { log } from "./util.js";
-import { ElevationHandler } from "./ElevationHandler.js";
+import { TokenElevationHandler } from "./TokenElevationHandler.js";
 import { ElevatedPoint } from "./geometry/3d/ElevatedPoint.js";
 
 export const PATCHES = {};
 PATCHES.BASIC = {};
 PATCHES.RULER = {};
+PATCHES.ELEVATION = {};
 
 // ----- NOTE: Hooks ----- //
 
@@ -45,7 +46,7 @@ PATCHES.RULER = {};
  */
 function preCreateToken(tokenD, data, _options, _userId) {
   if ( !canvas.scene ) return;
-//   const elevation = ElevationHandler.sceneFloor;
+//   const elevation = canvas.scene[MODULE_ID].sceneFloor;
 //   if ( elevation && !data.elevation ) tokenD.updateSource({ elevation });
 }
 
@@ -132,9 +133,9 @@ function refreshToken(token, flags) {
 //       origin.elevation = token._original.elevationE;
 //       const destination = token.center;
 //       destination.elevation = origin.elevation;
-//       const flying = ElevationHandler.tokenIsFlying(token, origin, destination);
-//       const burrowing = ElevationHandler.tokenIsBurrowing(token, origin, destination);
-//       const path = ElevationHandler.constructPath(origin, destination, { burrowing, flying, token }); // Returns minimum [start, end]. End might be changed.
+//       const flying = TokenElevationHandler.tokenIsFlying(token, origin, destination);
+//       const burrowing = TokenElevationHandler.tokenIsBurrowing(token, origin, destination);
+//       const path = TokenElevationHandler.constructPath(origin, destination, { burrowing, flying, token }); // Returns minimum [start, end]. End might be changed.
 //       const destElevation = path.at(-1).elevation;
 //       const elevationChanged = token.document.elevation !== destElevation;
 //       if ( elevationChanged ) {
@@ -252,11 +253,8 @@ function calculatePathForTopLeftPoints(token, aTL, bTL) {
  * @param {ElevatedPoint} bCenter
  */
 export function calculatePathForCenterPoints(token, aCenter, bCenter) {
-  const flying = ElevationHandler.tokenIsFlying(token, aCenter, bCenter);
-  const burrowing = ElevationHandler.tokenIsBurrowing(token, aCenter, bCenter);
-  log(`calculatePathForCenterPoints|Calculating path for ${token.name}: ${aCenter.x},${aCenter.y}, @${aCenter.elevation} --> ${bCenter.x},${bCenter.y}, @${bCenter.elevation}.\tFlying: ${flying}\tBurrowing:${burrowing}`);
-  const path = ElevationHandler.constructPath(aCenter, bCenter, { burrowing, flying, token });
-  return path;
+  log(`calculatePathForCenterPoints|Calculating path for ${token.name}: ${aCenter.x},${aCenter.y}, @${aCenter.elevation} --> ${bCenter.x},${bCenter.y}, @${bCenter.elevation}.\tFlying: ${this[MODULE_ID].flying}\tBurrowing:${this[MODULE_ID].burrowing}\tWalking:${this[MODULE_ID].walking}`);
+  return this[MODULE_ID].constructPath(aCenter, bCenter);
 }
 
 /**
@@ -306,6 +304,13 @@ function shiftPathToTopLeft(path, topLeftPosition, centeredPosition) {
 function createTerrainMovementPath(wrapped, waypoints, options) {
   if ( waypoints.length < 2 ) return wrapped(waypoints, options);
 
+  log(`createTerrainMovementPath|${waypoints.length} waypoints: ${ElevatedPoint.fromObject(waypoints[0])} --> ${ElevatedPoint.fromObject(waypoints.at(-1))}`);
+  if ( CONFIG[MODULE_ID].debug ) console.table(waypoints);
+
+  waypoints = waypoints.filter((pt, idx) => idx === 0 || (!pt.intermediate && (pt.explicit || pt.checkpoint)));
+  log(`createTerrainMovementPath|After filter: ${waypoints.length} waypoints: ${ElevatedPoint.fromObject(waypoints[0])} --> ${ElevatedPoint.fromObject(waypoints.at(-1))}`);
+  if ( CONFIG[MODULE_ID].debug ) console.table(waypoints);
+
   const initialElevChange = waypoints.at(-1).elevation - waypoints.at(0).elevation;
   if ( initialElevChange > 50 ) console.log("createTerrainMovementPath", { initialElevChange });
 
@@ -318,10 +323,26 @@ function createTerrainMovementPath(wrapped, waypoints, options) {
   for ( let i = 1, maxI = waypoints.length; i < maxI; i += 1 ) {
     const next = waypoints[i];
     const flying = CONFIG[MODULE_ID].terrainFlightActions.has(next.action);
-    const burrowing = !(flying || CONFIG[MODULE_ID].terrainSurfaceActions.has(next.action));
-    const path = ElevationHandler.constructPath(start, next, { flying, burrowing });
+    const burrowing = CONFIG[MODULE_ID].terrainBurrowActions.has(next.action);
+    const walking = CONFIG[MODULE_ID].terrainWalkActions.has(next.action);
 
-    const elevChange = path.at(-1).elevation - path.at(0).elevation;
+    if ( start.x == null || isNaN(start.x)
+      || start.y == null || isNaN(start.y)
+      || next.x == null || isNaN(next.x)
+      || next.y == null || isNaN(next.y) ) {
+      console.error(`createTerrainMovementPath failed.`, { start, next });
+    }
+
+    // log(`createTerrainMovementPath|${ElevatedPoint.fromObject(start)} --> ${ElevatedPoint.fromObject(next)}`, { flying, burrowing, walking });
+    const path = this[MODULE_ID].constructPath(_centerWaypoint(start, this), _centerWaypoint(next, this), { flying, burrowing, walking });
+
+    if ( path.some(pt => pt.x == null || isNaN(pt.x) || pt.y == null || isNaN(pt.y)) ) {
+      console.error(`createTerrainMovementPath failed.`, { path });
+    }
+
+    path.forEach(pt => _uncenterPathPointInPlace(pt, this));
+
+    let elevChange = path.at(-1).elevation - path.at(0).elevation;
     if ( elevChange > 50 ) console.log("createTerrainMovementPath", { elevChange });
 
     // Use the next waypoint parameters, changing only what is necessary.
@@ -329,7 +350,7 @@ function createTerrainMovementPath(wrapped, waypoints, options) {
       const pathPt = path[j];
       const waypoint = Object.assign({}, next, {
         checkpoint: false,
-        intermediate: false,
+        intermediate: true,
         snapped: false,
         explicit: false,
         x: pathPt.x,
@@ -337,6 +358,10 @@ function createTerrainMovementPath(wrapped, waypoints, options) {
         elevation: pathPt.elevation,
       });
       newWaypoints.push(waypoint);
+
+        // Testing
+        elevChange = newWaypoints.at(-1).elevation - newWaypoints.at(0).elevation;
+        if ( elevChange > 50 ) console.log("createTerrainMovementPath", { elevChange });
     }
 
     // Update the next waypoint with the last path point.
@@ -351,13 +376,49 @@ function createTerrainMovementPath(wrapped, waypoints, options) {
       start = waypoint;
     } else start = next;
 
+      // Testing
+      elevChange = newWaypoints.at(-1).elevation - newWaypoints.at(0).elevation;
+      if ( elevChange > 50 ) console.log("createTerrainMovementPath", { elevChange });
+
   }
 
   // Testing
   const elevChange = newWaypoints.at(-1).elevation - newWaypoints.at(0).elevation;
   if ( elevChange > 50 ) console.log("createTerrainMovementPath", { elevChange });
 
+  if ( newWaypoints.length > 100 ) {
+    console.error(`createTerrainMovementPath|Too many waypoints! (${newWaypoints.length})`);
+  }
+
+  log(`createTerrainMovementPath|${newWaypoints.length} newWaypoints: ${ElevatedPoint.fromObject(newWaypoints[0])} --> ${ElevatedPoint.fromObject(newWaypoints.at(-1))}`);
+  if ( CONFIG[MODULE_ID].debug ) console.table(newWaypoints);
+  log(`\n\n`);
+
   return wrapped(newWaypoints, options);
+}
+
+/**
+ * Move the waypoint to the token center, keeping the other waypoint properties.
+ * @param {TokenGetTerrainMovementPathWaypoint}
+ * @param {Token}
+ * @returns {TokenGetTerrainMovementPathWaypoint}
+ */
+function _centerWaypoint(waypoint, token) {
+  const ctr = token.getCenterPoint(waypoint);
+  return ElevatedPoint.fromLocationWithElevation(ctr, waypoint.elevation);
+}
+
+/**
+ * Move a centered waypoint to the token TL, keeping the other waypoint properties.
+ * @param {TokenGetTerrainMovementPathWaypoint}
+ * @param {Token}
+ * @returns {TokenGetTerrainMovementPathWaypoint}
+ */
+function _uncenterPathPointInPlace(pathPt, token) {
+  const tl = token.getTopLeft(pathPt.x, pathPt.y);
+  pathPt.x = tl.x;
+  pathPt.y = tl.y;
+  return pathPt;
 }
 
 
@@ -575,3 +636,14 @@ function identifyRegionTerrains(region, isGM = game.user.isGM) {
   }
   return new Set([...terrainIds].map(id => CONFIG[MODULE_ID].Terrain._instances.get(id)).filter(t => Boolean(t)));
 }
+
+// ----- NOTE: Getters ----- //
+
+/**
+ * New getter: Token#terrainmapper
+ * Class that handles elevation settings and calcs for a region.
+ * @type {TokenElevationHandler}
+ */
+function terrainmapper() { return (this._terrainmapper ??= new TokenElevationHandler(this)); }
+
+PATCHES.ELEVATION.GETTERS = { terrainmapper };

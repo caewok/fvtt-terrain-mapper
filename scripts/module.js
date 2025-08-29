@@ -26,9 +26,7 @@ import { ElevatorRegionBehaviorType } from "./regions/ElevatorRegionBehaviorType
 import { StraightLinePath } from "./StraightLinePath.js";
 
 // Elevation
-import { ElevationHandler } from "./ElevationHandler.js";
-import { ElevationHandlerV2 } from "./ElevationHandlerV2.js";
-import { ElevationHandlerV3 } from "./ElevationHandlerV3.js";
+import { TokenElevationHandler } from "./TokenElevationHandler.js";
 
 // Unique Terrain Effects
 import { TerrainActiveEffect, TerrainItemEffect, TerrainFlagEffect, TerrainPF2E } from "./terrain_unique_effects.js";
@@ -197,9 +195,7 @@ function initializeAPI() {
     TerrainFlagEffect,
     regionElevationAtPoint,
     StraightLinePath,
-    ElevationHandler,
-    ElevationHandlerV2,
-    ElevationHandlerV3,
+    TokenElevationHandler,
 
 
     /**
@@ -265,21 +261,29 @@ function initializeConfig() {
      * both entering and exiting.
      * For example, if at the region edge, the next move is "crawl" and it would take the token
      * into the plateau, the token elevation is adjusted to the top of the plateau before
-     * continuing the movement. Similarly, if the token moves off the plateau, its elevation is
-     * adjusted to the next supporting level. If the token action was to fly, its elevation would
-     * not be changed.
+     * continuing the movement ("crawling" or "climbing" up the terrain).
+     * Similarly, if the token moves off the plateau, its elevation is
+     * adjusted to the next supporting level.
      * @type {Set<foundry.CONFIG.Token.movement.actions>}
      */
-    terrainSurfaceActions: new Set(["walk", "climb", "crawl"]),
+    terrainWalkActions: new Set(["walk", "climb", "crawl"]),
 
     /**
-     * Token actions that are affected by plateaus/ramps to prevent them from crashing into them.
-     * For example, if at the region edge, the next move is "fly" and it would take the token
-     * below the plateau elevation, the token elevation is adjusted to the top of the plateau before
-     * continuing the movement. But if the token elevation takes it above the plateau, it is unchanged.
+     * Token actions that are meant to move tokens on or above a terrain but not through them.
+     * For example, the token might fly diagonally upward to a terrain edge instead of vertically climbing.
      * @type {Set<foundry.CONFIG.Token.movement.actions>}
      */
-    terrainFlightActions: new Set(["fly", "blink", "jump"]),
+    terrainFlightActions: new Set(["fly", "jump"]),
+
+    /**
+     * Token actions that are meant to move the token on or within a terrain, but not outside of it.
+     * For example, a token might reach a plateau, and to get to the other side, would tunnel
+     * through it rather than climb over it.
+     * @type {Set<foundry.CONFIG.Token.movement.actions>}
+     */
+    terrainBurrowActions: new Set(["burrow", "swim"]),
+
+    // DND5e: displace and blink are currently excluded; token will be moved directly.
 
   };
 

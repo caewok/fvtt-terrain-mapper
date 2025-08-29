@@ -16,10 +16,9 @@ import { Point3d } from "../geometry/3d/Point3d.js";
 import { Plane } from "../geometry/3d/Plane.js";
 import { ElevatedPoint } from "../geometry/3d/ElevatedPoint.js";
 import { Matrix } from "../geometry/Matrix.js";
-import { ElevationHandler } from "../ElevationHandler.js";
+import { TokenElevationHandler } from "../TokenElevationHandler.js";
 import { instanceOrTypeOf, gridUnitsToPixels, pixelsToGridUnits, cutaway } from "../geometry/util.js";
 import { AABB3d } from "../geometry/AABB.js";
-import { Polygons3d } from "../geometry/3d/Polygon3d.js";
 import { almostGreaterThan, almostLessThan, almostBetween } from "../geometry/util.js";
 
 /**
@@ -193,11 +192,15 @@ export class RegionElevationHandler {
    */
   segmentInBounds(a, b, axes) {
     const regionAABB = this.getTerrainAABBForRegion();
-    if ( !regionAABB.overlapsSegment(a, b, axes) ) return false;
+    if ( !( regionAABB.containsPoint(a)
+         || regionAABB.containsPoint(b)
+         || regionAABB.overlapsSegment(a, b, axes)) ) return false;
     for ( const shape of this.region.document.shapes ) {
       if ( shape.hole ) continue;
       const shapeAABB = this.getTerrainAABBForShape(shape);
-      if ( shapeAABB.overlapsSegment(a, b, axes) ) return true;
+      if ( shapeAABB.containsPoint(a)
+        || shapeAABB.containsPoint(b)
+        || shapeAABB.overlapsSegment(a, b, axes) ) return true;
     }
     return false;
   }
@@ -383,7 +386,7 @@ export class RegionElevationHandler {
 
     if ( a.equalXY(b) ) {
       // A|b is a vertical line in the z direction.
-      const e = Math.max(ElevationHandler.nearestGroundElevation(a), ElevationHandler.nearestGroundElevation(b));
+      const e = Math.max(TokenElevationHandler.nearestGroundElevation(a), TokenElevationHandler.nearestGroundElevation(b));
       if ( e.between(a.elevation, b.elevation) ) return ElevatedPoint.fromLocationWithElevation(a, e);
       return null;
     }
@@ -668,24 +671,56 @@ export class RegionElevationHandler {
     let allHoles = true;
     const opts = this.#cutawayOptionFunctions(usePlateauElevation);
     const addSteps = this.isRamp && this.rampStepSize;
-    const stepFn = addSteps ? (a, b) => {
-      const cutpoints = this._rampCutpointsForSegment(a, b);
-      if ( !cutpoints.length ) return [];
-
-      // Ensure the steps are going in the right direction.
-      const rampDir = a.z > b.z;
-      const stepDir = cutpoints[0].z > cutpoints.at(-1);
-      if ( rampDir ^ stepDir ) cutpoints.reverse();
-      return [a, ...cutpoints, b];
-    } : undefined;
     for ( const regionPoly of this.region.document.polygons ) {
       allHoles &&= !regionPoly.isPositive;
       const cutaways = regionPoly.cutaway(start, end, opts);
-      if ( addSteps && regionPoly.isPositive ) cutaways.forEach(cutawayPoly => cutawayPoly.insertTopSteps(stepFn));
+      if ( addSteps && regionPoly.isPositive ) cutaways.forEach(cutawayPoly => this._insertTopStepsIntoCutaway(cutawayPoly));
       result.push(...cutaways);
     }
     if ( allHoles ) return [];
     return result;
+  }
+
+  #stepInsertionFunction(a, b) {
+    const cutpoints = this._rampCutpointsForSegment(a, b);
+    if ( !cutpoints.length ) return [a, b];
+
+    // Ensure the steps are going in the right direction.
+    const rampDir = a.z > b.z;
+    const stepDir = cutpoints[0].z > cutpoints.at(-1);
+    if ( rampDir ^ stepDir ) cutpoints.reverse();
+    return [a, ...cutpoints, b];
+  }
+
+  /**
+   * Insert steps along the top of a cutaway.
+   * @param {CutawayPolygon} cutawayPoly    The polygon to add steps to; modified in place
+   */
+  _insertTopStepsIntoCutaway(cutawayPoly, ) {
+    // The polygons for regions go TL, TR, BR, BL for non-hole.
+    const isHole = cutawayPoly.isHole;
+    const pts = cutawayPoly.pixiPoints({ close: false });
+    const TL = pts[0];
+    const TR = isHole ? pts.at(-1) : pts[1];
+    const TL3d = cutawayPoly._from2d(TL);
+    const TR3d = cutawayPoly._from2d(TR);
+    const steps = this.#stepInsertionFunction(TL3d, TR3d);
+    const steps2d = steps.map(step => cutawayPoly._to2d(step));
+
+    // Remove duplicates at start and end of steps.
+    if ( TL.almostEqual(steps2d[0]) ) steps2d.shift();
+    if ( TR.almostEqual(steps2d.at(-1)) ) steps2d.pop();
+
+    // y-up clockwise unless hole.
+    // Steps are from a -> b.
+    if ( isHole ) {
+      steps2d.reverse();
+      const stepPts = steps2d.flatMap(step => [step.x, step.y]);
+      cutawayPoly.points.push(...stepPts);
+    } else {
+      const stepPts = steps2d.flatMap(step => [step.x, step.y]);
+      cutawayPoly.points = [...cutawayPoly.points.slice(0, 2), ...stepPts, ...cutawayPoly.points.slice(2)]
+    }
   }
 
   /**
@@ -739,7 +774,7 @@ export class RegionElevationHandler {
     if ( !this.isElevated ) return segments;
 
     const { ENTER, MOVE, EXIT } = Region.MOVEMENT_SEGMENT_TYPES;
-    const terrainFloor = ElevationHandler.sceneFloor;
+    const terrainFloor = canvas.scene[MODULE_ID].sceneFloor;
     let entered = false;
     for ( let i = 0, n = segments.length; i < n; i += 1 ) {
       const segment = segments[i];
@@ -1204,8 +1239,5 @@ function rotatePolygon(poly, rotation = 0, centroid) {
   }
   return new PIXI.Polygon(rotatedPoints);
 }
-
-
-function isOdd(number) { return (number & 1) === 1; }
 
 function capitalizeFirstLetter(string) { return string.charAt(0).toUpperCase() + string.slice(1); }

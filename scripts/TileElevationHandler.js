@@ -9,7 +9,6 @@ import { MODULE_ID, FLAGS } from "./const.js";
 import { Point3d } from "./geometry/3d/Point3d.js";
 import { Plane } from "./geometry/3d/Plane.js";
 import { ElevatedPoint } from "./geometry/3d/ElevatedPoint.js";
-import { ElevationHandler } from "./ElevationHandler.js";
 import { regionWaypointsXYAlmostEqual } from "./util.js";
 import { Draw } from "./geometry/Draw.js";
 import { instanceOrTypeOf, gridUnitsToPixels } from "./geometry/util.js";
@@ -36,7 +35,7 @@ export class TileElevationHandler {
   get isElevated() {
     // No point in treating tile as elevated if it is on the scene floor.
     return this.tile.document.getFlag(MODULE_ID, FLAGS.TILE.IS_FLOOR)
-        && this.tile.elevationE !== ElevationHandler.sceneFloor;
+        && this.tile.elevationE !== canvas.scene[MODULE_ID].sceneFloor;
   }
 
   /** @type {boolean} */
