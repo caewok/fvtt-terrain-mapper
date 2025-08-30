@@ -43,7 +43,6 @@ export class RegionElevationHandler {
     OUTSIDE: 0, // Allows for falsity testing.
     GROUND: 1, // Allows for falsity testing.
     ABOVE: 2,
-    ABOVEGROUND: 2,
     FLYING: 2,
     FLOATING: 2,
   };

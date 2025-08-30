@@ -16,7 +16,7 @@ import { ClipperPaths } from "./geometry/ClipperPaths.js";
 import { RegionElevationHandler } from "./regions/RegionElevationHandler.js";
 import { StraightLinePath } from "./StraightLinePath.js";
 import { ElevatedPoint } from "./geometry/3d/ElevatedPoint.js";
-import { instanceOrTypeOf, gridUnitsToPixels, cutaway, almostGreaterThan } from "./geometry/util.js";
+import { instanceOrTypeOf, gridUnitsToPixels, cutaway, almostGreaterThan, almostBetween } from "./geometry/util.js";
 import { CutawayPolygon } from "./geometry/CutawayPolygon.js";
 import { Draw } from "./geometry/Draw.js";
 import { MatrixFlat } from "./geometry/MatrixFlat.js";
@@ -30,18 +30,37 @@ import { AABB2d } from "./geometry/AABB.js";
  */
 export class TokenElevationHandler {
 
-  /** @type {enum: number} */
-  // TODO: Just pick 4 labels.
   static ELEVATION_LOCATIONS = {
-    BELOW: -1,
-    BURROWING: -1, // Synonym
-    UNDERGROUND: -1,
-    OUTSIDE: 0, // Allows for falsity testing.
-    GROUND: 1, // Allows for falsity testing.
-    ABOVE: 2,
-    ABOVEGROUND: 2,
+    OUTSIDE: 0,       // 0000 in binary
+    BELOW: 1,         // 0001
+    GROUND: 2,        // 0010
+    ABOVE: 3,         // 0011
+
+    // Synonyms
+    BURROWING: 1,
     FLYING: 2,
     FLOATING: 2,
+  }
+
+  static VERTICAL_LOCATIONS = {
+    NONE: 0,           // 0000
+    LEFT: 4,           // 0100
+    RIGHT: 8,          // 1000
+  }
+
+  /*
+    OUTSIDE | NONE = 0000 | 0000 = 0000 = 0
+    GROUND | LEFT = 0010 | 0100 = 0110 = 6
+    GROUND | RIGHT = 0010 | 1000 = 1010 = 10
+    BELOW | LEFT = 0001 | 0100 = 0101 = 5
+
+
+  */
+
+  static VERTICAL_LOCATIONS = {
+    RIGHT_VERTICAL: -1,
+    NONE: 0
+    LEFT_VERTICAL: 1,
   };
 
   // ----- NOTE: Static Getters ----- //
@@ -87,6 +106,8 @@ export class TokenElevationHandler {
 
   regionCutaways = new WeakMap();
 
+  combinedCutaways = [];
+
   constructor(token) {
     this.token = token;
   }
@@ -104,6 +125,16 @@ export class TokenElevationHandler {
     this.regionCutaways = new WeakMap();
     this.regions.forEach(r => this.regionCutaways.set(r, new CutawayRegion(start, end, r)));
     this.regionCutaways.set(canvas.scene, new CutawayRegion(start, end, canvas.scene));
+
+    this.combinedCutaways.length = 0;
+    this.combinedCutaways.push(this.regionCutaways.get(canvas.scene));
+    regions.forEach(r => {
+      const cutHandler = this.regionCutaways.get(r);
+      cutHandler.cutPolys.forEach(poly => this.combinedCutaways.push(poly));
+    if ( this.regions.length ) {
+      const path = ClipperPaths.fromPolygons(this.combinedCutaways);
+      this.combinedCutaways = path.combine().clean().toPolygons().map(poly => CutawayPolygon.fromCutawayPoints(poly.points, start, end));
+    }
   }
 
 
@@ -290,6 +321,24 @@ export class TokenElevationHandler {
       break;
     }
     return i;
+  }
+
+
+  /**
+   * Use Clipper to join regions together.
+   * This simplifies the walking algorithm.
+   * For floating regions or tiles, still might fall from one to another, so must account for that.
+   */
+  _constructWalkingPathV2(start, end) {
+    this.initialize(start, end);
+    const { ABOVE, BELOW, GROUND } = this.constructor.ELEVATION_LOCATIONS;
+    const start2d = cutaway.to2d(start, start, end);
+    const end2d = cutaway.to2d(end, start, end);
+    const ClipperPaths = CONFIG[MODULE_ID].ClipperPaths;
+
+
+
+
   }
 
 
@@ -743,31 +792,313 @@ In this coordinate system:
 
 
 /**
+ * Manages tests of a cutaway polygon related to movement along the cutaway.
+ */
+class CutawayHandler {
+  /** @type {CutawayPolygon} */
+  cutPolys;
+
+  /** @type {AABB2d} */
+  aabb;
+
+  constructor(cutPoly) {
+    this.cutPoly = cutPoly;
+    this.aabb = AABB2d.fromPolygon(cutPoly);
+  }
+
+ // ----- NOTE: Bounds testing ----- //
+
+  /**
+   * Does this segment intersect (or is inside) the bounding box of this cutaway polygon?
+   * @param {PIXI.Point} a2d      Endpoint of segment
+   * @param {PIXI.Point} b2d      Other segment endpoint
+   * @param {["x", "y"]} [axes]      Axes to test
+   * @returns {boolean} True if within the bounding box
+   */
+  segmentInBounds(a2d, b2d, axes) { return this.aabb.overlapsSegment(a2d, b2d, axes); }
+
+  /**
+   * Does this point intersect the bounding box of this cutaway polygon?
+   * @param {PIXI.Point} a2d            Point to test
+   * @param {["x", "y"]} [axes]       Axes to test
+   * @returns {boolean} True if within the bounding box
+   */
+  pointInBounds(a2d, axes) { return this.aabb.containsPoint(a2d, axes); }
+
+  /**
+   * Terrain version of `region.document.testPoint`. Rejects if above or below the cutaway.
+   * @param {PIXI.Point} pt2d         Point to test
+   * @returns {boolean}
+   */
+  testPoint(pt2d) {
+    if ( !this.pointInBounds(pt2d) ) return false;
+    return this.cutPoly.contains(pt2d.x, pt2d.y);
+  }
+
+  // ----- NOTE: Elevation and surface testing ----- //
+
+  /**
+   * Test if point is exactly at the left edge or the right edge of the cutaway polygon.
+   * @param {PIXI.Point} pt2d         Point to test
+   * @param {PIXI.Polygon} cutPoly    Polygon to test
+   * @returns {ELEVATION_LOCATIONS|VERTICAL_LOCATIONS}
+   *  OUTSIDE if no intersection; actual location otherwise
+   */
+  #verticalTangentLocation(pt2d) {
+    const LOCS = TokenElevationHandler.ELEVATION_LOCATIONS;
+    const VERTICAL = TokenElevationHandler.VERTICAL_LOCATIONS;
+    const verticalIxs = polygonVerticalTangentPoints(pt2d.x, this.cutPoly);
+    if ( !verticalIxs.length ) return LOCS.OUTSIDE;
+
+    // Either left side, moving up. or right side, moving down.
+    // Left side is below or ground if at top of left.
+    // Right side is special RIGHT_VERTICAL location
+    // If multiple, within tangent wins, otherwise floating or outside.
+    // TODO: If up and down simultaneously, first one wins. Better approach?
+
+    let floating = false;
+    let lr = 0;
+    for ( let i = 1, iMax = verticalIxs.length; i < iMax; i += 2 ) {
+      const a = verticalIxs[0];
+      const b = verticalIxs[1];
+      if ( !almostBetween(pt2d.y, a.y, b.y) ) {
+        if ( pt2d.y > b.y ) floating = true;
+        lr = a.y < b.y ? VERTICAL.LEFT : VERTICAL.RIGHT;
+        continue;
+      }
+
+      // Left side: Below if within the segment; ground is at the top of a vertical left segment.
+      // Right side: Floating unless at the BL corner, which is marked as right ground. (May or may not be actual ground.)
+      if ( a.y < b.y ) { // Left side.
+        if ( pt2d.y.almostEqual(b.y) ) return LOCS.GROUND | VERTICAL.LEFT;
+        return LOCS.BELOW | VERTICAL.LEFT;
+      } else { // Right side.
+        if ( pt2d.y.almostEqual(b.y) ) return LOCS.GROUND | VERTICAL.RIGHT;
+        return LOCS.ABOVE | VERTICAL.RIGHT;
+      }
+    }
+    return floating ? (LOCS.ABOVE | lr) : LOCS.OUTSIDE;
+  }
+
+  /**
+   * Where is this point relative to this terrain polygon cutaway?
+   * @param {PIXI.Point} pt2d         Point to test
+   * @returns {ELEVATION_LOCATIONS|VERTICAL_LOCATIONS}
+   */
+  elevationType(pt2d) {
+    const LOCS = TokenElevationHandler.ELEVATION_LOCATIONS;
+    const VERTICAL = TokenElevationHandler.VERTICAL_LOCATIONS;
+    if ( !this.aabb.containsPoint(pt2d, ["x"]) ) return LOCS.OUTSIDE;
+
+    // If this point is within the polygon, we must be burrowing.
+    // PIXI.Polygon#contains returns false if the point is on the edge.
+    const cutPoly = this.cutPoly;
+    if ( cutPoly.contains(pt2d.x, pt2d.y) ) return LOCS.BELOW;
+
+    // Check if point is exactly at a left edge or right edge.
+    const verticalTangentLoc = this.#verticalTangentLocation(pt2d, cutPoly);
+    if ( verticalTangentLoc !== LOCS.OUTSIDE ) return verticalTangentLoc;
+
+    // Point could be on a surface edge or above.
+    // If not on the surface, must be floating.
+    const b = PIXI.Point.tmp.set(pt2d.x, pt2d.y - 1);
+    const ixs = cutPoly.lineIntersections(pt2d, b);
+    for ( const ix of ixs ) if ( pt2d.almostEqual(ix) ) return LOCS.GROUND;
+    return LOCS.ABOVE;
+  }
+
+  /**
+   * Determine the elevation upon moving into this cutaway polygon.
+   * If the point is above, fall to the next surface.
+   * If point is below, move up to next surface.
+   * The provided location is not tested for whether it is within the region.
+   * @param {PIXI.Point} a   Position immediately upon entry
+   * @returns {number} The elevation of the plateau or the ramp at this location
+   *   Return Number.NEGATIVE_INFINITY if it would be outside.
+   */
+  elevationUponEntry(pt2d) {
+    const LOCS = TokenElevationHandler.ELEVATION_LOCATIONS;
+    const VERTICAL = TokenElevationHandler.VERTICAL_LOCATIONS;
+
+    const type = this.elevationType(pt2d);
+    if ( type === LOCS.OUTSIDE ) return Number.NEGATIVE_INFINITY;
+    if ( type === LOCS.GROUND || type === (LOCS.GROUND | VERTICAL.LEFT) ) return pt2d.y;
+
+    let ixs;
+    if ( type === LOCS.BELOW || type === LOCS.ABOVE ) {
+      // Intersect the polygon with a vertical line.
+      const b = PIXI.Point.tmp.set(pt2d.x, pt2d.y - 1);
+      ixs = cutPoly.lineIntersections(pt2d, b);
+      b.release();
+    } else ixs = polygonVerticalTangentPoints(pt2d.x, this.cutPoly); // Vertical left or right.
+
+    let elev;
+    if ( type & LOCS.BELOW > 0 ) {
+      // Closest elevation point above the point.
+      elev = Number.POSITIVE_INFINITY;
+      for ( const ix of ixs ) elev = Math.min(elev, Math.max(ix.y, pt2d.y));
+    } else {
+      // Closest elevation point below the point.
+      elev = Number.NEGATIVE_INFINITY;
+      for ( const ix of ixs ) elev = Math.max(elev, Math.min(ix.y, pt2d.y));
+    }
+    return elev;
+  }
+
+  /**
+   * For a given cutaway line, get the 2d points representing travel along the surface of this region.
+   * @param {PIXI.Point} a2d      A point on the line
+   * @param {PIXI.Point} b2d      A second point later than the first in the x direction. Only the x coordinate is used.
+   * @returns {PIXI.Point[]}      Points on the top of the cutaway polygon for the region.
+   */
+  surfaceWaypoints(a2d, b2d) {
+    // Must find the TL point. Cannot be assured it is the first point.
+    // We can assume clockwise movement around the shape.
+    const a1 = PIXI.Point.tmp.set(a2d.x, a2d.y + 1);
+    const a2 = PIXI.Point.tmp.set(a2d.x, a2d.y - 1);
+    const out = [];
+    const iter = this.cutPoly.iteratePoints({ close: false });
+    let v0 = iter.next().value;
+    if ( v0.almostEqual(a2d) ) out.push(v0);
+    else {
+      for ( const v of iter ) {
+        if ( v.almostEqual(a2d) ) { out.push(v1); break }
+
+        // Check if this edge is vertical
+        if ( v0.x === v.x ) {
+          if ( a2d.x.almostEqual(v0.x) && a2d.y.almostBetween(v0.y, v1.y) ) { out.push(a2d); break; }
+        // Otherwise use intersects test to avoid numerical errors.
+        } else if ( foundry.utils.lineSegmentIntersects(a1, a2, v0, v1) ) { out.push(a2d); break; }}
+      }
+      v0 = v;
+    }
+    for ( const v of iter )  {
+      if ( v.x < v0.x ) return out;
+      if ( v.almostEqual(b2d) ) { out.push(b2d); return out; }
+      if ( v.x < b2d.x ) return out;
+      out.push(v);
+      v0 = v;
+    }
+
+    // If not done, iterate a second time until finished.
+    const iter = this.cutPoly.iteratePoints({ close: false });
+    for ( const v of iter )  {
+      if ( v.x < v0.x ) return out;
+      if ( v.almostEqual(b2d) ) { out.push(b2d); return out; }
+      if ( v.x < b2d.x ) return out;
+      out.push(v);
+      v0 = v;
+    }
+  }
+
+  /**
+   * Does a 2d segment definitely intersect this cut polygon?
+   * Does not test bounds.
+   * @param {PIXI.Point} a2d
+   * @param {PIXI.Point} b2d
+   * @returns {boolean}
+   */
+  lineSegmentIntersects(a2d, b2d) { return this.cutPoly.lineSegmentIntersects(a2d, b2d); }
+
+  /**
+   * Does a 2d segment cross into this cut polygon?
+   * Does not test bounds.
+   * @param {PIXI.Point} a2d
+   * @param {PIXI.Point} b2d
+   * @returns {boolean}
+   */
+  lineSegmentCrosses(a2d, b2d, opts) { return this.cutPoly.lineSegmentCrosses(a2d, b2d, opts); }
+
+  /**
+   * Obtain the intersection points for a 2d segment against this cut polygon.
+   * Does not test bounds.
+   * @param {PIXI.Point} a2d
+   * @param {PIXI.Point} b2d
+   * @returns {PIXI.Point[]}
+   */
+  segmentIntersections(a2d, b2d) { return this.cutPoly.segmentIntersections(a2d, b2d); }
+}
+
+/**
+ * Manages tests of cutaway polygon uncombined, from a region.
+ * The difference here is that uncombined cutaway is guaranteed to start at TL, will be a simpler shape.
+ */
+class UncombinedCutawayHandler extends CutawayHandler {
+
+  /**
+   * Test if point is exactly at the left edge or the right edge of the cutaway polygon.
+   * @param {PIXI.Point} pt2d         Point to test
+   * @param {PIXI.Polygon} cutPoly    Polygon to test
+   * @returns {ELEVATION_LOCATIONS|VERTICAL_LOCATIONS}
+   *  OUTSIDE if no intersection; actual location otherwise
+   */
+  #verticalTangentLocation(pt2d) {
+    const LOCS = TokenElevationHandler.ELEVATION_LOCATIONS;
+    const VERTICAL = TokenElevationHandler.VERTICAL_LOCATIONS;
+    const verticalIxs = polygonVerticalTangentPoints(pt2d.x, this.cutPoly);
+    if ( !verticalIxs.length ) return LOCS.OUTSIDE;
+
+    // Either left side, moving up. or right side, moving down.
+    // (We know there is only one vertical edge for a given x here and thus always 0 or 2 points returned.)
+    const a = verticalIxs[0];
+    const b = verticalIxs[1];
+    const lr = a.y < b.y ? VERTICAL.LEFT : VERTICAL.RIGHT;
+    if ( almostEqual(p2d.y, b.y) ) return LOC.GROUND | lr;
+    if ( p2d.y > b.y ) return LOCS.ABOVE | lr;
+    if ( almostBetween(pt2d.y, a.y, b.y) ) return LOCS.BELOW | lr; // Actually, should only be VERTICAL.LEFT
+    return LOCS.OUTSIDE;
+  }
+
+  /**
+   * For a given cutaway line, get the 2d points representing travel along the surface of this region.
+   * @param {PIXI.Point} a2d      A point on the line
+   * @param {PIXI.Point} b2d      A second point later than the first in the x direction. Only the x coordinate is used.
+   * @returns {PIXI.Point[]}      Points on the top of the cutaway polygon for the region.
+   */
+  surfaceWaypoints(a2d, b2d) {
+    // Can assume point 0 is TL and that the shape does not double-back.
+    const out = [];
+    const iter = this.cutPoly.iteratePoints({ close: false });
+    let v0 = iter.next().value;
+    if ( v0.almostEqual(a2d) ) out.push(v0);
+    else {
+      for ( const v of iter ) {
+        if ( v.x.almostEqual(a2d.x) ) { out.push(v); break }
+        if ( v.x > a2d.x ) { out.push(a2d); break; }
+      }
+      v0 = v;
+    }
+    for ( const v of iter ) {
+      if ( v.x < v0.x ) return out;
+      if ( v.x.almostEqual(b2d.x) ) { out.push(b2d); return out; }
+      if ( v.x < b2d.x ) out.push(v);
+      v0 = v;
+    }
+    return out;
+  }
+}
+
+/**
  * Manages tests of cutaway polygons representing a region.
  */
 class CutawayRegion {
   /** @type {AABB2d} */
   regionAABB = new AABB2d();
 
-  /** @type {AABB2d[]} */
-  aabbs = [];
-
-  /** @type {CutawayPolygon} */
-  cutPolys = [];
+  /** @type {UncombinedCutawayHandler} */
+  cutHandlers = [];
 
   /** @type {RegionElevationHandler} */
-  handler;
+  regionHandler;
 
   /** @type {Region} */
-  get region() { return this.handler.region; }
+  get region() { return this.handler.regionHandler; }
 
   constructor(start, end, region) {
-    this.handler = region[MODULE_ID];
-    const cutPolys = this.cutPolys = this.handler._cutaway(start, end); // TODO: Ensure correct orientation.
-    const n = cutPolys.length;
-    this.aabbs.length = n;
-    for ( let i = 0; i < n; i += 1 ) this.aabbs[i] = AABB2d.fromPolygon(cutPolys[i]);
-    AABB2d.union(this.aabbs, this.regionAABB);
+    this.regionHandler = region[MODULE_ID];
+    const cutPolys = this.handler._cutaway(start, end); // TODO: Ensure correct orientation.
+    this.cutHandlers = cutPolys.map(cp => new UncombinedCutawayHandler(cp));
+    AABB2d.union(this.cutHandlers.map(h => h.aabb), this.regionAABB);
   }
 
   // ----- NOTE: Bounds testing ----- //
@@ -781,8 +1112,8 @@ class CutawayRegion {
    */
   segmentInBounds(a2d, b2d, axes) {
     if ( !this.regionAABB.overlapsSegment(a2d, b2d, axes) ) return false;
-    for ( const aabb of this.aabbs ) {
-      if ( aabb.overlapsSegment(a2d, b2d, axes) ) return true;
+    for ( const cutHandler of this.cutHandlers ) {
+      if ( cutHandler.segmentInBounds(a2d, b2d, axes) ) return true;
     }
     return false;
   }
@@ -795,8 +1126,8 @@ class CutawayRegion {
    */
   pointInBounds(a2d, axes) {
     if ( !this.regionAABB.containsPoint(a2d, axes) ) return false;
-    for ( const aabb of this.aabbs ) {
-      if ( aabb.containsPoint(a2d, axes) ) return true;
+    for ( const cutHandler of this.cutHandlers ) {
+      if ( cutHandlers.pointInBounds(a2d, axes) ) return true;
     }
     return false;
   }
@@ -808,8 +1139,8 @@ class CutawayRegion {
    */
   testPoint(pt2d) {
     if ( !this.pointInBounds(pt2d) ) return false;
-    for ( const cutPoly of this.cutPolys ) {
-      if ( cutPoly.contains(pt2d.x, pt2d.y) ) return true;
+    for ( const cutHandler of this.cutHandlers ) {
+      if ( cutHandler.testPoint(pt2d) ) return true;
     }
     return false;
   }
@@ -817,56 +1148,9 @@ class CutawayRegion {
   // ----- NOTE: Elevation and surface testing ----- //
 
   /**
-   * Test if point is exactly at the left edge or the right edge of a cutaway polygon.
-   * @param {PIXI.Point} pt2d         Point to test
-   * @param {PIXI.Polygon} cutPoly    Polygon to test
-   * @returns {ELEVATION_LOCATIONS} OUTSIDE if no intersection; actual location otherwise
-   */
-  #verticalTangentLocation(pt2d, cutPoly) {
-    const LOCS = TokenElevationHandler.ELEVATION_LOCATIONS;
-    // (We know there is only one vertical edge for a given x here and thus always 0 or 2 points returned.)
-    const verticalIxs = polygonVerticalTangentPoints(pt2d.x, cutPoly);
-    if ( !verticalIxs.length ) return LOCS.OUTSIDE;
-
-    // Either left side, moving up. or right side, moving down.
-    const ground =  verticalIxs[1].y;
-    return pt2d.y.almostEqual(ground) ? LOCS.GROUND : pt2d.y > ground ? LOCS.TOP : LOCS.BELOW;
-  }
-
-  /**
-   * Where is this point relative to the terrain polygon cutaway?
-   * @param {PIXI.Point} pt2d         Point to test
-   * @param {number} index            Which polygon cutaway to test, indexed to this.aabbs
-   * @returns {ELEVATION_LOCATIONS}
-   */
-  #elevationTypeForCutPoly(pt2d, index = 0) {
-    const LOCS = TokenElevationHandler.ELEVATION_LOCATIONS;
-    const aabb = this.aabbs[index];
-    if ( !aabb.containsPoint(pt2d, ["x"]) ) return LOCS.OUTSIDE;
-
-    // If this point is within the polygon, we must be burrowing.
-    // PIXI.Polygon#contains returns false if the point is on the edge.
-    const cutPoly = this.cutPolys[index];
-    if ( cutPoly.contains(pt2d.x, pt2d.y) ) return LOCS.BELOW;
-
-    // Check if point is exactly at the left edge or the right edge.
-    const verticalTangentLoc = this.#verticalTangentLocation(pt2d, cutPoly);
-    if ( verticalTangentLoc !== LOCS.OUTSIDE ) return verticalTangentLoc;
-
-    // Point could be on a surface edge or above.
-    const b = PIXI.Point.tmp.set(pt2d.x, pt2d.y - 1);
-    const ixs = cutPoly.lineIntersections(pt2d, b);
-    let maxElev = Number.NEGATIVE_INFINITY;
-    for ( const ix of ixs ) maxElev = Math.max(maxElev, ix.y);
-    if ( pt2d.y.almostEqual(maxElev) ) return LOCS.GROUND;
-    if ( pt2d.y > maxElev ) return LOCS.ABOVE;
-    return LOCS.OUTSIDE;
-  }
-
-  /**
    * Where is this point relative to the terrain?
    * @param {PIXI.Point} pt2d        Point to test
-   * @returns {ELEVATION_LOCATIONS}
+   * @returns {ELEVATION_LOCATIONS|VERTICAL_LOCATIONS}
    */
   elevationType(pt2d) {
     const LOCS = TokenElevationHandler.ELEVATION_LOCATIONS;
@@ -877,8 +1161,8 @@ class CutawayRegion {
     // Prioritize burrowing.
     let grounded = false;
     let flying = false;
-    for ( let i = 0, iMax = this.cutPolys.length; i < iMax; i += 1 ) {
-      switch ( this.#elevationTypeForCutPoly(pt2d, i) ) {
+    for ( let i = 0, iMax = this.cutHandlers.length; i < iMax; i += 1 ) {
+      switch ( this.(pt2d, i) ) {
         case LOCS.OUTSIDE: continue;
         case LOCS.BURROWING: return LOCS.BURROWING;
         case LOCS.GROUND: grounded ||= true; break;
@@ -1181,7 +1465,7 @@ function cutawayElevationType(pt, polys) {
     return locs.GROUND;
   }
   for ( const poly of polys ) {
-    if ( poly.contains(pt.x, pt.y) ) return locs.UNDERGROUND;
+    if ( poly.contains(pt.x, pt.y) ) return locs.BELOW;
   }
   return locs.FLOATING;
 }

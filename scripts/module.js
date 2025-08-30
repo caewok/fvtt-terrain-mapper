@@ -125,9 +125,9 @@ action is "update"
  */
 Hooks.once("init", function() {
   initializePatching();
+  registerGeometry();
   initializeConfig();
   initializeAPI();
-  registerGeometry();
   Settings.registerAll();
 
   Object.assign(CONFIG.RegionBehavior.dataModels, {
@@ -284,6 +284,8 @@ function initializeConfig() {
     terrainBurrowActions: new Set(["burrow", "swim"]),
 
     // DND5e: displace and blink are currently excluded; token will be moved directly.
+
+    clipperPaths = CONFIG.GeometryLib.ClipperPaths; // Or Clipper2Paths
 
   };
 
