@@ -304,16 +304,16 @@ function shiftPathToTopLeft(path, topLeftPosition, centeredPosition) {
 function createTerrainMovementPath(wrapped, waypoints, options) {
   if ( waypoints.length < 2 ) return wrapped(waypoints, options);
 
+  // Testing
+  if ( waypoints.length > 2 ) console.log("Waypoints", waypoints);
+  if ( PIXI.Point.distanceBetween(waypoints[0], waypoints[1]) > 500 ) console.log("Waypoints distance > 500.");
+
   log(`createTerrainMovementPath|${waypoints.length} waypoints: ${ElevatedPoint.fromObject(waypoints[0])} --> ${ElevatedPoint.fromObject(waypoints.at(-1))}`);
   if ( CONFIG[MODULE_ID].debug ) console.table(waypoints);
 
   waypoints = waypoints.filter((pt, idx) => idx === 0 || (!pt.intermediate && (pt.explicit || pt.checkpoint)));
   log(`createTerrainMovementPath|After filter: ${waypoints.length} waypoints: ${ElevatedPoint.fromObject(waypoints[0])} --> ${ElevatedPoint.fromObject(waypoints.at(-1))}`);
   if ( CONFIG[MODULE_ID].debug ) console.table(waypoints);
-
-  // Testing
-  const dist = PIXI.Point.distanceBetween(waypoints[0], waypoints[1]);
-  if ( CONFIG.GeometryLib.utils.pixelsToGridUnits(dist) > 50 ) console.log("createTerrainMovementPath", { waypoints, options });
 
   const newWaypoints = [waypoints[0]];
   let start = waypoints[0];
@@ -323,24 +323,9 @@ function createTerrainMovementPath(wrapped, waypoints, options) {
     const burrowing = CONFIG[MODULE_ID].terrainBurrowActions.has(next.action);
     const walking = CONFIG[MODULE_ID].terrainWalkActions.has(next.action);
 
-    if ( start.x == null || isNaN(start.x)
-      || start.y == null || isNaN(start.y)
-      || next.x == null || isNaN(next.x)
-      || next.y == null || isNaN(next.y) ) {
-      console.error(`createTerrainMovementPath failed.`, { start, next });
-    }
-
     // log(`createTerrainMovementPath|${ElevatedPoint.fromObject(start)} --> ${ElevatedPoint.fromObject(next)}`, { flying, burrowing, walking });
     const path = this[MODULE_ID].constructPath(_centerWaypoint(start, this), _centerWaypoint(next, this), { flying, burrowing, walking });
-
-    if ( path.some(pt => pt.x == null || isNaN(pt.x) || pt.y == null || isNaN(pt.y)) ) {
-      console.error(`createTerrainMovementPath failed.`, { path });
-    }
-
     path.forEach(pt => _uncenterPathPointInPlace(pt, this));
-
-    let elevChange = path.at(-1).elevation - path.at(0).elevation;
-    if ( elevChange > 50 ) console.log("createTerrainMovementPath", { elevChange });
 
     // Use the next waypoint parameters, changing only what is necessary.
     for ( let j = 1, maxJ = path.length - 1; j < maxJ; j += 1 ) {
@@ -355,10 +340,6 @@ function createTerrainMovementPath(wrapped, waypoints, options) {
         elevation: pathPt.elevation,
       });
       newWaypoints.push(waypoint);
-
-        // Testing
-        elevChange = newWaypoints.at(-1).elevation - newWaypoints.at(0).elevation;
-        if ( elevChange > 50 ) console.log("createTerrainMovementPath", { elevChange });
     }
 
     // Update the next waypoint with the last path point.
@@ -372,18 +353,10 @@ function createTerrainMovementPath(wrapped, waypoints, options) {
       newWaypoints.push(waypoint);
       start = waypoint;
     } else start = next;
-
-      // Testing
-      elevChange = newWaypoints.at(-1).elevation - newWaypoints.at(0).elevation;
-      if ( elevChange > 50 ) console.log("createTerrainMovementPath", { elevChange });
-
   }
 
   // Testing
-  const elevChange = newWaypoints.at(-1).elevation - newWaypoints.at(0).elevation;
-  if ( elevChange > 50 ) console.log("createTerrainMovementPath", { elevChange });
-
-  if ( newWaypoints.length > 100 ) {
+  if ( newWaypoints.length > 1000 ) {
     console.error(`createTerrainMovementPath|Too many waypoints! (${newWaypoints.length})`);
   }
 

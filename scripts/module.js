@@ -287,8 +287,6 @@ function initializeConfig() {
 
     ClipperPaths: CONFIG.GeometryLib.ClipperPaths, // Or Clipper2Paths
 
-    walkingV2: false,
-
   };
 
   Object.defineProperty(CONFIG[MODULE_ID], "UniqueEffect", {
