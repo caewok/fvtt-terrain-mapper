@@ -74,6 +74,7 @@ export class TokenElevationHandler {
    * @returns {Tile[]} Elevated tiles that may intersect.
    */
   static filterElevatedTilesByXYSegment(start, end, tiles) {
+    // TODO: Filter by bounds, using full z.
     return elevatedTiles(tiles).filter(tile => tile.bounds.lineSegmentIntersects(start, end, { inside: true }));
   }
 
@@ -168,8 +169,21 @@ export class TokenElevationHandler {
   }
 
   constructWalkingPath(start, end) {
-    const res = this._constructWalkingPath(start, end);
-    return res.map(obj => cutaway.from2d(obj.cutpoint, start, end));
+    let out;
+    try {
+      if ( CONFIG[MODULE_ID].walkingV2 ) {
+        const res = this._constructWalkingPathV2(start, end);
+        out = res.map(obj => cutaway.from2d(obj, start, end));
+      } else {
+        const res = this._constructWalkingPath(start, end);
+        out = res.map(obj => cutaway.from2d(obj.cutpoint, start, end));
+      }
+    } catch ( err ) {
+      console.error(`constructWalkingPath ${CONFIG[MODULE_ID].walkingV2 ? "V2" : "V1"} error, ${start} -> ${end}`, out);
+      console.error(err);
+      out = [start, end];
+    }
+    return out;
   }
 
   constructBurrowingPath(start, end) {
@@ -336,7 +350,7 @@ export class TokenElevationHandler {
     */
   _constructWalkingPath(start, end) {
     this.initialize(start, end);
-    const { ABOVE, BELOW, GROUND } = this.constructor.ELEVATION_LOCATIONS;
+    const { ABOVE, BELOW, GROUND, OUTSIDE } = this.constructor.ELEVATION_LOCATIONS;
     const start2d = cutaway.to2d(start, start, end);
     const end2d = cutaway.to2d(end, start, end);
 
@@ -443,17 +457,30 @@ export class TokenElevationHandler {
       // waypoints.push({ type, cutpoint: currWaypoint, region: currRegion });
     } // End while loop.
 
+    // If no waypoints, return start and end.
+    if ( !waypoints.length ) return [
+      { type: OUTSIDE, cutpoint: start2d, region: currRegion},
+      { type: OUTSIDE, cutpoint: end2d, region: currRegion},
+    ];
+
     // Check for closest endpoint along the last segment move.
-    if ( waypoints.at(-1).cutpoint.almostEqual(currWaypoint) ) waypoints.pop();
+    if ( waypoints.length > 1 && waypoints.at(-1).cutpoint.almostEqual(currWaypoint) ) waypoints.pop();
+
     if ( !waypoints.at(-1).cutpoint.almostEqual(end2d) ) {
       if ( currWaypoint.almostEqual(end2d) ) waypoints.push({
         type: GROUND,
         cutpoint: currWaypoint,
         region: currRegion });
-      else waypoints.push({
+      else if ( currWaypoint.almostEqual(waypoints.at(-1).cutpoint) ) {
+        waypoints.push({
+          type: GROUND, region:
+          currRegion,
+          cutpoint: currWaypoint,
+        });
+      } else waypoints.push({
         type: GROUND, region:
         currRegion,
-        cutPoint: foundry.utils.closestPointToSegment(end2d, waypoints.at(-1).cutpoint, currWaypoint) });
+        cutpoint: foundry.utils.closestPointToSegment(end2d, waypoints.at(-1).cutpoint, currWaypoint) });
     }
     return waypoints;
   }

@@ -311,9 +311,6 @@ function createTerrainMovementPath(wrapped, waypoints, options) {
   log(`createTerrainMovementPath|After filter: ${waypoints.length} waypoints: ${ElevatedPoint.fromObject(waypoints[0])} --> ${ElevatedPoint.fromObject(waypoints.at(-1))}`);
   if ( CONFIG[MODULE_ID].debug ) console.table(waypoints);
 
-  const initialElevChange = waypoints.at(-1).elevation - waypoints.at(0).elevation;
-  if ( initialElevChange > 50 ) console.log("createTerrainMovementPath", { initialElevChange });
-
   // Testing
   const dist = PIXI.Point.distanceBetween(waypoints[0], waypoints[1]);
   if ( CONFIG.GeometryLib.utils.pixelsToGridUnits(dist) > 50 ) console.log("createTerrainMovementPath", { waypoints, options });
