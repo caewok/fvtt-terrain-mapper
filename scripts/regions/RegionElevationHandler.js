@@ -34,19 +34,6 @@ export class RegionElevationHandler {
     this.region = region;
   }
 
-  /** @type {enum: number} */
-  // TODO: Just pick 4 labels.
-  static ELEVATION_LOCATIONS = {
-    BELOW: -1,
-    BURROWING: -1, // Synonym
-    UNDERGROUND: -1,
-    OUTSIDE: 0, // Allows for falsity testing.
-    GROUND: 1, // Allows for falsity testing.
-    ABOVE: 2,
-    FLYING: 2,
-    FLOATING: 2,
-  };
-
   // ----- NOTE: Getters ----- //
 
   /** @type {boolean} */
@@ -255,7 +242,7 @@ export class RegionElevationHandler {
    * @returns {ELEVATION_LOCATIONS}
    */
   pointLocation(pt) {
-    const LOCS = this.constructor.ELEVATION_LOCATIONS;
+    const LOCS = TokenElevationHandler.ELEVATION_LOCATIONS;
     if ( !this.pointInBounds(pt, ["x", "y"]) ) return LOCS.OUTSIDE;
     if ( !this.test2dPoint(pt) ) return LOCS.OUTSIDE;
 
@@ -1076,7 +1063,7 @@ export class SceneElevationHandler {
   testPoint(a) { return almostLessThan(a.elevation, this.sceneFloor);  }
 
   pointLocation(pt) {
-    const LOCS = RegionElevationHandler.ELEVATION_LOCATIONS;
+    const LOCS = TokenElevationHandler.ELEVATION_LOCATIONS;
     return pt.elevation.almostEqual(this.sceneFloor) ? LOCS.GROUND :
       pt.elevation > this.sceneFloor ? LOCS.ABOVE : LOCS.BELOW;
   }

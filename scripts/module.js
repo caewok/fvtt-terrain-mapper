@@ -285,7 +285,7 @@ function initializeConfig() {
 
     // DND5e: displace and blink are currently excluded; token will be moved directly.
 
-    clipperPaths = CONFIG.GeometryLib.ClipperPaths; // Or Clipper2Paths
+    ClipperPaths: CONFIG.GeometryLib.ClipperPaths, // Or Clipper2Paths
 
   };
 
