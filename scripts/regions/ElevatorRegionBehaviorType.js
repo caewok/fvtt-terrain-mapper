@@ -69,7 +69,6 @@ export class ElevatorRegionBehaviorType extends foundry.data.regionBehaviors.Reg
   static events = {
     [CONST.REGION_EVENTS.TOKEN_MOVE_IN]: this.#onTokenMoveIn,
     [CONST.REGION_EVENTS.TOKEN_MOVE_OUT]: this.#onTokenMoveOut,
-//    [CONST.REGION_EVENTS.TOKEN_PRE_MOVE]: this.#onTokenPreMove,
   };
 
   /**
