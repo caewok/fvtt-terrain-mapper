@@ -335,8 +335,8 @@ function createTerrainMovementPath(wrapped, waypoints, options) {
 
 
   // Testing
-  if ( waypoints.length > 2 ) console.log("Waypoints", waypoints);
-  if ( PIXI.Point.distanceBetween(waypoints[0], waypoints[1]) > 500 ) console.log("Waypoints distance > 500.");
+  // if ( waypoints.length > 2 ) console.log("Waypoints", waypoints);
+  // if ( PIXI.Point.distanceBetween(waypoints[0], waypoints[1]) > 500 ) console.log("Waypoints distance > 500.");
 
 
 

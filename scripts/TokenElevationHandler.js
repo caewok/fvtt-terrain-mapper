@@ -92,12 +92,6 @@ export class TokenElevationHandler {
     this.token = token;
   }
 
-  get flying() { return this.constructor.tokenIsFlying(this.token); }
-
-  get burrowing() { return this.constructor.tokenIsBurrowing(this.token); }
-
-  get walking() { return this.constructor.tokenIsWalking(this.token); }
-
   #start = new ElevatedPoint();
 
   get start() { return this.#start.clone(); }
@@ -185,22 +179,6 @@ export class TokenElevationHandler {
 
   from2d(value) { return cutaway.from2d(value, this.#start, this.#end); }
 
-  constructWalkingPath(a, b) {
-    const a2d = this.to2d(a);
-    const b2d = this.to2d(b);
-    let path;
-    try {
-      const path2d = this._constructWalkingPath(a2d, b2d);
-      this.#verifyPath2d(path2d)
-      path = path2d.map(pt => this.from2d(pt));
-
-    } catch ( err ) {
-      console.error(`constructWalkingPath ${a} -> ${b}`, path);
-      console.error(err);
-      path = [a, b];
-    }
-    return path;
-  }
 
   #verifyPath2d(path2d) {
     if ( !path2d.length ) throw Error("Path is empty.");
@@ -209,66 +187,9 @@ export class TokenElevationHandler {
     if ( path2d.some(pt => pt.y > 100000 || pt.y < -100000) ) throw Error("Path elevation error");
   }
 
-  constructBurrowingPath(a, b) {
-    const a2d = this.to2d(a);
-    const b2d = this.to2d(b);
-    let path2d;
-    try {
-      path2d = this._constructWalkingPath(a2d, b2d);
-      this.#verifyPath2d(path2d)
+  /* ----- NOTE: Walking ----- */
 
-    } catch ( err ) {
-      console.error(`constructWalkingPath ${a} -> ${b}`, path2d);
-      console.error(err);
-      return [a, b];
-    }
-
-    let path;
-    try {
-      path2d = this._constructBurrowingPath(a2d, b2d, path2d);
-      this.#verifyPath2d(path2d)
-      path = path2d.map(pt => this.from2d(pt));
-
-    } catch ( err ) {
-      console.error(`constructBurrowingPath ${a} -> ${b}`, path);
-      console.error(err);
-      path = [a, b];
-    }
-    return path;
-  }
-
-   /* Flying Options without using pathfinding:
-    1. Get walking path.
-    - If end equals end of walking path, run anchor shortcut algorithm.
-    - If end is above end of walking path and reachable without hitting cutaway, run anchor shortcut algorithm.
-    - If end is below, likely (definitely?) unreachable. Return walking path.
-    - Otherwise, go to #2.
-
-    2. Get reverse walking path from end to start.
-    - (Create new instance, initialize in reverse, and run. Convert to 3d and then back to 2d in original direction.)
-    - Attempt to connect the two paths. If they connect, combine and run anchor shortcut algorithm.
-    - Otherwise, go to #3.
-
-    3. End point is above the walking path but does not intersect via walking. Is that possible?
-    - Probably not. Either original or reverse walking path should fall down and meet up.
-    - But maybe moving through a tile or region does it?
-    - Set a warning message to check for this scenario. To try to handle, go to #4.
-
-    4. Find a flight path between the two walking paths.
-    - Could try #5.
-    - Or, just allow flight straight up. Straight up through a tile or straight up through any region.
-
-    5. More complex version
-    - For each original path segment:
-    - For each TL and BL corner on reverse path:
-      - Try to connect to the original walking path edge.
-      - If blocked, try to connect using the BL corner of the blocking region as the swing point.
-      - Need only connect each TL corner once.
-    */
-
-
-
-   /* ----- NOTE: Walking ----- */
+  get walking() { return this.constructor.tokenIsWalking(this.token); }
 
    /* Walking
       Walk along terrain surfaces, falling to next support when the terrain ends.
@@ -280,6 +201,24 @@ export class TokenElevationHandler {
       2. If above a region. Move vertically down.
       3. If below a region. Move vertically up.
     */
+  constructWalkingPath(a, b) {
+    const a2d = this.to2d(a);
+    const b2d = this.to2d(b);
+    let path2d = [];
+    try {
+      path2d = this._constructWalkingPath(a2d, b2d);
+      this.#verifyPath2d(path2d)
+
+    } catch ( err ) {
+      console.error(`constructWalkingPath ${a} -> ${b}`, path);
+      console.error(err);
+      path2d.forEach(pt => pt.release());
+      return [a, b];
+    }
+    const path = path2d.map(pt => this.from2d(pt));
+    path2d.forEach(pt => pt.release());
+    return path;
+  }
 
 
   /**
@@ -298,12 +237,11 @@ export class TokenElevationHandler {
     const MAX_ITER = 10000;
     let nIters = 0;
     const finished = () => almostGreaterThan(currWaypoint.x, b2d.x); // waypoint ≥ end
-    while ( !finished() && nIters < MAX_ITER ) {
+    do {
       nIters += 1;
 
       // Determine current location.
       let { cutHandler, location, elevation } = this._nearestSupport(currWaypoint);
-
 
       // Move up or down as needed.
       // TODO: Check for tiles. Should this also be done in _nearestSupport?
@@ -325,7 +263,7 @@ export class TokenElevationHandler {
         currWaypoint = v;
         waypoints.push(v);
       }
-    }
+    } while ( !finished() && nIters < MAX_ITER );
     this.#adjustEndpoint(waypoints, b2d);
     return waypoints;
   }
@@ -349,10 +287,43 @@ export class TokenElevationHandler {
 
   /* ----- NOTE: Burrowing ----- */
 
+  get burrowing() { return this.constructor.tokenIsBurrowing(this.token); }
+
+  constructBurrowingPath(a, b) {
+    const a2d = this.to2d(a);
+    const b2d = this.to2d(b);
+    let path2d = [];
+    try {
+      path2d = this._constructWalkingPath(a2d, b2d);
+      this.#verifyPath2d(path2d)
+
+    } catch ( err ) {
+      console.error(`constructWalkingPath ${a} -> ${b}`, path2d);
+      console.error(err);
+      path2d.forEach(pt => pt.release());
+      return [a, b];
+    }
+
+    try {
+      path2d = this._constructBurrowingPath(path2d, b2d);
+      this.#verifyPath2d(path2d)
+
+    } catch ( err ) {
+      console.error(`constructBurrowingPath ${a} -> ${b}`, path);
+      console.error(err);
+      path2d.forEach(pt => pt.release());
+      return [a, b];
+    }
+    const path = path2d.map(pt => this.from2d(pt));
+    path2d.forEach(pt => pt.release());
+    return path;
+  }
+
+
   /* Can we get there faster by burrowing?
     Track elevation changes:
     Anchors:
-    - When on ground (skip surface walk)
+    - When on ground
     - When burrowing
 
     Test anchors:
@@ -360,7 +331,7 @@ export class TokenElevationHandler {
     - If anchor is better, remove the intermediate waypoints. Keep the anchor in case the regions connect/overlap.
     - The diagonal move replaces waypoints inbetween. So need to keep an index for the waypoints.
     */
-  _constructBurrowingPath(a2d, b2d, path) {
+  _constructBurrowingPath(path, b2d) {
     const { ABOVE, BELOW, GROUND } = this.constructor.ELEVATION_LOCATIONS;
     const anchors = [];
     const MAX_ITER = 10000;
@@ -370,7 +341,6 @@ export class TokenElevationHandler {
     if ( startingHandler.location === BELOW || startingHandler.location === GROUND ) anchors.push(0)
 
     // Add in burrowing endpoint if present.
-    // TODO: What if
     if ( !path.at(-1).almostEqual(b2d) && this._nearestSupport(b2d).location === BELOW ) {
       if ( this.#foundBurrowingShortcut(path.at(-1), b2d) ) path.push(b2d);
     }
@@ -427,59 +397,206 @@ export class TokenElevationHandler {
 
   /* ----- NOTE: Flying ----- */
 
-  _constructFlyingPath(start, end, path) {
+  get flying() { return this.constructor.tokenIsFlying(this.token); }
 
+  /* Flying Options without using pathfinding:
+    1. Get walking path.
+    - If end equals end of walking path, run anchor shortcut algorithm.
+    - If end is above end of walking path and reachable without hitting cutaway, run anchor shortcut algorithm.
+    - If end is below, likely (definitely?) unreachable. Run anchor shortcut.
+    - Otherwise, go to #2.
 
+    2. Get reverse walking path from end to start.
+    - (Create new instance, initialize in reverse, and run. Convert to 3d and then back to 2d in original direction.)
+    - Attempt to connect the two paths. If they connect, combine and run anchor shortcut algorithm.
+    - Otherwise, go to #3.
 
+    3. End point is above the walking path but does not intersect via walking. Is that possible?
+    - Probably not. Either original or reverse walking path should fall down and meet up.
+    - But maybe moving through a tile or region does it?
+    - Set a warning message to check for this scenario. To try to handle, go to #4.
 
+    4. Find a flight path between the two walking paths.
+    - Could try #5.
+    - Or, just allow flight straight up. Straight up through a tile or straight up through any region.
 
-
-
-    // TODO: Handle floating regions.
-    // - Combine all cutaway polygons in Clipper.
-    // - If more than one cutaway, then some are floating (otherwise, all connected via scene cutaway)
-    // - Link TR corners to TL corners. Incl. start, end.
-    // - Draw line from TR to BL corner to next region intersect and add as path. (Moving under region than flying diagonal up.)
-    // - Pathfinding to determine optimal path?
-
-    const { ABOVE, BELOW, GROUND } = this.constructor.ELEVATION_LOCATIONS;
-
-    /* Can we get there faster by flying?
-    Track elevation changes:
-    Anchors:
-    - Start
-    - Every move down at the point prior to the down move, add anchor
-
-    Test anchors:
-    - When moving up, test if can get to the up location from an anchor faster.
-    - If anchor is better, remove the intermediate waypoints. Keep the anchor.
-    - The diagonal move replaces waypoints inbetween. So need to keep an index for the waypoints.
+    5. More complex version
+    - For each original path segment:
+    - For each TL and BL corner on reverse path:
+      - Try to connect to the original walking path edge.
+      - If blocked, try to connect using the BL corner of the blocking region as the swing point.
+      - Need only connect each TL corner once.
     */
-    const anchors = [];
-    let movedUp = false;
-    const MAX_ITER = 10000;
-    let nIters = 0;
-    for ( let i = 0, iMax = path.length - 1; i < iMax; i += 1 ) {
-      nIters += 1;
-      if ( nIters > MAX_ITER ) break;
-      const obj = path[i];
-      if ( movedUp ) {
-        movedUp = false;
-        i = this.#adjustFlightAnchors(anchors, path, i);
-        iMax = path.length
-      }
+  constructFlyingPath(a, b) {
+    const a2d = this.to2d(a);
+    const b2d = this.to2d(b);
+    let path2d = [];
+    try {
+      path2d = this._constructWalkingPath(a2d, b2d);
+      this.#verifyPath2d(path2d);
 
-      if ( obj.surfaceWalk ) continue;
-      switch ( obj.type ) {
-        case ABOVE:
-        case GROUND: anchors.push(i); break;
-        case BELOW: movedUp = true; break;
+    } catch ( err ) {
+      console.error(`constructWalkingPath ${a} -> ${b}`, path2d);
+      console.error(err);
+      path2d.forEach(pt => pt.release());
+      return [a, b];
+    }
+
+    // Can we reach the end point? If the end is above but blocked by a cutaway, try to connect the two.
+    const pathEnd = path2d.at(-1);
+    const requiresConnection = !pathEnd.y.almostEqual(b2d.y) && b2d.y > pathEnd.y && !this.#foundFlyingShortcut(pathEnd, b2d);
+    if ( requiresConnection ) {
+      // Connect by drawing the reverse path, from finish to start.
+      // Requires a separate manager.
+      const tm = new this.constructor(this.token);
+      tm.initialize(b, a);
+      let path2dReverse;
+      try {
+        path2dReverse = tm.constructWalkingPath(b, a); // Note: 3d coordinates.
+
+        // Convert to be in this path's 2d coordinates.
+        path2dReverse = path2dReverse.map(pt => this.to2d(pt));
+        path2d = this.#connectPaths(path2d, path2dReverse);
+        this.#verifyPath2d(path2d);
+
+      } catch ( err ) {
+        console.error(`constructReverseWalkingPath ${b} -> ${a}`, path2dReverse);
+        console.error(err);
       }
     }
 
-    // Always check the end point.
-    this.#adjustFlightAnchors(anchors, path, path.length - 1);
-    return path.map(obj => cutaway.from2d(obj.cutpoint, start, end));
+    // Run anchor algorithm to see if we can fly to diagonals
+    try {
+      path2d = this._constructFlyingPath(path2d, b2d);
+      this.#verifyPath2d(path2d)
+
+    } catch ( err ) {
+      console.error(`constructFlyingPath ${a} -> ${b}`, path2d);
+      console.error(err);
+      path2d.forEach(pt => pt.release());
+      return [a, b];
+    }
+    const path = path2d.map(pt => this.from2d(pt));
+    path2d.forEach(pt => pt.release());
+    return path;
+  }
+
+  /**
+   * Given two paths, determine the first point of connect and return a new path joining the two.
+   * The assumption is that the second path is in the opposite line of travel.
+   * The new path follows the first path's line of travel.
+   * @param {TerrainPath} path
+   * @param {TerrainPath} reversePath
+   * @returns {TerrainPath} A new array of connected paths or if they don't connect, throw an error.
+   *   Will reuse the points in the path in the newly returned array.
+   */
+  #connectPaths(path, reversePath) {
+    // Walk the reverse path, checking against the first path segments.
+    const nPath = path.length;
+    const nReversePath = reversePath.length;
+    let revA = reversePath[0];
+    if ( path[0].almostEqual(revA) ) return [path[0]];
+
+    // Brute force, but taking advantage of early skipping.
+    for ( let i = 1; i < nReversePath; i += 1 ) {
+      const revB = reversePath[i];
+      let a = path[0];
+      if ( a.almostEqual(revB) ) { const r = reversePath.slice(0, i + 1); r.reverse(); return r; }
+      for ( let j = 1; j < nPath; j += 1 ) {
+        const b = path[j];
+        if ( b.almostEqual(revA) ) { const r = reversePath.slice(0, i); r.reverse(); return [...path.slice(0, j), ...r]; }
+        if ( b.almostEqual(revB) ) { const r = reversePath.slice(0, i + 1); r.reverse(); return [...path.slice(0, j), ...r]; }
+        if ( revB.x > b.x ) continue;
+
+        if ( foundry.utils.lineSegmentIntersects(revA, revB, a, b) ) {
+          const ix = foundry.utils.lineLineIntersection(a, b, revA, revB);
+          const r = reversePath.slice(0, i);
+          r.reverse();
+          return [...path.slice(0, j), _ixToPoint(ix), ...r];
+        }
+        a = b;
+      }
+      revA = revB;
+    }
+    // TODO: Should this error be removed and instead just return the first path?
+    throw new Error("connectPaths|Unable to connect the two paths!");
+    return path;
+  }
+
+  /* Can we get there faster by flying?
+    Track elevation changes:
+    Anchors:
+    - When on ground
+    - When flying
+
+    Test anchors:
+    - When moving up, test if we can get there faster using the anchor position.
+    - If anchor is better, remove the intermediate waypoints. Keep the anchor in case the regions connect/overlap.
+    - The diagonal move replaces waypoints inbetween. So need to keep an index for the waypoints.
+    */
+  _constructFlyingPath(path, b2d) {
+    const { ABOVE, BELOW, GROUND } = this.constructor.ELEVATION_LOCATIONS;
+    const anchors = [];
+    const MAX_ITER = 10000;
+    let nIters = 0;
+    let prevWaypoint = path[0];
+    const startingHandler = this._nearestSupport(prevWaypoint);
+    if ( startingHandler.location === ABOVE || startingHandler.location === GROUND ) anchors.push(0)
+
+    // Add in flying endpoint if present.
+    if ( !path.at(-1).almostEqual(b2d) && this._nearestSupport(b2d).location === ABOVE ) {
+      if ( this.#foundFlyingShortcut(path.at(-1), b2d) ) path.push(b2d);
+    }
+
+    for ( let i = 1, iMax = path.length; i < iMax; i += 1 ) {
+      nIters += 1;
+      if ( nIters > MAX_ITER ) break;
+      const currWaypoint = path[i];
+
+      // GROUND: moving right-to-left.
+      // BELOW: moving vertical up (BELOW -> GROUND)
+      // ABOVE: moving vertical down (ABOVE -> GROUND)
+      const moveType = currWaypoint.x > prevWaypoint.x ? GROUND : currWaypoint.y > prevWaypoint.y ? BELOW : ABOVE;
+
+      // Test anchors.
+      // If can get from anchor to waypoint while always within at least one region, can burrow there.
+      // Test the current waypoint if moving right-to-left or below-to-ground.
+      if ( moveType === GROUND || moveType === BELOW ) {
+        for ( const [idx, anchor] of anchors.entries() ) {
+          const anchorPt = path[anchor];
+          if ( !this.#foundFlyingShortcut(currWaypoint, anchorPt) ) continue;
+          const nDeletions = i - anchor - 1; // Delete intermediate waypoints
+          path.splice(anchor+1, nDeletions);
+          anchors.splice(idx);
+          i -= nDeletions; // Reset i to the next waypoint after the deletions.
+          iMax = path.length
+        }
+      }
+
+      // Set new anchors for the previous point.
+      switch ( moveType ) {
+        case GROUND:                     // prev waypoint is ground and not at right edge.
+        case ABOVE: anchors.push(i - 1); // prev waypoint is above (left edge)
+      }
+    }
+    return path;
+  }
+
+  #foundFlyingShortcut(testPoint, anchor) {
+    // Almost same as #foundBurrowingShortcut
+    // Construct a path between the anchor and the point to test.
+    // Must not intersect any terrain cutaways.
+    // 1. Test if the center of the segment is not within a cutaway.
+    // 2. Test if intersections only occur at endpoints.
+    // --> If both are true, can fly. If not true, some region intersects
+    // (Overlapping is very unlikely b/c we are using combined cutaways here.)
+    const mid = PIXI.Point.midPoint(anchor, testPoint);
+    if ( this.combinedCutaways.some(cutHandler => cutHandler.testPoint(mid)) ) return false;
+    const ixFound = this.combinedCutaways.some(cutHandler => {
+      const ixs = cutHandler.segmentIntersections(anchor, testPoint);
+      return ixs.some(ix => !(testPoint.almostEqual(ix) || anchor.almostEqual(ix)))
+    });
+    return !ixFound;
   }
 
   #adjustFlightAnchors(anchors, path, i) {
