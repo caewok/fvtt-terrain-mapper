@@ -26,7 +26,7 @@ import { ElevatorRegionBehaviorType } from "./regions/ElevatorRegionBehaviorType
 import { StraightLinePath } from "./StraightLinePath.js";
 
 // Elevation
-import { TokenElevationHandler } from "./TokenElevationHandler.js";
+import { TokenElevationHandler, CutawayHandler } from "./TokenElevationHandler.js";
 
 // Unique Terrain Effects
 import { TerrainActiveEffect, TerrainItemEffect, TerrainFlagEffect, TerrainPF2E } from "./terrain_unique_effects.js";
@@ -35,6 +35,9 @@ import { defaultTerrains } from "./default_terrains.js";
 // Self-executing hooks.
 import "./changelog.js";
 import "./regions/HighlightRegionShader.js";
+
+// Tests
+import "../tests/CutawayHandler.test.js";
 
 /* Foundry v13 movement
 Token#findMovementPath -- find path through waypoints
@@ -196,7 +199,7 @@ function initializeAPI() {
     regionElevationAtPoint,
     StraightLinePath,
     TokenElevationHandler,
-
+    CutawayHandler,
 
     /**
      * API to determine the elevation of a line through 0+ setElevation regions.
