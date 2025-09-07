@@ -599,32 +599,6 @@ export class TokenElevationHandler {
     return !ixFound;
   }
 
-  #adjustFlightAnchors(anchors, path, i) {
-    const { ABOVE, GROUND } = this.constructor.ELEVATION_LOCATIONS;
-    const obj = path[i];
-    if ( !(obj.type === ABOVE || obj.type === GROUND) ) return i;
-    const currWaypoint = obj.cutpoint;
-
-    // Test if an anchor will get us there faster. Use the first viable anchor.
-    for ( const [idx, anchor] of anchors.entries() ) {
-      if ( this._flightIntersectsCutaway(path[anchor].cutpoint, currWaypoint) ) continue;
-      const nDeletions = i - anchor - 1; // Delete intermediate waypoints
-      path.splice(anchor+1, nDeletions);
-      anchors.splice(idx);
-      i -= nDeletions; // Reset i to the next waypoint after the deletions.
-      // iMax = res.length
-      break;
-    }
-    return i;
-  }
-
-
-  _flightIntersectsCutaway(a2d, b2d, excludeRegion) {
-    return [...this.regions, canvas.scene].some(region => region !== excludeRegion && this.regionCutaways.get(region).lineSegmentCrosses(a2d, b2d));
-  }
-
-
-
   // ----- NOTE: Secondary methods ----- //
 
   _nearestSupport(pt2d, excludeHandler) {
