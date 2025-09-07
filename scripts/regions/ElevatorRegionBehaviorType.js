@@ -84,11 +84,18 @@ export class ElevatorRegionBehaviorType extends foundry.data.regionBehaviors.Reg
     log(`Token ${data.token.name} moving into ${event.region.name}!`);
     if ( event.user !== game.user ) return;
     const tokenD = data.token;
+
+    // ----- No async operations before this! -----
+    const resumeMovement = tokenD.pauseMovement();
+
+    // Await movement animation
+    if ( tokenD.rendered ) await tokenD.object?.movementAnimationPromise;
+
+    // Determine the user's floor choice.
     const { stops, elevations } = this.getStopsAndElevations();
 
     // When strict, don't trigger the elevator unless the token is already on a floor.
     let takeElevator = !this.strict || elevations.has(tokenD.elevation);
-    let chosenElevation;
 
     // Ask the user to pick a floor.
     if ( takeElevator ) {
@@ -98,7 +105,7 @@ export class ElevatorRegionBehaviorType extends foundry.data.regionBehaviors.Reg
         const floorLabel = Object.keys(stop)[0];
         const floorElev = stop[floorLabel];
         const checked = tokenD.elevation.almostEqual(floorElev) ? "checked" : "";
-        content += `\n<label><input type="radio" name="choice" value=" ${floorElev}" ${checked}>${floorLabel}</label>`;
+        content += `\n<label><input type="radio" name="choice" value="${floorElev}" ${checked}>${floorLabel}</label>`;
       }
       const buttons = [{
         action: "choice",
@@ -107,14 +114,29 @@ export class ElevatorRegionBehaviorType extends foundry.data.regionBehaviors.Reg
         callback: (event, button, _dialog) => button.form.elements.choice.value
       }];
       const res = await foundry.applications.api.DialogV2.wait({ rejectClose: false, window, content, buttons });
-      chosenElevation = Number(res);
+      if ( res !== null ) {
+        // Stop the token movement at the chosen elevation *unless* the chosen elevation is the same.
+        const chosenElevation = Number(res);
+        const movement = data.movement;
+        const nextMove = movement.pending.waypoints[0];
+        if ( !nextMove || !nextMove.elevation.almostEqual(chosenElevation) ) {
+          // Update the token elevation, thereby stopping the movement.
+          // See https://github.com/txm3278/Enhanced-Region-Behaviors/blob/main/scripts/regionBehaviors/elevationRegionBehaviorType.ts
+          tokenD.stopMovement();
 
-      // Update the elevation.
-      takeElevator = res != null && chosenElevation !== tokenD.elevation;
+          // Try to move to the very next waypoint, primarily to snap to the grid.
+          const waypoint = structuredClone(nextMove ? nextMove : movement.passed.waypoints.at(-1));
+          waypoint.elevation = chosenElevation;
+          await tokenD.move([waypoint], {
+            ...movement.updateOptions,
+            constrainOptions: movement.constrainOptions,
+            autoRotate: movement.autoRotate,
+            showRuler: movement.showRuler,
+          });
+        }
+      }
     }
-
-    // Execute either the elevator elevation move or continue the 2d move.
-    await continueTokenAnimationForBehavior(this, tokenD, takeElevator ? chosenElevation : undefined);
+    resumeMovement(); // TODO: Should this be awaited?
   }
 
   /**
@@ -210,11 +232,11 @@ export class ElevatorRegionBehaviorType extends foundry.data.regionBehaviors.Reg
 function preCreateRegionBehavior(document, data, _options, _userId) {
   log("preCreateRegionBehavior");
   if ( data.type !== `${MODULE_ID}.elevator` ) return;
-  const topE = document.region.elevation.top;
-  const bottomE = document.region.elevation.bottom ?? canvas.scene[MODULE_ID].sceneFloor;
+  const tm = document.region.object[MODULE_ID];
+  const topE = tm.plateauElevation;
+  const bottomE = isFinite(document.region.elevation.bottom) ? document.region.elevation.bottom : canvas.scene[MODULE_ID].sceneFloor;
   const bottomLabel = game.i18n.localize(`${MODULE_ID}.phrases.bottom`);
   const topLabel = game.i18n.localize(`${MODULE_ID}.phrases.top`);
-
   const floors = [`${bottomE}|${bottomLabel}`];
   if ( topE ) floors.push(`${topE}|${topLabel}`);
   document.updateSource({ "system.floors": floors });
