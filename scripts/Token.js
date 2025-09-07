@@ -362,11 +362,11 @@ function createTerrainMovementPath(wrapped, waypoints, options) {
 
     // If no regions and no tiles, just allow the movement to continue as is.
     // Avoids issue where cannot change elevation when on the canvas, which is unexpected.
-//     if ( !(tm.regions.length || tm.tiles.length) ) {
-//       newWaypoints.push(next);
-//       start = next;
-//       continue;
-//     }
+    if ( !(tm.regions.length || tm.tiles.length) ) {
+      newWaypoints.push(next);
+      start = next;
+      continue;
+    }
 
     const path = tm.constructPath(a, b, { flying, burrowing, walking });
     path.forEach(pt => _uncenterPathPointInPlace(pt, this));
