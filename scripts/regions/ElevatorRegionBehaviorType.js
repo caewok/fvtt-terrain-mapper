@@ -1,15 +1,16 @@
 /* globals
+canvas,
 CONST,
 foundry,
 game,
-Region,
+PIXI,
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
 import { MODULE_ID } from "../const.js";
 import { log } from "../util.js";
-import { continueTokenAnimationForBehavior } from "./StairsRegionBehaviorType.js";
+import { ElevatedPoint } from "../geometry/3d/ElevatedPoint.js";
 
 export const PATCHES = {};
 PATCHES.REGIONS = {};
@@ -124,15 +125,27 @@ export class ElevatorRegionBehaviorType extends foundry.data.regionBehaviors.Reg
           // See https://github.com/txm3278/Enhanced-Region-Behaviors/blob/main/scripts/regionBehaviors/elevationRegionBehaviorType.ts
           tokenD.stopMovement();
 
-          // Try to move to the very next waypoint, primarily to snap to the grid.
-          const waypoint = structuredClone(nextMove ? nextMove : movement.passed.waypoints.at(-1));
+          // Insert vertical move.
+          // If snapping and the token center for the snap is within the region, use it instead.
+          const waypoint = this.nearestXYSnapPoint(movement.destination, movement.pending.waypoints.at(0), tokenD);
           waypoint.elevation = chosenElevation;
-          await tokenD.move([waypoint], {
+          waypoint.action = this.elevatorTokenAction;
+          waypoint.cost = 0;
+          waypoint.explicit = true;
+          waypoint.intermediate = false;
+          waypoint.checkpoint = false;
+
+          // const adjustedWaypoints = movement.pending.waypoints
+//             .filter((w) => !w.intermediate)
+//             .map((w) => ({ ...w, elevation: chosenElevation }));
+
+          await tokenD.move([movement.passed.waypoints.at(-1), waypoint], {
             ...movement.updateOptions,
             constrainOptions: movement.constrainOptions,
             autoRotate: movement.autoRotate,
             showRuler: movement.showRuler,
           });
+          return;
         }
       }
     }
@@ -162,44 +175,74 @@ export class ElevatorRegionBehaviorType extends foundry.data.regionBehaviors.Reg
 
     // Confirm with user.
     if ( resetToGround ) {
+      // ----- No async operations before this! -----
+      const resumeMovement = tokenD.pauseMovement();
+
+      // Await movement animation
+      if ( tokenD.rendered ) await tokenD.object?.movementAnimationPromise;
+
       const content = game.i18n.localize(`${MODULE_ID}.phrases.resetOnExit`);
       resetToGround = await foundry.applications.api.DialogV2.confirm({ content, rejectClose: false, modal: true });
-    }
+      if ( resetToGround === null ) return resumeMovement();
 
-    // Either change the elevation to reset to ground or continue the 2d move.
-    await continueTokenAnimationForBehavior(this, tokenD, resetToGround ? groundElevation : undefined);
+      // See https://github.com/txm3278/Enhanced-Region-Behaviors/blob/main/scripts/regionBehaviors/elevationRegionBehaviorType.ts
+      // Add a teleport straight down.
+      const movement = data.movement;
+      const waypoint = structuredClone(movement.destination);
+      waypoint.elevation = groundElevation;
+      waypoint.action = this.elevatorTokenAction;
+      waypoint.cost = 0;
+      waypoint.intermediate = false;
+      waypoint.explicit = true;
+      waypoint.checkpoint = false;
+
+      const adjustedWaypoints = movement.pending.waypoints
+        .filter((w) => !w.intermediate)
+        .map((w) => ({ ...w, elevation: groundElevation }));
+      await tokenD.move([movement.passed.waypoints.at(-1), waypoint, ...adjustedWaypoints], {
+        ...movement.updateOptions,
+        constrainOptions: movement.constrainOptions,
+        autoRotate: movement.autoRotate,
+        showRuler: movement.showRuler,
+      });
+      return;
+    }
   }
 
-  /** @type {RegionWaypoint} */
-  static lastDestination;
+  get elevatorTokenAction() {
+    const actions = Object.entries(CONFIG.Token.movement.actions);
+    let out = actions.find(([key, a]) => a.teleport && a.visualize);
+    if ( !out ) out = actions.find(([key, a]) => a.teleport);
+    if ( !out ) out = actions[0];
+    return out[0];
+  }
+
 
   /**
-   * Stop at the entrypoint for the region.
-   * This allows onTokenEnter to then handle the stair movement.
-   * @param {RegionEvent} event
-   * @this {PauseGameRegionBehaviorType}
+   * Nearest snap point along a path that is still within the region.
+   * Attempts first the current point, then moves along the line toward the next point.
+   * If next point is close enough, it will try that. If all fails, returns the current point.
+   * @param {Point} currPoint
+   * @param {Point} nextPoint
+   * @param {TokenDocument} tokenD         Token for which the snapping would apply
    */
-//   static async #onTokenPreMove(event) {
-//     if ( event.data.forced ) return;
-//
-//     for ( const segment of event.data.segments ) {
-//       if ( segment.type === Region.MOVEMENT_SEGMENT_TYPES.ENTER ) {
-//         this.constructor.lastDestination = event.data.destination;
-//         event.data.destination = segment.to;
-//         break;
-//       }
-//     }
-//
-//     if ( this.resetOnExit ) {
-//       for ( const segment of event.data.segments ) {
-//         if ( segment.type === Region.MOVEMENT_SEGMENT_TYPES.EXIT ) {
-//           this.constructor.lastDestination = event.data.destination;
-//           event.data.destination = segment.to;
-//           break;
-//         }
-//       }
-//     }
-//   }
+  nearestXYSnapPoint(currPoint, nextPoint, tokenD) {
+    currPoint = ElevatedPoint.fromObject(currPoint);
+    let snap = tokenD.getSnappedPosition(currPoint);
+    if ( snap.x.almostEqual(currPoint.x) && snap.y.almostEqual(currPoint.y) ) return currPoint;
+    snap.elevation = currPoint.elevation;
+    if ( this.region.testPoint(snap) ) return snap;
+    if ( !nextPoint ) return currPoint;
+
+    nextPoint = ElevatedPoint.fromObject(nextPoint);
+    const other = PIXI.Point.distanceSquaredBetween(currPoint, nextPoint) < canvas.grid.size ** 2
+      ? nextPoint : currPoint.towardsPoint(nextPoint, canvas.grid.size);
+    snap = tokenD.getSnappedPosition(other);
+    snap.elevation = other.elevation;
+    if ( this.region.testPoint(snap) ) return snap;
+    return currPoint;
+  }
+
 
   /**
    * Retrieve the stops and elevations for the floors of this behavior
@@ -219,6 +262,7 @@ export class ElevatorRegionBehaviorType extends foundry.data.regionBehaviors.Reg
     return { elevations, stops };
   }
 }
+
 
 /**
  * Hook preCreateRegionBehavior
