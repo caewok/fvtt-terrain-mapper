@@ -9,7 +9,6 @@ Region,
 
 import { MODULE_ID } from "../const.js";
 import { log } from "../util.js";
-import { ElevationHandler } from "../ElevationHandler.js";
 import { continueTokenAnimationForBehavior } from "./StairsRegionBehaviorType.js";
 
 export const PATCHES = {};
@@ -131,7 +130,7 @@ export class ElevatorRegionBehaviorType extends foundry.data.regionBehaviors.Reg
     log(`Token ${data.token.name} moving out of ${event.region.name}!`);
     if ( event.user !== game.user ) return;
     const tokenD = data.token;
-    const groundElevation = ElevationHandler.sceneFloor;
+    const groundElevation = canvas.scene[MODULE_ID].sceneFloor;
     const { elevations } = this.getStopsAndElevations();
 
     // When strict, don't trigger the elevator unless the token is already on a floor.
@@ -212,7 +211,7 @@ function preCreateRegionBehavior(document, data, _options, _userId) {
   log("preCreateRegionBehavior");
   if ( data.type !== `${MODULE_ID}.elevator` ) return;
   const topE = document.region.elevation.top;
-  const bottomE = document.region.elevation.bottom ?? ElevationHandler.sceneFloor;
+  const bottomE = document.region.elevation.bottom ?? canvas.scene[MODULE_ID].sceneFloor;
   const bottomLabel = game.i18n.localize(`${MODULE_ID}.phrases.bottom`);
   const topLabel = game.i18n.localize(`${MODULE_ID}.phrases.top`);
 

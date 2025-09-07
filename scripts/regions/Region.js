@@ -94,7 +94,7 @@ function addEdgesForRegion(region) {
   const type = "region";
 
   // Add every edge from every shape in this region to canvas.edges.
-  region.shapes.forEach((shape, shapeIdx) => {
+  region.document.shapes.forEach((shape, shapeIdx) => {
     const poly = polygonForRegionShape(shape);
     poly.iterateEdges({ close: true }).forEach((e, edgeIdx) => {
       const id = `region_${region.id}_shape${shapeIdx}_edge${edgeIdx}`;
@@ -117,7 +117,7 @@ function updateRegionEdgeRestrictions(region) {
   const restrictionsObj = {};
   restrictions.forEach(type => restrictionsObj[type] = CONST.WALL_SENSE_TYPES.NORMAL);
   delete restrictions.cover;
-  region.shapes.forEach((shape, idx) => {
+  region.document.shapes.forEach((shape, idx) => {
     const poly = polygonForRegionShape(shape);
     for ( let i = 0, iMax = poly.points.length * 0.5; i < iMax; i += 1 ) {
       const id = `region_${region.id}_shape${idx}_edge${i}`;
@@ -221,13 +221,13 @@ PATCHES.REGIONS.HOOKS = { createRegion, updateRegion, deleteRegion };
  * @param {boolean} [options.freefall=false]      Should elevation changes follow the ramp/plateau when moving down?
  * @returns {RegionMovementSegment[]}             The movement split into its segments.
  */
-function segmentizeMovement(wrapper, waypoints, samples, opts) {
-  const segments = wrapper(waypoints, samples, opts);
-  if ( !segments.length ) return segments;
-
-  // Modify segments if moving through plateau or ramp regions.
-  return this[MODULE_ID]._modifySegments(segments);
-}
+// function segmentizeMovement(wrapper, waypoints, samples, opts) {
+//   const segments = wrapper(waypoints, samples, opts);
+//   if ( !segments.length ) return segments;
+//
+//   // Modify segments if moving through plateau or ramp regions.
+//   return this[MODULE_ID]._modifySegments(segments);
+// }
 
 /**
  * Wrap Region#_draw
@@ -305,7 +305,11 @@ function _applyRenderFlags(wrapper, flags) {
 }
 
 
-PATCHES.REGIONS.WRAPS = { segmentizeMovement, _draw, _applyRenderFlags};
+PATCHES.REGIONS.WRAPS = {
+  // segmentizeMovement,
+  _draw,
+  _applyRenderFlags,
+};
 
 
 // ----- NOTE: Methods ----- //

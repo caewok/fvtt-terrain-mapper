@@ -1,4 +1,5 @@
 /* globals
+canvas,
 CONFIG,
 foundry,
 PIXI,
@@ -13,10 +14,12 @@ import {
   regionWaypointsXYEqual } from "../util.js";
 import { Point3d } from "../geometry/3d/Point3d.js";
 import { Plane } from "../geometry/3d/Plane.js";
-import { RegionMovementWaypoint3d } from "../geometry/3d/RegionMovementWaypoint3d.js";
+import { ElevatedPoint } from "../geometry/3d/ElevatedPoint.js";
 import { Matrix } from "../geometry/Matrix.js";
-import { ElevationHandler } from "../ElevationHandler.js";
-import { instanceOrTypeOf, gridUnitsToPixels, pixelsToGridUnits } from "../geometry/util.js";
+import { TokenElevationHandler } from "../TokenElevationHandler.js";
+import { instanceOrTypeOf, gridUnitsToPixels, pixelsToGridUnits, cutaway } from "../geometry/util.js";
+import { AABB3d } from "../geometry/AABB.js";
+import { almostGreaterThan, almostLessThan, almostBetween } from "../geometry/util.js";
 
 /**
  * Single region elevation handler
@@ -63,7 +66,41 @@ export class RegionElevationHandler {
   }
 
   /** @type {PIXI.Polygon} */
-  get nonHolePolygons() { return this.region.polygons.filter(poly => poly._isPositive); }
+  get nonHolePolygons() { return this.region.document.polygons.filter(poly => poly._isPositive); }
+
+  get holePolygons() { return this.region.document.polygons.filter(poly => !poly._isPositive); }
+
+  #terrainAABB = new WeakMap();
+
+  /**
+   * Returns the terrain aabb if elevated, and the full region aabb otherwise.
+   */
+  getTerrainAABBForShape(shape) {
+    if ( this.#terrainAABB.has(shape) ) return this.#terrainAABB.get(shape);
+    const maxZ = gridUnitsToPixels(this.isElevated ? this.plateauElevation : this.region.elevationE.top);
+    const minZ = gridUnitsToPixels(this.region.elevationE.bottom);
+    const method = `from${capitalizeFirstLetter(shape.type)}`;
+    const pixiShape = this.getPixiShape(shape);
+    const aabb = AABB3d[method](pixiShape, maxZ, minZ);
+    this.#terrainAABB.set(shape, aabb);
+    return aabb;
+  }
+
+  getTerrainAABBForRegion() {
+    if ( this.#terrainAABB.has(this.region) ) return this.#terrainAABB.get(this.region);
+
+    // Union all the shape AABBs, which is not so bad b/c they will be cached and likely reused.
+    // Can skip holes, b/c they don't contribute to the bounds.
+    const solidShapes = this.region.document.shapes.filter(shape => !shape.hole);
+    const nShapes = solidShapes.length;
+    const aabbs = new Array(nShapes);
+    for ( let i = 0; i < nShapes; i += 1 ) aabbs[i] = this.getTerrainAABBForShape(solidShapes[i]);
+    const aabb = AABB3d.union(aabbs);
+    this.#terrainAABB.set(this.region, aabb);
+    return aabb;
+  }
+
+
 
   /** @type {object} */
   #minMax;
@@ -99,10 +136,21 @@ export class RegionElevationHandler {
     return cutpoints;
   }
 
+  #pixiShapes = new WeakMap();
+
+  getPixiShape(shape) {
+    if ( this.#pixiShapes.has(shape) ) return this.#pixiShapes.get(shape);
+    const pixiShape = this.constructor.pixiShapeForRegionShape(shape);
+    this.#pixiShapes.set(shape, pixiShape);
+    return pixiShape;
+  }
+
   clearCache() {
     this.#minMax = undefined;
     this.#rampCutpoints = new WeakMap();  // No clear for WeakMap.
-    this.#minMaxPolys = new WeakMap(); // No clear for WeakMap.
+    this.#minMaxPolys = new WeakMap();
+    this.#pixiShapes = new WeakMap();
+    this.#terrainAABB = new WeakMap();
   }
 
   // Terrain data
@@ -119,38 +167,213 @@ export class RegionElevationHandler {
     return terrains;
   }
 
+  // ----- NOTE: Bounds testing ----- //
+
+  /**
+   * Does this segment intersect the bounding box of 1 or more region shapes?
+   * @param {PIXI.Point|Point3d} a      Endpoint of segment
+   * @param {PIXI.Point|Point3d} b      Other segment endpoint
+   * @param {["x", "y", "z"]} [axes]      Axes to test
+   * @returns {boolean} True if within the bounding box
+   */
+  segmentInBounds(a, b, axes) {
+    const regionAABB = this.getTerrainAABBForRegion();
+    if ( !( regionAABB.containsPoint(a)
+         || regionAABB.containsPoint(b)
+         || regionAABB.overlapsSegment(a, b, axes)) ) return false;
+    for ( const shape of this.region.document.shapes ) {
+      if ( shape.hole ) continue;
+      const shapeAABB = this.getTerrainAABBForShape(shape);
+      if ( shapeAABB.containsPoint(a)
+        || shapeAABB.containsPoint(b)
+        || shapeAABB.overlapsSegment(a, b, axes) ) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Does this point intersect the bounding box of 1 or more region shapes?
+   * @param {PIXI.Point|Point3d} a        Point to test
+   * @param {["x", "y", "z"]} [axes]      Axes to test
+   * @returns {boolean} True if within the bounding box
+   */
+  pointInBounds(a, axes) {
+    const regionAABB = this.getTerrainAABBForRegion();
+    if ( !regionAABB.containsPoint(a, axes) ) return false;
+    for ( const shape of this.region.document.shapes ) {
+      if ( shape.hole ) continue;
+      const shapeAABB = this.getTerrainAABBForShape(shape);
+      if ( shapeAABB.containsPoint(a, axes) ) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Does this point lie within one or more of the 2d shapes for the terrain?
+   * @param {PIXI.Point|Point3d} a        Point to test
+   * @returns {boolean}
+   */
+  test2dPoint(a) {
+    for ( const shape of this.region.document.shapes ) {
+      if ( shape.hole ) continue;
+      const pixiShape = this.getPixiShape(shape);
+      if ( pixiShape.contains(a.x, a.y) ) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Terrain version of `region.document.testPoint`. Rejects if above or below the terrain.
+   * @param {ElevatedPoint} a         Point to test
+   * @returns {boolean}
+   */
+  testPoint(a) {
+    if ( !this.pointInBounds(a, ["x", "y"] ) ) return false;
+    if ( !this.isElevated ) return this.region.document.testPoint(a);
+    if ( !this.test2dPoint(a) ) return false;
+    const topE = this.elevationUponEntry(a);
+    return almostLessThan(a.elevation, topE) && almostGreaterThan(a.elevation, this.region.elevationE.bottom);
+  }
+
+
+  /**
+   * Where is this point relative to the terrain?
+   * @param {ElevatedPoint} a        Point to test
+   * @returns {ELEVATION_LOCATIONS}
+   */
+  pointLocation(pt) {
+    const LOCS = TokenElevationHandler.ELEVATION_LOCATIONS;
+    if ( !this.pointInBounds(pt, ["x", "y"]) ) return LOCS.OUTSIDE;
+    if ( !this.test2dPoint(pt) ) return LOCS.OUTSIDE;
+
+    // Definitely within the x/y of the region.
+    const plateau = this.isElevated ? this.elevationUponEntry(pt) : this.region.topE;
+    const locElev = pt.elevation;
+    return locElev.almostEqual(plateau) ? LOCS.GROUND : locElev > plateau ? LOCS.ABOVE : LOCS.BELOW
+  }
+
+  /**
+   * Does a 3d segment definitely intersect this region?
+   * Does not test bounds.
+   * @param {ElevatedPoint} a
+   * @param {ElevatedPoint} b
+   * @returns {boolean}
+   */
+  lineSegmentIntersects(a, b) {
+    if ( this.testPoint(a) || this.testPoint(b) ) return true;
+
+    // ---- Neither a or b are within the region.
+    // If elevation change, test for plateau intersection.
+    if ( a.z !== b.z ) {
+      const ix = this.plateauSegmentIntersection(a, b);
+      if ( ix && this.testPoint(ix) ) return true;
+    }
+
+    // If 2d change, the segment must cross the 2d border or a hole border.
+    if ( !(a.x === b.x && a.y === b.y) ) {
+      for ( const shape of this.region.document.shapes ) {
+        const pixiShape = this.getPixiShape(shape);
+        if (  pixiShape.lineSegmentIntersects(a, b, { inside: true }) ) return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Obtain the intersection points for a 3d segment against this region.
+   * Does not test bounds.
+   * @param {ElevatedPoint} a
+   * @param {ElevatedPoint} b
+   * @returns {ElevatedPoint[]}
+   */
+  segmentIntersections(a, b) {
+    const ixs = [];
+    const floor = this.region.elevationE.bottom;
+
+    // Only test the top and bottom if the 3d line changes elevation.
+    if ( a.z !== b.z ) {
+      // Test top.
+      const ix = this.plateauSegmentIntersection(a, b);
+      if ( ix && this.testPoint(ix) ) ixs.push(ix);
+
+      // Test bottom.
+      if ( floor > -1e05 ) {
+        const plane = new Plane(new Point3d(0, 0, gridUnitsToPixels(this.plateauElevation)));
+        const ix = plane.lineSegmentIntersection(a, b);
+        if ( ix && this.testPoint(ix) ) {
+          const pt = ElevatedPoint.tmp.set(ix.x, ix.y, ix.z);
+          pt.t0 = ix.t0;
+          ixs.push(pt);
+        }
+      }
+    }
+
+    // Only test the sides if the 3d line changes x/y directions.
+    if ( !(a.x === b.x && a.y === b.y) ) {
+
+      // Test shapes, including holes. TODO: Better to test polygons here?
+      for ( const shape of this.region.document.shapes ) {
+        const shapeIxs = this.getPixiShape(shape).segmentIntersections(a, b);
+        if ( !shapeIxs.length ) continue;
+
+        // Use the t value to determine the elevation of the intersection.
+        shapeIxs.forEach(ix => {
+          const projPt = a.projectToward(b, ix.t0);
+
+          // Intersection must fall within the region elevation at this XY location.
+          const elev = this.elevationUponEntry(ix);
+          if ( !almostBetween(projPt.elevation, floor, elev) ) return;
+          projPt.t0 = ix.t0;
+          ixs.push(projPt);
+        });
+      }
+    }
+    return ixs;
+  }
+
   // ----- NOTE: Primary methods ----- //
 
   /**
    * Determine the elevation upon moving into this region.
    * The provided location is not tested for whether it is within the region.
-   * @param {Point} location   Position immediately upon entry; Position required only for ramps
+   * @param {Point} a   Position immediately upon entry; Position required only for ramps
    * @returns {number} The elevation of the plateau or the ramp at this location
    */
-  elevationUponEntry(location) {
+  elevationUponEntry(pt) {
     const { PLATEAU, RAMP, NONE } = FLAGS.REGION.CHOICES;
     switch ( this.algorithm ) {
-      case NONE: return location.elevation;
+      case NONE: return this.elevation;
       case PLATEAU: return this.plateauElevation;
-      case RAMP: return this._rampElevation(location);
+      case RAMP: return this._rampElevation(pt);
     }
+  }
+
+  /**
+   * Determine if the current location is on the terrain floor.
+   * Meaning it is within the elevated region and its elevation is approximately equal to that of the terrain at that point.
+   * @param {ElevatedPoint} pt
+   * @returns {boolean}
+   */
+  locationIsOnTerrain(pt) {
+    const elev = this.elevationUponEntry(pt);
+    return pt.elevation.almostEqual(elev);
   }
 
   /**
    * Determine if a line segment intersects this region's plateau or ramp.
    * Note: Does not test if the returned point is within the region.
-   * @param {RegionMovementWaypoint3d} a      Start position and grid elevation
-   * @param {RegionMovementWaypoint3d} b      End position and grid elevation
-   * @returns {RegionMovementWaypoint3d|null} The intersection.
+   * @param {ElevatedPoint} a      Start position and grid elevation
+   * @param {ElevatedPoint} b      End position and grid elevation
+   * @returns {ElevatedPoint|null} The intersection.
    */
   plateauSegmentIntersection(a, b) {
-    if ( !instanceOrTypeOf(a, RegionMovementWaypoint3d) ) a = RegionMovementWaypoint3d.fromObject(a);
-    if ( !instanceOrTypeOf(b, RegionMovementWaypoint3d) ) b = RegionMovementWaypoint3d.fromObject(b);
+    if ( !instanceOrTypeOf(a, ElevatedPoint) ) a = ElevatedPoint.fromObject(a);
+    if ( !instanceOrTypeOf(b, ElevatedPoint) ) b = ElevatedPoint.fromObject(b);
 
     if ( a.equalXY(b) ) {
       // A|b is a vertical line in the z direction.
-      const e = Math.max(ElevationHandler.nearestGroundElevation(a), ElevationHandler.nearestGroundElevation(b));
-      if ( e.between(a.elevation, b.elevation) ) return RegionMovementWaypoint3d.fromLocationWithElevation(a, e);
+      const e = Math.max(TokenElevationHandler.nearestGroundElevation(a), TokenElevationHandler.nearestGroundElevation(b));
+      if ( e.between(a.elevation, b.elevation) ) return ElevatedPoint.fromLocationWithElevation(a, e);
       return null;
     }
 
@@ -164,11 +387,234 @@ export class RegionElevationHandler {
 
     const p = this._plateauPlane(minMax);
     if ( !p.lineSegmentIntersects(a, b) ) return null;
-    const ix = RegionMovementWaypoint3d.fromObject(p.lineSegmentIntersection(a, b));
+    const ix = p.lineSegmentIntersection(a, b);
+    const out = ElevatedPoint.fromObject(ix);
+    out.t0 = ix.t0;
 
     // Then get the actual location for the step size.
     ix.elevation = this.elevationUponEntry(ix);
     return ix;
+  }
+
+  /**
+   * @typedef {object} Segment2d
+   * Representation of a line segment
+   * @prop {PIXI.Point} a
+   * @prop {PIXI.Point} b
+   */
+
+  /**
+   * For a given 2d line, return the points of intersection for the shapes in this region.
+   * Accounts for holes.
+   * @param {PIXI.Point} a      A point on the line
+   * @param {PIXI.Point} b      A second point on the line, not equal to the first
+   * @returns {Segment2d[]} Segments, where a and b contain t0 representing their relative positions a --> b
+   */
+  allIntersectingSegmentsForLineSegmentV2(a, b, firstOnly = false) {
+    // Version using polygons
+    const allIxs = [];
+    for ( const polygon of this.region.document.polygons ) {
+      const ixs = polygon.segmentIntersections(a, b, { tangents: false });
+      if ( !ixs.length ) continue;
+
+      ixs.forEach(ix => ix.isHole = !polygon.isPositive);
+      allIxs.push(...ixs);
+    }
+    allIxs.sort((a, b) => a.t0 - b.t0);
+
+    // Add start and and of the segment.
+    // Avoid duplicates.
+    // Don't add if the segment starts in a hole.
+    if ( this.region.document.polygonTree.testPoint(a) && !allIxs[0].t0.almostEqual(0) ) allIxs.unshift({ x: a.x, y: a.y, t0: 0 });
+    if ( this.region.document.polygonTree.testPoint(b) && !allIxs.at(-1).t0.almostEqual(1) ) allIxs.push({ x: b.x, y: b.y, t0: 1 });
+
+    // allIxs.forEach(ix => Draw.point(ix));
+    const allSegments = [];
+    let currSegment = { a: null, b: null };
+    for ( const ix of allIxs ) {
+      if ( !currSegment.a ) currSegment.a = ix;
+      else {
+        currSegment.b = ix;
+        allSegments.push(currSegment);
+        if ( firstOnly ) break;
+        currSegment = { a: null, b: null };
+      }
+    };
+    // allSegments.forEach(s => Draw.segment(s));
+
+    return allSegments;
+  }
+
+  /**
+   * For a given 2d line, return the points of intersection for the shapes in this region.
+   * Accounts for holes.
+   * @param {PIXI.Point} a      A point on the line
+   * @param {PIXI.Point} b      A second point on the line, not equal to the first
+   * @returns {Segment2d[]} Segments, where a and b contain t0 representing their relative positions a --> b
+   */
+  allIntersectingSegmentsForLineSegment(a, b) {
+    // Very difficult to do with PIXI shapes b/c order matters:
+    // Each shape represents a level.
+    // So if rect, ellipse hole, rectangle, rectangle: the hole affects the first rectangle, not the last two.
+    // But if rect, rectangle, ellipse hole, rectangle: the hole affects the first two rectangles.
+
+    // Process each layer in turn, building up the segments accordingly.
+    const allSegments = [];
+    for ( const shape of this.region.document.shapes ) {
+      const pixiShape = this.getPixiShape(shape);
+      const ixs = pixiShape.segmentIntersections(a, b, { tangents: false });
+      if ( !ixs.length ) continue;
+
+      // Add start and and of the segment.
+      // Avoid duplicates.
+      ixs.sort((a, b) => a.t0 - b.t0);
+      if ( pixiShape.contains(a.x, a.y) && !ixs[0].t0.almostEqual(0) ) ixs.unshift({ x: a.x, y: a.y, t0: 0 });
+      if ( pixiShape.contains(b.x, b.y) && !ixs.at(-1).t0.almostEqual(1) ) ixs.push({ x: b.x, y: b.y, t0: 1 });
+      const nIxs = ixs.length;
+      if ( nIxs < 2 ) continue;
+      // Draw.clearDrawings()
+      // ixs.forEach(ix => Draw.point(ix));
+      // allSegments.forEach(s => Draw.segment(s));
+
+      // Build segments from the intersections.
+      const nIxSegments = Math.floor(nIxs * 0.5);
+      const ixSegments = Array(nIxSegments); // If nIxs is 1, will be [].
+      for ( let i = 1, j = 0; i < nIxs; i += 2 ) ixSegments[j++] = { a: ixs[i - 1], b: ixs[i], shape };
+      if ( allSegments.length === 0 ) {
+        if ( !shape.hole ) allSegments.push(...ixSegments);
+        continue;
+      }
+      // ixSegments.forEach(s => Draw.segment(s))
+      const currSegments = [...allSegments];
+      allSegments.length = 0;
+
+      if ( shape.hole ) {
+        // Can assume the segments are sorted by t0.
+        // Because the hole are also sorted, no need to revisit; move along the a-->b line.
+        let hIdx = 0;
+        segmentLoop: for ( const segment of currSegments ) {
+          for ( ; hIdx < nIxSegments; ) {
+            const hole = ixSegments[hIdx];
+            // Draw.segment(segment)
+            // Draw.segment(hole, { color: Draw.COLORS.red })
+
+            // Order matters for these.
+
+            // Case 1: Hole contains the segment: s.a|h.a --- s.b|h.b or h.a --- s.a --- s.b --- h.b
+            if ( almostLessThan(hole.a.t0, segment.a.t0) && almostGreaterThan(hole.b.t0, segment.b.t0) ) continue segmentLoop; // Note skip of segment.
+
+            // Case 2: Hole contained by segment:  s.a --- h.a --- h.b --- s.b
+            else if ( hole.a.t0 > segment.a.t0 && hole.b.t0 < segment.b.t0 ) {
+              allSegments.push({ a: segment.a, b: hole.a });
+              segment.a = hole.b;
+              hIdx++;
+            }
+
+            // Case 3: hole is before or at the segment:  h.a --- h.b|s.a --- s.b
+            if ( almostLessThan(hole.b.t0, segment.a.t0) ) hIdx++;
+
+            // Case 4: Hole is after the segment: s.a --- s.b|h.a --- h.b
+            else if ( almostGreaterThan(hole.b.t0, segment.b.t0) ) break;
+
+            // Case 5: hole runs into segment.a:  h.a --- s.a --- h.b --- s.b
+            else if ( hole.b.t0.between(segment.a.t0, segment.b.t0, false) ) { segment.a = hole.b; hIdx++; }
+
+            // Case 6: hole runs into segment.b: s.a --- h.a --- s.b --- h.b
+            else if ( segment.b.t0.between(hole.a.t0, hole.b.t0, false) ) segment.b = hole.a;
+          }
+          allSegments.push(segment);
+        }
+      } else {
+        // Can assume the segments are sorted by t0.
+        // Because the new segments are also sorted, no need to revisit; move along the a-->b line.
+        let iIdx = 0;
+        for ( const segment of currSegments ) {
+          for ( ; iIdx < nIxSegments; ) {
+            const newS = ixSegments[iIdx]
+
+            // Case 1: segment encompasses new segment: s.a|n.a --- n.b|s.b
+            if ( almostLessThan(segment.a.t0, newS.a.t0) && almostGreaterThan(segment.b.t0, newS.b.t0) ) { iIdx++; break; }
+
+            // Case 2: new segment encompasses segment: n.a --- s.a --- s.b --- n.b
+            if ( segment.a.t0 > newS.a.t0 && segment.b.t0 < newS.b.t0 ) { segment.a = newS.a; segment.b = newS.b; }
+
+            // Case 3: new segment linked at left: n.a --- n.b|s.a --- s.b
+            if ( newS.b.t0.almostEqual(segment.a.t0) ) { segment.a = newS.a; iIdx++; }
+
+            // Case 4: new segment entirely to the left: n.a --- n.b --- s.a --- s.b
+            else if ( newS.b.t0 < segment.a.t0 ) { allSegments.push(newS); iIdx++; }
+
+            // Case 5: new segment extends segment to the left: n.a --- s.a -- n.b --- s.b
+            else if ( newS.a.t0 < segment.a.t0 && newS.b.t0 < segment.b.t0 ) { segment.a = newS.a; iIdx++; }
+
+            // Case 6: new segment linked at right: s.a --- s.b|n.a --- n.b
+            if ( newS.a.t0.almostEqual(segment.b.t0) ) { segment.b = newS.b; iIdx++; break; }
+
+            // Case 7: new segment entirely to the right: s.a --- s.b --- n.a --- n.b
+            else if ( newS.b.t0 > segment.a.t0 ) { break; }
+
+            // Case 8: new segment extends segment to the right: s.a --- n.a -- s.b --- n.b
+            else if ( newS.a.t0 > segment.a.t0 && newS.b.t0 > segment.b.t0 ) { segment.b = newS.b; break; }
+
+          }
+          allSegments.push(segment);
+        }
+      }
+    }
+    return allSegments;
+  }
+
+  /**
+   * For a given 2d line, get the 3d points representing travel along the surface of this region.
+   * @param {PIXI.Point} a      A point on the line
+   * @param {PIXI.Point} b      A second point on the line, not equal to the first
+   * @returns {ElevatedPoint[]} Points on the top of the cutaway polygon for the region.
+   */
+  surfaceWaypoints(a, b) {
+    const cutPolys = this._cutaway(a, b);
+
+    // To get the surface points, we need the top part of the cutaway polygon.
+    // cutaway returns TL - BL - BR - TR -- ?steps where a is left and b is right.
+    // Drop BL and BR.
+    return cutPolys.map(cutPoly => {
+      const vertices = [...cutPoly.iteratePoints({ close: false})];
+      vertices.splice(1, 2);
+
+      // Reverse direction, keeping point 0.
+      const start = vertices.shift();
+      vertices.reverse();
+      vertices.unshift(start);
+      return vertices.map(v => cutaway.from2d(v, a, b));
+    });
+  }
+
+  /**
+   * For a given 2d line, get the 3d segments representing traveling along the surface of this region.
+   * @param {PIXI.Point} a      A point on the line
+   * @param {PIXI.Point} b      A second point on the line, not equal to the first
+   * @returns {Segment[]}
+   */
+  surfaceSegments(a, b) {
+    const segments2d = this.allIntersectingSegmentsForLineSegment(a, b);
+
+    // Steps.
+    if ( this.rampStepSize ) {
+      if ( this.splitPolygons ) return segments2d.flatMap(({ a, b, shape }) => this._rampCutpointsForSegment(a, b, shape));
+      else return segments2d.flatMap(({ a, b }) => this._rampCutpointsForSegment(a, b));
+    }
+
+    // Ramps.
+    if ( this.isRamp ) return segments2d.map(({ a, b }) => ({
+      a: ElevatedPoint.fromLocationWithElevation(a, this.elevationUponEntry(a)),
+      b: ElevatedPoint.fromLocationWithElevation(b, this.elevationUponEntry(b)),
+    }));
+
+    // Plateaus.
+    const elev = this.plateauElevation;
+    return segments2d.map(({ a, b }) => ({
+      a: ElevatedPoint.fromLocationWithElevation(a, elev),
+      b: ElevatedPoint.fromLocationWithElevation(b, elev),
+    }));
   }
 
 
@@ -200,8 +646,8 @@ export class RegionElevationHandler {
 
   /**
    * Construct the cutaway shapes for a segment that traverses this region.
-   * @param {RegionMovementWaypoint3d} start          Start of the segment
-   * @param {RegionMovementWaypoint3d} end            End of the segment
+   * @param {ElevatedPoint} start          Start of the segment
+   * @param {ElevatedPoint} end            End of the segment
    * @param {object} [opts]                           Options that affect the polygon shape
    * @param {boolean} [opts.usePlateauElevation=true] Use the plateau or ramp shape instead of the region top elevation
    * @returns {CutawayPolygon[]} The cutaway polygons for the region, or empty array if all polys are holes.
@@ -211,30 +657,62 @@ export class RegionElevationHandler {
     let allHoles = true;
     const opts = this.#cutawayOptionFunctions(usePlateauElevation);
     const addSteps = this.isRamp && this.rampStepSize;
-    const stepFn = addSteps ? (a, b) => {
-      const cutpoints = this._rampCutpointsForSegment(a, b);
-      if ( !cutpoints.length ) return [];
-
-      // Ensure the steps are going in the right direction.
-      const rampDir = a.z > b.z;
-      const stepDir = cutpoints[0].z > cutpoints.at(-1);
-      if ( rampDir ^ stepDir ) cutpoints.reverse();
-      return [a, ...cutpoints, b];
-    } : undefined;
-    for ( const regionPoly of this.region.polygons ) {
+    for ( const regionPoly of this.region.document.polygons ) {
       allHoles &&= !regionPoly.isPositive;
       const cutaways = regionPoly.cutaway(start, end, opts);
-      if ( addSteps && regionPoly.isPositive ) cutaways.forEach(cutawayPoly => cutawayPoly.insertTopSteps(stepFn));
+      if ( addSteps && regionPoly.isPositive ) cutaways.forEach(cutawayPoly => this._insertTopStepsIntoCutaway(cutawayPoly));
       result.push(...cutaways);
     }
     if ( allHoles ) return [];
     return result;
   }
 
+  #stepInsertionFunction(a, b) {
+    const cutpoints = this._rampCutpointsForSegment(a, b);
+    if ( !cutpoints.length ) return [a, b];
+
+    // Ensure the steps are going in the right direction.
+    const rampDir = a.z > b.z;
+    const stepDir = cutpoints[0].z > cutpoints.at(-1);
+    if ( rampDir ^ stepDir ) cutpoints.reverse();
+    return [a, ...cutpoints, b];
+  }
+
+  /**
+   * Insert steps along the top of a cutaway.
+   * @param {CutawayPolygon} cutawayPoly    The polygon to add steps to; modified in place
+   */
+  _insertTopStepsIntoCutaway(cutawayPoly, ) {
+    // The polygons for regions go TL, TR, BR, BL for non-hole.
+    const isHole = cutawayPoly.isHole;
+    const pts = cutawayPoly.pixiPoints({ close: false });
+    const TL = pts[0];
+    const TR = isHole ? pts.at(-1) : pts[1];
+    const TL3d = cutawayPoly._from2d(TL);
+    const TR3d = cutawayPoly._from2d(TR);
+    const steps = this.#stepInsertionFunction(TL3d, TR3d);
+    const steps2d = steps.map(step => cutawayPoly._to2d(step));
+
+    // Remove duplicates at start and end of steps.
+    if ( TL.almostEqual(steps2d[0]) ) steps2d.shift();
+    if ( TR.almostEqual(steps2d.at(-1)) ) steps2d.pop();
+
+    // y-up clockwise unless hole.
+    // Steps are from a -> b.
+    if ( isHole ) {
+      steps2d.reverse();
+      const stepPts = steps2d.flatMap(step => [step.x, step.y]);
+      cutawayPoly.points.push(...stepPts);
+    } else {
+      const stepPts = steps2d.flatMap(step => [step.x, step.y]);
+      cutawayPoly.points = [...cutawayPoly.points.slice(0, 2), ...stepPts, ...cutawayPoly.points.slice(2)]
+    }
+  }
+
   /**
    * Calculate the cutaway intersections for a segment that traverses this region.
-   * @param {RegionMovementWaypoint3d} start          Start of the segment
-   * @param {RegionMovementWaypoint3d} end            End of the segment
+   * @param {ElevatedPoint} start          Start of the segment
+   * @param {ElevatedPoint} end            End of the segment
    * @param {object} [opts]                           Options that affect the polygon shape
    * @param {boolean} [opts.usePlateauElevation=true] Use the plateau or ramp shape instead of the region top elevation
    * @returns {PIXI.Point[]}
@@ -242,6 +720,8 @@ export class RegionElevationHandler {
   _cutawayIntersections(start, end, { usePlateauElevation = true } = {}) {
     const cutaways = this._cutaway(start, end, { usePlateauElevation });
     return cutaways.flatMap(cutaway => cutaway.intersectSegment3d(start, end));
+
+
   }
 
   /**
@@ -249,12 +729,12 @@ export class RegionElevationHandler {
    * @param {string} method
    * @returns {object} { result, allHoles }
    */
-  /* Currnetly unusued
+  /* Currently unusued
   #applyCutawayMethod(method, start, end, usePlateauElevation = true) {
     const result = [];
     let allHoles = true;
     const nonHolePolygons = (this.isRamp && this.splitPolygons) ? this.nonHolePolygons : [];
-    for ( const regionPoly of this.region.polygons ) {
+    for ( const regionPoly of this.region.document.polygons ) {
       // If this poly is a hole, need the positive polygon for forming the step coordinates.
       let poly = regionPoly;
       if ( !regionPoly.isPositive ) {
@@ -280,7 +760,7 @@ export class RegionElevationHandler {
     if ( !this.isElevated ) return segments;
 
     const { ENTER, MOVE, EXIT } = Region.MOVEMENT_SEGMENT_TYPES;
-    const terrainFloor = ElevationHandler.sceneFloor;
+    const terrainFloor = canvas.scene[MODULE_ID].sceneFloor;
     let entered = false;
     for ( let i = 0, n = segments.length; i < n; i += 1 ) {
       const segment = segments[i];
@@ -350,7 +830,7 @@ export class RegionElevationHandler {
    * @param {PIXI.Point} a              Start of the segment
    * @param {PIXI.Point} b              End of the segment
    * @param {PIXI.Polygon} [poly]       For split polygons, the poly to use
-   * @returns {PIXI.RegionMovementWaypoint3d[]} Array of points from start to end at which elevation changes.
+   * @returns {PIXI.ElevatedPoint[]} Array of points from start to end at which elevation changes.
    */
   _rampCutpointsForSegment(a, b, poly) {
     // For each ideal cutpoint on the ramp, intersect the line orthogonal to the ideal cutpoint line
@@ -373,8 +853,8 @@ export class RegionElevationHandler {
         startingElevation = idealCutpoint.elevation;
         continue;
       }
-      const cutpoint0 = RegionMovementWaypoint3d.fromLocationWithElevation(ix, startingElevation);
-      const cutpoint1 = RegionMovementWaypoint3d.fromLocationWithElevation(ix, idealCutpoint.elevation);
+      const cutpoint0 = ElevatedPoint.fromLocationWithElevation(ix, startingElevation);
+      const cutpoint1 = ElevatedPoint.fromLocationWithElevation(ix, idealCutpoint.elevation);
       cutpoint0.t0 = ix.t0;
       cutpoint1.t0 = ix.t0;
       cutpoints.push(cutpoint0, cutpoint1);
@@ -385,6 +865,23 @@ export class RegionElevationHandler {
   }
 
   // ----- NOTE: Static methods ----- //
+
+  /**
+   * For a given region shape, get its corresponding PIXI.Shape.
+   * @param {RegionShapeData} shapeData
+   * @returns {PIXI.Polygon|PIXI.Rectangle|PIXI.Circle|PIXI.Ellipse}
+   */
+  static pixiShapeForRegionShape(shapeData) {
+    switch ( shapeData.type ) {
+      case "rectangle": return new PIXI.Rectangle(shapeData.x, shapeData.y, shapeData.width, shapeData.height);
+      case "circle": return new PIXI.Circle(shapeData.x, shapeData.y, shapeData.radius);
+      case "ellipse": return new PIXI.Ellipse(shapeData.x, shapeData.y, shapeData.radiusX, shapeData.radiusY);
+      case "polygon": return new PIXI.Polygon(shapeData.points);
+      default: console.error(`RegionElevationHandler|pixiShapeForRegionShape|${shapeData.type} not recognized!`, { shapeData });
+    }
+    return PIXI.Circle(shapeData.x, shapeData.y, 1); // Should not be reached.
+  }
+
 
   // ----- NOTE: Private methods ----- //
 
@@ -429,7 +926,7 @@ export class RegionElevationHandler {
   /**
    * Determine the elevation of the ramp at a given location.
    * Does not confirm the waypoint is within the region.
-   * @param {RegionMovementWaypoint3d} location      2d location
+   * @param {ElevatedPoint} waypoint      2d location
    * @returns {number} The elevation of the ramp at this location.
    */
   _rampElevation(waypoint, useSteps = true, round = true) {
@@ -517,15 +1014,99 @@ export class RegionElevationHandler {
    *   - @prop {function} cutPointsFn
    */
   #cutawayOptionFunctions(usePlateauElevation = true) {
+    // Note: in grid units to avoid recalculation later.
     const MIN_ELEV = -1e06;
     const MAX_ELEV = 1e06;
-    const topE = gridUnitsToPixels(this.region.document.elevation.top ?? MAX_ELEV);
-    const bottomE = gridUnitsToPixels(this.region.document.elevation.bottom ?? MIN_ELEV); // Note: in grid units to avoid recalculation later.
+    const topE = Math.min(this.region.topE, MAX_ELEV);
+    const bottomE = Math.max(this.region.bottomE, MIN_ELEV);
     const topElevationFn = usePlateauElevation
       ? pt => gridUnitsToPixels(this.elevationUponEntry({ ...pt, elevation: pixelsToGridUnits(pt.z) }))
       : _pt => topE;
     const bottomElevationFn = _pt => bottomE;
     return { topElevationFn, bottomElevationFn };
+  }
+}
+
+// ----- NOTE: Scene floor handler ----- //
+
+// Treat the scene floor like a region, infinite depth and set to the scene background elevation.
+
+export class SceneElevationHandler {
+  /** @type {number} */
+  static get sceneFloor() { return canvas.scene?.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0; }
+
+  /** @type {boolean} */
+  get isElevated() { return true; }
+
+  /** @type {boolean} */
+  get isPlateau() { return true; }
+
+  get plateauElevation() { return this.constructor.sceneFloor; }
+
+  get sceneFloor() { return this.scene.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0; }
+
+  scene;
+
+  constructor(scene) {
+    this.scene = scene;
+  }
+
+  segmentInBounds(a, b, axes) { return this.pointInBounds(a, axes) || this.pointInBounds(b, axes); }
+
+  pointInBounds(a, axes) {
+    if ( axes && !Object.hasOwn(axes, "z") ) return true;
+    return almostLessThan(a.elevation ?? pixelsToGridUnits(a.z) , this.sceneFloor);
+  }
+
+  test2dPoint(_a) { return true; }
+
+  testPoint(a) { return almostLessThan(a.elevation, this.sceneFloor);  }
+
+  pointLocation(pt) {
+    const LOCS = TokenElevationHandler.ELEVATION_LOCATIONS;
+    return pt.elevation.almostEqual(this.sceneFloor) ? LOCS.GROUND :
+      pt.elevation > this.sceneFloor ? LOCS.ABOVE : LOCS.BELOW;
+  }
+
+  elevationUponEntry(_pt) { return this.sceneFloor; }
+
+  locationIsOnTerrain(pt) {
+    const elev = this.elevationUponEntry(pt);
+    return pt.elevation.almostEqual(elev);
+  }
+
+  _cutaway(start, end) {
+    const topElevationFn = _pt => this.sceneFloor;
+    const bottomElevationFn = _pt => -1e06;
+    return this.scene.dimensions.rect.cutaway(start, end, { topElevationFn, bottomElevationFn });
+  }
+
+  _cutawayIntersections(start, end) {
+    const cutaways = this._cutaway(start, end);
+    return cutaways.flatMap(cutaway => cutaway.intersectSegment3d(start, end));
+  }
+
+  surfaceSegments(a, b) {
+    const elev = this.sceneFloor;
+    return [{
+      a: ElevatedPoint.fromLocationWithElevation(a, elev),
+      b: ElevatedPoint.fromLocationWithElevation(b, elev),
+    }];
+  }
+
+  lineSegmentIntersects(a, b) {
+    const floor = this.sceneFloor;
+    return almostLessThan(a, floor) || almostLessThan(b, floor);
+  }
+
+  segmentIntersections(a, b) {
+    if ( a.z === b.z ) return [];
+    const plane = new Plane(new Point3d(0, 0, gridUnitsToPixels(this.sceneFloor)));
+    const ix = plane.lineSegmentIntersection(a, b);
+    if ( !ix ) return [];
+    const pt = ElevatedPoint.tmp.set(ix.x, ix.y, ix.z);
+    pt.t0 = ix.t0;
+    return [pt];
   }
 }
 
@@ -644,3 +1225,5 @@ function rotatePolygon(poly, rotation = 0, centroid) {
   }
   return new PIXI.Polygon(rotatedPoints);
 }
+
+function capitalizeFirstLetter(string) { return string.charAt(0).toUpperCase() + string.slice(1); }

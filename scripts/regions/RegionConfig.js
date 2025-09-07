@@ -62,11 +62,11 @@ async function _preparePartContext(wrapper, partId, context, options) {
   context.tab = context.tabs[partId];
 
   // Add default flags.
-  if ( typeof context.region.getFlag(MODULE_ID, FLAGS.REGION.TELEPORT) === "undefined" ) {
-    await context.region.setFlag(MODULE_ID, FLAGS.REGION.TELEPORT, true);
+  if ( typeof context.document.getFlag(MODULE_ID, FLAGS.REGION.TELEPORT) === "undefined" ) {
+    await context.document.setFlag(MODULE_ID, FLAGS.REGION.TELEPORT, true);
   }
-  if ( typeof context.region.getFlag(MODULE_ID, FLAGS.REGION.WALL_RESTRICTIONS) === "undefined" ) {
-    await context.region.setFlag(MODULE_ID, FLAGS.REGION.WALL_RESTRICTIONS, []);
+  if ( typeof context.document.getFlag(MODULE_ID, FLAGS.REGION.WALL_RESTRICTIONS) === "undefined" ) {
+    await context.document.setFlag(MODULE_ID, FLAGS.REGION.WALL_RESTRICTIONS, []);
   }
 
 

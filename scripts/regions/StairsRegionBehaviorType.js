@@ -14,7 +14,6 @@ Region
 
 import { MODULE_ID, FLAGS, MODULES_ACTIVE } from "../const.js";
 import { log, getSnappedFromTokenCenter } from "../util.js";
-import { ElevationHandler } from "../ElevationHandler.js";
 import { GridCoordinates } from "../geometry/GridCoordinates.js";
 import { bresenhamLineIterator } from "../geometry/util.js";
 
@@ -105,7 +104,7 @@ export class StairsRegionBehaviorType extends foundry.data.regionBehaviors.Regio
         label: `${MODULE_ID}.behavior.types.stairs.fields.floor.name`,
         hint: `${MODULE_ID}.behavior.types.stairs.fields.floor.hint`,
         initial: () => {
-          return ElevationHandler.sceneFloor;
+          return canvas.scene[MODULE_ID].sceneFloor;
         }
       }),
 
@@ -136,6 +135,11 @@ export class StairsRegionBehaviorType extends foundry.data.regionBehaviors.Regio
     [CONST.REGION_EVENTS.TOKEN_MOVE_OUT]: this.#onTokenMoveOut,
 //    [CONST.REGION_EVENTS.TOKEN_PRE_MOVE]: this.#onTokenPreMove,
   };
+
+  // TODO: Testing
+  _getTerrainEffects(token, segment) {
+    log(`_getTerrainEffects`, { token, segment});
+  }
 
   /**
    * @type {RegionEvent} event
@@ -183,7 +187,7 @@ export class StairsRegionBehaviorType extends foundry.data.regionBehaviors.Regio
     log(`Token ${data.token.name} moving out of ${event.region.name}!`);
     if ( event.user !== game.user ) return;
     const tokenD = data.token;
-    const groundElevation = ElevationHandler.sceneFloor;
+    const groundElevation = canvas.scene[MODULE_ID].sceneFloor;
     let resetToGround = this.resetOnExit
       && tokenD.elevation !== groundElevation
       && (!this.strict || (tokenD.elevation === this.elevation || tokenD.elevation === this.floor));
@@ -325,8 +329,8 @@ function preCreateRegionBehavior(document, data, _options, _userId) {
   log("preCreateRegionBehavior");
   if ( data.type !== `${MODULE_ID}.setElevation` ) return;
   const topE = document.region.elevation.top;
-  const elevation = topE ?? ElevationHandler.sceneFloor;
-  const floor = ElevationHandler.sceneFloor;
+  const elevation = topE ?? canvas.scene[MODULE_ID].sceneFloor;
+  const floor = canvas.scene[MODULE_ID].sceneFloor;
   document.updateSource({ "system.elevation": elevation, "system.floor": floor });
 }
 
