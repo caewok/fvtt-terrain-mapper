@@ -18,8 +18,6 @@ import { registerGeometry } from "./geometry/registration.js";
 import { WallTracerEdge, WallTracerVertex, WallTracer, SCENE_GRAPH } from "./WallTracer.js";
 
 // Regions
-// import { AddTerrainRegionBehaviorType } from "./regions/AddTerrainRegionBehaviorType.js";
-// import { RemoveTerrainRegionBehaviorType } from "./regions/RemoveTerrainRegionBehaviorType.js";
 import { SetTerrainRegionBehaviorType } from "./regions/SetTerrainRegionBehaviorType.js";
 import { StairsRegionBehaviorType } from "./regions/StairsRegionBehaviorType.js";
 import { ElevatorRegionBehaviorType } from "./regions/ElevatorRegionBehaviorType.js";
@@ -135,8 +133,6 @@ Hooks.once("init", function() {
   Settings.registerAll();
 
   Object.assign(CONFIG.RegionBehavior.dataModels, {
-  //     [`${MODULE_ID}.addTerrain`]: AddTerrainRegionBehaviorType,
-  //     [`${MODULE_ID}.removeTerrain`]: RemoveTerrainRegionBehaviorType,
     [`${MODULE_ID}.setTerrain`]: SetTerrainRegionBehaviorType,
     [`${MODULE_ID}.setElevation`]: StairsRegionBehaviorType,
     [`${MODULE_ID}.elevator`]: ElevatorRegionBehaviorType,
