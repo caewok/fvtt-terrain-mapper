@@ -56,7 +56,7 @@ export class BlockingWallsRegionBehaviorType extends foundry.data.regionBehavior
         }),
         cover: new fields.BooleanField({
           label: `${MODULE_ID}.behavior.types.blockingWalls.fields.types.cover.name`,
-          hint: `${MODULE_ID}.behavior.types.blockingWalls.fields.types.cover.hint`,
+          hint: `${MODULE_ID}.region-config.wallRestrictions.hint`,
           required: true,
           initial: false,
         }),
