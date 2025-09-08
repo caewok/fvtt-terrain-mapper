@@ -73,20 +73,31 @@ export class SetTerrainRegionBehaviorType extends foundry.data.regionBehaviors.R
   static async #onTokenEnter(event) {
     log(`Token ${event.data.token.name} entering ${event.region.name}!`);
     if ( !isFirstGM() ) return;
-    const token = event.data.token?.object;
+    const tokenD = event.data.token;
+    const token = tokenD?.object;
     if ( !token ) return;
 
     // Add all terrains for this region.
     const Terrain = CONFIG[MODULE_ID].Terrain;
     const terrainsToAdd = new Set([...this.terrains].map(id => Terrain._instances.get(id)).filter(t => Boolean(t)));
     if ( !terrainsToAdd.size ) return;
+
+    // ----- No async operations before this! -----
+    const resumeMovement = tokenD.pauseMovement();
+
+    // Await movement animation
+    if ( tokenD.rendered ) await token.movementAnimationPromise;
+
+    // Add the effect to the paused token.
     await Terrain.addToToken(token, terrainsToAdd, { origin: this.behavior.uuid });
+    return resumeMovement();
   }
 
   static async #onTokenExit(event) {
     log(`Token ${event.data.token.name} exiting ${event.region.name}!`);
     if ( !isFirstGM() ) return;
-    const token = event.data.token?.object;
+    const tokenD = event.data.token;
+    const token = tokenD?.object;
     if ( !token ) return;
 
     // Get all terrains for this region.
@@ -105,30 +116,17 @@ export class SetTerrainRegionBehaviorType extends foundry.data.regionBehaviors.R
       const s = terrain.allowsDuplicates ? dupeTerrainsToReduce : terrainsToRemove;
       s.push(terrain);
     }
+    if ( !(terrainsToRemove.length || dupeTerrainsToReduce.length) ) return;
 
+    // ----- No async operations before this! -----
+    const resumeMovement = tokenD.pauseMovement();
+
+    // Await movement animation
+    if ( tokenD.rendered ) await token.movementAnimationPromise;
+
+    // Remove the effects from the paused token.
     if ( terrainsToRemove.length ) await Terrain.removeFromToken(token, terrainsToRemove, { removeAllDuplicates: true, origin: this.behavior.uuid });
     if ( dupeTerrainsToReduce.length) await Terrain.removeFromToken(token, dupeTerrainsToReduce, { removeAllDuplicates: false, origin: this.behavior.uuid });
+    return resumeMovement();
   }
 }
-
-/**
- * Get all the terrains that should currently be applied to a token via region behaviors.
- * @param {Token } token
- * @returns {Set<Terrain>}
- */
- /* Currently unused
-function getAllRegionTerrainsForToken(token) {
-  const Terrain = CONFIG[MODULE_ID].Terrain;
-  const terrains = new Set();
-  for ( const region of token.document.regions.values() ) {
-    for ( const behavior of region.behaviors.values() ) {
-      if ( behavior.type !== `${MODULE_ID}.setTerrain` ) continue;
-      behavior.system.terrains.forEach(id => {
-        const terrain = Terrain._instances.get(id);
-        if ( terrain ) terrains.add(terrain);
-      });
-    }
-  }
-  return terrains;
-}
-*/
