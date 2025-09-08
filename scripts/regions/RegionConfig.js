@@ -69,14 +69,8 @@ async function _preparePartContext(wrapper, partId, context, options) {
     await context.document.setFlag(MODULE_ID, FLAGS.REGION.WALL_RESTRICTIONS, []);
   }
 
-
-  // Add in shapes and restriction types.
-  const wallRestrictionChoices = { cover: "cover" };
-  CONST.WALL_RESTRICTION_TYPES.forEach(type => wallRestrictionChoices[type] = type);
-
   context[MODULE_ID] = {
     algorithmChoices: FLAGS.REGION.LABELS,
-    wallRestrictionChoices,
   }
   return context;
 }

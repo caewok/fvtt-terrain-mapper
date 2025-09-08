@@ -3,7 +3,6 @@ canvas,
 CONFIG,
 foundry,
 Hooks,
-PIXI,
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
@@ -16,7 +15,6 @@ Hook token movement to add/remove terrain effects and pause tokens dependent on 
 
 import { MODULE_ID, FLAGS } from "../const.js";
 import { RegionElevationHandler } from "./RegionElevationHandler.js";
-import { Ellipse } from "../geometry/Ellipse.js";
 import { BlockingWallsRegionBehaviorType } from "./BlockingWallsRegionBehaviorType.js";
 
 export const PATCHES = {};
