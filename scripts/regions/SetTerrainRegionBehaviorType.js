@@ -8,7 +8,6 @@ foundry
 
 import { MODULE_ID } from "../const.js";
 import { log, isFirstGM } from "../util.js";
-import { TerrainRegionBehaviorType } from "./TerrainRegionBehaviorType.js";
 
 
 /* Move In vs Enter
@@ -36,7 +35,7 @@ Do you like infinitely looping teleportation? Because that is how you get infini
  * @property {number} elevation       The elevation at which to set the token
  * @property {boolean} reset          When enabled, elevation will be reset to scene background on exit.
  */
-export class SetTerrainRegionBehaviorType extends TerrainRegionBehaviorType {
+export class SetTerrainRegionBehaviorType extends foundry.data.regionBehaviors.RegionBehaviorType {
   static defineSchema() {
     return {
       terrains: this._createTerrainsField(`${MODULE_ID}.behavior.types.set-terrain.fields.terrain.hint`),
@@ -46,6 +45,23 @@ export class SetTerrainRegionBehaviorType extends TerrainRegionBehaviorType {
         default: false
       })
     };
+  }
+
+  static _createTerrainsField(hint = "") {
+    const fields = foundry.data.fields;
+    const setFieldOptions = {
+      label: `${MODULE_ID}.phrases.terrains`,
+      hint,
+    };
+
+    return new fields.SetField(new fields.StringField({
+      choices: this.terrainChoices,
+      blank: false
+    }), setFieldOptions);
+  }
+
+  static terrainChoices() {
+    return CONFIG[MODULE_ID].Terrain._mapStoredEffectNames()
   }
 
   /** @override */
