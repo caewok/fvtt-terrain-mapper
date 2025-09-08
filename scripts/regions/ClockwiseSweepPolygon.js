@@ -23,7 +23,7 @@ PATCHES.REGIONS = {};
  */
 function _determineEdgeTypes(wrapper) {
   const edgeTypes = wrapper();
-  edgeTypes.region = 1; // 0 is never include, 1 is test, 2 is always include.
+  edgeTypes.region = { mode: 1, priority: -Infinity }; // 0 is never include, 1 is test, 2 is always include.
   return edgeTypes;
 }
 

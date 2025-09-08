@@ -49,7 +49,7 @@
   "terrainmapper.region-config.splitPolygons.hint": "When enabled, each non-hole region polygon will be their own ramp, from lowest to highest elevation. When disabled, all non-hole polygons are considered one ramp, defined by their combined bounds.",
 
   "terrainmapper.region-config.wallRestrictions.name": "Wall Restriction Types",
-  "terrainmapper.region-config.wallRestrictions.hint": "When enabled, the region will act like a wall, blocking the selected type(s) of sources. 'Cover' is meant to allow modules to treat the region like physical cover without actually blocking token movement.",
+  "terrainmapper.region-config.wallRestrictions.hint": "When enabled, the region will act like a wall, blocking the selected type(s) of sources. 'Physical Cover' is meant to allow modules to treat the region like physical cover without actually blocking token movement.",
 
   "terrainmapper.tile-config.isFloor.name": "Treat as Floor",
   "terrainmapper.tile-config.isFloor.hint": "When enabled, tile will be treated as a solid floor (ground) when moving tokens.",
@@ -103,11 +103,16 @@
   "terrainmapper.behavior.types.elevator.fields.resetOnExit.name": "Reset on Exit",
   "terrainmapper.behavior.types.elevator.fields.resetOnExit.hint": "If enabled, the token will be reset to the scene elevation (ground) on exit. This will occur regardless of whether the token took stairs or elevator when entering the region.",
 
+  "terrainmapper.behavior.types.blockingWalls.fields.types.cover.name": "Physical Cover",
+  "terrainmapper.behavior.types.blockingWalls.fields.types.cover.hint": "Allows modules to treat the region like physical cover without actually blocking token movement",
+
+
   "TYPES.RegionBehavior.terrainmapper.addTerrain": "Add Terrains",
   "TYPES.RegionBehavior.terrainmapper.removeTerrain": "Remove Terrains",
   "TYPES.RegionBehavior.terrainmapper.setTerrain": "Set Terrain",
   "TYPES.RegionBehavior.terrainmapper.setElevation": "Stairs",
   "TYPES.RegionBehavior.terrainmapper.elevator": "Elevator",
+  "TYPES.RegionBehavior.terrainmapper.blockingWalls": "Blocking Walls",
 
   "terrainmapper.elevationAlgorithm.labels.none": "None",
   "terrainmapper.elevationAlgorithm.labels.oneWay": "One-Way Stairs",

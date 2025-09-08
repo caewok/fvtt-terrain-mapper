@@ -116,7 +116,8 @@ export const FA_ICONS = {
   FILL_BY_WALLS: "fa-solid fa-fill-drip",       // https://fontawesome.com/icons/fill-drip
   STAIRS: "fa-solid fa-stairs",                 // https://fontawesome.com/icons/stairs
   ELEVATOR: "fa-solid fa-elevator",             // https://fontawesome.com/icons/elevator
-  TERRAIN_BOOK: "fa-solid fa-mountain-sun"      // https://fontawesome.com/icons/mountain-sun
+  TERRAIN_BOOK: "fa-solid fa-mountain-sun",     // https://fontawesome.com/icons/mountain-sun
+  BLOCKING_WALLS: "fa-solid fa-person-walking-dashed-line-arrow-right",    // https://fontawesome.com/icons/person-walking-dashed-line-arrow-right
 };
 
 export const ICONS = {
