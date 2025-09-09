@@ -115,24 +115,14 @@ export class TokenElevationHandler {
     this.regions = this.constructor.filterElevatedRegionsByXYSegment(this.#start, this.#end);
     this.tiles = this.constructor.filterElevatedTilesByXYSegment(this.#start, this.#end);
 
-    this.regionCutaways = new WeakMap();
-    this.regions.forEach(r => this.regionCutaways.set(r, new CutawayRegion(this.#start, this.#end, r)));
-    this.regionCutaways.set(canvas.scene, new CutawayRegion(this.#start, this.#end, canvas.scene));
 
-    this.combinedCutaways = [this.regionCutaways.get(canvas.scene)];
-    if ( this.regions.length ) {
-      const polys = [];
-      [canvas.scene, ...this.regions].forEach(r => {
-        const regionHandler = this.regionCutaways.get(r);
-        regionHandler.cutawayHandlers.forEach(h => polys.push(h.cutPoly));
-      });
-
+    if ( this.regions.length || this.tiles.length ) {
       const ClipperPaths = CONFIG[MODULE_ID].ClipperPaths;
+      const cutaways = [canvas.scene, ...this.regions, ...this.tiles].flatMap(obj => obj[MODULE_ID]._cutaway(this.#start, this.#end, this.token));
 
       // Have to reverse the polygons for Clipper to not treat as holes.
-      polys.forEach(poly => poly.reverseOrientation())
-
-      this.combinedCutaways = ClipperPaths.fromPolygons(polys)
+      cutaways.forEach(poly => poly.reverseOrientation())
+      this.combinedCutaways = ClipperPaths.fromPolygons(cutaways)
         .combine()
         .clean()
         .toPolygons()
@@ -143,8 +133,8 @@ export class TokenElevationHandler {
         });
 
       // Revert back the original polygons.
-      polys.forEach(poly => poly.reverseOrientation())
-    }
+      // cutaways.forEach(poly => poly.reverseOrientation())
+    } else this.combinedCutaways = [canvas.scene[MODULE_ID]._cutaway(this.#start, this.#end).map(cutPoly => new CutawayHandler(cutPoly))];
   }
 
 
@@ -210,7 +200,7 @@ export class TokenElevationHandler {
       this.#verifyPath2d(path2d)
 
     } catch ( err ) {
-      console.error(`constructWalkingPath ${a} -> ${b}`, path);
+      console.error(`constructWalkingPath ${a} -> ${b}`, path2d);
       console.error(err);
       path2d.forEach(pt => pt.release());
       return [a, b];
@@ -309,7 +299,7 @@ export class TokenElevationHandler {
       this.#verifyPath2d(path2d)
 
     } catch ( err ) {
-      console.error(`constructBurrowingPath ${a} -> ${b}`, path);
+      console.error(`constructBurrowingPath ${a} -> ${b}`, path2d);
       console.error(err);
       path2d.forEach(pt => pt.release());
       return [a, b];
@@ -1042,219 +1032,6 @@ export class CutawayHandler {
    */
   draw(opts) {
     Draw.connectPoints([...this.cutPoly.iteratePoints()].map(pt => new PIXI.Point(Math.sqrt(pt.x), -pt.y)), opts);
-  }
-}
-
-/**
- * Manages tests of cutaway polygon uncombined, from a region.
- * The difference here is that uncombined cutaway is guaranteed to start at TL; will be a simpler shape.
- * TODO: Are there any useful shortcuts? Do we care?
- */
-class UncombinedCutawayHandler extends CutawayHandler {
-
-}
-
-/**
- * Manages tests of cutaway polygons representing a region.
- */
-class CutawayRegion {
-  /** @type {AABB2d} */
-  regionAABB = new AABB2d();
-
-  /** @type {UncombinedCutawayHandler} */
-  cutawayHandlers = [];
-
-  /** @type {RegionElevationHandler} */
-  regionHandler;
-
-  /** @type {Region} */
-  get region() { return this.regionHandler.regionHandler; }
-
-  constructor(start, end, region) {
-    this.regionHandler = region[MODULE_ID];
-    const cutPolys = this.regionHandler._cutaway(start, end); // TODO: Ensure correct orientation.
-    this.cutawayHandlers = cutPolys.map(cp => new UncombinedCutawayHandler(cp));
-    AABB2d.union(this.cutawayHandlers.map(h => h.aabb), this.regionAABB);
-  }
-
-  // ----- NOTE: Bounds testing ----- //
-
-  /**
-   * Does this segment intersect the bounding box of 1 or more region shapes?
-   * @param {PIXI.Point} a2d      Endpoint of segment
-   * @param {PIXI.Point} b2d      Other segment endpoint
-   * @param {["x", "y"]} [axes]      Axes to test
-   * @returns {boolean} True if within the bounding box
-   */
-  segmentInBounds(a2d, b2d, axes) {
-    if ( !this.regionAABB.overlapsSegment(a2d, b2d, axes) ) return false;
-    for ( const cutawayHandler of this.cutawayHandlers ) {
-      if ( cutawayHandler.segmentInBounds(a2d, b2d, axes) ) return true;
-    }
-    return false;
-  }
-
-  /**
-   * Does this point intersect the bounding box of 1 or more region shapes?
-   * @param {PIXI.Point} a            Point to test
-   * @param {["x", "y"]} [axes]       Axes to test
-   * @returns {boolean} True if within the bounding box
-   */
-  pointInBounds(a2d, axes) {
-    if ( !this.regionAABB.containsPoint(a2d, axes) ) return false;
-    for ( const cutawayHandler of this.cutawayHandlers ) {
-      if ( cutawayHandler.pointInBounds(a2d, axes) ) return true;
-    }
-    return false;
-  }
-
-  /**
-   * Terrain version of `region.document.testPoint`. Rejects if above or below the terrain.
-   * @param {PIXI.Point} pt2d         Point to test
-   * @returns {boolean}
-   */
-  testPoint(pt2d) {
-    if ( !this.pointInBounds(pt2d) ) return false;
-    for ( const cutawayHandler of this.cutawayHandlers ) {
-      if ( cutawayHandler.testPoint(pt2d) ) return true;
-    }
-    return false;
-  }
-
-  // ----- NOTE: Elevation and surface testing ----- //
-
-  /**
-   * Where is this point relative to the terrain?
-   * @param {PIXI.Point} pt2d        Point to test
-   * @returns {ELEVATION_LOCATIONS}
-   */
-  elevationType(pt2d) {
-    const LOCS = TokenElevationHandler.ELEVATION_LOCATIONS;
-
-    // For region cutaways, the sides are always vertical. So can test bounds for x.
-    if ( !this.regionAABB.containsPoint(pt2d, ["x"]) ) return LOCS.OUTSIDE;
-
-    // Prioritize burrowing.
-    let grounded = false;
-    let flying = false;
-    for ( const cutawayHandler of this.cutawayHandlers ) {
-      const type = cutawayHandler.elevationType(pt2d);
-      switch ( type ) {
-        case LOCS.OUTSIDE: continue;
-        case LOCS.BURROWING: return LOCS.BURROWING;
-        case LOCS.GROUND: grounded ||= true; break;
-        case LOCS.FLYING: flying ||= true; break;
-      }
-    }
-    if ( grounded ) return LOCS.GROUND;
-    if ( flying ) return LOCS.FLYING;
-    return LOCS.OUTSIDE;
-  }
-
-  /**
-   * Determine the elevation upon moving into this region.
-   * The provided location is not tested for whether it is within the region.
-   * @param {PIXI.Point} a   Position immediately upon entry
-   * @returns {number} The elevation of the plateau or the ramp at this location
-   */
-  elevationUponEntry(pt2d) {
-    const xAxis = ["x"]
-    if ( !this.regionAABB.containsPoint(pt2d, xAxis) ) return Number.NEGATIVE_INFINITY;
-    if ( !this.regionHandler.isRamp ) return this.regionHandler.isElevated ? this.regionHandler.plateauElevation : this.region.elevationE.top;
-
-    const b = PIXI.Point.tmp.set(pt2d.x, pt2d.y - 1);
-    let maxElev = Number.NEGATIVE_INFINITY;
-    for ( const cutawayHandler of this.cutawayHandlers ) {
-      if ( !cutawayHandler.pointInBounds(pt2d, xAxis) ) continue;
-
-      // Point could be exactly at the left edge or the right edge.
-      // (We know there is only one vertical edge for a given x here and thus always 0 or 2 points returned.)
-      const verticalIxs = polygonVerticalTangentPoints(pt2d.x, cutawayHandler.cutPoly);
-      if ( verticalIxs.length ) return verticalIxs[1].y // Either left side, moving up. or right side, moving down.
-
-      // Intersect the cut polygon with a vertical line to determine the maximum location at that point.
-      const ixs = cutawayHandler.lineIntersections(pt2d, b);
-      for ( const ix of ixs ) maxElev = Math.max(maxElev, ix.y);
-    }
-    return maxElev;
-  }
-
-  /**
-   * Walk the surface starting at a2d and going to b2d.
-   * Stop if the path moves from right to left. (Would be walking "upside-down".)
-   * Choose the first cutaway that has the a2d point.
-   * @param {PIXI.Point} a2d      A point on or very close to an edge
-   * @param {PIXI.Point} b2d      A second point later than the first in the x direction.
-   *   If an endpoint intersects b2d, that point is returned. Otherwise, stops when edge intersects b2d.x
-   * @returns {PIXI.Point[]} Points on the top of the cutaway polygon for the region, or representing the vertical left/right edges
-   */
-   surfaceWalk(a2d, b2d) {
-     for ( const cutawayHandler of this.cutawayHandlers ) {
-       const pts = cutawayHandler.surfaceWalk(a2d, b2d);
-       if ( pts.length ) return pts;
-     }
-     return [];
-   }
-
-
-  /**
-   * Does a 2d segment definitely intersect this region?
-   * Does not test bounds.
-   * @param {PIXI.Point} a2d
-   * @param {PIXI.Point} b2d
-   * @returns {boolean}
-   */
-  lineSegmentIntersects(a2d, b2d) {
-    for ( const cutawayHandler of this.cutawayHandlers ) {
-      if ( cutawayHandler.lineSegmentIntersects(a2d, b2d) ) return true;
-    }
-    return false;
-  }
-
-  /**
-   * Does a 2d segment cross into this region?
-   * Does not test bounds.
-   * @param {PIXI.Point} a2d
-   * @param {PIXI.Point} b2d
-   * @returns {boolean}
-   */
-  lineSegmentCrosses(a2d, b2d, opts) {
-    for ( const cutawayHandler of this.cutawayHandler ) {
-      if ( cutawayHandler.lineSegmentCrosses(a2d, b2d, opts) ) return true;
-    }
-    return false;
-  }
-
-  /**
-   * Obtain the intersection points for a 2d segment against this region.
-   * Does not test bounds.
-   * @param {PIXI.Point} a2d
-   * @param {PIXI.Point} b2d
-   * @returns {PIXI.Point[]}
-   */
-  segmentIntersections(a2d, b2d/*, { inside = true } = {}*/) {
-    const ixs = [];
-    //a2d.t0 = 0;
-    //b2d.t0 = 1;
-    for ( const cutawayHandler of this.cutawayHandlers ) {
-      ixs.push(...cutawayHandler.segmentIntersections(a2d, b2d));
-    }
-    return ixs;
-  }
-
-  /**
-   * Obtain the intersection points for a line against this cut polygon.
-   * Does not test bounds.
-   * @param {PIXI.Point} a2d
-   * @param {PIXI.Point} b2d
-   * @returns {PIXI.Point[]}
-   */
-  lineIntersections(a2d, b2d) {
-    const ixs = [];
-    for ( const cutawayHandler of this.cutawayHandler ) {
-      ixs.push(...cutawayHandler.lineIntersections(a2d, b2d));
-    }
-    return ixs;
   }
 }
 
