@@ -360,9 +360,10 @@ function createTerrainMovementPath(wrapped, waypoints, options) {
     const b = _centerWaypoint(next, this);
     tm.initialize(a, b);
 
-    // If no regions and no tiles, just allow the movement to continue as is.
+    // If no regions, just allow the movement to continue as is.
     // Avoids issue where cannot change elevation when on the canvas, which is unexpected.
-    if ( !(tm.regions.length || tm.tiles.length) ) {
+    // And avoids issue where only tiles are used and cannot get to the tile in question.
+    if ( !(tm.regions.length ) ) {
       newWaypoints.push(next);
       start = next;
       continue;

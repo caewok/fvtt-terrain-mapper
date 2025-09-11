@@ -5,7 +5,7 @@
     <div class="form-group" id="terrainmapper-tileconfig-isFloor">
       <label>{{ localize "terrainmapper.tile-config.isFloor.name" }} </label>
       <div class="form-fields">
-        <input type="checkbox" name="flags.terrainmapper.isFloor" {{ checked data.flags.terrainmapper.isFloor }}>
+        <input type="checkbox" name="flags.terrainmapper.isFloor" {{ checked document.flags.terrainmapper.isFloor }}>
       </div>
       <p class="hint">{{ localize "terrainmapper.tile-config.isFloor.hint" }}</p>
     </div>
@@ -14,7 +14,7 @@
     <div class="form-group" id="terrainmapper-tileconfig-trimAlphaBorder">
       <label>{{ localize "terrainmapper.tile-config.trimAlphaBorder.name" }} </label>
       <div class="form-fields">
-        <input type="checkbox" name="flags.terrainmapper.trimAlphaBorder" {{ checked data.flags.terrainmapper.trimAlphaBorder }}>
+        <input type="checkbox" name="flags.terrainmapper.trimAlphaBorder" {{ checked document.flags.terrainmapper.trimAlphaBorder }}>
       </div>
       <p class="hint">{{ localize "terrainmapper.tile-config.trimAlphaBorder.hint" }}</p>
     </div>
@@ -23,7 +23,7 @@
     <div class="form-group" id="terrainmapper-tileconfig-testHoles">
       <label>{{ localize "terrainmapper.tile-config.testHoles.name" }} </label>
       <div class="form-fields">
-        <input type="checkbox" name="flags.terrainmapper.testHoles" {{ checked data.flags.terrainmapper.testHoles }}>
+        <input type="checkbox" name="flags.terrainmapper.testHoles" {{ checked document.flags.terrainmapper.testHoles }}>
       </div>
       <p class="hint">{{ localize "terrainmapper.tile-config.testHoles.hint" }}</p>
     </div>
@@ -33,7 +33,7 @@
     <div class="form-group" id="terrainmapper-tileconfig-alphaThreshold">
       <label>{{ localize "terrainmapper.tile-config.alphaThreshold.name" }} </label>
       <div class="form-fields">
-      {{rangePicker name="flags.terrainmapper.alphaThreshold" value=data.flags.terrainmapper.alphaThreshold step="0.01" min="0.01" max="0.99" }}
+      {{rangePicker name="flags.terrainmapper.alphaThreshold" value=document.flags.terrainmapper.alphaThreshold step="0.01" min="0.01" max="0.99" }}
       </div>
       <p class="hint">{{ localize "terrainmapper.tile-config.alphaThreshold.hint" }}</p>
     </div>
