@@ -32,6 +32,9 @@
 
   "terrainmapper.region-config.splitPolygons.name": "Rampa: Polígonos Separados",
   "terrainmapper.region-config.splitPolygons.hint": "Quando ativado, cada polígono de Região sem Furo terá sua própria rampa, da elevação mais baixa para a mais alta. Quando desabilitado, todos os polígonos que não sejam buracos são considerados uma rampa, definida por seus limites combinados.",
+
+  "terrainmapper.region-config.wallRestrictions.name": "Tipos de Restrição de Parede",
+  "terrainmapper.region-config.wallRestrictions.hint": "Quando habilitado, a região agirá como uma parede, bloqueando o(s) tipo(s) de fonte(s) selecionado(s). A função 'Cobertura' permite que os módulos tratem a região como uma cobertura física, sem bloquear o movimento dos tokens.",
   
   "terrainmapper.tile-config.isFloor.name": "Tratar como Chão",
   "terrainmapper.tile-config.isFloor.hint": "Quando habilitado, será tratado como piso sólido (chão) ao mover tokens.",
@@ -114,3 +117,4 @@
   "terrainmapper.phrases.bottom": "Base",
   "terrainmapper.phrases.resetOnExit": "Retornar à elevação do chão?"
 }
+
