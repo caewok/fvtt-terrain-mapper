@@ -913,7 +913,9 @@ export class CutawayHandler {
    * @returns {PIXI.Point[]} Points on the top of the cutaway polygon for the region, or representing the vertical left/right edges.
    *   Skips a2d. May include b2d.
    */
-  surfaceWalk(a2d, b2d) {
+  surfaceWalk(a2d, b2d, _iter = 0) {
+    _iter += 1;
+    if ( _iter > 100 ) throw Error("surfaceWalk|too many iterations.");
     a2d ??= PIXI.Point.tmp(0, 0);
     b2d ??= PIXI.Point.tmp.set(Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY);
 
@@ -928,7 +930,8 @@ export class CutawayHandler {
       if ( isStart ) break;
       if ( isStart === null ) { // Moving backwards. Change the start to the surface.
         const elev = this.elevationUponEntry(a2d);
-        return this.surfaceWalk(PIXI.Point.tmp.set(a2d.x, elev), b2d);
+        if ( a2d.y.almostEqual(elev) ) return pts;
+        return this.surfaceWalk(PIXI.Point.tmp.set(a2d.x, elev), b2d, _iter);
       }
       priorMoveUp = edge.A.y <= edge.B.y;
     }
@@ -937,9 +940,11 @@ export class CutawayHandler {
       const isEnd = this.#isEndingEdge(edge, b2d);
       if ( isEnd ) {
         if ( !isEnd.length && priorMoveUp ) { // Moving backwards; cut through to top.
-          const elev = this.elevationUponEntry(a2d);
-          const newPts = this.surfaceWalk(PIXI.Point.tmp.set(a2d.x, elev), b2d);
-          pts.push(...newPts);
+          const elev = this.elevationUponEntry(edge.A);
+          if ( edge.A.y.almostEqual(elev) ) return pts;
+          const newA = PIXI.Point.tmp.set(edge.A.x, elev);
+          const newPts = this.surfaceWalk(newA, b2d, _iter);
+          pts.push(edge.A, newA, ...newPts);
           return pts;
         }
         pts.push(...isEnd); return pts;
@@ -953,9 +958,11 @@ export class CutawayHandler {
       const isEnd = this.#isEndingEdge(edge, b2d);
       if ( isEnd ) {
         if ( !isEnd.length && priorMoveUp ) { // Moving backwards; cut through to top.
-          const elev = this.elevationUponEntry(a2d);
-          const newPts = this.surfaceWalk(PIXI.Point.tmp.set(a2d.x, elev), b2d);
-          pts.push(...newPts);
+          const elev = this.elevationUponEntry(edge.A);
+          if ( edge.A.y.almostEqual(elev) ) return pts;
+          const newA = PIXI.Point.tmp.set(edge.A.x, elev);
+          const newPts = this.surfaceWalk(newA, b2d, _iter);
+          pts.push(edge.A, newA, ...newPts);
           return pts;
         }
         pts.push(...isEnd); return pts;
@@ -977,7 +984,7 @@ export class CutawayHandler {
     if ( edge.B.almostEqual(a2d) ) return false;
 
     // Test for vertical A|B.
-    if ( edge.A.x === edge.B.x ) return almostBetween(a2d.x, edge.A.x, edge.B.x);
+    if ( edge.A.x === edge.B.x ) return edge.A.x.almostEqual(a2d.x) && almostBetween(a2d.y, edge.A.y, edge.B.y);
 
     // Test for ix with non-vertical A|B.
     const a1 = PIXI.Point.tmp.set(a2d.x, a2d.y + 1);
