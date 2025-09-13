@@ -1,4 +1,5 @@
 /* globals
+canvas,
 CONFIG,
 foundry,
 PIXI,
@@ -11,7 +12,7 @@ import { Plane } from "./geometry/3d/Plane.js";
 import { ElevatedPoint } from "./geometry/3d/ElevatedPoint.js";
 import { regionWaypointsXYAlmostEqual } from "./util.js";
 import { Draw } from "./geometry/Draw.js";
-import { instanceOrTypeOf, gridUnitsToPixels } from "./geometry/util.js";
+import { instanceOrTypeOf, gridUnitsToPixels, bresenhamLineIterator } from "./geometry/util.js";
 
 /**
  * Single tile elevation handler

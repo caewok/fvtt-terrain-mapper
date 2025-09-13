@@ -32,6 +32,7 @@ function renderTileConfig(app, html, data) {
 //   }
 
   const myHTML = renderTemplateSync(TEMPLATES.TILE, data);
+  if ( !myHTML ) return;
   const divSet = html.querySelector("div[data-tab='overhead']");
   const newFormGroup = document.createElement("div");
   newFormGroup.classList.add("form-group");
