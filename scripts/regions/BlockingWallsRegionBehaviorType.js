@@ -6,7 +6,7 @@ foundry,
 "use strict";
 
 import { MODULE_ID } from "../const.js";
-import { updateRegionEdgeRestrictions } from "./Region.js";
+import { updateRegionEdgeRestrictions, removeEdgesForRegionId } from "./Region.js";
 
 /**
  * Region behavior to set token to specific top/bottom elevation.
@@ -64,9 +64,17 @@ export class BlockingWallsRegionBehaviorType extends foundry.data.regionBehavior
     };
   }
 
+  // Don't need _onCreate b/c none of the blocking options are enabled on create.
+  // Handled by _onUpdate.
+
   _onUpdate(changed, options, userId) {
     super._onUpdate(changed, options, userId);
     if ( !changed.system?.types ) return;
     updateRegionEdgeRestrictions(this.region.object);
+  }
+
+  _onDelete(options, userId) {
+    super._onDelete(options, userId);
+    removeEdgesForRegionId(this.region.object.id);
   }
 }
