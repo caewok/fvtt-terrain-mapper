@@ -192,7 +192,7 @@ export class TerrainEffectsController {
         "<h4>Are You Sure?</h4><p>This will reset all configured terrain effects to the module defaults and reload Foundry.",
       yes: async () => {
         log("TerrainEffectsController|onResetStatusEffectsClick");
-        // await this._settings.resetStatusEffects();
+        await this._settings.resetStatusEffects();
         window.location.reload();
       }
     });
@@ -407,7 +407,7 @@ export class TerrainEffectsController {
 
   _findNearestEffectId(event) {
     return event.target
-      .closest("[data-effect-id], .terrainmapper-effect")
+      .closest("[data-entry-id], .terrainmapper-effect")
       .data()?.effectId;
   }
 

@@ -5,10 +5,28 @@
   "terrainmapper.controls.fill-space.name": "Fill space enclosed by walls",
 
   "terrainmapper.terrainbook.create-terrain": "Create Terrain",
-  "terrainmapper.terrainbook.create-defaults": "Reset Default Terrains",
+  "terrainmapper.terrainbook.create-folder": "Create Folder",
+  "terrainmapper.terrainbook.reset-defaults": "Reset Default Terrains",
+  "terrainmapper.terrainbook.edit-terrain": "Edit Terrain",
+  "terrainmapper.terrainbook.import-terrain": "Import Terrain",
+  "terrainmapper.terrainbook.export-terrain": "Export Terrain",
+  "terrainmapper.terrainbook.delete-terrain": "Delete Terrain",
+  "terrainmapper.terrainbook.search": "Search Terrains",
+  "terrainmapper.terrainbook.add-favorite": "Add Favorite",
+  "terrainmapper.terrainbook.remove-favorite": "Remove Favorite",
+  "terrainmapper.terrainbook.all-terrains": "All Terrains",
+  "terrainmapper.terrainbook.favorites": "Favorites",
+  "terrainmapper.terrainbook.are-you-sure": "Are you sure?",
+  "terrainmapper.terrainbook.remove-terrain-description": "This will remove the terrain from all scenes.",
+  "terrainmapper.terrainbook.create-defaults-description": "This will reset any existing default terrains and otherwise add new default terrains.",
+  "terrainmapper.terrainbook.import-terrain-description": "You may import terrain settings data from an exported JSON file. This operation will overwrite this terrain.",
+  "terrainmapper.terrainbook.default-terrain-folder": "Default Terrains",
 
   "terrainmapper.scene-config.backgroundElevation.name": "Background Elevation",
   "terrainmapper.scene-config.backgroundElevation.hint": "The default elevation for tokens placed on the canvas.",
+
+  "terrainmapper.scene-config.constrainElevation.name": "Constrain Elevation",
+  "terrainmapper.scene-config.constrainElevation.hint": "When enabled, limit vertical token movement based on terrain and movement type.",
 
   "terrainmapper.active-effect-config.duplicatesAllowed.name": "Duplicates Allowed",
   "terrainmapper.active-effect-config.duplicatesAllowed.hint": "When enabled, this terrain effect may be applied multiple times to a single token",
@@ -34,19 +52,19 @@
   "terrainmapper.region-config.splitPolygons.hint": "When enabled, each non-hole region polygon will be their own ramp, from lowest to highest elevation. When disabled, all non-hole polygons are considered one ramp, defined by their combined bounds.",
 
   "terrainmapper.region-config.wallRestrictions.name": "Wall Restriction Types",
-  "terrainmapper.region-config.wallRestrictions.hint": "When enabled, the region will act like a wall, blocking the selected type(s) of sources. 'Cover' is meant to allow modules to treat the region like physical cover without actually blocking token movement.",
+  "terrainmapper.region-config.wallRestrictions.hint": "When enabled, the region will act like a wall, blocking the selected type(s) of sources. 'Physical Cover' is meant to allow modules to treat the region like physical cover without actually blocking token movement.",
 
   "terrainmapper.tile-config.isFloor.name": "Treat as Floor",
-  "terrainmapper.tile-config.isFloor.hint": "When enabled, tile will be treated as a solid floor (ground) when moving tokens.",
+  "terrainmapper.tile-config.isFloor.hint": "",
 
   "terrainmapper.tile-config.trimAlphaBorder.name": "Trim Boundary",
-  "terrainmapper.tile-config.trimAlphaBorder.hint": "When enabled, the transparent border of the tile will be ignored for purposes of token movement. Only a rectangle, possibly rotated, will be used as the border. For more complex shapes, enable Test for Holes.",
+  "terrainmapper.tile-config.trimAlphaBorder.hint": "Ignore the transparent border of the tile.",
 
   "terrainmapper.tile-config.testHoles.name": "Test for Holes",
-  "terrainmapper.tile-config.testHoles.hint": "Transparent pixels will be considered holes on this tile. Sufficiently large holes will cause the token to 'fall' through the tile.  `CONFIG.terrainmapper.holePercentThreshold` controls how large a hole must be for a given token. Default setting: a hole that exceeds 50% of the token size as measured from a given pixel will not support the token. Testing for holes is somewhat performance-intensive.",
+  "terrainmapper.tile-config.testHoles.hint": "Treat larger transparent portions within the tile as holes that tokens may 'fall' through.",
 
-  "terrainmapper.tile-config.alphaThreshold.name": "Alpha (Transparency) Threshold",
-  "terrainmapper.tile-config.alphaThreshold.hint": "What percentage transparency counts for treating a given pixel as a hole or outer boundary. Default in Foundry is 0.75.",
+  "terrainmapper.tile-config.alphaThreshold.name": "Transparency Threshold",
+  "terrainmapper.tile-config.alphaThreshold.hint": "Percentage alpha to be transparent. Default: 0.75.",
 
   "terrainmapper.behavior.types.add-terrain.fields.terrain.hint": "Select terrain that will be added to the token as an active effect.",
 
@@ -88,11 +106,16 @@
   "terrainmapper.behavior.types.elevator.fields.resetOnExit.name": "Reset on Exit",
   "terrainmapper.behavior.types.elevator.fields.resetOnExit.hint": "If enabled, the token will be reset to the scene elevation (ground) on exit. This will occur regardless of whether the token took stairs or elevator when entering the region.",
 
+  "terrainmapper.behavior.types.blockingWalls.fields.types.cover.name": "Physical Cover",
+  "terrainmapper.behavior.types.blockingWalls.fields.types.cover.hint": "Allows modules to treat the region like physical cover without actually blocking token movement",
+
+
   "TYPES.RegionBehavior.terrainmapper.addTerrain": "Add Terrains",
   "TYPES.RegionBehavior.terrainmapper.removeTerrain": "Remove Terrains",
   "TYPES.RegionBehavior.terrainmapper.setTerrain": "Set Terrain",
   "TYPES.RegionBehavior.terrainmapper.setElevation": "Stairs",
   "TYPES.RegionBehavior.terrainmapper.elevator": "Elevator",
+  "TYPES.RegionBehavior.terrainmapper.blockingWalls": "Blocking Walls",
 
   "terrainmapper.elevationAlgorithm.labels.none": "None",
   "terrainmapper.elevationAlgorithm.labels.oneWay": "One-Way Stairs",

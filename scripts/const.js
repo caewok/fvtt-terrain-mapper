@@ -46,7 +46,8 @@ export const FLAGS = {
 
   // Scene
   SCENE: {
-    BACKGROUND_ELEVATION: "backgroundElevation"
+    BACKGROUND_ELEVATION: "backgroundElevation",
+    CONSTRAIN_ELEVATION: "constrainElevation",
   },
 
   // RegionDocument
@@ -91,6 +92,12 @@ export const FLAGS = {
     }
   },
 
+  // Terrain Book
+  TERRAIN_BOOK: {
+    FOLDER_COLOR: "folderColor",
+    FOLDERS: "folders",
+  },
+
   VERSION: "version"
 };
 
@@ -110,7 +117,8 @@ export const FA_ICONS = {
   FILL_BY_WALLS: "fa-solid fa-fill-drip",       // https://fontawesome.com/icons/fill-drip
   STAIRS: "fa-solid fa-stairs",                 // https://fontawesome.com/icons/stairs
   ELEVATOR: "fa-solid fa-elevator",             // https://fontawesome.com/icons/elevator
-  TERRAIN_BOOK: "fa-solid fa-mountain-sun"      // https://fontawesome.com/icons/mountain-sun
+  TERRAIN_BOOK: "fa-solid fa-mountain-sun",     // https://fontawesome.com/icons/mountain-sun
+  BLOCKING_WALLS: "fa-solid fa-person-walking-dashed-line-arrow-right",    // https://fontawesome.com/icons/person-walking-dashed-line-arrow-right
 };
 
 export const ICONS = {
@@ -123,5 +131,10 @@ export const DEFAULT_FLAGS = {
     [FLAGS.TILE.TRIM_BORDER]: true,
     [FLAGS.TILE.TEST_HOLES]: false,
     [FLAGS.TILE.ALPHA_THRESHOLD]: 0.75
+  },
+
+  SCENE: {
+    [FLAGS.SCENE.BACKGROUND_ELEVATION]: 0,
+    [FLAGS.SCENE.CONSTRAIN_ELEVATION]: true,
   }
 };

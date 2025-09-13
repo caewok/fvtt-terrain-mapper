@@ -4,7 +4,6 @@ CONFIG,
 foundry,
 game,
 PIXI,
-PlaceablesLayer,
 RegionDocument,
 ui
 */
@@ -55,7 +54,7 @@ function _onClickLeft(wrapper, event) {
   // Handle fill-by-grid later
   else if ( game.activeTool === "fill-by-grid" ) {
     // From RegionLayer#_canDragLeftStart
-    if ( !PlaceablesLayer.prototype._canDragLeftStart.call(this, game.user, event)
+    if ( !foundry.canvas.layers.PlaceablesLayer.prototype._canDragLeftStart.call(this, game.user, event)
       || this.controlled.length > 1
       || this.controlled.at(0)?.document.locked ) return wrapper();
 
@@ -95,7 +94,7 @@ function _canDragLeftStart(wrapper, user, event) {
 
   log("RegionLayer#_canDragLeftStart");
   // Redo the wrapped tests.
-  if ( !PlaceablesLayer.prototype._canDragLeftStart.call(this, user, event) ) return false;
+  if ( !foundry.canvas.layers.PlaceablesLayer.prototype._canDragLeftStart.call(this, user, event) ) return false;
   if ( this.controlled.length > 1 ) {
     ui.notifications.error("REGION.NOTIFICATIONS.DrawingMultipleRegionsControlled", {localize: true});
     return false;
@@ -258,7 +257,7 @@ class TrackAndDrawGridSpaces {
    */
   constructShape() {
     const polygons = [...this.gridKeys].map(key => {
-      const { x, y } = PIXI.Point._invertKey(key);
+      const { x, y } = PIXI.Point.invertKey(key);
       const offset = { i: x, j: y };
       const pts = canvas.grid.getVertices(offset);
       return new PIXI.Polygon(pts);

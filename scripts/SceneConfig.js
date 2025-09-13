@@ -18,14 +18,17 @@ PATCHES.BASIC = {};
 function renderSceneConfig(app, html, data) {
   const myHTML = renderTemplateSync(TEMPLATES.SCENE, data);
   if ( !myHTML ) return;
-
-  const div = document.createElement("div");
-  div.innerHTML = myHTML;
+  const newFormGroup = document.createElement("div");
+  newFormGroup.classList.add("form-group");
+  newFormGroup.innerHTML = myHTML;
 
   // Place in the basic tab at the end of the form groups.
-  const basicTab = html.find(`.tab[data-tab="basic"][data-group="main"]`)[0];
+  const basicTab = html.querySelector(`.tab[data-tab="basics"]`)
   if ( !basicTab ) return;
-  basicTab.appendChild(div);
+
+  const formGroups = basicTab.getElementsByClassName("form-group");
+  formGroups[formGroups.length - 1].appendChild(newFormGroup);
+  // basicTab.appendChild(newDiv);
 
   // Alternative way to append directly.
 //   const form = html.find(`input[name="initial.scale"]`).closest(".form-group");

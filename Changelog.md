@@ -1,3 +1,20 @@
+## 0.5.0
+Foundry v13 compatibility. Issue #84.
+Relies on the new Foundry Token Ruler implementation.
+- Movement is affected by choice of Movement Action in the token HUD.
+- When the token is over/under a terrain or an overhead tile its movement is constrained.
+  - Walking: will move up terrains, "fall" off terrains and overhead tiles. Cannot leave the "ground."
+  - Fly: Allows tokens to leave the ground.
+  - Burrow: Allows tokens to cut through terrain and move down (e.g., from an overhead tile straight down to the ground.)
+  - Blink/Teleport: Ignores movement constraints altogether.
+- Elevation adjusts when draggin the token across terrains or tiles.
+Updated stairs and elevators for v13 region behaviors.
+Moved terrain (region) walls to a region behavior. Issue #88.
+Added an option to the scene config to disable movement constraints.
+
+Update to libGeometry v0.4.4.
+
+
 ## 0.4.10
 Fix for permissions error when users load a scene with new tiles. Issue #82.
 Fix wall deletion for the WallTracker. Issue #78.

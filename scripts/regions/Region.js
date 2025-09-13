@@ -1,10 +1,8 @@
 /* globals
 canvas,
 CONFIG,
-CONST,
 foundry,
 Hooks,
-PIXI,
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
@@ -17,7 +15,7 @@ Hook token movement to add/remove terrain effects and pause tokens dependent on 
 
 import { MODULE_ID, FLAGS } from "../const.js";
 import { RegionElevationHandler } from "./RegionElevationHandler.js";
-import { Ellipse } from "../geometry/Ellipse.js";
+import { BlockingWallsRegionBehaviorType } from "./BlockingWallsRegionBehaviorType.js";
 
 export const PATCHES = {};
 PATCHES.REGIONS = {};
@@ -69,10 +67,8 @@ Hooks.on("init", function() {
  * On initializeEdges, add edges for existing regions.
  */
 Hooks.on("initializeEdges", function() {
-  canvas.regions.placeables.forEach(region => addEdgesForRegion(region));
-
-  // TODO: Are the canvas regions present by now?
-
+  canvas.regions.placeables.forEach(region => addEdgesForRegion(region, false));
+  canvas.edges.refresh();
 });
 
 /* Region walls
@@ -84,75 +80,36 @@ For now, assume all region edges block both directions.
 Edges have height set by the region shape and ramp settings. Use wall-height flags.
 */
 
-function addEdgesForRegion(region) {
-  const restrictions = region.document.getFlag(MODULE_ID, FLAGS.REGION.WALL_RESTRICTIONS) || [];
-  if ( !restrictions.length ) return;
-  const restrictionsObj = {};
-  restrictions.forEach(type => restrictionsObj[type] = CONST.WALL_SENSE_TYPES.NORMAL);
-  delete restrictions.cover;
+function addEdgesForRegion(region, refresh = true) {
+  const restrictionBehaviors = region.document.behaviors.filter(b => b.system instanceof BlockingWallsRegionBehaviorType);
+  if ( !restrictionBehaviors.length ) return;
+
   const object = region;
   const type = "region";
-
-  // Add every edge from every shape in this region to canvas.edges.
-  region.shapes.forEach((shape, shapeIdx) => {
-    const poly = polygonForRegionShape(shape);
-    poly.iterateEdges({ close: true }).forEach((e, edgeIdx) => {
-      const id = `region_${region.id}_shape${shapeIdx}_edge${edgeIdx}`;
-      const edge = new foundry.canvas.edges.Edge(e.A, e.B, { id, type, object, ...restrictionsObj });
-      canvas.edges.set(edge.id, edge);
+  for ( const b of restrictionBehaviors ) {
+    // Add every edge from every polygon in this region to canvas.edges.
+    const restrictionsObj = b.system.types;
+    region.polygons.forEach((poly, shapeIdx) => {
+      [...poly.iterateEdges({ close: true })].forEach((e, edgeIdx) => {
+        const id = `region_${region.id}_poly${shapeIdx}_behavior_${b.id}_edge${edgeIdx}`;
+        const edge = new foundry.canvas.geometry.edges.Edge(e.A, e.B, { id, type, object, ...restrictionsObj });
+        canvas.edges.set(edge.id, edge);
+      });
     });
-  });
-  canvas.edges.refresh();
+  }
+  if ( refresh ) canvas.edges.refresh();
 }
 
-function removeEdgesForRegionId(regionId) {
+export function removeEdgesForRegionId(regionId, refresh = true) {
   for ( const id of canvas.edges.keys() ) {
     if ( id.startsWith(`region_${regionId}`) ) canvas.edges.delete(id);
   }
+  if ( refresh ) canvas.edges.refresh();
 }
 
-function updateRegionEdgeRestrictions(region) {
-  const restrictions = new Set(region.document.getFlag(MODULE_ID, FLAGS.REGION.WALL_RESTRICTIONS) || []);
-  if ( !restrictions.length ) removeEdgesForRegionId(region.id);
-  const restrictionsObj = {};
-  restrictions.forEach(type => restrictionsObj[type] = CONST.WALL_SENSE_TYPES.NORMAL);
-  delete restrictions.cover;
-  region.shapes.forEach((shape, idx) => {
-    const poly = polygonForRegionShape(shape);
-    for ( let i = 0, iMax = poly.points.length * 0.5; i < iMax; i += 1 ) {
-      const id = `region_${region.id}_shape${idx}_edge${i}`;
-      const edge = canvas.edges.get(id);
-      if ( !edge ) {
-        // 1 or more edges were never entered. Redo all.
-        removeEdgesForRegionId(region.id);
-        addEdgesForRegion(region);
-        return;
-      };
-      for ( const type of CONST.WALL_RESTRICTION_TYPES ) {
-        const value = restrictions.has(type) ? CONST.WALL_SENSE_TYPES.NORMAL : CONST.WALL_SENSE_TYPES.NONE;
-        edge[type] = value;
-      }
-    }
-  });
-}
-
-function polygonForRegionShape(shape) {
-  const pixi = pixiShapeForRegionShape(shape);
-  const poly = pixi.toPolygon();
-  poly.isHole = shape.data.isHole;
-  if ( poly.isHole ^ poly.isClockwise ) poly.reverseOrientation();
-  return poly;
-}
-
-function pixiShapeForRegionShape(shape) {
-  const { type, x, y, width, height, radius, points, radiusX, radiusY } = shape.data;
-  switch ( type ) {
-    case "rectangle": return new PIXI.Rectangle(x, y, width, height);
-    case "circle": return new PIXI.Circle(x, y, radius);
-    case "ellipse": return new Ellipse(x, y, radiusX, radiusY);
-    case "polygon": return new PIXI.Polygon(points);
-    default: console.error(`pixiShapeForRegionShape|shape ${type} not recognized.`);
-  }
+export function updateRegionEdgeRestrictions(region) {
+  removeEdgesForRegionId(region.id, false);
+  addEdgesForRegion(region);
 }
 
 /**
@@ -188,10 +145,8 @@ function updateRegion(regionDoc, changed, _options, _userId) {
   if ( Object.hasOwn(changed, "shapes")
     || foundry.utils.hasProperty(changed, `flags.${MODULE_ID}.${FLAGS.REGION.RAMP.DIRECTION}`) ) region[MODULE_ID].clearCache();
 
-  if ( Object.hasOwn(changed, "shapes") ) {
-    removeEdgesForRegionId(region.id); // No way to easily determine if some shapes have not changed.
-    addEdgesForRegion(region);
-  } else if ( foundry.utils.hasProperty(changed, `flags.${MODULE_ID}.${FLAGS.REGION.WALL_RESTRICTIONS}`) ) updateRegionEdgeRestrictions(region);
+  // Update blocking walls
+  if ( Object.hasOwn(changed, "shapes") ) updateRegionEdgeRestrictions(region);
 }
 
 /**
@@ -221,13 +176,13 @@ PATCHES.REGIONS.HOOKS = { createRegion, updateRegion, deleteRegion };
  * @param {boolean} [options.freefall=false]      Should elevation changes follow the ramp/plateau when moving down?
  * @returns {RegionMovementSegment[]}             The movement split into its segments.
  */
-function segmentizeMovement(wrapper, waypoints, samples, opts) {
-  const segments = wrapper(waypoints, samples, opts);
-  if ( !segments.length ) return segments;
-
-  // Modify segments if moving through plateau or ramp regions.
-  return this[MODULE_ID]._modifySegments(segments);
-}
+// function segmentizeMovement(wrapper, waypoints, samples, opts) {
+//   const segments = wrapper(waypoints, samples, opts);
+//   if ( !segments.length ) return segments;
+//
+//   // Modify segments if moving through plateau or ramp regions.
+//   return this[MODULE_ID]._modifySegments(segments);
+// }
 
 /**
  * Wrap Region#_draw
@@ -235,7 +190,7 @@ function segmentizeMovement(wrapper, waypoints, samples, opts) {
  */
 async function _draw(wrapped, options) {
   wrapped(options);
-  const mesh = this.children.find(c => c instanceof foundry.canvas.regions.RegionMesh);
+  const mesh = this.children.find(c => c instanceof foundry.canvas.placeables.regions.RegionMesh);
   if ( !mesh ) return;
 
   // Must be defined for all region meshes.
@@ -305,7 +260,11 @@ function _applyRenderFlags(wrapper, flags) {
 }
 
 
-PATCHES.REGIONS.WRAPS = { segmentizeMovement, _draw, _applyRenderFlags};
+PATCHES.REGIONS.WRAPS = {
+  // segmentizeMovement,
+  _draw,
+  _applyRenderFlags,
+};
 
 
 // ----- NOTE: Methods ----- //
@@ -315,7 +274,7 @@ PATCHES.REGIONS.WRAPS = { segmentizeMovement, _draw, _applyRenderFlags};
  * Update the mesh uniforms depending on region elevation settings.
  */
 function _refreshTerrainMapperMesh() {
-  const mesh = this.children.find(c => c instanceof foundry.canvas.regions.RegionMesh);
+  const mesh = this.children.find(c => c instanceof foundry.canvas.placeables.regions.RegionMesh);
   if ( !mesh ) return;
 
   let hatchThickness = canvas.dimensions.size / 10;

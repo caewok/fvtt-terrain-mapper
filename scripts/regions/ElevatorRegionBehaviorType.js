@@ -1,16 +1,16 @@
 /* globals
+canvas,
 CONST,
 foundry,
 game,
-Region,
+PIXI,
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
 import { MODULE_ID } from "../const.js";
 import { log } from "../util.js";
-import { ElevationHandler } from "../ElevationHandler.js";
-import { continueTokenAnimationForBehavior } from "./StairsRegionBehaviorType.js";
+import { ElevatedPoint } from "../geometry/3d/ElevatedPoint.js";
 
 export const PATCHES = {};
 PATCHES.REGIONS = {};
@@ -69,7 +69,6 @@ export class ElevatorRegionBehaviorType extends foundry.data.regionBehaviors.Reg
   static events = {
     [CONST.REGION_EVENTS.TOKEN_MOVE_IN]: this.#onTokenMoveIn,
     [CONST.REGION_EVENTS.TOKEN_MOVE_OUT]: this.#onTokenMoveOut,
-    [CONST.REGION_EVENTS.TOKEN_PRE_MOVE]: this.#onTokenPreMove,
   };
 
   /**
@@ -85,11 +84,18 @@ export class ElevatorRegionBehaviorType extends foundry.data.regionBehaviors.Reg
     log(`Token ${data.token.name} moving into ${event.region.name}!`);
     if ( event.user !== game.user ) return;
     const tokenD = data.token;
+
+    // ----- No async operations before this! -----
+    const resumeMovement = tokenD.pauseMovement();
+
+    // Await movement animation
+    if ( tokenD.rendered ) await tokenD.object?.movementAnimationPromise;
+
+    // Determine the user's floor choice.
     const { stops, elevations } = this.getStopsAndElevations();
 
     // When strict, don't trigger the elevator unless the token is already on a floor.
     let takeElevator = !this.strict || elevations.has(tokenD.elevation);
-    let chosenElevation;
 
     // Ask the user to pick a floor.
     if ( takeElevator ) {
@@ -99,7 +105,7 @@ export class ElevatorRegionBehaviorType extends foundry.data.regionBehaviors.Reg
         const floorLabel = Object.keys(stop)[0];
         const floorElev = stop[floorLabel];
         const checked = tokenD.elevation.almostEqual(floorElev) ? "checked" : "";
-        content += `\n<label><input type="radio" name="choice" value=" ${floorElev}" ${checked}>${floorLabel}</label>`;
+        content += `\n<label><input type="radio" name="choice" value="${floorElev}" ${checked}>${floorLabel}</label>`;
       }
       const buttons = [{
         action: "choice",
@@ -108,14 +114,42 @@ export class ElevatorRegionBehaviorType extends foundry.data.regionBehaviors.Reg
         callback: (event, button, _dialog) => button.form.elements.choice.value
       }];
       const res = await foundry.applications.api.DialogV2.wait({ rejectClose: false, window, content, buttons });
-      chosenElevation = Number(res);
+      if ( res !== null ) {
+        // Stop the token movement at the chosen elevation *unless* the chosen elevation is the same.
+        const chosenElevation = Number(res);
+        const movement = data.movement;
+        const nextMove = movement.pending.waypoints[0];
+        if ( !nextMove || !nextMove.elevation.almostEqual(chosenElevation) ) {
+          // Update the token elevation, thereby stopping the movement.
+          // See https://github.com/txm3278/Enhanced-Region-Behaviors/blob/main/scripts/regionBehaviors/elevationRegionBehaviorType.ts
+          tokenD.stopMovement();
 
-      // Update the elevation.
-      takeElevator = res != null && chosenElevation !== tokenD.elevation;
+          // Insert vertical move.
+          // If snapping and the token center for the snap is within the region, use it instead.
+          const waypoint = this.nearestXYSnapPoint(movement.destination, movement.pending.waypoints.at(0), tokenD);
+          waypoint.elevation = chosenElevation;
+          waypoint.action = this.elevatorTokenAction;
+          waypoint.cost = 0;
+          waypoint.explicit = true;
+          waypoint.intermediate = false;
+          waypoint.checkpoint = false;
+
+          // const adjustedWaypoints = movement.pending.waypoints
+//             .filter((w) => !w.intermediate)
+//             .map((w) => ({ ...w, elevation: chosenElevation }));
+
+          await tokenD.move([movement.passed.waypoints.at(-1), waypoint], {
+            ...movement.updateOptions,
+            constrainOptions: movement.constrainOptions,
+            autoRotate: movement.autoRotate,
+            showRuler: movement.showRuler,
+          });
+          return;
+        }
+      }
     }
-
-    // Execute either the elevator elevation move or continue the 2d move.
-    await continueTokenAnimationForBehavior(this, tokenD, takeElevator ? chosenElevation : undefined);
+    if ( resumeMovement ) return resumeMovement();
+    return;
   }
 
   /**
@@ -131,7 +165,7 @@ export class ElevatorRegionBehaviorType extends foundry.data.regionBehaviors.Reg
     log(`Token ${data.token.name} moving out of ${event.region.name}!`);
     if ( event.user !== game.user ) return;
     const tokenD = data.token;
-    const groundElevation = ElevationHandler.sceneFloor;
+    const groundElevation = canvas.scene[MODULE_ID].sceneFloor;
     const { elevations } = this.getStopsAndElevations();
 
     // When strict, don't trigger the elevator unless the token is already on a floor.
@@ -141,44 +175,74 @@ export class ElevatorRegionBehaviorType extends foundry.data.regionBehaviors.Reg
 
     // Confirm with user.
     if ( resetToGround ) {
+      // ----- No async operations before this! -----
+      const resumeMovement = tokenD.pauseMovement();
+
+      // Await movement animation
+      if ( tokenD.rendered ) await tokenD.object?.movementAnimationPromise;
+
       const content = game.i18n.localize(`${MODULE_ID}.phrases.resetOnExit`);
       resetToGround = await foundry.applications.api.DialogV2.confirm({ content, rejectClose: false, modal: true });
-    }
+      if ( resetToGround === null ) return resumeMovement ? resumeMovement() : undefined;
 
-    // Either change the elevation to reset to ground or continue the 2d move.
-    await continueTokenAnimationForBehavior(this, tokenD, resetToGround ? groundElevation : undefined);
+      // See https://github.com/txm3278/Enhanced-Region-Behaviors/blob/main/scripts/regionBehaviors/elevationRegionBehaviorType.ts
+      // Add a teleport straight down.
+      const movement = data.movement;
+      const waypoint = structuredClone(movement.destination);
+      waypoint.elevation = groundElevation;
+      waypoint.action = this.elevatorTokenAction;
+      waypoint.cost = 0;
+      waypoint.intermediate = false;
+      waypoint.explicit = true;
+      waypoint.checkpoint = false;
+
+      const adjustedWaypoints = movement.pending.waypoints
+        .filter((w) => !w.intermediate)
+        .map((w) => ({ ...w, elevation: groundElevation }));
+      await tokenD.move([movement.passed.waypoints.at(-1), waypoint, ...adjustedWaypoints], {
+        ...movement.updateOptions,
+        constrainOptions: movement.constrainOptions,
+        autoRotate: movement.autoRotate,
+        showRuler: movement.showRuler,
+      });
+      return;
+    }
   }
 
-  /** @type {RegionWaypoint} */
-  static lastDestination;
+  get elevatorTokenAction() {
+    const actions = Object.entries(CONFIG.Token.movement.actions);
+    let out = actions.find(([key, a]) => a.teleport && a.visualize);
+    if ( !out ) out = actions.find(([key, a]) => a.teleport);
+    if ( !out ) out = actions[0];
+    return out[0];
+  }
+
 
   /**
-   * Stop at the entrypoint for the region.
-   * This allows onTokenEnter to then handle the stair movement.
-   * @param {RegionEvent} event
-   * @this {PauseGameRegionBehaviorType}
+   * Nearest snap point along a path that is still within the region.
+   * Attempts first the current point, then moves along the line toward the next point.
+   * If next point is close enough, it will try that. If all fails, returns the current point.
+   * @param {Point} currPoint
+   * @param {Point} nextPoint
+   * @param {TokenDocument} tokenD         Token for which the snapping would apply
    */
-  static async #onTokenPreMove(event) {
-    if ( event.data.forced ) return;
+  nearestXYSnapPoint(currPoint, nextPoint, tokenD) {
+    currPoint = ElevatedPoint.fromObject(currPoint);
+    let snap = tokenD.getSnappedPosition(currPoint);
+    if ( snap.x.almostEqual(currPoint.x) && snap.y.almostEqual(currPoint.y) ) return currPoint;
+    snap.elevation = currPoint.elevation;
+    if ( this.region.testPoint(snap) ) return snap;
+    if ( !nextPoint ) return currPoint;
 
-    for ( const segment of event.data.segments ) {
-      if ( segment.type === Region.MOVEMENT_SEGMENT_TYPES.ENTER ) {
-        this.constructor.lastDestination = event.data.destination;
-        event.data.destination = segment.to;
-        break;
-      }
-    }
-
-    if ( this.resetOnExit ) {
-      for ( const segment of event.data.segments ) {
-        if ( segment.type === Region.MOVEMENT_SEGMENT_TYPES.EXIT ) {
-          this.constructor.lastDestination = event.data.destination;
-          event.data.destination = segment.to;
-          break;
-        }
-      }
-    }
+    nextPoint = ElevatedPoint.fromObject(nextPoint);
+    const other = PIXI.Point.distanceSquaredBetween(currPoint, nextPoint) < canvas.grid.size ** 2
+      ? nextPoint : currPoint.towardsPoint(nextPoint, canvas.grid.size);
+    snap = tokenD.getSnappedPosition(other);
+    snap.elevation = other.elevation;
+    if ( this.region.testPoint(snap) ) return snap;
+    return currPoint;
   }
+
 
   /**
    * Retrieve the stops and elevations for the floors of this behavior
@@ -199,6 +263,7 @@ export class ElevatorRegionBehaviorType extends foundry.data.regionBehaviors.Reg
   }
 }
 
+
 /**
  * Hook preCreateRegionBehavior
  * Set the default elevation to the region top and bottom elevations if defined.
@@ -211,11 +276,11 @@ export class ElevatorRegionBehaviorType extends foundry.data.regionBehaviors.Reg
 function preCreateRegionBehavior(document, data, _options, _userId) {
   log("preCreateRegionBehavior");
   if ( data.type !== `${MODULE_ID}.elevator` ) return;
-  const topE = document.region.elevation.top;
-  const bottomE = document.region.elevation.bottom ?? ElevationHandler.sceneFloor;
+  const tm = document.region.object[MODULE_ID];
+  const topE = tm.plateauElevation;
+  const bottomE = isFinite(document.region.elevation.bottom) ? document.region.elevation.bottom : canvas.scene[MODULE_ID].sceneFloor;
   const bottomLabel = game.i18n.localize(`${MODULE_ID}.phrases.bottom`);
   const topLabel = game.i18n.localize(`${MODULE_ID}.phrases.top`);
-
   const floors = [`${bottomE}|${bottomLabel}`];
   if ( topE ) floors.push(`${topE}|${topLabel}`);
   document.updateSource({ "system.floors": floors });

@@ -11,7 +11,7 @@ ui
 
 import { MODULE_ID, FA_ICONS } from "../const.js";
 import { Draw } from "../geometry/Draw.js";
-import { TerrainEffectsApp } from "../TerrainEffectsApp.js";
+import { TerrainEffectsAppV2 } from "../TerrainEffectsAppV2.js";
 
 export const PATCHES = {};
 PATCHES.REGIONS = {};
@@ -21,14 +21,17 @@ TOOLS.FILL_BY_GRID = {
   name: "fill-by-grid",
   title: `${MODULE_ID}.controls.fill-by-grid.name`,
   icon: FA_ICONS.FILL_BY_GRID,
-  toggle: false
+  toggle: false,
+  order: 0,
 };
 
 TOOLS.FILL_BY_LOS = {
   name: "fill-by-los",
   title: `${MODULE_ID}.controls.fill-by-los.name`,
   icon: FA_ICONS.FILL_BY_LOS,
-  toggle: false
+  toggle: false,
+  onChange: toggleWallDisplay,
+  order: 0,
 }
 
 TOOLS.FILL_BY_WALLS = {
@@ -36,15 +39,17 @@ TOOLS.FILL_BY_WALLS = {
   title: `${MODULE_ID}.controls.fill-space.name`,
   icon: FA_ICONS.FILL_BY_WALLS,
   toggle: false,
-  onClick: toggleWallDisplay
+  onChange: toggleWallDisplay,
+  order: 0,
 }
 
 TOOLS.TERRAIN_BOOK = {
   name: "terrain-book",
   title: `${MODULE_ID}.phrases.terrains`,
   icon: FA_ICONS.TERRAIN_BOOK,
-  onClick: () => { new TerrainEffectsApp().render(true); },
-  button: true
+  onChange: () => { new TerrainEffectsAppV2().render(true); },
+  button: true,
+  order: 0,
 }
 
 let wallDisplay;
@@ -57,7 +62,9 @@ let wallDisplay;
  * @param {object} data                 The object of data used when rendering the application
  */
 function renderSceneControls(sceneControls, _html, _data) {
-  const fillWallsEnabled = sceneControls.activeControl === "regions" && sceneControls.activeTool === "fill-by-walls";
+  const activeControl = sceneControls.control.name;
+  const activeTool = sceneControls.tool.name;
+  const fillWallsEnabled = activeControl === "regions" && activeTool === "fill-by-walls";
   if ( fillWallsEnabled && !wallDisplay ) {
     wallDisplay = new WallDisplay();
     wallDisplay.render();
@@ -73,19 +80,32 @@ function renderSceneControls(sceneControls, _html, _data) {
  */
 function getSceneControlButtons(controls, _html, _data) {
   if ( !canvas.scene ) return;
-  const regionTools = controls.find(c => c.name === "regions");
+  const regionTools = controls.regions;
   if ( !regionTools ) return;
   if ( !canvas.grid.isGridless ) {
-    const selectIdx = regionTools.tools.findIndex(t => t.name === "select");
-    regionTools.tools.splice(selectIdx + 1, 0, TOOLS.FILL_BY_GRID);
+    const selectIdx = regionTools.tools.select.order;
+    TOOLS.FILL_BY_GRID.order = selectIdx + 1;
+    Object.values(regionTools.tools)
+      .filter(tool => tool.order >= selectIdx + 1)
+      .forEach(tool => tool.order += 1);
+    regionTools.tools[TOOLS.FILL_BY_GRID.name] = TOOLS.FILL_BY_GRID;
   }
-  const polyIdx = regionTools.tools.findIndex(t => t.name === "polygon");
-  regionTools.tools.splice(polyIdx + 1, 0, TOOLS.FILL_BY_WALLS);
-  regionTools.tools.splice(polyIdx + 1, 0, TOOLS.FILL_BY_LOS);
+  const polyIdx = regionTools.tools.polygon.order;
+  TOOLS.FILL_BY_WALLS.order = polyIdx;
+  TOOLS.FILL_BY_LOS.order = polyIdx + 1;
+  Object.values(regionTools.tools)
+      .filter(tool => tool.order >= polyIdx)
+      .forEach(tool => tool.order += 2);
+  regionTools.tools[TOOLS.FILL_BY_WALLS.name] = TOOLS.FILL_BY_WALLS;
+  regionTools.tools[TOOLS.FILL_BY_LOS.name] = TOOLS.FILL_BY_LOS;
 
   if ( game.user.isGM ) {
-    const trashIdx = regionTools.tools.findIndex(t => t.name === "clear");
-    regionTools.tools.splice(trashIdx, 0, TOOLS.TERRAIN_BOOK);
+    const trashIdx = regionTools.tools.clear;
+    TOOLS.TERRAIN_BOOK.order = trashIdx;
+    Object.values(regionTools.tools)
+      .filter(tool => tool.order >= trashIdx)
+      .forEach(tool => tool.order += 1);
+    regionTools.tools[TOOLS.TERRAIN_BOOK.name] = TOOLS.TERRAIN_BOOK;
   }
 }
 
@@ -101,8 +121,17 @@ PATCHES.REGIONS.HOOKS = {
  * @param {PIXI.InteractionEvent} event
  */
 function toggleWallDisplay() {
-  const enabled = ui.controls.control.name == "regions" && ui.controls.control.activeTool !== "fill-by-walls";
-  console.log(`Fill by walls ${enabled ? "enabled" : "disabled"}!`);
+  const enabled = ui.controls.control.name == "regions"
+    && ( ui.controls.tool.name === "fill-by-walls"
+      || ui.controls.tool.name === "fill-by-los" );
+  // console.log(`Fill by walls ${enabled ? "enabled" : "disabled"}!`);
+  if ( enabled && !wallDisplay ) {
+    wallDisplay = new WallDisplay();
+    wallDisplay.render();
+  } else if ( !enabled && wallDisplay ) {
+    wallDisplay.destroy();
+    wallDisplay = undefined;
+  }
 }
 
 /**

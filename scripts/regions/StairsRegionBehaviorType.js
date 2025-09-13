@@ -1,22 +1,17 @@
 /* globals
 canvas,
-CanvasAnimation,
 CONFIG,
 CONST,
 game,
 foundry,
-KeyboardManager,
 PIXI,
-Region
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { MODULE_ID, FLAGS, MODULES_ACTIVE } from "../const.js";
-import { log, getSnappedFromTokenCenter } from "../util.js";
-import { ElevationHandler } from "../ElevationHandler.js";
-import { GridCoordinates } from "../geometry/GridCoordinates.js";
-import { bresenhamLineIterator } from "../geometry/util.js";
+import { MODULE_ID, FLAGS } from "../const.js";
+import { log } from "../util.js";
+import { ElevatedPoint } from "../geometry/3d/ElevatedPoint.js";
 
 export const PATCHES = {};
 PATCHES.REGIONS = {};
@@ -105,7 +100,7 @@ export class StairsRegionBehaviorType extends foundry.data.regionBehaviors.Regio
         label: `${MODULE_ID}.behavior.types.stairs.fields.floor.name`,
         hint: `${MODULE_ID}.behavior.types.stairs.fields.floor.hint`,
         initial: () => {
-          return ElevationHandler.sceneFloor;
+          return canvas.scene[MODULE_ID].sceneFloor;
         }
       }),
 
@@ -134,8 +129,8 @@ export class StairsRegionBehaviorType extends foundry.data.regionBehaviors.Regio
   static events = {
     [CONST.REGION_EVENTS.TOKEN_MOVE_IN]: this.#onTokenMoveIn,
     [CONST.REGION_EVENTS.TOKEN_MOVE_OUT]: this.#onTokenMoveOut,
-    [CONST.REGION_EVENTS.TOKEN_PRE_MOVE]: this.#onTokenPreMove,
   };
+
 
   /**
    * @type {RegionEvent} event
@@ -161,14 +156,79 @@ export class StairsRegionBehaviorType extends foundry.data.regionBehaviors.Regio
       targetElevation = tokenD.elevation <= midPoint ? this.elevation : this.floor;
     }
     takeStairs &&= targetElevation !== tokenD.elevation;
-    if ( this.dialog && takeStairs ) {
+    if ( !takeStairs ) return;
+
+    // ----- No async operations before this! -----
+    const resumeMovement = tokenD.pauseMovement();
+
+    // Await movement animation
+    if ( tokenD.rendered ) await tokenD.object?.movementAnimationPromise;
+
+    if ( this.dialog ) {
       const content = game.i18n.localize(targetElevation > tokenD.elevation ? `${MODULE_ID}.phrases.stairs-go-up` : `${MODULE_ID}.phrases.stairs-go-down`);
       takeStairs = await foundry.applications.api.DialogV2.confirm({ content, rejectClose: false, modal: true });
+      if ( !takeStairs ) return resumeMovement ? resumeMovement() : undefined;
     }
+    tokenD.stopMovement();
 
-    // Either change the elevation to take stairs or continue the 2d move.
-    await continueTokenAnimationForBehavior(this, tokenD, takeStairs ? targetElevation : undefined);
+    // Insert vertical move.
+    // If snapping and the token center for the snap is within the region, use it instead.
+    const movement = data.movement;
+    const waypoint = this.nearestXYSnapPoint(movement.destination, movement.pending.waypoints.at(0), tokenD);
+    waypoint.elevation = targetElevation;
+    waypoint.action = this.stairsTokenAction;
+    waypoint.cost = 0;
+    waypoint.explicit = true;
+    waypoint.intermediate = false;
+    waypoint.checkpoint = false;
+
+    // const adjustedWaypoints = movement.pending.waypoints
+//             .filter((w) => !w.intermediate)
+//             .map((w) => ({ ...w, elevation: chosenElevation }));
+
+    await tokenD.move([movement.passed.waypoints.at(-1), waypoint], {
+      ...movement.updateOptions,
+      constrainOptions: movement.constrainOptions,
+      autoRotate: movement.autoRotate,
+      showRuler: movement.showRuler,
+    });
+
+
   }
+
+  get stairsTokenAction() {
+    const actions = Object.entries(CONFIG.Token.movement.actions);
+    let out = actions.find(([_key, a]) => a.teleport && a.visualize);
+    if ( !out ) out = actions.find(([_key, a]) => a.teleport);
+    if ( !out ) out = actions[0];
+    return out[0];
+  }
+
+  /**
+   * Nearest snap point along a path that is still within the region.
+   * Attempts first the current point, then moves along the line toward the next point.
+   * If next point is close enough, it will try that. If all fails, returns the current point.
+   * @param {Point} currPoint
+   * @param {Point} nextPoint
+   * @param {TokenDocument} tokenD         Token for which the snapping would apply
+   */
+  nearestXYSnapPoint(currPoint, nextPoint, tokenD) {
+    currPoint = ElevatedPoint.fromObject(currPoint);
+    let snap = tokenD.getSnappedPosition(currPoint);
+    if ( snap.x.almostEqual(currPoint.x) && snap.y.almostEqual(currPoint.y) ) return currPoint;
+    snap.elevation = currPoint.elevation;
+    if ( this.region.testPoint(snap) ) return snap;
+    if ( !nextPoint ) return currPoint;
+
+    nextPoint = ElevatedPoint.fromObject(nextPoint);
+    const other = PIXI.Point.distanceSquaredBetween(currPoint, nextPoint) < canvas.grid.size ** 2
+      ? nextPoint : currPoint.towardsPoint(nextPoint, canvas.grid.size);
+    snap = tokenD.getSnappedPosition(other);
+    snap.elevation = other.elevation;
+    if ( this.region.testPoint(snap) ) return snap;
+    return currPoint;
+  }
+
 
   /**
    * @type {RegionEvent} event
@@ -183,134 +243,55 @@ export class StairsRegionBehaviorType extends foundry.data.regionBehaviors.Regio
     log(`Token ${data.token.name} moving out of ${event.region.name}!`);
     if ( event.user !== game.user ) return;
     const tokenD = data.token;
-    const groundElevation = ElevationHandler.sceneFloor;
+    const groundElevation = canvas.scene[MODULE_ID].sceneFloor;
     let resetToGround = this.resetOnExit
       && tokenD.elevation !== groundElevation
       && (!this.strict || (tokenD.elevation === this.elevation || tokenD.elevation === this.floor));
+
+    if ( !resetToGround ) return;
+
+    // ----- No async operations before this! -----
+    const resumeMovement = tokenD.pauseMovement();
+
+    // Await movement animation
+    if ( tokenD.rendered ) await tokenD.object?.movementAnimationPromise;
 
     // Confirm with user.
     if ( this.dialog && resetToGround ) {
       const content = game.i18n.localize(`${MODULE_ID}.phrases.resetOnExit`);
       resetToGround = await foundry.applications.api.DialogV2.confirm({ content, rejectClose: false, modal: true });
+      if ( !resetToGround ) return resumeMovement ? resumeMovement() : undefined;
     }
 
-    // Either change the elevation to reset to ground or continue the 2d move.
-    await continueTokenAnimationForBehavior(this, tokenD, resetToGround ? groundElevation : undefined);
-  }
+    tokenD.stopMovement();
 
-  /** @type {RegionWaypoint} */
-  static lastDestination;
+    // Insert vertical move.
+    // If snapping and the token center for the snap is within the region, use it instead.
+    const movement = data.movement;
+    const waypoint = structuredClone(movement.destination);
+    waypoint.elevation = groundElevation;
+    waypoint.action = this.stairsTokenAction;
+    waypoint.cost = 0;
+    waypoint.explicit = true;
+    waypoint.intermediate = false;
+    waypoint.checkpoint = false;
 
-  /**
-   * Stop at the entrypoint for the region.
-   * This allows onTokenEnter to then handle the stair movement.
-   * @param {RegionEvent} event
-   * @this {PauseGameRegionBehaviorType}
-   */
-  static async #onTokenPreMove(event) {
-    if ( event.data.forced ) return;
+    // const adjustedWaypoints = movement.pending.waypoints
+//             .filter((w) => !w.intermediate)
+//             .map((w) => ({ ...w, elevation: chosenElevation }));
 
-    for ( const segment of event.data.segments ) {
-      if ( segment.type === Region.MOVEMENT_SEGMENT_TYPES.ENTER ) {
-        this.constructor.lastDestination = event.data.destination;
-        event.data.destination = segment.to;
-        break;
-      }
-    }
-
-    if ( this.resetOnExit ) {
-      for ( const segment of event.data.segments ) {
-        if ( segment.type === Region.MOVEMENT_SEGMENT_TYPES.EXIT ) {
-          this.constructor.lastDestination = event.data.destination;
-          event.data.destination = segment.to;
-          break;
-        }
-      }
-    }
+    const adjustedWaypoints = movement.pending.waypoints
+        .filter((w) => !w.intermediate)
+        .map((w) => ({ ...w, elevation: groundElevation }));
+    await tokenD.move([movement.passed.waypoints.at(-1), waypoint, ...adjustedWaypoints], {
+      ...movement.updateOptions,
+      constrainOptions: movement.constrainOptions,
+      autoRotate: movement.autoRotate,
+      showRuler: movement.showRuler,
+    });
   }
 }
 
-/**
- * Either change elevation or continue move to the last destination.
- * @param {StairsRegionBehaviorType|ElevatorRegionBehaviorType} behavior
- * @param {TokenDocument} tokenD    Document of token to be updated
- * @param {number} [elevation]      If elevation was chosen, elevation to set
- */
-export async function continueTokenAnimationForBehavior(behavior, tokenD, elevation) {
-  const lastDestination = behavior.constructor.lastDestination;
-  behavior.constructor.lastDestination = undefined;
-  const elevate = typeof elevation !== "undefined";
-  let update;
-  if ( elevate ) update = { elevation };
-  else if ( lastDestination ) update = { x: lastDestination.x, y: lastDestination.y };
-  else return;
-
-  // Attempt to snap to the next grid square.
-  if ( elevate
-    && !canvas.grid.isGridless
-    && lastDestination
-    && !game.keyboard.isModifierActive(KeyboardManager.MODIFIER_KEYS.SHIFT) ) {
-    // Need the center square in front of the destination, not behind.
-    const token = tokenD.object;
-    const a = token.getCenterPoint(tokenD._source);
-    const b = findNextGridCenter(a, token.getCenterPoint(lastDestination));
-    if ( !token.checkCollision(b, { origin: a }) ) {
-      const tl = getSnappedFromTokenCenter(token, b);
-      const update = { x: tl.x, y: tl.y };
-      await CanvasAnimation.getAnimation(tokenD.object?.animationName)?.promise;
-      await tokenD.update(update);
-    }
-  }
-
-  await CanvasAnimation.getAnimation(tokenD.object?.animationName)?.promise;
-  const opts = MODULES_ACTIVE.LEVELS ? { teleport: true } : undefined; // Avoid Levels error re going through floors.
-  await tokenD.update(update, opts);
-  await CanvasAnimation.getAnimation(tokenD.object?.animationName)?.promise;
-}
-
-/**
- * For a given segment, find the next grid center along the line.
- * Use the current grid square unless its center is behind.
- * @param {Point} a
- * @param {Point} b
- * @returns {GridCoordinates}
- */
-function findNextGridCenter(a, b) {
-  a = GridCoordinates.fromObject(a);
-  b = GridCoordinates.fromObject(b);
-
-  // If a equals the center, then we don't need to move anywhere.
-  // If b equals the center, then b and a must be in the same grid space
-  const aCenter = a.center;
-  if ( a.almostEqual(aCenter) || b.center.almostEqual(aCenter) ) return aCenter;
-
-  // If the center is ahead of a on a --> b, the closest point to the line will be closer to b than a is to b.
-  // I.e., the closest point will not be a.
-  const closestPoint = foundry.utils.closestPointToSegment(aCenter, a, b);
-  if ( !a.almostEqual(closestPoint) ) return aCenter;
-
-  // Need the next grid space that the line intersects.
-  const brIter = bresenhamLineIterator(toBresenhamPoint(a), toBresenhamPoint(b));
-  brIter.next(); // Skip a.
-  return fromBreshenhamPoint(brIter.next().value);
-}
-
-/**
- * Convert offset to { x, y }
- * @param {GridCoordinates} a
- * @returns {PIXI.Point} With x set to i and y set to j
- */
-function toBresenhamPoint(a) {
-  const o = a.offset;
-  return new PIXI.Point(o.i, o.j);
-}
-
-/**
- * Convert a bresenham point to a canvas point.
- * @param {PIXI.Point} b      Point from Bresenham where b.x and b.y are assumed to be i and j, respectively.
- * @returns {GridCoordinates} The point at the offset represented by b
- */
-function fromBreshenhamPoint(b) { return GridCoordinates.fromOffset({ i: b.x, j: b.y }); }
 
 /**
  * Hook preCreateRegionBehavior
@@ -325,8 +306,8 @@ function preCreateRegionBehavior(document, data, _options, _userId) {
   log("preCreateRegionBehavior");
   if ( data.type !== `${MODULE_ID}.setElevation` ) return;
   const topE = document.region.elevation.top;
-  const elevation = topE ?? ElevationHandler.sceneFloor;
-  const floor = ElevationHandler.sceneFloor;
+  const elevation = topE ?? canvas.scene[MODULE_ID].sceneFloor;
+  const floor = canvas.scene[MODULE_ID].sceneFloor;
   document.updateSource({ "system.elevation": elevation, "system.floor": floor });
 }
 

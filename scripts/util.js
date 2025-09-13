@@ -9,7 +9,7 @@ PIXI,
 "use strict";
 
 import { MODULE_ID, FLAGS } from "./const.js";
-import { ElevationHandler } from "./ElevationHandler.js";
+
 
 export function log(...args) {
   try {
@@ -233,26 +233,4 @@ export function elevatedTiles(tiles) {
   return tiles.filter(tile => tile[MODULE_ID].isElevated);
 }
 
-/**
- * Determine the token movement types.
- * @param {Token} token                     Token doing the movement
- * @param {RegionMovementWaypoint} loc      Location to test (typically the start position of the token)
- * @returns {boolean} True if token has flying status or implicitly is flying
- */
-export function tokenIsFlying(token, loc) {
-  const actor = token.actor;
-  if ( game.system.id === "dnd5e" && actor ) return actor.statuses.has("flying") || actor.statuses.has("hovering");
-  return ElevationHandler.elevationType(loc, token) === ElevationHandler.ELEVATION_LOCATIONS.FLOATING;
-}
 
-/**
- * Determine the token movement types.
- * @param {Token} token                     Token doing the movement
- * @param {RegionMovementWaypoint} loc      Location to test (typically the start position of the token)
- * @returns {boolean} True if token has flying status or implicitly is flying
- */
-export function tokenIsBurrowing(token, loc) {
-  const actor = token.actor;
-  if ( game.system.id === "dnd5e" && actor ) return actor.statuses.has("burrowing");
-  return ElevationHandler.elevationType(loc, token) === ElevationHandler.ELEVATION_LOCATIONS.BURROWING;
-}

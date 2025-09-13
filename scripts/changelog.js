@@ -143,6 +143,29 @@ Hooks.once("ready", () => {
                 `
         })
 
+        .addEntry({
+            version: "0.5.0",
+            title: "Foundry v13",
+            body: `\
+                It has been a long time coming (sorry!) but here we are: v13!
+
+                This release takes advantage of v13's updated region behaviors, token animation,
+                and the new Foundry Token Ruler. Key points:
+                - Terrains (regions marked as plateaus/ramps/steps) constrain token movement.
+                - Overhead tiles marked as floors constrain token movement.
+                - Choice of Movement Action in the token HUD affects how token movement is interpreted.
+                  E.g., walking forces the token to the "ground"; flying allows vertical moves up and movement
+                  above ground; burrowing allows vertical moves down through terrain/floor tiles or movement through terrain.
+                  Try the blink/teleport movement action if you need more flexible movement.
+
+                The scene configuration now has an option to disable movement constraints imposed by this module.
+
+                You will now find region/terrain walling as an option in region behaviors.
+                `
+        })
+
+
+
         .build()
         ?.render(true);
 });

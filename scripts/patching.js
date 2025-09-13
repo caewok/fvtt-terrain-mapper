@@ -22,31 +22,31 @@ import { PATCHES as PATCHES_ModuleSettingsAbstract } from "./ModuleSettingsAbstr
 import { PATCHES as PATCHES_ItemSheet } from "./ItemSheet.js";
 import { PATCHES as PATCHES_Region } from "./regions/Region.js";
 import { PATCHES as PATCHES_RegionConfig } from "./regions/RegionConfig.js";
-import { PATCHES as PATCHES_Ruler } from "./Ruler.js";
 import { PATCHES as PATCHES_Tile } from "./Tile.js";
 import { PATCHES as PATCHES_TileConfig } from "./TileConfig.js";
 import { PATCHES as PATCHES_ClockwiseSweepPolygon } from "./regions/ClockwiseSweepPolygon.js";
+import { PATCHES as PATCHES_Scene } from "./Scene.js";
 
 export const PATCHES = {
-  ActiveEffect: PATCHES_ActiveEffect,
-  ActiveEffectConfig: PATCHES_ActiveEffectConfig,
+  "foundry.documents.ActiveEffect": PATCHES_ActiveEffect,
+  "foundry.applications.sheets.ActiveEffectConfig": PATCHES_ActiveEffectConfig,
   "foundry.canvas.edges.CanvasEdges": PATCHES_CanvasEdges,
-  ClientSettings: PATCHES_ModuleSettingsAbstract,
-  ClockwiseSweepPolygon: PATCHES_ClockwiseSweepPolygon,
-  ItemDirectory: PATCHES_ItemDirectory,
-  ItemSheet: PATCHES_ItemSheet,
-  Region: PATCHES_Region,
+  "foundry.helpers.ClientSettings": PATCHES_ModuleSettingsAbstract,
+  "foundry.canvas.geometry.ClockwiseSweepPolygon": PATCHES_ClockwiseSweepPolygon,
+  "foundry.applications.sidebar.tabs.ItemDirectory": PATCHES_ItemDirectory,
+  "foundry.appv1.sheets.ItemSheet": PATCHES_ItemSheet,
+  "foundry.canvas.placeables.Region": PATCHES_Region,
   "foundry.applications.sheets.RegionConfig": PATCHES_RegionConfig,
-  RegionLayer: PATCHES_RegionLayer,
-  Ruler: PATCHES_Ruler,
-  SceneConfig: PATCHES_SceneConfig,
-  SidebarTab: PATCHES_SidebarTab,
-  Tile: PATCHES_Tile,
-  TileConfig: PATCHES_TileConfig,
-  Token: PATCHES_Token,
-  Wall: PATCHES_Wall,
+  "foundry.canvas.layers.RegionLayer": PATCHES_RegionLayer,
+  "foundry.applications.sheets.SceneConfig": PATCHES_SceneConfig,
+  "foundry.canvas.placeables.Tile": PATCHES_Tile,
+  "foundry.applications.sheets.TileConfig": PATCHES_TileConfig,
+  "foundry.canvas.placeables.Token": PATCHES_Token,
+  "foundry.canvas.placeables.Wall": PATCHES_Wall,
+  "foundry.documents.Scene": PATCHES_Scene,
 
   // Only hooks
+  SidebarTab: PATCHES_SidebarTab,
   RegionSceneControls: PATCHES_RegionSceneControls,
   StairsRegionBehaviorType: PATCHES_StairsRegionBehaviorType,
   ElevatorRegionBehaviorType: PATCHES_ElevatorRegionBehaviorType
