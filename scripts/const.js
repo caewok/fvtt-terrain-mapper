@@ -46,7 +46,8 @@ export const FLAGS = {
 
   // Scene
   SCENE: {
-    BACKGROUND_ELEVATION: "backgroundElevation"
+    BACKGROUND_ELEVATION: "backgroundElevation",
+    CONSTRAIN_ELEVATION: "constrainElevation",
   },
 
   // RegionDocument
@@ -130,5 +131,10 @@ export const DEFAULT_FLAGS = {
     [FLAGS.TILE.TRIM_BORDER]: true,
     [FLAGS.TILE.TEST_HOLES]: false,
     [FLAGS.TILE.ALPHA_THRESHOLD]: 0.75
+  },
+
+  SCENE: {
+    [FLAGS.SCENE.BACKGROUND_ELEVATION]: 0,
+    [FLAGS.SCENE.CONSTRAIN_ELEVATION]: true,
   }
 };

@@ -25,6 +25,9 @@
   "terrainmapper.scene-config.backgroundElevation.name": "Background Elevation",
   "terrainmapper.scene-config.backgroundElevation.hint": "The default elevation for tokens placed on the canvas.",
 
+  "terrainmapper.scene-config.constrainElevation.name": "Constrain Elevation",
+  "terrainmapper.scene-config.constrainElevation.hint": "When enabled, limit vertical token movement based on terrain and movement type.",
+
   "terrainmapper.active-effect-config.duplicatesAllowed.name": "Duplicates Allowed",
   "terrainmapper.active-effect-config.duplicatesAllowed.hint": "When enabled, this terrain effect may be applied multiple times to a single token",
 
