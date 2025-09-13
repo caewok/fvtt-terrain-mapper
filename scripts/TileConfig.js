@@ -5,7 +5,7 @@
 "use strict";
 
 import { TEMPLATES } from "./const.js";
-import { injectConfigurationSync } from "./util.js";
+import { renderTemplateSync } from "./util.js";
 
 
 // Add settings to tile config to treat it like a "floor".
@@ -19,20 +19,30 @@ PATCHES.BASIC = {};
 
 // ----- NOTE: Hooks ----- //
 
-
 /**
  * Inject html to add controls to the tile configuration.
  * Adds to the Overhead tab.
  */
 function renderTileConfig(app, html, data) {
-  const findString = "div[data-tab='overhead']:last";
-//   const nullTerrain = canvas.terrain.sceneMap.get(0);
-//   const terrains = { [nullTerrain.id]: nullTerrain.name };
-//   Terrain.getAll().forEach(t => terrains[t.id] = t.name);
-//   const selected = app.object.getFlag(MODULE_ID, FLAGS.ATTACHED_TERRAIN) || "";
-//   data[MODULE_ID] = { terrains, selected };
+  // Add handler on close to store the group actors setting.
+//   const oldHandler = app.options.form.handler;
+//   app.options.form.handler = async (event, form, submitData) => {
+//     await saveSettings(event, form, submitData);
+//     await oldHandler(event, form, submitData);
+//   }
 
-  injectConfigurationSync(app, html, data, TEMPLATES.TILE, findString, "append");
+  const myHTML = renderTemplateSync(TEMPLATES.TILE, data);
+  if ( !myHTML ) return;
+  const divSet = html.querySelector("div[data-tab='overhead']");
+  const newFormGroup = document.createElement("div");
+  newFormGroup.classList.add("form-group");
+  newFormGroup.innerHTML = myHTML;
+
+  const formGroups = divSet.getElementsByClassName("form-group");
+  formGroups[formGroups.length - 1].appendChild(newFormGroup);
+  app.setPosition(app.position);
 }
 
 PATCHES.BASIC.HOOKS = { renderTileConfig };
+
+

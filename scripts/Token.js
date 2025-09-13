@@ -302,7 +302,7 @@ function shiftPathToTopLeft(path, topLeftPosition, centeredPosition) {
  * @returns {TokenTerrainMovementWaypoint[]}                   The movement path with terrain data
  */
 function createTerrainMovementPath(wrapped, waypoints, options) {
-  if ( waypoints.length < 2 ) return wrapped(waypoints, options);
+  if ( waypoints.length < 2 || !canvas.scene.getFlag(MODULE_ID, FLAGS.SCENE.CONSTRAIN_ELEVATION) ) return wrapped(waypoints, options);
 
   log(`createTerrainMovementPath|Initial Waypoints: ${waypoints.length} waypoints: ${ElevatedPoint.fromObject(waypoints[0])} --> ${ElevatedPoint.fromObject(waypoints.at(-1))}`);
   if ( CONFIG[MODULE_ID].debug ) console.table(waypoints);
@@ -310,36 +310,10 @@ function createTerrainMovementPath(wrapped, waypoints, options) {
   // Check if this is a basic elevation change. Allow, disallow, allow with elevation change.
   waypoints = waypoints.filter((pt, idx) => idx === 0 || (!pt.intermediate && (pt.explicit || pt.checkpoint)));
   const tm = this[MODULE_ID];
-//   if ( waypoints.length === 2 && waypoints[0].x.almostEqual(waypoints[1].x) && waypoints[0].y.almostEqual(waypoints[1].y) ) {
-//     if ( waypoints[0].elevation.almostEqual(waypoints[1].elevation) ) return wrapped(waypoints, options); // Not really moving.
-//
-//     const start = waypoints[0];
-//     const end = waypoints[1];
-//     const flying = CONFIG[MODULE_ID].terrainFlightActions.has(end.action);
-//     const burrowing = CONFIG[MODULE_ID].terrainBurrowActions.has(end.action);
-//     const walking = CONFIG[MODULE_ID].terrainWalkActions.has(end.action);
-//     const a = _centerWaypoint(start, this);
-//     const b = _centerWaypoint(end, this);
-//     tm.initialize(a, b);
-//     const path = tm.constructPath(a, b, { flying, burrowing, walking });
-//
-//     const targetElevation = path.at(-1).elevation;
-//     if ( targetElevation.almostEqual(end.elevation) ) { // No movement.
-//       if ( start.elevation < end.elevation && !flying ) foundry.ui.notifications.warn("Attempted to move above the terrain surface. Try changing movement to flying.");
-//       else if ( start.elevation > end.elevation && !burrowing ) foundry.ui.notifications.warn("Attempted to move below the terrain surface. Try changing movement to burrowing.");
-//     } else if ( !targetElevation.almostEqual(end.elevation) ) foundry.ui.notifications.notify("Elevation movement adjusted for terrain.");
-//
-//     end.elevation = targetElevation;
-//     return wrapped(waypoints, options);
-//   }
-
 
   // Testing
   // if ( waypoints.length > 2 ) console.log("Waypoints", waypoints);
   // if ( PIXI.Point.distanceBetween(waypoints[0], waypoints[1]) > 500 ) console.log("Waypoints distance > 500.");
-
-
-
 
   // log(`createTerrainMovementPath|After filter: ${waypoints.length} waypoints: ${ElevatedPoint.fromObject(waypoints[0])} --> ${ElevatedPoint.fromObject(waypoints.at(-1))}`);
   // if ( CONFIG[MODULE_ID].debug ) console.table(waypoints);
@@ -360,9 +334,10 @@ function createTerrainMovementPath(wrapped, waypoints, options) {
     const b = _centerWaypoint(next, this);
     tm.initialize(a, b);
 
-    // If no regions and no tiles, just allow the movement to continue as is.
-    // Avoids issue where cannot change elevation when on the canvas, which is unexpected.
-    if ( !(tm.regions.length || tm.tiles.length) ) {
+    // If no regions or tiles, just allow the movement to continue as is.
+    // Somewhat avoids issue where cannot change elevation when on the canvas, which can be unexpected.
+    // Avoids having to explicitly set constrain movement to false in a scene.
+    if ( !(tm.regions.length || (tm.tiles.length) )  ) {
       newWaypoints.push(next);
       start = next;
       continue;

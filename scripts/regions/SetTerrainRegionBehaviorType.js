@@ -90,7 +90,8 @@ export class SetTerrainRegionBehaviorType extends foundry.data.regionBehaviors.R
 
     // Add the effect to the paused token.
     await Terrain.addToToken(token, terrainsToAdd, { origin: this.behavior.uuid });
-    return resumeMovement();
+    if ( resumeMovement ) return resumeMovement;
+    return;
   }
 
   static async #onTokenExit(event) {
@@ -127,6 +128,8 @@ export class SetTerrainRegionBehaviorType extends foundry.data.regionBehaviors.R
     // Remove the effects from the paused token.
     if ( terrainsToRemove.length ) await Terrain.removeFromToken(token, terrainsToRemove, { removeAllDuplicates: true, origin: this.behavior.uuid });
     if ( dupeTerrainsToReduce.length) await Terrain.removeFromToken(token, dupeTerrainsToReduce, { removeAllDuplicates: false, origin: this.behavior.uuid });
-    return resumeMovement();
+
+    if ( resumeMovement ) return resumeMovement;
+    return;
   }
 }

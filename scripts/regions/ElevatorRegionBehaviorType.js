@@ -148,7 +148,8 @@ export class ElevatorRegionBehaviorType extends foundry.data.regionBehaviors.Reg
         }
       }
     }
-    resumeMovement(); // TODO: Should this be awaited?
+    if ( resumeMovement ) return resumeMovement;
+    return;
   }
 
   /**
@@ -182,7 +183,7 @@ export class ElevatorRegionBehaviorType extends foundry.data.regionBehaviors.Reg
 
       const content = game.i18n.localize(`${MODULE_ID}.phrases.resetOnExit`);
       resetToGround = await foundry.applications.api.DialogV2.confirm({ content, rejectClose: false, modal: true });
-      if ( resetToGround === null ) return resumeMovement();
+      if ( resetToGround === null ) return resumeMovement ? resumeMovement() : undefined;
 
       // See https://github.com/txm3278/Enhanced-Region-Behaviors/blob/main/scripts/regionBehaviors/elevationRegionBehaviorType.ts
       // Add a teleport straight down.

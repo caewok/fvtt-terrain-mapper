@@ -181,7 +181,10 @@ Hooks.on("ready", function(_canvas) {
  */
 Hooks.on("canvasReady", function(_canvas) {
   CONFIG[MODULE_ID].Terrain.transitionTokens(); // Async
-  if ( game.user.isGM ) setDefaultPlaceablesFlags(); // Async.
+  if ( game.user.isGM ) {
+    setDefaultPlaceablesFlags(); // Async.
+    setDefaultSceneFlags(); // Async.
+  }
 });
 
 function initializeAPI() {
@@ -373,6 +376,18 @@ async function setDefaultPlaceablesFlags() {
       if ( typeof tile.document.getFlag(MODULE_ID, key) !== "undefined" ) continue;
       promises.push(tile.document.setFlag(MODULE_ID, key, defaultValue));
     }
+  }
+  await Promise.allSettled(promises);
+}
+
+/**
+ * Set default values for scene flags.
+ */
+async function setDefaultSceneFlags() {
+  const promises = [];
+  for ( const [key, defaultValue] of Object.entries(DEFAULT_FLAGS.SCENE) ) {
+    if ( typeof canvas.scene.getFlag(MODULE_ID, key) !== "undefined" ) continue;
+    promises.push(canvas.scene.setFlag(MODULE_ID, key, defaultValue));
   }
   await Promise.allSettled(promises);
 }
