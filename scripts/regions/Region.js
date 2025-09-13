@@ -100,7 +100,7 @@ function addEdgesForRegion(region, refresh = true) {
   if ( refresh ) canvas.edges.refresh();
 }
 
-function removeEdgesForRegionId(regionId, refresh = true) {
+export function removeEdgesForRegionId(regionId, refresh = true) {
   for ( const id of canvas.edges.keys() ) {
     if ( id.startsWith(`region_${regionId}`) ) canvas.edges.delete(id);
   }

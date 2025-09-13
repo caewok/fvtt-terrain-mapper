@@ -24,7 +24,7 @@ function removeTerrainsItemFromSidebar(dir) {
   for ( const item of game.items ) {
     if ( !(item.name === "Terrains" || item.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.ID)) ) continue;
     const li = dir.element.querySelector(`[data-entry-id="${item.id}"]`)
-    li.remove();
+    if ( li ) li.remove();
   }
 }
 
