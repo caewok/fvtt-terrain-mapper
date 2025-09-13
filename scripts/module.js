@@ -36,7 +36,20 @@ import "./changelog.js";
 import "./regions/HighlightRegionShader.js";
 
 // Tests
-import "../tests/CutawayHandler.test.js";
+
+
+/**
+ * Use dynamic import and try/catch to load module only if successful.
+ */
+async function loadModuleConditionally(path) {
+  try {
+    await import(path);
+  } catch (error) {
+    log(`Failed to load ${path}`);
+  }
+}
+
+loadModuleConditionally("../tests/CutawayHandler.test.js");
 
 /* Foundry v13 movement
 Token#findMovementPath -- find path through waypoints
