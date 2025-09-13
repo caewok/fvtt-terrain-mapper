@@ -167,7 +167,7 @@ export class StairsRegionBehaviorType extends foundry.data.regionBehaviors.Regio
     if ( this.dialog ) {
       const content = game.i18n.localize(targetElevation > tokenD.elevation ? `${MODULE_ID}.phrases.stairs-go-up` : `${MODULE_ID}.phrases.stairs-go-down`);
       takeStairs = await foundry.applications.api.DialogV2.confirm({ content, rejectClose: false, modal: true });
-      if ( !takeStairs ) return resumeMovement();
+      if ( !takeStairs ) return resumeMovement ? resumeMovement() : undefined;
     }
     tokenD.stopMovement();
 
@@ -260,7 +260,7 @@ export class StairsRegionBehaviorType extends foundry.data.regionBehaviors.Regio
     if ( this.dialog && resetToGround ) {
       const content = game.i18n.localize(`${MODULE_ID}.phrases.resetOnExit`);
       resetToGround = await foundry.applications.api.DialogV2.confirm({ content, rejectClose: false, modal: true });
-      if ( !resetToGround ) return resumeMovement();
+      if ( !resetToGround ) return resumeMovement ? resumeMovement() : undefined;
     }
 
     tokenD.stopMovement();
