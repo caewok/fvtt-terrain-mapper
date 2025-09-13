@@ -148,7 +148,7 @@ export class ElevatorRegionBehaviorType extends foundry.data.regionBehaviors.Reg
         }
       }
     }
-    if ( resumeMovement ) return resumeMovement;
+    if ( resumeMovement ) return resumeMovement();
     return;
   }
 
