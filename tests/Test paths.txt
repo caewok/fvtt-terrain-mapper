@@ -1,0 +1,293 @@
+MODULE_ID = "terrainmapper"
+api = game.modules.get("terrainmapper").api
+TokenElevationHandler = api.TokenElevationHandler
+
+Draw = CONFIG.GeometryLib.Draw;
+ElevatedPoint = CONFIG.GeometryLib.threeD.ElevatedPoint
+Plane = CONFIG.GeometryLib.threeD.Plane
+Point3d = CONFIG.GeometryLib.threeD.Point3d
+almostLessThan = CONFIG.GeometryLib.utils.almostLessThan
+almostGreaterThan = CONFIG.GeometryLib.utils.almostGreaterThan
+cutaway = CONFIG.GeometryLib.utils.cutaway
+QBenchmarkLoopFn = CONFIG.GeometryLib.bench.QBenchmarkLoopFn
+
+
+function convertCutawayPointForDrawing(pt2d) { return PIXI.Point.tmp.set(Math.sqrt(pt2d.x), -pt2d.y); }
+function drawCutawayPoints(pts, opts) {
+  pts = pts.map(pt => convertCutawayPointForDrawing(pt));
+  Draw.connectPoints(pts, opts)
+  pts.forEach(pt => Draw.point(pt, opts))
+}
+
+
+
+Zanna = canvas.tokens.placeables.find(t => t.name === "Zanna")
+Bandit = canvas.tokens.placeables.find(t => t.name === "Bandit")
+Randal = canvas.tokens.placeables.find(t => t.name === "Randal")
+Riswynn = canvas.tokens.placeables.find(t => t.name === "Riswynn")
+Quillathe = canvas.tokens.placeables.find(t => t.name === "Quillathe")
+Krusk = canvas.tokens.placeables.find(t => t.name === "Krusk")
+
+zaPt = ElevatedPoint.fromLocationWithElevation(Zanna.center, Zanna.elevationE);
+baPt = ElevatedPoint.fromLocationWithElevation(Bandit.center, Bandit.elevationE)
+raPt = ElevatedPoint.fromLocationWithElevation(Randal.center, Randal.elevationE)
+riPt = ElevatedPoint.fromLocationWithElevation(Riswynn.center, Riswynn.elevationE)
+quPt = ElevatedPoint.fromLocationWithElevation(Quillathe.center, Quillathe.elevationE)
+krPt = ElevatedPoint.fromLocationWithElevation(Krusk.center, Krusk.elevationE)
+
+divingBoardRegion = canvas.regions.placeables.find(r => r.document.name === "Diving Board")
+circlesRegion = canvas.regions.placeables.find(r => r.document.name === "Circles")
+rectRegion = canvas.regions.placeables.find(r => r.document.name === "Rect")
+
+start = ElevatedPoint.fromLocationWithElevation({x: 2425, y: 2300}, 0)
+end = ElevatedPoint.fromLocationWithElevation({x: 2425, y: 2300}, 30)
+
+start = ElevatedPoint.fromLocationWithElevation({x: 2400, y: 2300}, 0)
+end = ElevatedPoint.fromLocationWithElevation({x: 2500, y: 2300}, 29)
+
+start = ElevatedPoint.tmp.set(2550, 2450, 580)
+end = ElevatedPoint.tmp.set(2550, 2450, 0)
+
+start = ElevatedPoint.tmp.set(1800, 3100, 0)
+end = ElevatedPoint.tmp.set(1800, 3200, 0)
+
+start = ElevatedPoint.tmp.set(1750, 3150, 340)
+end = ElevatedPoint.tmp.set(1750, 3250, 340)
+
+start = ElevatedPoint.tmp.set(3650, 3850, 0)
+end = ElevatedPoint.tmp.set(3850, 2450, 0)
+
+start = ElevatedPoint.tmp.set(3350, 3650, 0)
+end = ElevatedPoint.tmp.set(3850, 2450, 0)
+
+start = raPt
+end = riPt
+handler = Randal.terrainmapper
+handler.initialize(start, end)
+
+start = zaPt
+end = raPt
+handler = Zanna.terrainmapper
+handler.initialize(start, end)
+
+
+start2d = cutaway.to2d(start, start, end)
+end2d = cutaway.to2d(end, start, end)
+regionCut = handler.regionCutaways.get(handler.regions[0])
+cutPoly = regionCut.cutPolys[0]
+path = regionCut.surfaceWaypoints(start2d, end2d)[0]
+path = path.map(pt => cutaway.from2d(pt, start, end))
+
+Draw.segment({ a: start, b: end })
+
+
+// walking
+let { ABOVE, BELOW, GROUND } = handler.constructor.ELEVATION_LOCATIONS;
+waypoints = [start];
+currWaypoint = start;
+finished = () => currWaypoint.almostEqualXY(end);
+
+startType = handler.elevationType(start);
+
+handler.initialize(start, end)
+a2d = cutaway.to2d(start, start, end)
+b2d = cutaway.to2d(end, start, end)
+pts = handler.combinedCutaways[0].surfaceWalk(a2d, b2d)
+drawCutawayPoints(pts, { radius: 5 })
+
+
+res = handler.constructWalkingPath(start, end)
+res = handler.constructBurrowingPath(start, end)
+
+res = handler.constructWalkingPath(start, end)
+res2 = handler._constructWalkingPathV2(start, end)
+
+
+N = 1000
+CONFIG.terrainmapper.ClipperPaths = CONFIG.GeometryLib.ClipperPaths
+await QBenchmarkLoopFn(N, handler._constructWalkingPath.bind(handler), "Normal", start, end)
+await QBenchmarkLoopFn(N, handler._constructWalkingPathV2.bind(handler), "Clipper", start, end)
+
+CONFIG.terrainmapper.ClipperPaths = CONFIG.GeometryLib.Clipper2Paths
+await QBenchmarkLoopFn(N, handler._constructWalkingPathV2.bind(handler), "Clipper", start, end)
+
+// Clipper1 actually a bit faster here. But Clipper2 is repeating points here, so may be something still off.
+
+
+handler.initialize(start, end)
+path = handler.constructWalkingPath(start, end)
+TokenElevationHandler.drawPath(path, { color: Draw.COLORS.red })
+
+path = handler.constructFlyingPath(start, end)
+TokenElevationHandler.drawPath(path, { color: Draw.COLORS.blue })
+
+path = handler.constructBurrowingPath(start, end)
+TokenElevationHandler.drawPath(path, { color: Draw.COLORS.orange })
+
+
+
+function drawPath(path) {
+  Draw.connectPoints(path);
+  path.forEach(pt => Draw.point(pt));
+
+  // Draw 2d.
+  const start = path.at(0);
+  const dist = PIXI.Point.distanceBetween(start, path.at(-1));
+  path.forEach(pt => {
+    const ptDist = PIXI.Point.distanceBetween(start, pt);
+    const t = ptDist / dist;
+    pt.t0 = t;
+  });
+  const cutawayPath = path.map(pt => new PIXI.Point(pt.t0 * 1000, -pt.z));
+  Draw.connectPoints(cutawayPath);
+  cutawayPath.forEach(pt => Draw.point(pt))
+
+}
+
+start = ElevatedPoint.tmp.set(2000, 500, 200)
+end = ElevatedPoint.tmp.set(2500, 500, 400)
+quarter = ElevatedPoint.tmp.set(2125, 500, 200)
+half = ElevatedPoint.tmp.set(2250, 500, 200)
+threeQ = ElevatedPoint.tmp.set(2375, 500, 200)
+endPlus = ElevatedPoint.tmp.set(2600, 500, 200)
+startMinus = ElevatedPoint.tmp.set(1900, 500, 200)
+
+
+start2d = cutaway.to2d(start, start, end)
+end2d = cutaway.to2d(end, start, end)
+quarter2d = cutaway.to2d(quarter, start, end)
+half2d = cutaway.to2d(half, start, end)
+threeQ2d = cutaway.to2d(threeQ, start, end)
+endPlus2d = cutaway.to2d(endPlus, start, end)
+startMinus2d = cutaway.to2d(startMinus, start, end)
+
+
+cutaway.from2d(start2d, start, end)
+cutaway.from2d(end2d, start, end)
+cutaway.from2d(quarter2d, start, end)
+cutaway.from2d(half2d, start, end)
+cutaway.from2d(threeQ2d, start, end)
+cutaway.from2d(endPlus2d, start, end)
+cutaway.from2d(startMinus2d, start, end)
+
+
+
+/**
+ * For a given cutaway line, get the 2d points representing travel along the surface of this region.
+ * @param {PIXI.Point} a2d      A point on the line
+ * @param {PIXI.Point} b2d      A second point later than the first in the x direction. Only the x coordinate is used.
+ * @returns {PIXI.Point[]}      Points on the top of the cutaway polygon for the region.
+ */
+function surfaceWaypoints(cutPoly, a2d, b2d) {
+  // Can assume point 0 is TL and that the shape does not double-back.
+  a2d ??= PIXI.Point.tmp.set(Number.NEGATIVE_INFINITY, 0);
+  b2d ??= PIXI.Point.tmp.set(Number.POSITIVE_INFINITY, 0);
+
+  const out = [];
+  const iter = cutPoly.iteratePoints({ close: false });
+  let v0 = iter.next().value;
+  if ( almostGreaterThan(v0.x, a2d.x) ) out.push(v0);
+  else for ( const v of iter ) {
+    if ( v.x.almostEqual(a2d.x) ) { out.push(v); break }
+    if ( v.x > a2d.x ) { out.push(a2d); break; }
+    v0 = v;
+  }
+  for ( const v of iter ) {
+    if ( v.x < v0.x ) return out;
+    if ( v.x.almostEqual(b2d.x) ) { out.push(b2d); return out; }
+    if ( v.x < b2d.x ) out.push(v);
+    v0 = v;
+  }
+  return out;
+}
+
+tm = rectRegion.terrainmapper
+cutPoly = tm._cutaway(start, end)[0]
+
+pts2d = [...cutPoly.iteratePoints({ close: false })]
+ptsTx =  pts2d.map(pt => PIXI.Point.tmp.set(Math.sqrt(pt.x), Math.min(-pt.y, 1000)))
+Draw.connectPoints(ptsTx)
+surfaceWaypoints(cutPoly)
+
+start = zaPt
+end = riPt
+handler = Randal.terrainmapper
+handler.initialize(start, end)
+cutHandler = handler.combinedCutaways[0]
+
+pt = new PIXI.Point(-10, 0)        // Outside left
+pt = new PIXI.Point(1735267, 0)    // Outside right
+
+pt = new PIXI.Point(16249, 1000)       // Above, left
+pt = new PIXI.Point(1326834, 1000) // Above, right
+pt = new PIXI.Point(16300, 1000)       // Above
+
+pt = new PIXI.Point(104069, 1000)       // Above, step
+
+
+pt = new PIXI.Point(16249, -100)       // below, left
+pt = new PIXI.Point(1326834, -100) // below, right
+pt = new PIXI.Point(16300, -100)       // below
+
+pt = new PIXI.Point(16249, 600)       // Ground, left
+pt = new PIXI.Point(1326834, 0) // Ground, right
+pt = new PIXI.Point(16300, 600)       // Ground
+pt = new PIXI.Point(104069, 520)       // Ground, step
+
+
+
+cutHandler.elevationType(pt)
+cutHandler.elevationUponEntry(pt)
+handler._nearestSupport(pt)
+
+// Test cutaway polygon
+cutPoly = new CONFIG.GeometryLib.CutawayPolygon.fromCutawayPoints([
+  1735265, -1000000,
+  0, -1000000,
+  0, 0,
+  16249, 0,
+  16249,600,
+  1326834, 200,
+  1326834, 0,
+  1735265, 0,
+  1735265, -1000000
+], start = new CONFIG.GeometryLib.ElevatedPoint(2350, 2250, 0), end = new CONFIG.GeometryLib.ElevatedPoint(3650, 2450, 0))
+
+
+handler = canvas.tokens.placeables[0]
+cutHandler = new handler.combinedCutaways[0].constructor(cutPoly)
+
+let { describe, expect } = quench.chai
+let { it } = quench.mocha
+
+describe('CutawayPolygon Handler elevationType', () => {
+  const cutPoly = CONFIG.GeometryLib.CutawayPolygon.fromCutawayPoints([
+    1735265, -1000000,
+    0, -1000000,
+    0, 0,
+    16249, 0,
+    16249,600,
+    1326834, 200,
+    1326834, 0,
+    1735265, 0,
+    1735265, -1000000
+  ], start = new CONFIG.GeometryLib.threeD.ElevatedPoint(2350, 2250, 0), end = new CONFIG.GeometryLib.threeD.ElevatedPoint(3650, 2450, 0))
+
+  const handler = canvas.tokens.placeables[0].terrainmapper
+  const cutHandler = handler.combinedCutaways[0].constructor(cutPoly)
+  const { ABOVE, BELOW, GROUND, OUTSIDE } = handler.constructor.ELEVATION_LOCATIONS;
+
+  it('should handle outside points', () => {
+    let pt = new PIXI.Point(-10, 0)        // Outside left
+    expect(cutHandler.elevationType(pt)).to.equal(OUTSIDE);
+
+    pt = new PIXI.Point(1735267, 0)        // Outside right
+    expect(cutHandler.elevationType(pt)).to.equal(OUTSIDE);
+
+
+  });
+})
+
+
+
+

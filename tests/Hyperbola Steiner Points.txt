@@ -1,0 +1,445 @@
+/**
+ * Calculates the Steiner points for a hyperbola on a right-circular cone.
+ *
+ * This construction assumes the cone's apex is at the origin (0,0,0),
+ * its axis is aligned with the Z-axis, and its base is on the plane
+ * z = height. The hyperbola is formed by cutting the cone with a
+ * vertical plane defined by x = offset. The Steiner points are the
+ * intersections of the hyperbola's asymptotes with the cone's base plane.
+ *
+ * @param {number} baseRadius The radius (r) of the cone's base. Must be a positive number.
+ * @param {number} height The height (h) of the cone. Must be a positive number.
+ * @param {number} offset The distance (d) of the vertical cutting plane from the cone's apex.
+ * Must be a positive number to form a hyperbola.
+ * @returns {Array<object>|null} An array of two objects representing the Steiner points,
+ * each with x, y, and z properties, or null if the
+ * inputs are invalid.
+ */
+function getSteinerPointsForHyperbolaOnCone(baseRadius, height, offset) {
+  // --- Input Validation ---
+  if (typeof baseRadius !== 'number' || typeof height !== 'number' || typeof offset !== 'number') {
+    console.error("Error: All inputs must be numbers.");
+    return null;
+  }
+  if (baseRadius <= 0 || height <= 0 || offset <= 0) {
+    console.error("Error: baseRadius, height, and offset must be positive numbers.");
+    return null;
+  }
+
+  // The Steiner points lie on the cutting plane (x = offset) and the
+  // cone's base plane (z = height). Their y-coordinates correspond
+  // to +/- the base radius.
+  const steinerPoint1 = {
+    x: offset,
+    y: baseRadius,
+    z: height,
+  };
+
+  const steinerPoint2 = {
+    x: offset,
+    y: -baseRadius,
+    z: height,
+  };
+
+  return [steinerPoint1, steinerPoint2];
+}
+
+// --- Example Usage ---
+const r = 10; // Base radius of the cone
+const h = 20; // Height of the cone
+const d = 5;  // Offset of the cutting plane
+
+const steinerPoints = getSteinerPointsForHyperbolaOnCone(r, h, d);
+
+if (steinerPoints) {
+  console.log("Steiner Point 1:", steinerPoints[0]); // Expected: { x: 5, y: 10, z: 20 }
+  console.log("Steiner Point 2:", steinerPoints[1]); // Expected: { x: 5, y: -10, z: 20 }
+}
+
+Of course. Here is a JavaScript function that constructs the Steiner points for a hyperbola formed by cutting a right-circular cone with a vertical plane.
+
+```javascript
+/**
+ * Calculates the Steiner points for a hyperbola on a right-circular cone.
+ *
+ * This construction assumes the cone's apex is at the origin (0,0,0),
+ * its axis is aligned with the Z-axis, and its base is on the plane
+ * z = height. The hyperbola is formed by cutting the cone with a
+ * vertical plane defined by x = offset. The Steiner points are the
+ * intersections of the hyperbola's asymptotes with the cone's base plane.
+ *
+ * @param {number} baseRadius The radius (r) of the cone's base. Must be a positive number.
+ * @param {number} height The height (h) of the cone. Must be a positive number.
+ * @param {number} offset The distance (d) of the vertical cutting plane from the cone's apex.
+ * Must be a positive number to form a hyperbola.
+ * @returns {Array<object>|null} An array of two objects representing the Steiner points,
+ * each with x, y, and z properties, or null if the
+ * inputs are invalid.
+ */
+function getSteinerPointsForHyperbolaOnCone(baseRadius, height, offset) {
+  // --- Input Validation ---
+  if (typeof baseRadius !== 'number' || typeof height !== 'number' || typeof offset !== 'number') {
+    console.error("Error: All inputs must be numbers.");
+    return null;
+  }
+  if (baseRadius <= 0 || height <= 0 || offset <= 0) {
+    console.error("Error: baseRadius, height, and offset must be positive numbers.");
+    return null;
+  }
+
+  // The Steiner points lie on the cutting plane (x = offset) and the
+  // cone's base plane (z = height). Their y-coordinates correspond
+  // to +/- the base radius.
+  const steinerPoint1 = {
+    x: offset,
+    y: baseRadius,
+    z: height,
+  };
+
+  const steinerPoint2 = {
+    x: offset,
+    y: -baseRadius,
+    z: height,
+  };
+
+  return [steinerPoint1, steinerPoint2];
+}
+
+// --- Example Usage ---
+const r = 10; // Base radius of the cone
+const h = 20; // Height of the cone
+const d = 5;  // Offset of the cutting plane
+
+const steinerPoints = getSteinerPointsForHyperbolaOnCone(r, h, d);
+
+if (steinerPoints) {
+  console.log("Steiner Point 1:", steinerPoints[0]); // Expected: { x: 5, y: 10, z: 20 }
+  console.log("Steiner Point 2:", steinerPoints[1]); // Expected: { x: 5, y: -10, z: 20 }
+}
+
+/**
+ * Generates points on a hyperbola formed by a cone and a vertical plane.
+ * This function uses a parametric approach derived from the geometry of the intersection.
+ *
+ * @param {number} baseRadius The radius (r) of the cone's base.
+ * @param {number} height The height (h) of the cone.
+ * @param {number} offset The distance (d) of the cutting plane from the apex.
+ * @param {number} numPoints The total number of points to generate on the curve.
+ * @param {number} [parameterRange=2.5] Controls how far the points extend along the hyperbola's arms.
+ * A larger number creates longer arms.
+ * @returns {Array<object>|null} An array of point objects {x, y, z} or null if inputs are invalid.
+ */
+function generateHyperbolaPoints(baseRadius, height, offset, numPoints, parameterRange = 2.5) {
+  // --- Input Validation ---
+  if ([baseRadius, height, offset, numPoints].some(v => typeof v !== 'number')) {
+    console.error("Error: All inputs must be numbers.");
+    return null;
+  }
+  if (baseRadius <= 0 || height <= 0 || offset <= 0) {
+    console.error("Error: baseRadius, height, and offset must be positive numbers.");
+    return null;
+  }
+  if (!Number.isInteger(numPoints) || numPoints <= 0) {
+    console.error("Error: numPoints must be a positive integer.");
+    return null;
+  }
+  if (offset >= baseRadius) {
+    console.error(`Error: offset (${offset}) must be less than baseRadius (${baseRadius}) for the plane to intersect the cone and form a hyperbola.`);
+    return null;
+  }
+
+
+  const points = [];
+  const k = height / baseRadius; // A ratio related to the cone's slope
+
+  // For a single point, calculate the vertex of the hyperbola (u=0)
+  if (numPoints === 1) {
+    const vertex = {
+      x: offset,
+      y: 0,
+      z: k * offset, // Derived from z = (d*h/r)*cosh(0)
+    };
+    return [vertex];
+  }
+
+  // Iterate through the parameter u to generate points along the hyperbola
+  for (let i = 0; i < numPoints; i++) {
+    // Map the loop variable i to a parameter u in the range [-parameterRange, +parameterRange]
+    const u = -parameterRange + (2 * parameterRange * i) / (numPoints - 1);
+
+    const point = {
+      x: offset,
+      y: offset * Math.sinh(u),
+      z: k * offset * Math.cosh(u),
+    };
+    points.push(point);
+  }
+
+  return points;
+}
+
+
+// --- Example Usage ---
+
+// Cone and plane properties
+const r = 10; // Base radius
+const h = 20; // Height
+const d = 5;  // Offset
+
+// 1. Get the Steiner points
+const steinerPoints = getSteinerPointsForHyperbolaOnCone(r, h, d);
+if (steinerPoints) {
+  console.log("--- Steiner Points ---");
+  console.log("Steiner Point 1:", steinerPoints[0]);
+  console.log("Steiner Point 2:", steinerPoints[1]);
+  console.log("\n");
+}
+
+
+// 2. Generate points along the hyperbola
+const pointCount = 25; // How many points to create
+const hyperbolaPoints = generateHyperbolaPoints(r, h, d, pointCount);
+if (hyperbolaPoints) {
+  console.log(`--- Generated ${pointCount} Hyperbola Points ---`);
+  hyperbolaPoints.forEach((p, i) => {
+    // Log the first few points for brevity
+    if (i < 5 || i > hyperbolaPoints.length - 6) {
+      console.log(`Point ${i+1}: { x: ${p.x.toFixed(2)}, y: ${p.y.toFixed(2)}, z: ${p.z.toFixed(2)} }`);
+    } else if (i === 5) {
+      console.log('...');
+    }
+  });
+}
+
+```
+
+-----
+
+## How It Works
+
+The solution is derived from the geometric properties of a cone and the definition of Steiner's generation of a conic section.
+
+### 1\. Geometric Setup 📐
+
+We place the right-circular cone in a 3D coordinate system with its **apex at the origin (0, 0, 0)** and its central axis along the Z-axis.
+
+  * The equation of this cone is $x^2 + y^2 = k^2 z^2$, where $k$ is the constant slope of the cone's surface, defined as $k = \\frac{\\text{baseRadius}}{\\text{height}} = \\frac{r}{h}$.
+  * The **vertical cutting plane** is parallel to the Z-axis and is given by the equation $x = d$, where $d$ is the `offset`.
+  * The **base of the cone** lies on the horizontal plane defined by $z = h$.
+
+### 2\. Finding the Asymptotes
+
+The Steiner points for this construction are the points where the **asymptotes of the hyperbola intersect the base of the cone**.
+
+To find the asymptotes, we first find the equation of the hyperbola by substituting the plane's equation ($x=d$) into the cone's equation:
+
+$$d^2 + y^2 = \left(\frac{r}{h}\right)^2 z^2$$
+
+Rearranging this into the standard form for a hyperbola gives:
+
+$$\left(\frac{r}{h}\right)^2 z^2 - y^2 = d^2$$
+
+The asymptotes of this hyperbola are found by setting the constant term to zero:
+
+$$\left(\frac{r}{h}\right)^2 z^2 - y^2 = 0 \implies y^2 = \left(\frac{r}{h}\right)^2 z^2 \implies y = \pm \frac{r}{h} z$$
+
+These two lines ($y = \\frac{r}{h}z$ and $y = -\\frac{r}{h}z$) represent the asymptotes on the plane $x=d$.
+
+### 3\. Intersection with the Cone's Base
+
+Finally, we find where these asymptote lines intersect the cone's base plane, $z=h$. We simply substitute $z=h$ into the asymptote equations:
+
+$$y = \pm \frac{r}{h} (h) \implies y = \pm r$$
+
+This gives us the y-coordinates of the Steiner points. We already know their x and z coordinates from the definitions of the cutting plane and the base plane.
+
+Therefore, the coordinates of the two Steiner points are:
+
+  * **Point 1:** $(d, r, h)$ which corresponds to `(offset, baseRadius, height)`
+  * **Point 2:** $(d, -r, h)$ which corresponds to `(offset, -baseRadius, height)`
+
+This elegant result shows that the calculation is surprisingly simple, as reflected in the JavaScript function.
+
+Certainly. Here is the updated code, including a new function `generateHyperbolaPoints` that uses a method derived from the Steiner generation to construct points along the hyperbola.
+
+```javascript
+/**
+ * Calculates the Steiner points for a hyperbola on a right-circular cone.
+ *
+ * This construction assumes the cone's apex is at the origin (0,0,0),
+ * its axis is aligned with the Z-axis, and its base is on the plane
+ * z = height. The hyperbola is formed by cutting the cone with a
+ * vertical plane defined by x = offset. The Steiner points are the
+ * intersections of the hyperbola's asymptotes with the cone's base plane.
+ *
+ * @param {number} baseRadius The radius (r) of the cone's base. Must be a positive number.
+ * @param {number} height The height (h) of the cone. Must be a positive number.
+ * @param {number} offset The distance (d) of the vertical cutting plane from the cone's apex.
+ * Must be a positive number to form a hyperbola.
+ * @returns {Array<object>|null} An array of two objects representing the Steiner points,
+ * each with x, y, and z properties, or null if the
+ * inputs are invalid.
+ */
+function getSteinerPointsForHyperbolaOnCone(baseRadius, height, offset) {
+  // --- Input Validation ---
+  if (typeof baseRadius !== 'number' || typeof height !== 'number' || typeof offset !== 'number') {
+    console.error("Error: All inputs must be numbers.");
+    return null;
+  }
+  if (baseRadius <= 0 || height <= 0 || offset <= 0) {
+    console.error("Error: baseRadius, height, and offset must be positive numbers.");
+    return null;
+  }
+
+  // The Steiner points lie on the cutting plane (x = offset) and the
+  // cone's base plane (z = height). Their y-coordinates correspond
+  // to +/- the base radius.
+  const steinerPoint1 = {
+    x: offset,
+    y: baseRadius,
+    z: height,
+  };
+
+  const steinerPoint2 = {
+    x: offset,
+    y: -baseRadius,
+    z: height,
+  };
+
+  return [steinerPoint1, steinerPoint2];
+}
+
+/**
+ * Generates points on a hyperbola formed by a cone and a vertical plane.
+ * This function uses a parametric approach derived from the geometry of the intersection.
+ *
+ * @param {number} baseRadius The radius (r) of the cone's base.
+ * @param {number} height The height (h) of the cone.
+ * @param {number} offset The distance (d) of the cutting plane from the apex.
+ * @param {number} numPoints The total number of points to generate on the curve.
+ * @param {number} [parameterRange=2.5] Controls how far the points extend along the hyperbola's arms.
+ * A larger number creates longer arms.
+ * @returns {Array<object>|null} An array of point objects {x, y, z} or null if inputs are invalid.
+ */
+function generateHyperbolaPoints(baseRadius, height, offset, numPoints, parameterRange = 2.5) {
+  // --- Input Validation ---
+  if ([baseRadius, height, offset, numPoints].some(v => typeof v !== 'number')) {
+    console.error("Error: All inputs must be numbers.");
+    return null;
+  }
+  if (baseRadius <= 0 || height <= 0 || offset <= 0) {
+    console.error("Error: baseRadius, height, and offset must be positive numbers.");
+    return null;
+  }
+  if (!Number.isInteger(numPoints) || numPoints <= 0) {
+    console.error("Error: numPoints must be a positive integer.");
+    return null;
+  }
+  if (offset >= baseRadius) {
+    console.error(`Error: offset (${offset}) must be less than baseRadius (${baseRadius}) for the plane to intersect the cone and form a hyperbola.`);
+    return null;
+  }
+
+
+  const points = [];
+  const k = height / baseRadius; // A ratio related to the cone's slope
+
+  // For a single point, calculate the vertex of the hyperbola (u=0)
+  if (numPoints === 1) {
+    const vertex = {
+      x: offset,
+      y: 0,
+      z: k * offset, // Derived from z = (d*h/r)*cosh(0)
+    };
+    return [vertex];
+  }
+
+  // Iterate through the parameter u to generate points along the hyperbola
+  for (let i = 0; i < numPoints; i++) {
+    // Map the loop variable i to a parameter u in the range [-parameterRange, +parameterRange]
+    const u = -parameterRange + (2 * parameterRange * i) / (numPoints - 1);
+
+    const point = {
+      x: offset,
+      y: offset * Math.sinh(u),
+      z: k * offset * Math.cosh(u),
+    };
+    points.push(point);
+  }
+
+  return points;
+}
+
+
+// --- Example Usage ---
+
+// Cone and plane properties
+const r = 10; // Base radius
+const h = 20; // Height
+const d = 5;  // Offset
+
+// 1. Get the Steiner points
+const steinerPoints = getSteinerPointsForHyperbolaOnCone(r, h, d);
+if (steinerPoints) {
+  console.log("--- Steiner Points ---");
+  console.log("Steiner Point 1:", steinerPoints[0]);
+  console.log("Steiner Point 2:", steinerPoints[1]);
+  console.log("\n");
+}
+
+
+// 2. Generate points along the hyperbola
+const pointCount = 25; // How many points to create
+const hyperbolaPoints = generateHyperbolaPoints(r, h, d, pointCount);
+if (hyperbolaPoints) {
+  console.log(`--- Generated ${pointCount} Hyperbola Points ---`);
+  hyperbolaPoints.forEach((p, i) => {
+    // Log the first few points for brevity
+    if (i < 5 || i > hyperbolaPoints.length - 6) {
+      console.log(`Point ${i+1}: { x: ${p.x.toFixed(2)}, y: ${p.y.toFixed(2)}, z: ${p.z.toFixed(2)} }`);
+    } else if (i === 5) {
+      console.log('...');
+    }
+  });
+}
+```
+
+-----
+
+## How the Point Generation Works
+
+The Steiner generation of a conic can be seen as finding the intersection of corresponding lines from two projective pencils. In our 3D case, a practical way to apply this principle is to find the intersection of the cone's generator lines with the cutting plane. For robust and clean computation, we first derive the hyperbola's equation and then use a parametric formula to trace its path.
+
+### 1\. The Hyperbola's Equation
+
+As shown previously, the intersection of the cone $x^2 + y^2 = (r/h)^2 z^2$ and the plane $x=d$ results in the hyperbola defined by:
+
+$$\left(\frac{r}{h}\right)^2 z^2 - y^2 = d^2$$
+
+This equation describes the shape of the hyperbola on the 2D plane where $x$ is fixed at $d$.
+
+### 2\. Parametric Formula using Hyperbolic Functions 📈
+
+To generate points along this curve in a controlled way, we use a parametrization based on hyperbolic trigonometric functions, which are the natural way to describe a hyperbola, much like `sin` and `cos` describe a circle.
+
+We can satisfy the equation above by setting:
+
+  * $y = d \\sinh(u)$
+  * $\\frac{r}{h} z = d \\cosh(u)$
+
+Here, $u$ is a parameter that we can vary. Let's check if this works by substituting it back into the equation:
+
+$$\left(d \cosh(u)\right)^2 - \left(d \sinh(u)\right)^2 = d^2$$
+$$d^2 (\cosh^2(u) - \sinh^2(u)) = d^2$$
+
+Because of the fundamental identity $\\cosh^2(u) - \\sinh^2(u) = 1$, this simplifies to $d^2 = d^2$. The identity holds, confirming our parametrization is correct.
+
+### 3\. Final Point Coordinates
+
+By rearranging the z-component and including our fixed x-coordinate, we get the 3D coordinates for any point on the hyperbola based on the parameter $u$:
+
+  * $x = d$
+  * $y = d \\sinh(u)$
+  * $z = \\frac{d \\cdot h}{r} \\cosh(u)$
+
+The function `generateHyperbolaPoints` simply loops from a negative to a positive value of `u` (`-parameterRange` to `+parameterRange`) to calculate the $(x, y, z)$ coordinates for `numPoints` points along the curve. The vertex of the hyperbola occurs at $u=0$.
