@@ -56,7 +56,7 @@ function _testEdgeInclusion(wrapper, edge, edgeTypes, bounds) {
   ));
 
   const { source, type } = this.config;
-  const placeable = source.object;
+  const placeable = source?.object;
   if ( !placeable ) return true;
 
   switch ( type ) {
