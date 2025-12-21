@@ -266,7 +266,7 @@ export class WallTracerEdge extends GraphEdge {
    * @returns {WallTracerEdge[]}
    */
   static fromToken(token) {
-    const edgeIter = token.constrainedTokenBorder.iterateEdges();
+    const edgeIter = token.constrainedTokenBorder.toPolygon().iterateEdges();
     const edges = [];
     for ( const edge of edgeIter ) edges.push(this.fromObject(edge.A, edge.B, [token]));
     return edges;
@@ -666,7 +666,7 @@ export class WallTracer extends Graph {
     if ( this.edges.has(tokenId) ) return;
 
     // Construct a new token edge set.
-    const edgeIter = token.constrainedTokenBorder.iterateEdges();
+    const edgeIter = token.constrainedTokenBorder.toPolygon().iterateEdges();
     for ( const edge of edgeIter ) this.addObjectEdge(edge.A, edge.B, token);
     this.tokenIds.add(tokenId);
   }
