@@ -129,8 +129,8 @@ export function TerrainMixin(Base) {
 
     static findFoldersForEffect(effectId) {
       const out = new Set();
-      this.folders.forEach(folder => {
-        if ( folder.effects.include(effectId) ) out.add(folder);
+      this.folders.values().forEach(folder => {
+        if ( folder.effects.includes(effectId) ) out.add(folder);
       });
       return out;
     }

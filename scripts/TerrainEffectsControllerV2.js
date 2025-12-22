@@ -315,7 +315,7 @@ export class TerrainEffectsControllerV2 {
   async onImportTerrain(effectId) {
     log("TerrainEffectsController|onImportTerrain", { effectId });
     const terrain = CONFIG[MODULE_ID].Terrain._instances.get(effectId);
-    const res = await this.importFromJSONDialog(terrain);
+    const res = await this.importFromJSONDialog();
     if ( !res || res.type === "error" || res === "cancel" ) return;
     await terrain.fromJSON(res);
     this.rerender();
@@ -498,7 +498,7 @@ export class TerrainEffectsControllerV2 {
 
     // Search by effect name
     if ( nameOnlySearch ) {
-      for ( const entry of CONFIG[MODULE_ID].Terrain._instances ) {
+      for ( const entry of CONFIG[MODULE_ID].Terrain._instances.values() ) {
         // If searching by name, match the entry name.
         if ( query?.test(SearchFilter.cleanQuery(entry.name)) ) {
           entryIds.add(entry.uniqueEffectId);
@@ -510,7 +510,7 @@ export class TerrainEffectsControllerV2 {
     if ( nameOnlySearch ) return;
 
     // Search by effect description
-    for ( const entry of CONFIG[MODULE_ID].Terrain._instances ) {
+    for ( const entry of CONFIG[MODULE_ID].Terrain._instances.values() ) {
       if ( query?.test(SearchFilter.cleanQuery(entry.document.description)) ) {
         entryIds.add(entry.uniqueEffectId);
         const entryFolders = CONFIG[MODULE_ID].Terrain.findFoldersForEffect(entry.uniqueEffectId);
@@ -524,10 +524,9 @@ export class TerrainEffectsControllerV2 {
 
   /**
    * Open a dialog to import data into a terrain.
-   * @param {UniqueActiveEffect} terrain    The terrain for which to overwrite
    * @returns {string|"close"|null} The json from the imported text file. "close" if close button hit; null if dialog closed.
    */
-  async importFromJSONDialog(terrain) {
+  async importFromJSONDialog() {
     // See https://github.com/DFreds/dfreds-convenient-effects/blob/c2d5e81eb1d28d4db3cb0889c22a775c765c24e3/scripts/effects/custom-effects-handler.js#L156
     const hint1 = game.i18n.localize(`${MODULE_ID}.terrainbook.import-terrain-description`);
     const content = await renderTemplate("templates/apps/import-data.hbs", { hint1 }); // Skip hint2.
