@@ -1,5 +1,4 @@
 /* globals
-ActiveEffect,
 CONFIG,
 CONST,
 foundry,
@@ -85,9 +84,11 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
       const doc = effect.document.toObject();
       doc.flags[MODULE_ID][FLAGS.UNIQUE_EFFECT.IS_LOCAL] = true;
       foundry.utils.mergeObject(doc, data);
-      // Force display of the status icon
+
+      // Force display of the status icon if no statuses available.
       doc.statuses ??= [];
-      if ( token.document.disposition !== CONST.TOKEN_DISPOSITIONS.SECRET
+      if ( !doc.statuses.length
+        && token.document.disposition !== CONST.TOKEN_DISPOSITIONS.SECRET
         && effect.img
         && effect.displayStatusIcon ) doc.statuses.push(effect.img);
 
@@ -139,7 +140,7 @@ export class UniqueActiveEffect extends AbstractUniqueEffect {
   static async _processEffectDrop(data) {
     if ( !data.uuid ) return;
     const effect = await fromUuid(data.uuid);
-    if ( !(effect instanceof ActiveEffect) ) return;
+    if ( !(effect instanceof foundry.documents.ActiveEffect) ) return;
     const effectData = effect.toObject()
     const uniqueEffectId = effect.getFlag("dfreds-convenient-effects", "ceEffectId") ?? this.uniqueEffectId();
     // foundry.utils.setProperty(data, `flags.${MODULE_ID}.${FLAGS.UNIQUE_EFFECT.ID}`, uniqueEffectId);
