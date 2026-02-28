@@ -282,7 +282,7 @@ function initializeConfig() {
      * adjusted to the next supporting level.
      * @type {Set<foundry.CONFIG.Token.movement.actions>}
      */
-    terrainWalkActions: new Set(["walk", "climb", "crawl"]),
+    terrainWalkActions: new Set(["walk", "climb", "crawl", "travel"]),
 
     /**
      * Token actions that are meant to move tokens on or above a terrain but not through them.
