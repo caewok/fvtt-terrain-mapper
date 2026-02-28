@@ -19,6 +19,17 @@ export class TerrainFlagEffect extends TerrainMixin(UniqueFlagEffect) {}
 export class TerrainPF2E extends TerrainItemEffect {
 
   /**
+   * Override to use PF2e's "effect" item type for the flag storage document.
+   */
+  static get _flagStorageData() {
+    return {
+      name: "Unique Active Effects",
+      img: "icons/svg/ruins.svg",
+      type: "effect",
+    };
+  }
+
+  /**
    * Default data required to be present in the base effect document.
    * @param {string} [activeEffectId]   The id to use
    * @returns {object}
