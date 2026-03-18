@@ -12,7 +12,7 @@ import { Plane } from "./geometry/3d/Plane.js";
 import { ElevatedPoint } from "./geometry/3d/ElevatedPoint.js";
 import { regionWaypointsXYAlmostEqual } from "./util.js";
 import { Draw } from "./geometry/Draw.js";
-import { instanceOrTypeOf, gridUnitsToPixels, bresenhamLineIterator } from "./geometry/util.js";
+import { gridUnitsToPixels, bresenhamLineIterator } from "./geometry/util.js";
 
 /**
  * Single tile elevation handler
@@ -89,8 +89,8 @@ export class TileElevationHandler {
    * @returns {boolean}
    */
   lineSegmentIntersects(start, end) {
-    if ( !instanceOrTypeOf(start, ElevatedPoint) ) start = ElevatedPoint.fromObject(start);
-    if ( !instanceOrTypeOf(end, ElevatedPoint) ) end = ElevatedPoint.fromObject(end);
+    if ( !(start instanceof ElevatedPoint) ) start = ElevatedPoint.fromObject(start);
+    if ( !(end instanceof ElevatedPoint) ) end = ElevatedPoint.fromObject(end);
 
     // Handle the 2d case.
     if ( start.elevation === end.elevation ) {
@@ -137,7 +137,7 @@ export class TileElevationHandler {
    * @returns {boolean}
    */
   waypointOnTile(a, token) {
-    if ( !instanceOrTypeOf(a, ElevatedPoint) ) a = ElevatedPoint.fromObject(a);
+    if ( !(a instanceof ElevatedPoint) ) a = ElevatedPoint.fromObject(a);
     if ( a.elevation !== this.tile.elevationE ) return false;
     if ( !this.tile.bounds.contains(a.x, a.y) ) return false;
     if ( !this.lineSegmentIntersects(

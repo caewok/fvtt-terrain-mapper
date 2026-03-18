@@ -17,8 +17,8 @@ import { Plane } from "../geometry/3d/Plane.js";
 import { ElevatedPoint } from "../geometry/3d/ElevatedPoint.js";
 import { Matrix } from "../geometry/Matrix.js";
 import { TokenElevationHandler } from "../TokenElevationHandler.js";
-import { instanceOrTypeOf, gridUnitsToPixels, pixelsToGridUnits, cutaway } from "../geometry/util.js";
-import { AABB3d } from "../geometry/AABB.js";
+import { gridUnitsToPixels, pixelsToGridUnits, cutaway } from "../geometry/util.js";
+import { AABB3d } from "../geometry/3d/AABB3d.js";
 import { almostGreaterThan, almostLessThan, almostBetween } from "../geometry/util.js";
 
 /**
@@ -367,8 +367,8 @@ export class RegionElevationHandler {
    * @returns {ElevatedPoint|null} The intersection.
    */
   plateauSegmentIntersection(a, b) {
-    if ( !instanceOrTypeOf(a, ElevatedPoint) ) a = ElevatedPoint.fromObject(a);
-    if ( !instanceOrTypeOf(b, ElevatedPoint) ) b = ElevatedPoint.fromObject(b);
+    if ( !(a instanceof ElevatedPoint) ) a = ElevatedPoint.fromObject(a);
+    if ( !(b instanceof ElevatedPoint) ) b = ElevatedPoint.fromObject(b);
 
     if ( a.equalXY(b) ) {
       // A|b is a vertical line in the z direction.

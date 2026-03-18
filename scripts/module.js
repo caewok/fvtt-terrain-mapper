@@ -12,7 +12,6 @@ import { MODULE_ID, FA_ICONS, TEMPLATES, DEFAULT_FLAGS } from "./const.js";
 import { log } from "./util.js";
 import { Settings } from "./settings.js";
 import { PATCHER, initializePatching } from "./patching.js";
-import { registerGeometry } from "./geometry/registration.js";
 
 // Scene Graph
 import { WallTracerEdge, WallTracerVertex, WallTracer, SCENE_GRAPH } from "./WallTracer.js";
@@ -30,6 +29,9 @@ import { TokenElevationHandler, CutawayHandler } from "./TokenElevationHandler.j
 // Unique Terrain Effects
 import { TerrainActiveEffect, TerrainItemEffect, TerrainFlagEffect, TerrainPF2E } from "./terrain_unique_effects.js";
 import { defaultTerrains } from "./default_terrains.js";
+
+// Load the geometry library.
+import "./geometry/registration.js";
 
 // Self-executing hooks.
 import "./changelog.js";
@@ -138,7 +140,6 @@ Hooks.once("init", function() {
   if ( game.modules.has("quench") && game.modules.get("quench").active ) loadModuleConditionally("../tests/CutawayHandler.test.js");
 
   initializePatching();
-  registerGeometry();
   initializeConfig();
   initializeAPI();
   Settings.registerAll();
