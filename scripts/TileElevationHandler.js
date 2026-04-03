@@ -229,22 +229,23 @@ export class TileElevationHandler {
     // Easiest to do this in local space, to take advantage of the rectangle.
     a = holeCache._fromCanvasCoordinates(a.x, a.y);
     b = holeCache._fromCanvasCoordinates(b.x, b.y);
-    const ixs = holeCache.segmentIntersections(a, b);
+
+    const poly = holeCache.getThresholdLocalBoundingPolygon();
+    const ixs = poly.segmentIntersections(a, b);
 
     // Can have 0, 1, or 2 outer segments.
     const outerSegments = [];
     switch ( ixs.length ) {
       case 0: {
-        if ( holeCache.contains(a.x, a.y) ) return []; // Both a and b are inside.
-        const paddedCache = new PIXI.Rectangle();
-        holeCache.copyTo(paddedCache);
+        if ( poly.contains(a.x, a.y) ) return []; // Both a and b are inside.
+        const paddedCache = new PIXI.Polygon(poly.points);
         paddedCache.pad(holeThreshold);
         if ( !paddedCache.lineSegmentIntersects(a, b, { inside: true }) ) return []; // A|b never comes close enough
         outerSegments.push({ a, b }); // Both a and b are outside.
         break;
       }
       case 1: {
-        if ( holeCache.contains(a.x, a.y) ) outerSegments.push({ a: ixs[0], b });
+        if ( poly.contains(a.x, a.y) ) outerSegments.push({ a: ixs[0], b });
         else outerSegments.push({ a, b: ixs[0] });
         break;
       }
@@ -273,7 +274,7 @@ export class TileElevationHandler {
     const holes = [];
     const holeThreshold_1_2 = holeThreshold * 0.5;
     for ( const outerS of outerSegments ) {
-      let currHole = !holeCache.contains(outerS.a.x, outerS.a.y);
+      let currHole = !poly.contains(outerS.a.x, outerS.a.y);
       for ( const pt of bresenhamLineIterator(outerS.a, outerS.b) ) {
         // Either the edge is L/R/T/B or is one of the corners, e.g. TOP_LEFT.
         const z = holeCache._getZone(pt);
@@ -326,7 +327,7 @@ export class TileElevationHandler {
 
     // If the tile resolution is not 1, the hole threshold varies proportionally.
     const tileCache = this.tile.evPixelCache;
-    return holeThreshold * tileCache.scale.resolution;
+    return holeThreshold * tileCache.resolution;
   }
 
 
@@ -429,7 +430,7 @@ export class TileElevationHandler {
     // Until no more changes: update the 8 neighbors of each changed pixel.
     const { alphaThreshold, tile } = this;
     const tileCache = tile.evPixelCache;
-    const holeCache = tileCache.constructor.fromOverheadTileAlpha(tile, tileCache.scale.resolution);
+    const holeCache = tileCache.constructor.fromOverheadTileAlpha(tile, tileCache.resolution);
 
     // Set each alpha pixel to the max integer value to start, 0 otherwise.
     console.group(`${MODULE_ID}|constructHoleCache ${this.tile.id}`);

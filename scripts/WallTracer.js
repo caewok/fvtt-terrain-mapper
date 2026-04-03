@@ -1050,7 +1050,7 @@ function prorateTSplit(firstT, secondT) {
  * @return {boolean}
  */
 // function polygonPartiallyContained(encompassingPolygon, other) {
-//   const pts = other.iteratePoints({close: false});
+//   const pts = other.iteratePoints();
 //   for ( const pt of pts ) {
 //     if ( encompassingPolygon.contains(pt) ) return true;
 //   }

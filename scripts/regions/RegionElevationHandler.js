@@ -81,7 +81,8 @@ export class RegionElevationHandler {
     const minZ = gridUnitsToPixels(this.region.elevationE.bottom);
     const method = `from${capitalizeFirstLetter(shape.type)}`;
     const pixiShape = this.getPixiShape(shape);
-    const aabb = AABB3d[method](pixiShape, maxZ, minZ);
+    const z = [maxZ, minZ];
+    const aabb = AABB3d[method](pixiShape, z);
     this.#terrainAABB.set(shape, aabb);
     return aabb;
   }
@@ -577,7 +578,7 @@ export class RegionElevationHandler {
     // cutaway returns TL - BL - BR - TR -- ?steps where a is left and b is right.
     // Drop BL and BR.
     return cutPolys.map(cutPoly => {
-      const vertices = [...cutPoly.iteratePoints({ close: false})];
+      const vertices = [...cutPoly.iteratePoints()];
       vertices.splice(1, 2);
 
       // Reverse direction, keeping point 0.
@@ -685,7 +686,7 @@ export class RegionElevationHandler {
   _insertTopStepsIntoCutaway(cutawayPoly, ) {
     // The polygons for regions go TL, TR, BR, BL for non-hole.
     const isHole = cutawayPoly.isHole;
-    const pts = cutawayPoly.pixiPoints({ close: false });
+    const pts = [...cutawayPoly.iteratePoints()];
     const TL = pts[0];
     const TR = isHole ? pts.at(-1) : pts[1];
     const TL3d = cutawayPoly._from2d(TL);
