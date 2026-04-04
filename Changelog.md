@@ -1,3 +1,11 @@
+## 0.5.1
+Fixes for Terrain Book searching.
+Simplify AsyncQueue.
+Update Brazilian translations. Thanks @Kharmans!
+Add PF2e movement types and fix for incorrect elevation reset. Thanks @jlnnr!
+
+Update to libGeometry v0.5.
+
 ## 0.5.0
 Foundry v13 compatibility. Issue #84.
 Relies on the new Foundry Token Ruler implementation.
