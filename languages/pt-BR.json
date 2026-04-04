@@ -5,11 +5,29 @@
   "terrainmapper.controls.fill-space.name": "Preencher Espaços Cercados por Paredes",
 
   "terrainmapper.terrainbook.create-terrain": "Criar Terreno",
-  "terrainmapper.terrainbook.create-defaults": "Redefinir Terrenos Padrão",
+  "terrainmapper.terrainbook.create-folder": "Criar Pasta",
+  "terrainmapper.terrainbook.reset-defaults": "Redefinir Terrenos Padrão",
+  "terrainmapper.terrainbook.edit-terrain": "Editar Terreno",
+  "terrainmapper.terrainbook.import-terrain": "Importar Terreno",
+  "terrainmapper.terrainbook.export-terrain": "Exportar Terreno",
+  "terrainmapper.terrainbook.delete-terrain": "Excluir Terreno",
+  "terrainmapper.terrainbook.search": "Pesquisar Terrenos",
+  "terrainmapper.terrainbook.add-favorite": "Adicionar Favorito",
+  "terrainmapper.terrainbook.remove-favorite": "Remover Favorito",
+  "terrainmapper.terrainbook.all-terrains": "Todos os Terrenos",
+  "terrainmapper.terrainbook.favorites": "Favoritos",
+  "terrainmapper.terrainbook.are-you-sure": "Tem certeza?",
+  "terrainmapper.terrainbook.remove-terrain-description": "Isso removerá o terreno de todas as cenas.",
+  "terrainmapper.terrainbook.create-defaults-description": "Isso redefinirá todos os terrenos padrão existentes e adicionará novos terrenos padrão.",
+  "terrainmapper.terrainbook.import-terrain-description": "Você pode importar dados de configurações de terreno de um arquivo JSON exportado. Esta operação substituirá este terreno.",
+  "terrainmapper.terrainbook.default-terrain-folder": "Terrenos Padrão",
 
   "terrainmapper.scene-config.backgroundElevation.name": "Elevação de Fundo",
   "terrainmapper.scene-config.backgroundElevation.hint": "A elevação padrão para tokens colocados na tela.",
 
+  "terrainmapper.scene-config.constrainElevation.name": "Restringir Elevação",
+  "terrainmapper.scene-config.constrainElevation.hint": "Quando ativado, limita o movimento vertical do token com base no terreno e no tipo de movimento.",
+  
   "terrainmapper.active-effect-config.duplicatesAllowed.name": "Permitir Duplicatas",
   "terrainmapper.active-effect-config.duplicatesAllowed.hint": "Quando ativado, este efeito de terreno pode ser aplicado diversas vezes a um único token.",
 
@@ -87,12 +105,17 @@
 
   "terrainmapper.behavior.types.elevator.fields.resetOnExit.name": "Redefinir ao Sair",
   "terrainmapper.behavior.types.elevator.fields.resetOnExit.hint": "Se ativado, o token será redefinido para a elevação da cena (chão) na saída. Isso ocorrerá independentemente de o token ter subido escadas ou elevador ao entrar na região.",
+
+  "terrainmapper.behavior.types.blockingWalls.fields.types.cover.name": "Cobertura Física",
+  "terrainmapper.behavior.types.blockingWalls.fields.types.cover.hint": "Permite que os módulos tratem a região como cobertura física sem realmente bloquear o movimento do token.",
+
   
   "TYPES.RegionBehavior.terrainmapper.addTerrain": "Adicionar Terrenos",
   "TYPES.RegionBehavior.terrainmapper.removeTerrain": "Remover Terrenos",
   "TYPES.RegionBehavior.terrainmapper.setTerrain": "Definir Terreno",
   "TYPES.RegionBehavior.terrainmapper.setElevation": "Definir Elevação",
   "TYPES.RegionBehavior.terrainmapper.elevator": "Elevador",
+  "TYPES.RegionBehavior.terrainmapper.blockingWalls": "Paredes Bloqueando",
 
   "terrainmapper.elevationAlgorithm.labels.none": "Nenhum",
   "terrainmapper.elevationAlgorithm.labels.oneWay": "Escada de Mão Única",
@@ -117,4 +140,5 @@
   "terrainmapper.phrases.bottom": "Base",
   "terrainmapper.phrases.resetOnExit": "Retornar à elevação do chão?"
 }
+
 
