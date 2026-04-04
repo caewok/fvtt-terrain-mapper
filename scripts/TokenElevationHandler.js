@@ -7,6 +7,7 @@ PIXI
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 
 import { MODULE_ID } from "./const.js";
+import { GEOMETRY_LIB_ID } from "./geometry/const.js";
 import {
   elevatedRegions,
   elevatedTiles } from "./util.js";
@@ -115,7 +116,7 @@ export class TokenElevationHandler {
 
 
     if ( this.regions.length || this.tiles.length ) {
-      const ClipperPaths = CONFIG[MODULE_ID].ClipperPaths;
+      const ClipperPaths = CONFIG[GEOMETRY_LIB_ID].CONFIG.ClipperPaths;
       const cutaways = [canvas.scene, ...this.regions, ...this.tiles].flatMap(obj => obj[MODULE_ID]._cutaway(this.#start, this.#end, this.token));
 
       // Have to reverse the polygons for Clipper to not treat as holes.
@@ -471,10 +472,13 @@ export class TokenElevationHandler {
   #connectFlyingPathToEnd(path2d, a, b, a2d, b2d) {
     a2d ??= this.to2d(a);
     b2d ??= this.to2d(b);
-
+    
     // Are we already at the endpoint?
     const pathEnd = path2d.at(-1);
     if ( pathEnd.almostEqual(b2d) ) return path2d;
+
+    // Prevents elevation falling back to initial elevation when elevation at destination is higher than initial elevation
+    if ( pathEnd.x.almostEqual(b2d.x) && pathEnd.y > b2d.y ) return path2d;
 
     // Could we get there simply by flying without hitting anything?
     if ( this.#foundFlyingShortcut(pathEnd, b2d) ) {
@@ -933,24 +937,24 @@ export class CutawayHandler {
         if ( a2d.y.almostEqual(elev) ) return pts;
         return this.surfaceWalk(PIXI.Point.tmp.set(a2d.x, elev), b2d, _iter);
       }
-      priorMoveUp = edge.A.y <= edge.B.y;
+      priorMoveUp = edge.a.y <= edge.b.y;
     }
 
     while ( (edge = iter0.next().value) ) {
       const isEnd = this.#isEndingEdge(edge, b2d);
       if ( isEnd ) {
         if ( !isEnd.length && priorMoveUp ) { // Moving backwards; cut through to top.
-          const elev = this.elevationUponEntry(edge.A);
-          if ( edge.A.y.almostEqual(elev) ) return pts;
-          const newA = PIXI.Point.tmp.set(edge.A.x, elev);
+          const elev = this.elevationUponEntry(edge.a);
+          if ( edge.a.y.almostEqual(elev) ) return pts;
+          const newA = PIXI.Point.tmp.set(edge.a.x, elev);
           const newPts = this.surfaceWalk(newA, b2d, _iter);
-          pts.push(edge.A, newA, ...newPts);
+          pts.push(edge.a, newA, ...newPts);
           return pts;
         }
         pts.push(...isEnd); return pts;
       }
-      pts.push(edge.A); // B will become A next iteration.
-      priorMoveUp = edge.A.y <= edge.B.y;
+      pts.push(edge.a); // B will become A next iteration.
+      priorMoveUp = edge.a.y <= edge.b.y;
     }
 
     const iter1 = this.cutPoly.iterateEdges({ close: true });
@@ -958,17 +962,17 @@ export class CutawayHandler {
       const isEnd = this.#isEndingEdge(edge, b2d);
       if ( isEnd ) {
         if ( !isEnd.length && priorMoveUp ) { // Moving backwards; cut through to top.
-          const elev = this.elevationUponEntry(edge.A);
-          if ( edge.A.y.almostEqual(elev) ) return pts;
-          const newA = PIXI.Point.tmp.set(edge.A.x, elev);
+          const elev = this.elevationUponEntry(edge.a);
+          if ( edge.a.y.almostEqual(elev) ) return pts;
+          const newA = PIXI.Point.tmp.set(edge.a.x, elev);
           const newPts = this.surfaceWalk(newA, b2d, _iter);
-          pts.push(edge.A, newA, ...newPts);
+          pts.push(edge.a, newA, ...newPts);
           return pts;
         }
         pts.push(...isEnd); return pts;
       }
-      pts.push(edge.A); // B will become A next iteration.
-      priorMoveUp = edge.A.y <= edge.B.y;
+      pts.push(edge.a); // B will become A next iteration.
+      priorMoveUp = edge.a.y <= edge.b.y;
     }
     return pts;
   }
@@ -980,19 +984,19 @@ export class CutawayHandler {
    * @returns {boolean|null} Null if moving backwards at the intersection point with a2d.
    */
   #isStartingEdge(edge, a2d) {
-    if ( edge.A.almostEqual(a2d) ) return true;
-    if ( edge.B.almostEqual(a2d) ) return false;
+    if ( edge.a.almostEqual(a2d) ) return true;
+    if ( edge.b.almostEqual(a2d) ) return false;
 
     // Test for vertical A|B.
-    if ( edge.A.x === edge.B.x ) return edge.A.x.almostEqual(a2d.x) && almostBetween(a2d.y, edge.A.y, edge.B.y);
+    if ( edge.a.x === edge.b.x ) return edge.a.x.almostEqual(a2d.x) && almostBetween(a2d.y, edge.a.y, edge.b.y);
 
     // Test for ix with non-vertical A|B.
     const a1 = PIXI.Point.tmp.set(a2d.x, a2d.y + 1);
     const a2 = PIXI.Point.tmp.set(a2d.x, a2d.y - 1);
-    if ( foundry.utils.lineSegmentIntersects(edge.A, edge.B, a1, a2) ) {
+    if ( foundry.utils.lineSegmentIntersects(edge.a, edge.b, a1, a2) ) {
       a1.release();
       a2.release();
-      if ( edge.A.x > edge.B.x ) return null; // Moving backwards.
+      if ( edge.a.x > edge.b.x ) return null; // Moving backwards.
       return true;
     }
     a1.release();
@@ -1007,27 +1011,27 @@ export class CutawayHandler {
    * @returns {PIXI.Point[]|null} Points to add if necessary; null if not at the ending edge.
    */
   #isEndingEdge(edge, b2d) {
-    if ( edge.A.x > edge.B.x ) return []; // Moving backwards, so nothing to add but need to cancel the move.
-    if ( edge.B.x < b2d.x ) return null;
+    if ( edge.a.x > edge.b.x ) return []; // Moving backwards, so nothing to add but need to cancel the move.
+    if ( edge.b.x < b2d.x ) return null;
 
     // Test for vertical A|B.
-    if ( edge.A.x === edge.B.x && edge.A.x.almostEqual(b2d.x) ) {
+    if ( edge.a.x === edge.b.x && edge.a.x.almostEqual(b2d.x) ) {
       // Moving up or down.
-      if ( b2d.y.almostEqual(edge.A.y) ) return [edge.A];
-      if ( almostBetween(b2d.y, edge.A.y, edge.B.y) ) return [edge.A, b2d];
-      return [edge.A, edge.B];
+      if ( b2d.y.almostEqual(edge.a.y) ) return [edge.a];
+      if ( almostBetween(b2d.y, edge.a.y, edge.b.y) ) return [edge.a, b2d];
+      return [edge.a, edge.b];
     }
 
     // Test for ix in non-vertical A|B.
-    if ( almostBetween(b2d.x, edge.A.x, edge.B.x) ) {
-      if ( edge.A.x.almostEqual(b2d.x) ) return [edge.A];
+    if ( almostBetween(b2d.x, edge.a.x, edge.b.x) ) {
+      if ( edge.a.x.almostEqual(b2d.x) ) return [edge.a];
 
       const a1 = PIXI.Point.tmp.set(b2d.x, b2d.y + 1);
       const a2 = PIXI.Point.tmp.set(b2d.x, b2d.y - 1);
-      const ix = foundry.utils.lineLineIntersection(edge.A, edge.B, a1, a2);
+      const ix = foundry.utils.lineLineIntersection(edge.a, edge.b, a1, a2);
       a1.release();
       a2.release();
-      return [edge.A, _ixToPoint(ix)];
+      return [edge.a, _ixToPoint(ix)];
     }
     return null;
   }
@@ -1086,9 +1090,9 @@ export class CutawayHandler {
  */
 function polygonVerticalTangentPoints(x, poly) {
   const ixs = [];
-  for ( const edge of poly.pixiEdges() ) {
-    if ( !(edge.A.x === edge.B.x && edge.A.x.almostEqual(x)) ) continue;
-    ixs.push(edge.A, edge.B);
+  for ( const edge of poly.iterateEdges() ) {
+    if ( !(edge.a.x === edge.b.x && edge.a.x.almostEqual(x)) ) continue;
+    ixs.push(edge.a, edge.b);
   }
   return ixs;
 }

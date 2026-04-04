@@ -12,11 +12,15 @@ export const MODULE_ID = "terrainmapper";
 export const TEMPLATES = {
   SCENE: `modules/${MODULE_ID}/templates/scene-config.html`,
   ACTIVE_EFFECT: `modules/${MODULE_ID}/templates/active-effect-config.html`,
-  TERRAIN_BOOK: `modules/${MODULE_ID}/templates/terrain-effects-menu-app.html`,
   SETTINGS: `modules/${MODULE_ID}/templates/settings-menu-tab-partial.html`,
   ITEM_PF2e: `modules/${MODULE_ID}/templates/item-config-pf2e.html`,
   REGION: `modules/${MODULE_ID}/templates/region-config.html`,
-  TILE: `modules/${MODULE_ID}/templates/tile-config.html`
+  TILE: `modules/${MODULE_ID}/templates/tile-config.html`,
+  TERRAIN_BOOK_DIRECTORY: `modules/${MODULE_ID}/templates/terrain-effects-menu-app-directory.html`,
+  TERRAIN_BOOK_DOCUMENT_PARTIAL: `modules/${MODULE_ID}/templates/terrain-effects-menu-app-document-partial.html`,
+  TERRAIN_BOOK_FOLDER: `modules/${MODULE_ID}/templates/terrain-effects-menu-app-folder-config.html`,
+  TERRAIN_BOOK_FOLDER_PARTIAL: `modules/${MODULE_ID}/templates/terrain-effects-menu-app-folder-partial.html`,
+  TERRAIN_BOOK_HEADER: `modules/${MODULE_ID}/templates/terrain-effects-menu-app-header.html`,
 };
 
 // Track certain modules that complement features of this module.

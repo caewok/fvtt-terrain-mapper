@@ -231,10 +231,10 @@ export class WallTracerEdge extends GraphEdge {
     edgeB = PIXI.Point.fromObject(edgeB);
     const eA = this.pointAtEdgeRatio(edgeA, edgeB, tA);
     const eB = this.pointAtEdgeRatio(edgeA, edgeB, tB);
-    const A = new WallTracerVertex(eA.x, eA.y);
-    const B = new WallTracerVertex(eB.x, eB.y);
-    const dist = PIXI.Point.distanceSquaredBetween(A.point, B.point);
-    const edge = new this(A, B, dist);
+    const a = new WallTracerVertex(eA.x, eA.y);
+    const b = new WallTracerVertex(eB.x, eB.y);
+    const dist = PIXI.Point.distanceSquaredBetween(a.point, b.point);
+    const edge = new this(a, b, dist);
     objects.forEach(obj => edge.objects.add(obj));
     return edge;
   }
@@ -258,17 +258,13 @@ export class WallTracerEdge extends GraphEdge {
   /**
    * Construct an array of edges form the constrained token border.
    * To be used instead of constructor in most cases.
-   * @param {Point} A                       First edge endpoint
-   * @param {Point} b                       Other edge endpoint
-   * @param {PlaceableObject} object       Object that contains this edge
-   * @param {number} [tA=0]   Where the A endpoint of this edge falls on the object
-   * @param {number} [tB=1]   Where the B endpoint of this edge falls on the object
+   * @param {Token} token
    * @returns {WallTracerEdge[]}
    */
   static fromToken(token) {
-    const edgeIter = token.constrainedTokenBorder.iterateEdges();
+    const edgeIter = token.constrainedTokenBorder.toPolygon().iterateEdges();
     const edges = [];
-    for ( const edge of edgeIter ) edges.push(this.fromObject(edge.A, edge.B, [token]));
+    for ( const edge of edgeIter ) edges.push(this.fromObject(edge.a, edge.b, [token]));
     return edges;
   }
 
@@ -290,21 +286,21 @@ export class WallTracerEdge extends GraphEdge {
    * Boundary rectangle that encompasses this edge.
    * @type {PIXI.Rectangle}
    */
-  get bounds() { return segmentBounds(this.A, this.B); }
+  get bounds() { return segmentBounds(this.a, this.b); }
 
   /**
    * Find the collision, if any, between this edge and another object's edge.
-   * @param {PIXI.Point} A              First edge endpoint for the object
-   * @param {PIXI.Point} B              Second edge endpoint for the object
+   * @param {PIXI.Point} a              First edge endpoint for the object
+   * @param {PIXI.Point} b              Second edge endpoint for the object
    * @returns {SegmentIntersection|null}
    *  Also rounds the t0 and t1 collision percentages to WallTracerEdge.PLACES.
-   *  t0 is the collision point for the A, B object edge.
+   *  t0 is the collision point for the a, b object edge.
    *  t1 is the collision point for this edge.
    */
-  findEdgeCollision(A, B) {
-    const C = this.A.point;
-    const D = this.B.point;
-    return segmentCollision(A, B, C, D);
+  findEdgeCollision(a, b) {
+    const c = this.a.point;
+    const d = this.b.point;
+    return segmentCollision(a, b, c, d);
   }
 
   /**
@@ -317,10 +313,10 @@ export class WallTracerEdge extends GraphEdge {
     if ( edgeT.almostEqual(0) || edgeT.almostEqual(1) ) return null;
 
     // Construct two new edges, divided at the edgeT location.
-    const { A, B } = this;
+    const { a, b } = this;
     const objects = [...this.objects];
-    const edge1 = this.constructor.fromObjects(A, B, objects, 0, edgeT);
-    const edge2 = this.constructor.fromObjects(A, B, objects, edgeT, 1);
+    const edge1 = this.constructor.fromObjects(a, b, objects, 0, edgeT);
+    const edge2 = this.constructor.fromObjects(a, b, objects, edgeT, 1);
     return [edge1, edge2];
   }
 
@@ -330,8 +326,8 @@ export class WallTracerEdge extends GraphEdge {
    */
   draw(drawingOptions = {}) {
     Draw.segment(this, drawingOptions);
-    this.A.draw(drawingOptions);
-    this.B.draw(drawingOptions);
+    this.a.draw(drawingOptions);
+    this.b.draw(drawingOptions);
   }
 
   /**
@@ -666,8 +662,8 @@ export class WallTracer extends Graph {
     if ( this.edges.has(tokenId) ) return;
 
     // Construct a new token edge set.
-    const edgeIter = token.constrainedTokenBorder.iterateEdges();
-    for ( const edge of edgeIter ) this.addObjectEdge(edge.A, edge.B, token);
+    const edgeIter = token.constrainedTokenBorder.toPolygon().iterateEdges();
+    for ( const edge of edgeIter ) this.addObjectEdge(edge.a, edge.b, token);
     this.tokenIds.add(tokenId);
   }
 
@@ -773,7 +769,7 @@ export class WallTracer extends Graph {
   findEdgeCollisions(edgeA, edgeB) {
     const edgeCollisions = [];
     const bounds = segmentBounds(edgeA, edgeB);
-    const collisionTest = (o, _rect) => doSegmentsOverlap(edgeA, edgeB, o.t.A, o.t.B);
+    const collisionTest = (o, _rect) => doSegmentsOverlap(edgeA, edgeB, o.t.a, o.t.b);
     const collidingEdges = this.edgesQuadtree.getObjects(bounds, { collisionTest });
     const ENDPOINT = IX_TYPES.ENDPOINT;
     for ( const edge of collidingEdges ) {
@@ -1054,7 +1050,7 @@ function prorateTSplit(firstT, secondT) {
  * @return {boolean}
  */
 // function polygonPartiallyContained(encompassingPolygon, other) {
-//   const pts = other.iteratePoints({close: false});
+//   const pts = other.iteratePoints();
 //   for ( const pt of pts ) {
 //     if ( encompassingPolygon.contains(pt) ) return true;
 //   }

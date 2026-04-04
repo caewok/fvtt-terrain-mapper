@@ -18,7 +18,7 @@ Hooks.on("quenchReady", (quench) => {
 
 // ----- NOTE: AABB2d.overlapsAABB -----
 describe('CutawayPolygon Ramp Handler elevationType', () => {
-  const cutPoly = CONFIG.GeometryLib.CutawayPolygon.fromCutawayPoints([
+  const cutPoly = CONFIG.GeometryLib.lib.CutawayPolygon.fromCutawayPoints([
     0, -200,
     0, 0,
     16249, 0,
@@ -27,7 +27,7 @@ describe('CutawayPolygon Ramp Handler elevationType', () => {
     1326834, 0,
     1735265, 0,
     1735265, -200
-  ], new CONFIG.GeometryLib.threeD.ElevatedPoint(2350, 2250, 0), new CONFIG.GeometryLib.threeD.ElevatedPoint(3650, 2450, 0))
+  ], new CONFIG.GeometryLib.lib.threeD.ElevatedPoint(2350, 2250, 0), new CONFIG.GeometryLib.lib.threeD.ElevatedPoint(3650, 2450, 0))
 
 
   const cutHandler = new CutawayHandler(cutPoly);
@@ -99,7 +99,7 @@ describe('CutawayPolygon Ramp Handler elevationType', () => {
 });
 
 describe('CutawayPolygon Handler Overlap Plateau elevationType', () => {
-  const cutPoly = CONFIG.GeometryLib.CutawayPolygon.fromCutawayPoints([
+  const cutPoly = CONFIG.GeometryLib.lib.CutawayPolygon.fromCutawayPoints([
     0, 0,
     500, 0,
     500, 200,
@@ -108,7 +108,7 @@ describe('CutawayPolygon Handler Overlap Plateau elevationType', () => {
     900, 1000,
     900, -200,
     0, -200
-  ], new CONFIG.GeometryLib.threeD.ElevatedPoint(2350, 2250, 0), new CONFIG.GeometryLib.threeD.ElevatedPoint(3650, 2450, 0))
+  ], new CONFIG.GeometryLib.lib.threeD.ElevatedPoint(2350, 2250, 0), new CONFIG.GeometryLib.lib.threeD.ElevatedPoint(3650, 2450, 0))
 
 
   const cutHandler = new CutawayHandler(cutPoly);

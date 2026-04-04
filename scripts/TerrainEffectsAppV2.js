@@ -1,6 +1,7 @@
 /* globals
 foundry,
 game,
+ui,
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
@@ -39,10 +40,6 @@ export class TerrainEffectsAppV2 extends foundry.applications.api.HandlebarsAppl
   static tabName = MODULE_ID;
 
   static DEFAULT_OPTIONS = {
-//     width: 300,
-//     height: 600,
-//     top: 60,
-//     left: 100,
     classes: ["directory", "flexcol"],
     window: {
       title: `${MODULE_ID}.phrases.terrains`,
@@ -51,7 +48,6 @@ export class TerrainEffectsAppV2 extends foundry.applications.api.HandlebarsAppl
       positioned: true,
     },
     resizable: true,
-    template: `modules/${MODULE_ID}/templates/terrain-effects-menu-app.html`,
     position: {
       top: 60,
       left: 100,
@@ -176,6 +172,9 @@ export class TerrainEffectsAppV2 extends foundry.applications.api.HandlebarsAppl
     );
   }
 
+  /**
+   * Context menu (right-click) options for folders.
+   */
   _getFolderContextOptions() {
     return [
       {
@@ -205,6 +204,9 @@ export class TerrainEffectsAppV2 extends foundry.applications.api.HandlebarsAppl
     ];
   }
 
+  /**
+   * Context menu (right-click) options for terrain entries.
+   */
   _getTerrainEntryContextOptions() {
     return [
       {

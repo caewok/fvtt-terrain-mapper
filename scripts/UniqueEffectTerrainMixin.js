@@ -27,17 +27,25 @@ export function TerrainMixin(Base) {
       await super._initializeStorageMap();
       await this._initializeFlagStorage();
     }
-
+    
     static _flagStorageDocument;
-
+    
+    /**
+     * Data used when creating or locating the flag storage item.
+     * Subclasses may override to provide system-appropriate item types.
+     */
+    static get _flagStorageData() {
+      return {
+        name: "Unique Active Effects",
+        img: "icons/svg/ruins.svg",
+        type: "base",
+      };
+    }
+    
     static async _initializeFlagStorage() {
       if ( this._storageMap.model instanceof foundry.documents.Item ) this._flagStorageDocument = this._storageMap.model;
       else {
-        const data = {
-          name: "Unique Active Effects",
-          img: "icons/svg/ruins.svg",
-          type: "base",
-        };
+        const data = this._flagStorageData;   // ← uses getter instead of hardcoded literal
         let item = game.items.find(item => item.name === data.name);
         if ( !item ) {
           const uuid = await createDocument("CONFIG.Item.documentClass", undefined, data);
@@ -129,8 +137,8 @@ export function TerrainMixin(Base) {
 
     static findFoldersForEffect(effectId) {
       const out = new Set();
-      this.folders.forEach(folder => {
-        if ( folder.effects.include(effectId) ) out.add(folder);
+      this.folders.values().forEach(folder => {
+        if ( folder.effects.includes(effectId) ) out.add(folder);
       });
       return out;
     }
