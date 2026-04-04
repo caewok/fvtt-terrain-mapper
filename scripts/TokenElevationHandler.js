@@ -472,10 +472,13 @@ export class TokenElevationHandler {
   #connectFlyingPathToEnd(path2d, a, b, a2d, b2d) {
     a2d ??= this.to2d(a);
     b2d ??= this.to2d(b);
-
+    
     // Are we already at the endpoint?
     const pathEnd = path2d.at(-1);
     if ( pathEnd.almostEqual(b2d) ) return path2d;
+
+    // Prevents elevation falling back to initial elevation when elevation at destination is higher than initial elevation
+    if ( pathEnd.x.almostEqual(b2d.x) && pathEnd.y > b2d.y ) return path2d;
 
     // Could we get there simply by flying without hitting anything?
     if ( this.#foundFlyingShortcut(pathEnd, b2d) ) {
