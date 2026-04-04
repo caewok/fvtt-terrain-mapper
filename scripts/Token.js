@@ -219,50 +219,10 @@ function _uncenterPathPointInPlace(pathPt, token) {
 
 PATCHES.BASIC.WRAPS = {
   createTerrainMovementPath,
-//   _getAnimationData,
-//   _onAnimationUpdate,
-//   _getShiftedPosition,
   };
 
 
 // ----- NOTE: Mixed Wraps ----- //
-
-/**
- * Mixed wrap Token.prototype._prepareDragLeftDropUpdates
- * If the path has multiple steps for the token, commit each step and confirm the token destination.
- * Bypasses intermediate calls to Token.prototype.#commitDragLeftDropUpdates
- * @param {PIXI.FederatedEvent} event The triggering canvas interaction event
- * @returns {object[]|null}           An array of database updates to perform for documents in this collection
- */
-// function _prepareDragLeftDropUpdates(wrapped, event) {
-//   // If the shift key is held, ignore the path.
-//   if ( event.shiftKey || !event.interactionData.clones.length ) return wrapped(event);
-//   const paths = new Map();
-//   for ( const clone of event.interactionData.clones ) {
-//     const {_original: original} = clone;
-//     const dest = ElevatedPoint.fromObject(clone.getSnappedPosition());
-//     const bCentered = dest.centerPointToToken(clone); // I.e., target
-//     if ( !canvas.dimensions.rect.contains(bCentered.x, bCentered.y) ) continue;
-//
-//     // Determine the full path for the clone.
-//     // Keep the path as center points so collisions can be easily tested.
-//     const aCentered = ElevatedPoint.fromObject(original.center);
-//     aCentered.elevation = original.elevationE;
-//     bCentered.elevation = aCentered.elevation;
-//     const path = calculatePathForCenterPoints(this, aCentered, bCentered);
-//
-//     // Test for collisions; if any collision along the path, don't move.
-//     if ( !game.user.isGM && hasCollisionAlongPath(path, this) ) {
-//       ui.notifications.error("RULER.MovementCollision", {localize: true, console: false});
-//       return null;
-//     }
-//
-//     shiftPathToTopLeft(path, dest, bCentered);
-//     paths.set(original.id, path);
-//   }
-//   commitDragLeftDropUpdatesAlongPaths.call(this, paths);
-//   return null;
-// }
 
 /**
  * Test for collisions along a path.
