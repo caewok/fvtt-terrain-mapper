@@ -18,6 +18,7 @@ import { Draw } from "./geometry/Draw.js";
 import { AABB2d } from "./geometry/AABB.js";
 
 
+
 /**
  * Regions elevation handler
  * Class that handles movement across regions with plateaus or ramps.
@@ -111,29 +112,66 @@ export class TokenElevationHandler {
     this.#start.z = start.z ?? (start.elevation ? gridUnitsToPixels(start.elevation) : 0);
     this.#end.z = end.z ?? (end.elevation ? gridUnitsToPixels(end.elevation) : 0);
 
+    // Filter out relevant regions and tiles.
     this.regions = this.constructor.filterElevatedRegionsByXYSegment(this.#start, this.#end);
     this.tiles = this.constructor.filterElevatedTilesByXYSegment(this.#start, this.#end);
 
+    // Default is the scene plane.
+    const sceneCutaways = canvas.scene[MODULE_ID]._cutaway(this.#start, this.#end);
+    if ( !(this.regions.length || this.tiles.length) ) {
+      this.combinedCutaways = sceneCutaways.map(cutPoly => new CutawayHandler(cutPoly));
+      return;
+    }
 
-    if ( this.regions.length || this.tiles.length ) {
-      const ClipperPaths = CONFIG[GEOMETRY_LIB_ID].CONFIG.ClipperPaths;
-      const cutaways = [canvas.scene, ...this.regions, ...this.tiles].flatMap(obj => obj[MODULE_ID]._cutaway(this.#start, this.#end, this.token));
+    // Sort objects by priority (z-index) lowest to highest.
+    const sortedObjects = [...this.regions, ...this.tiles];
+    sortedObjects.sort((a, b) => (a.document.zIndex ?? 0) - (b.document.zIndex ?? 0));
 
-      // Have to reverse the polygons for Clipper to not treat as holes.
-      cutaways.forEach(poly => poly.reverseOrientation())
-      this.combinedCutaways = ClipperPaths.fromPolygons(cutaways)
-        .combine()
-        .clean()
-        .toPolygons()
-        .map(poly => {
-          // Don't need to reverse here.
-          const cutPoly = CutawayPolygon.fromCutawayPoints(poly.points, this.#start, this.#end);
-          return new CutawayHandler(cutPoly);
-        });
+    // Start with the baseline scene as lowest priority.
+    sceneCutaways.forEach(p => p.reverseOrientation()); // Orient for Clipper solids.
+    const ClipperPaths = CONFIG[GEOMETRY_LIB_ID].CONFIG.ClipperPaths;
+    let combinedPaths = ClipperPaths.fromPolygons(sceneCutaways);
 
-      // Revert back the original polygons.
-      // cutaways.forEach(poly => poly.reverseOrientation())
-    } else this.combinedCutaways = canvas.scene[MODULE_ID]._cutaway(this.#start, this.#end).map(cutPoly => new CutawayHandler(cutPoly));
+    // Iteratively apply priority-based boolean difference and union.
+    // Use difference to punch hole in the lower (z-index) shape.
+    // Then union with the higher (z-index) shape.
+    let aabb = new AABB2d();
+    for ( const obj of sortedObjects ) {
+      const objCutaways = obj[MODULE_ID]._cutaway(this.#start, this.#end, this.token);
+      if ( !objCutaways.length ) continue;
+
+      // Identify the x-axis footprint.
+      AABB2d.fromPoints(iterateMultiplePolygonPoints(objCutaways), aabb);
+
+      // Create a "punch" footprint: A vertical rectangle spanning all possible elevations.
+      // Use large y values to ensure the column is cleared.
+      const punchPoly = new PIXI.Polygon([
+        aabb.min.x, -1e10,
+        aabb.max.x, -1e10,
+        aabb.max.x, 1e10,
+        aabb.min.x, 1e10,
+      ]);
+      punchPoly.reverseOrientation();
+      const punchPaths = ClipperPaths.fromPolygons([punchPoly]);
+
+      // Prepare the region's actual polygons.
+      objCutaways.forEach(p => p.reverseOrientation());
+      const objPaths = ClipperPaths.fromPolygons(objCutaways);
+
+      // Subtract the footprint from existing paths, then union the new region
+      // This ensures the higher-priority region defines the terrain in its X-range.
+      combinedPaths = combinedPaths.diffPaths(punchPaths).combine(objPaths);
+    }
+
+    // Finalize the combined cutaways for walking logic.
+    this.combinedCutaways = combinedPaths
+      .clean()
+      .toPolygons()
+      .map(poly => {
+        // Don't need to reverse here.
+        const cutPoly = CutawayPolygon.fromCutawayPoints(poly.points, this.#start, this.#end);
+        return new CutawayHandler(cutPoly);
+      });
   }
 
 
@@ -472,7 +510,7 @@ export class TokenElevationHandler {
   #connectFlyingPathToEnd(path2d, a, b, a2d, b2d) {
     a2d ??= this.to2d(a);
     b2d ??= this.to2d(b);
-    
+
     // Are we already at the endpoint?
     const pathEnd = path2d.at(-1);
     if ( pathEnd.almostEqual(b2d) ) return path2d;
@@ -546,7 +584,7 @@ export class TokenElevationHandler {
       revA = revB;
     }
     // TODO: Should this error be removed and instead just return the first path?
-    throw new Error("connectPaths|Unable to connect the two paths!");
+    // throw new Error("connectPaths|Unable to connect the two paths!");
     return path;
   }
 
@@ -928,19 +966,23 @@ export class CutawayHandler {
     const iter0 = this.cutPoly.iterateEdges({ close: true });
     const pts = [];
     let priorMoveUp = false;
-    let edge;
-    while ( (edge = iter0.next().value) ) {
+    let edge = iter0.next().value;
+
+    // Find the starting edge.
+    while ( edge ) {
       const isStart = this.#isStartingEdge(edge, a2d);
-      if ( isStart ) break;
+      if ( isStart ) break; // We found it; do not advance the iterator yet!
       if ( isStart === null ) { // Moving backwards. Change the start to the surface.
         const elev = this.elevationUponEntry(a2d);
         if ( a2d.y.almostEqual(elev) ) return pts;
         return this.surfaceWalk(PIXI.Point.tmp.set(a2d.x, elev), b2d, _iter);
       }
       priorMoveUp = edge.a.y <= edge.b.y;
+      edge = iter0.next().value;
     }
 
-    while ( (edge = iter0.next().value) ) {
+    // Trace the surface starting with the matched starting edge.
+    while ( edge ) {
       const isEnd = this.#isEndingEdge(edge, b2d);
       if ( isEnd ) {
         if ( !isEnd.length && priorMoveUp ) { // Moving backwards; cut through to top.
@@ -955,6 +997,7 @@ export class CutawayHandler {
       }
       pts.push(edge.a); // B will become A next iteration.
       priorMoveUp = edge.a.y <= edge.b.y;
+      edge = iter0.next().value;
     }
 
     const iter1 = this.cutPoly.iterateEdges({ close: true });
@@ -1104,4 +1147,8 @@ function _ixToPoint(ix) {
   const pt = PIXI.Point.tmp.set(ix.x, ix.y);
   pt.t0 = ix.t0;
   return pt;
+}
+
+function *iterateMultiplePolygonPoints(polys) {
+  for ( const poly of polys ) yield* poly.iteratePoints(); // Delegate to the nested iterator.
 }
