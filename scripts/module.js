@@ -37,17 +37,6 @@ import "./geometry/registration.js";
 import "./changelog.js";
 import "./regions/HighlightRegionShader.js";
 
-/**
- * Use dynamic import and try/catch to load module only if successful.
- */
-async function loadModuleConditionally(path) {
-  try {
-    const module = await import(path);
-  } catch (error) {
-    log(`Failed to load ${path}`);
-  }
-}
-
 /* Foundry v13 movement
 Token#findMovementPath -- find path through waypoints
 Token#createTerrainMovementPath - Add intermediate waypoints, RegionBehavior#_getTerrainEffects (difficulty)
@@ -122,7 +111,7 @@ action is "update"
 
 4. Update: see Token.document.move
 • Update using a movement object in the options. Contains waypoints and method
-• See get movement in TokenDocument
+• See get movement in TokenDocument
 
 
 
@@ -136,9 +125,6 @@ action is "update"
  * initialization tasks have begun.
  */
 Hooks.once("init", function() {
-  // Set up testing.
-  if ( game.modules.has("quench") && game.modules.get("quench").active ) loadModuleConditionally("../tests/CutawayHandler.test.js");
-
   initializePatching();
   initializeConfig();
   initializeAPI();
@@ -160,6 +146,18 @@ Hooks.once("init", function() {
 
   // Must go at end?
   foundry.applications.handlebars.loadTemplates(Object.values(TEMPLATES)).then(_value => log("Templates loaded."));
+});
+
+/**
+ * If quench is present, register tests.
+ */
+Hooks.on("quenchReady", async (quench) => {
+  try {
+    const { registerTests } = await import(`/modules/${MODULE_ID}/scripts/tests/index.js`);
+    registerTests(quench);
+  } catch(err) {
+    console.error("Failed to load Quench tests:", err);
+  }
 });
 
 /**
@@ -353,7 +351,7 @@ function regionElevationAtPoint(location, {
     return bottom == null || bottom >= minElevation;
   });
 
-  const testPt = ElevatedPoint.fromLocationWithElevation(location, fixedElevation);
+  const testPt = CONFIG.GeometryLib.lib.threeD.ElevatedPoint.fromLocationWithElevation(location, fixedElevation);
   elevationRegions = elevationRegions.filter(region => region.testPoint(testPt));
   testPt.release();
   if ( !elevationRegions.length ) return undefined;
