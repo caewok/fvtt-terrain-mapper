@@ -5,11 +5,13 @@ PIXI
 */
 "use strict";
 
-import { TokenElevationHandler, CutawayHandler } from "../scripts/TokenElevationHandler.js";
+import { MODULE_ID } from "../const.js";
+import { TokenElevationHandler, CutawayHandler } from "../TokenElevationHandler.js";
 
-Hooks.on("quenchReady", (quench) => {
+export function registerTests(quench) {
+
   quench.registerBatch(
-    "terrainmapper.CutawayHandler",
+    `${MODULE_ID}.CutawayHandler`,
 
   (context) => {
       const { describe, it, expect } = context;
@@ -165,6 +167,6 @@ describe('CutawayPolygon Handler Overlap Plateau elevationType', () => {
   });
 });
 
-});  // registerBatch
-});  // Hooks.on
+}), { displayName: "CutawayHandler"};  // registerBatch
+}
 
