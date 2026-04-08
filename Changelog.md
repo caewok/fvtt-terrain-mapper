@@ -1,3 +1,6 @@
+## 0.5.2
+Update to libGeometry v0.5.3.
+
 ## 0.5.1
 Fixes for Terrain Book searching.
 Simplify AsyncQueue.
