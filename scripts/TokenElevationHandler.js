@@ -472,7 +472,7 @@ export class TokenElevationHandler {
   #connectFlyingPathToEnd(path2d, a, b, a2d, b2d) {
     a2d ??= this.to2d(a);
     b2d ??= this.to2d(b);
-    
+
     // Are we already at the endpoint?
     const pathEnd = path2d.at(-1);
     if ( pathEnd.almostEqual(b2d) ) return path2d;
@@ -546,7 +546,7 @@ export class TokenElevationHandler {
       revA = revB;
     }
     // TODO: Should this error be removed and instead just return the first path?
-    throw new Error("connectPaths|Unable to connect the two paths!");
+    // throw new Error("connectPaths|Unable to connect the two paths!");
     return path;
   }
 
