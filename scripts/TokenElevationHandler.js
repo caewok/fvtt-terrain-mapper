@@ -928,19 +928,22 @@ export class CutawayHandler {
     const iter0 = this.cutPoly.iterateEdges({ close: true });
     const pts = [];
     let priorMoveUp = false;
-    let edge;
-    while ( (edge = iter0.next().value) ) {
+    let edge = iter0.next().value;
+
+    // Find the starting edge.
+    while ( edge ) {
       const isStart = this.#isStartingEdge(edge, a2d);
-      if ( isStart ) break;
+      if ( isStart ) break; // We found it; do not advance the iterator yet!
       if ( isStart === null ) { // Moving backwards. Change the start to the surface.
         const elev = this.elevationUponEntry(a2d);
         if ( a2d.y.almostEqual(elev) ) return pts;
         return this.surfaceWalk(PIXI.Point.tmp.set(a2d.x, elev), b2d, _iter);
       }
       priorMoveUp = edge.a.y <= edge.b.y;
+      edge = iter0.next().value;
     }
 
-    while ( (edge = iter0.next().value) ) {
+    while ( edge ) {
       const isEnd = this.#isEndingEdge(edge, b2d);
       if ( isEnd ) {
         if ( !isEnd.length && priorMoveUp ) { // Moving backwards; cut through to top.
@@ -955,6 +958,7 @@ export class CutawayHandler {
       }
       pts.push(edge.a); // B will become A next iteration.
       priorMoveUp = edge.a.y <= edge.b.y;
+      edge = iter0.next().value;
     }
 
     const iter1 = this.cutPoly.iterateEdges({ close: true });
