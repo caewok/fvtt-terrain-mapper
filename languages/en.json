@@ -115,7 +115,6 @@
   "TYPES.RegionBehavior.terrainmapper.setTerrain": "Set Terrain",
   "TYPES.RegionBehavior.terrainmapper.setElevation": "Stairs",
   "TYPES.RegionBehavior.terrainmapper.elevator": "Elevator",
-  "TYPES.RegionBehavior.terrainmapper.blockingWalls": "Blocking Walls",
 
   "terrainmapper.elevationAlgorithm.labels.none": "None",
   "terrainmapper.elevationAlgorithm.labels.oneWay": "One-Way Stairs",

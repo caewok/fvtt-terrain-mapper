@@ -20,7 +20,6 @@ import { WallTracerEdge, WallTracerVertex, WallTracer, SCENE_GRAPH } from "./Wal
 import { SetTerrainRegionBehaviorType } from "./regions/SetTerrainRegionBehaviorType.js";
 import { StairsRegionBehaviorType } from "./regions/StairsRegionBehaviorType.js";
 import { ElevatorRegionBehaviorType } from "./regions/ElevatorRegionBehaviorType.js";
-import { BlockingWallsRegionBehaviorType } from "./regions/BlockingWallsRegionBehaviorType.js";
 import { StraightLinePath } from "./StraightLinePath.js";
 
 // Elevation
@@ -134,7 +133,6 @@ Hooks.once("init", function() {
     [`${MODULE_ID}.setTerrain`]: SetTerrainRegionBehaviorType,
     [`${MODULE_ID}.setElevation`]: StairsRegionBehaviorType,
     [`${MODULE_ID}.elevator`]: ElevatorRegionBehaviorType,
-    [`${MODULE_ID}.blockingWalls`]: BlockingWallsRegionBehaviorType,
   });
 
   //   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.addTerrain`] = FA_ICONS.MODULE;
@@ -299,9 +297,6 @@ function initializeConfig() {
     terrainBurrowActions: new Set(["burrow", "swim"]),
 
     // DND5e: displace and blink are currently excluded; token will be moved directly.
-
-    ClipperPaths: CONFIG.GeometryLib.ClipperPaths, // Or Clipper2Paths
-
   };
 
   Object.defineProperty(CONFIG[MODULE_ID], "UniqueEffect", {
