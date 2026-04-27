@@ -44,6 +44,9 @@ export class RegionElevationHandler {
 
   /** @type {boolean} */
   get isRamp() { return isRamp(this.region); }
+  
+  /** @type {boolean} */
+  get isSteps() { return this.isRamp && this.rampStepSize === 0; }
 
   /** @type {number} */
   get plateauElevation() { return this.region.document.getFlag(MODULE_ID, FLAGS.REGION.PLATEAU_ELEVATION) || 0; }
@@ -71,6 +74,7 @@ export class RegionElevationHandler {
   get holePolygons() { return this.region.document.polygons.filter(poly => !poly._isPositive); }
 
   #terrainAABB = new WeakMap();
+  
 
   /**
    * Returns the terrain aabb if elevated, and the full region aabb otherwise.
@@ -100,8 +104,6 @@ export class RegionElevationHandler {
     this.#terrainAABB.set(this.region, aabb);
     return aabb;
   }
-
-
 
   /** @type {object} */
   #minMax;
