@@ -35,6 +35,9 @@ export class RegionElevationHandler {
   }
 
   // ----- NOTE: Getters ----- //
+  
+  /** @type {ClientShapeData[]} */
+  get shapes() { return this.region.document.shapes; }
 
   /** @type {boolean} */
   get isElevated() { return this.isPlateau || this.isRamp; }
@@ -46,7 +49,7 @@ export class RegionElevationHandler {
   get isRamp() { return isRamp(this.region); }
   
   /** @type {boolean} */
-  get isSteps() { return this.isRamp && this.rampStepSize === 0; }
+  get isSteps() { return this.isRamp && this.rampStepSize !== 0; }
 
   /** @type {number} */
   get plateauElevation() { return this.region.document.getFlag(MODULE_ID, FLAGS.REGION.PLATEAU_ELEVATION) || 0; }
@@ -73,8 +76,117 @@ export class RegionElevationHandler {
 
   get holePolygons() { return this.region.document.polygons.filter(poly => !poly._isPositive); }
 
+  /** @type {number} */
+  get finitePlateauHeight() {
+    let topZ = gridUnitsToPixels(this.plateauElevation);
+		let bottomZ = this.region.bottomZ;
+		if ( !isFinite(topZ) ) topZ = 1e06;
+		if ( !isFinite(bottomZ) ) bottomZ = -1e06;
+		return topZ - bottomZ;
+  }
+  
+  /** @type {number} */
+  get finiteRegionHeight() {
+    let { topZ, bottomZ } = this.region;
+		if ( !isFinite(topZ) ) topZ = 1e06;
+		if ( !isFinite(bottomZ) ) bottomZ = -1e06;
+		return topZ - bottomZ;
+  }
+  
+  /** @type {number} */
+  get finiteRegionBottom() { 
+    const bottomZ = this.region.bottomZ;
+    return isFinite(bottomZ) ? bottomZ : -1e06;
+  }
+  
+  /** @type {number} */
+  get finiteRegionTop() { 
+    const topZ = this.region.topZ;
+    return isFinite(topZ) ? topZ : 1e06;
+  }
+  
+  /** @type {number} */
+  get numSteps() {
+    if ( !this.isSteps ) return 0;
+    const { rampFloor, plateauElevation, rampStepSize } = this;
+    const totalStepHeight = plateauElevation - rampFloor;
+    return Math.ceil(delta / rampStepSize);
+  }
+  
   #terrainAABB = new WeakMap();
   
+  /** 
+   * Calculate the plane of a ramp, for case where polygons are not split.
+   * Steps should be defined such that the top of each step hits this plane.
+   * @returns {Plane}
+   */
+  calculateSingleRampPlane() {
+    return this._calculatePolygonRamp(this.region.polygons);
+  }
+  
+  /**
+   * Calculate the planes of a ramp, for case where polygons are split.
+   * Steps should be defined such that the top of each step hits this plane.
+   * @returns {Plane[]}
+   */
+  calculateMultiPolygonRampPlanes() {
+    return this.shapes.map(shape => this._calculatePolygonRamp(shape.polygons))
+  }
+  
+  /** 
+   * Determine the min/max point of the ramp along the center point.
+   * Intersection points of outermost polygon along the polygon center in direction of the region ramp.
+   * @param {PIXI.Polygon[]} polygons
+   * @returns {PIXI.Point[]}
+   */
+  _calculatePolygonRampPoints(polygons) {
+    const region = this.region;
+    const topZ = gridUnitsToPixels(this.plateauElevation);
+    const rampFloor = gridUnitsToPixels(this.rampFloor);
+  
+		// Calculate the lowest and highest points on the plane.
+		// Non-split plane goes lowest point of intersection --> center --> highest point of intersection
+		// 0º is due south (0, 1), 90º is due west (1, 0)
+		using ctr = PIXI.Point.fromObject(region.center);
+		const rad = Math.toRadians(this.rampDirection);
+		using dir = PIXI.Point.tmp.set(Math.sin(rad), Math.cos(rad));
+		using a = ctr.add(dir);
+		
+		// For simplicity, just intersect the polygons.
+		// TODO: Intersect individual shapes or use sd to intersect them in 2d.
+		// First and last intersections are what we need (holes must be internal).
+		let firstIx = { t0: Number.POSITIVE_INFINITY };
+		let lastIx = { t0: Number.NEGATIVE_INFINITY };
+		for ( const poly of polygons ) {
+			const ixs = poly.lineIntersections(ctr, a);
+			ixs.forEach(ix => {
+				if ( ix.t0 < firstIx.t0 ) firstIx = ix;
+				if ( ix.t0 > lastIx.t0 ) lastIx = ix;
+			});        
+		}
+		if ( firstIx === lastIx || !isFinite(firstIx.t0) || !isFinite(lastIx.t0) ) throw Error("Ramp does not have sufficient intersecting points.");
+		
+		// Construct 3d points from the intersection at the requisite elevations of the ramp.
+		const a3d = Point3d.tmp.set(firstIx.x, firstIx.y, rampFloor);
+		const b3d = Point3d.tmp.set(lastIx.x, lastIx.y, topZ);
+    return [a3d, b3d];
+  }
+  
+  /**
+   * Calculate the plane of a ramp for a single group of polygons of this region.
+   * @param {PIXI.Polygon[]} polygons
+   * @returns {Plane}
+   */
+  _calculatePolygonRamp(polygons) {
+		using [a3d, b3d] = this._calculatePolygonRampPoints();
+		
+		// Construct the ramp plane. Normal should face up (toward part to cut away).
+		// Find a perpendicular in 2d to the plane direction.
+		const dir = b3d.subtract(a3d);
+		using perpDir = Point3d.tmp.set(dir.y, -dir.x, 0); // Use y, -x so normal faces up.
+		using c3d = b3d.add(perpDir);
+		return Plane.fromPoints(a3d, b3d, c3d);
+  }
 
   /**
    * Returns the terrain aabb if elevated, and the full region aabb otherwise.
@@ -83,10 +195,9 @@ export class RegionElevationHandler {
     if ( this.#terrainAABB.has(shape) ) return this.#terrainAABB.get(shape);
     const maxZ = gridUnitsToPixels(this.isElevated ? this.plateauElevation : this.region.elevationE.top);
     const minZ = gridUnitsToPixels(this.region.elevationE.bottom);
-    const method = `from${capitalizeFirstLetter(shape.type)}`;
     const pixiShape = this.getPixiShape(shape);
     const z = [maxZ, minZ];
-    const aabb = AABB3d[method](pixiShape, z);
+    const aabb = AABB3d.fromShape(pixiShape, z);
     this.#terrainAABB.set(shape, aabb);
     return aabb;
   }
@@ -96,7 +207,7 @@ export class RegionElevationHandler {
 
     // Union all the shape AABBs, which is not so bad b/c they will be cached and likely reused.
     // Can skip holes, b/c they don't contribute to the bounds.
-    const solidShapes = this.region.document.shapes.filter(shape => !shape.hole);
+    const solidShapes = this.shapes.filter(shape => !shape.hole);
     const nShapes = solidShapes.length;
     const aabbs = new Array(nShapes);
     for ( let i = 0; i < nShapes; i += 1 ) aabbs[i] = this.getTerrainAABBForShape(solidShapes[i]);
@@ -184,7 +295,7 @@ export class RegionElevationHandler {
     if ( !( regionAABB.containsPoint(a)
          || regionAABB.containsPoint(b)
          || regionAABB.overlapsSegment(a, b, axes)) ) return false;
-    for ( const shape of this.region.document.shapes ) {
+    for ( const shape of this.shapes ) {
       if ( shape.hole ) continue;
       const shapeAABB = this.getTerrainAABBForShape(shape);
       if ( shapeAABB.containsPoint(a)
@@ -203,7 +314,7 @@ export class RegionElevationHandler {
   pointInBounds(a, axes) {
     const regionAABB = this.getTerrainAABBForRegion();
     if ( !regionAABB.containsPoint(a, axes) ) return false;
-    for ( const shape of this.region.document.shapes ) {
+    for ( const shape of this.shapes ) {
       if ( shape.hole ) continue;
       const shapeAABB = this.getTerrainAABBForShape(shape);
       if ( shapeAABB.containsPoint(a, axes) ) return true;
@@ -217,7 +328,7 @@ export class RegionElevationHandler {
    * @returns {boolean}
    */
   test2dPoint(a) {
-    for ( const shape of this.region.document.shapes ) {
+    for ( const shape of this.shapes ) {
       if ( shape.hole ) continue;
       const pixiShape = this.getPixiShape(shape);
       if ( pixiShape.contains(a.x, a.y) ) return true;
@@ -274,7 +385,7 @@ export class RegionElevationHandler {
 
     // If 2d change, the segment must cross the 2d border or a hole border.
     if ( !(a.x === b.x && a.y === b.y) ) {
-      for ( const shape of this.region.document.shapes ) {
+      for ( const shape of this.shapes ) {
         const pixiShape = this.getPixiShape(shape);
         if (  pixiShape.lineSegmentIntersects(a, b, { inside: true }) ) return true;
       }
@@ -315,7 +426,7 @@ export class RegionElevationHandler {
     if ( !(a.x === b.x && a.y === b.y) ) {
 
       // Test shapes, including holes. TODO: Better to test polygons here?
-      for ( const shape of this.region.document.shapes ) {
+      for ( const shape of this.shapes ) {
         const shapeIxs = this.getPixiShape(shape).segmentIntersections(a, b);
         if ( !shapeIxs.length ) continue;
 
@@ -463,7 +574,7 @@ export class RegionElevationHandler {
 
     // Process each layer in turn, building up the segments accordingly.
     const allSegments = [];
-    for ( const shape of this.region.document.shapes ) {
+    for ( const shape of this.shapes ) {
       const pixiShape = this.getPixiShape(shape);
       const ixs = pixiShape.segmentIntersections(a, b, { tangents: false });
       if ( !ixs.length ) continue;
@@ -872,14 +983,18 @@ export class RegionElevationHandler {
   /**
    * For a given region shape, get its corresponding PIXI.Shape.
    * @param {RegionShapeData} shapeData
-   * @returns {PIXI.Polygon|PIXI.Rectangle|PIXI.Circle|PIXI.Ellipse}
+   * @returns {PIXI.Polygon|PIXI.Rectangle|PIXI.Circle|PIXI.Ellipse|PIXI.RoundedRectangle}
    */
   static pixiShapeForRegionShape(shapeData) {
+    if ( shapeData.rotation ) return shapeData.polygons[0];
     switch ( shapeData.type ) {
       case "rectangle": return new PIXI.Rectangle(shapeData.x, shapeData.y, shapeData.width, shapeData.height);
       case "circle": return new PIXI.Circle(shapeData.x, shapeData.y, shapeData.radius);
       case "ellipse": return new PIXI.Ellipse(shapeData.x, shapeData.y, shapeData.radiusX, shapeData.radiusY);
       case "polygon": return new PIXI.Polygon(shapeData.points);
+      case "emanation": return new PIXI.RoundedRectangle(shapeData.base.x, shapeData.base.y, shapeData.base.width * canvas.grid.size, shapeData.base.height * canvas.grid.size, shapeData.radius);
+      case "line": return new PIXI.Rectangle(shapeData.x, shapeData.y, shapeData.width, shapeData.length, shapeData.width);
+      case "cone": return shapeData.polygons[0];
       default: console.error(`RegionElevationHandler|pixiShapeForRegionShape|${shapeData.type} not recognized!`, { shapeData });
     }
     return PIXI.Circle(shapeData.x, shapeData.y, 1); // Should not be reached.
