@@ -109,8 +109,10 @@ export class RegionElevationHandler {
   get numSteps() {
     if ( !this.isSteps ) return 0;
     const { rampFloor, plateauElevation, rampStepSize } = this;
-    const totalStepHeight = plateauElevation - rampFloor;
-    return Math.ceil(delta / rampStepSize);
+    // const totalStepHeight = plateauElevation - rampFloor;
+    
+    // return Math.ceil(delta / rampStepSize);
+    throw Error("numSteps not yet implemented.");
   }
   
   #terrainAABB = new WeakMap();
@@ -178,14 +180,17 @@ export class RegionElevationHandler {
    * @returns {Plane}
    */
   _calculatePolygonRamp(polygons) {
-		using [a3d, b3d] = this._calculatePolygonRampPoints();
+		const [a3d, b3d] = this._calculatePolygonRampPoints();
 		
 		// Construct the ramp plane. Normal should face up (toward part to cut away).
 		// Find a perpendicular in 2d to the plane direction.
 		const dir = b3d.subtract(a3d);
 		using perpDir = Point3d.tmp.set(dir.y, -dir.x, 0); // Use y, -x so normal faces up.
 		using c3d = b3d.add(perpDir);
-		return Plane.fromPoints(a3d, b3d, c3d);
+		const p = Plane.fromPoints(a3d, b3d, c3d);
+		a3d.release();
+		b3d.release();
+		return p;
   }
 
   /**

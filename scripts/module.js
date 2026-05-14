@@ -193,6 +193,22 @@ Hooks.on("canvasReady", function(_canvas) {
     setDefaultPlaceablesFlags(); // Async.
     setDefaultSceneFlags(); // Async.
   }
+  
+  // Placeable Geometry for collision testing.
+  const geometryTracking = CONFIG.GeometryLib.lib.placeableGeometryTracking;
+  const geometryTypes = [
+    "Tile",
+    "Wall",
+    "Token",
+    "Region",
+  ];
+  for ( const type of geometryTypes ) {
+    const cl = geometryTracking[`${type}GeometryTracker`];
+    cl.registerHooks();
+    cl.registerExistingPlaceables();
+    cl.activate();
+  }
+
 });
 
 function initializeAPI() {
