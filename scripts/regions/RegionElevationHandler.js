@@ -35,7 +35,7 @@ export class RegionElevationHandler {
   }
 
   // ----- NOTE: Getters ----- //
-  
+
   /** @type {ClientShapeData[]} */
   get shapes() { return this.region.document.shapes; }
 
@@ -47,7 +47,7 @@ export class RegionElevationHandler {
 
   /** @type {boolean} */
   get isRamp() { return isRamp(this.region); }
-  
+
   /** @type {boolean} */
   get isSteps() { return this.isRamp && this.rampStepSize !== 0; }
 
@@ -84,7 +84,7 @@ export class RegionElevationHandler {
 		if ( !isFinite(bottomZ) ) bottomZ = -1e06;
 		return topZ - bottomZ;
   }
-  
+
   /** @type {number} */
   get finiteRegionHeight() {
     let { topZ, bottomZ } = this.region;
@@ -92,32 +92,32 @@ export class RegionElevationHandler {
 		if ( !isFinite(bottomZ) ) bottomZ = -1e06;
 		return topZ - bottomZ;
   }
-  
+
   /** @type {number} */
-  get finiteRegionBottom() { 
+  get finiteRegionBottom() {
     const bottomZ = this.region.bottomZ;
     return isFinite(bottomZ) ? bottomZ : -1e06;
   }
-  
+
   /** @type {number} */
-  get finiteRegionTop() { 
+  get finiteRegionTop() {
     const topZ = this.region.topZ;
     return isFinite(topZ) ? topZ : 1e06;
   }
-  
+
   /** @type {number} */
   get numSteps() {
     if ( !this.isSteps ) return 0;
     const { rampFloor, plateauElevation, rampStepSize } = this;
     // const totalStepHeight = plateauElevation - rampFloor;
-    
+
     // return Math.ceil(delta / rampStepSize);
     throw Error("numSteps not yet implemented.");
   }
-  
+
   #terrainAABB = new WeakMap();
-  
-  /** 
+
+  /**
    * Calculate the plane of a ramp, for case where polygons are not split.
    * Steps should be defined such that the top of each step hits this plane.
    * @returns {Plane}
@@ -125,7 +125,7 @@ export class RegionElevationHandler {
   calculateSingleRampPlane() {
     return this._calculatePolygonRamp(this.region.polygons);
   }
-  
+
   /**
    * Calculate the planes of a ramp, for case where polygons are split.
    * Steps should be defined such that the top of each step hits this plane.
@@ -134,8 +134,8 @@ export class RegionElevationHandler {
   calculateMultiPolygonRampPlanes() {
     return this.shapes.map(shape => this._calculatePolygonRamp(shape.polygons))
   }
-  
-  /** 
+
+  /**
    * Determine the min/max point of the ramp along the center point.
    * Intersection points of outermost polygon along the polygon center in direction of the region ramp.
    * @param {PIXI.Polygon[]} polygons
@@ -145,7 +145,7 @@ export class RegionElevationHandler {
     const region = this.region;
     const topZ = gridUnitsToPixels(this.plateauElevation);
     const rampFloor = gridUnitsToPixels(this.rampFloor);
-  
+
 		// Calculate the lowest and highest points on the plane.
 		// Non-split plane goes lowest point of intersection --> center --> highest point of intersection
 		// 0º is due south (0, 1), 90º is due west (1, 0)
@@ -153,7 +153,7 @@ export class RegionElevationHandler {
 		const rad = Math.toRadians(this.rampDirection);
 		using dir = PIXI.Point.tmp.set(Math.sin(rad), Math.cos(rad));
 		using a = ctr.add(dir);
-		
+
 		// For simplicity, just intersect the polygons.
 		// TODO: Intersect individual shapes or use sd to intersect them in 2d.
 		// First and last intersections are what we need (holes must be internal).
@@ -164,16 +164,16 @@ export class RegionElevationHandler {
 			ixs.forEach(ix => {
 				if ( ix.t0 < firstIx.t0 ) firstIx = ix;
 				if ( ix.t0 > lastIx.t0 ) lastIx = ix;
-			});        
+			});
 		}
 		if ( firstIx === lastIx || !isFinite(firstIx.t0) || !isFinite(lastIx.t0) ) throw Error("Ramp does not have sufficient intersecting points.");
-		
+
 		// Construct 3d points from the intersection at the requisite elevations of the ramp.
 		const a3d = Point3d.tmp.set(firstIx.x, firstIx.y, rampFloor);
 		const b3d = Point3d.tmp.set(lastIx.x, lastIx.y, topZ);
     return [a3d, b3d];
   }
-  
+
   /**
    * Calculate the plane of a ramp for a single group of polygons of this region.
    * @param {PIXI.Polygon[]} polygons
@@ -181,7 +181,7 @@ export class RegionElevationHandler {
    */
   _calculatePolygonRamp(polygons) {
 		const [a3d, b3d] = this._calculatePolygonRampPoints();
-		
+
 		// Construct the ramp plane. Normal should face up (toward part to cut away).
 		// Find a perpendicular in 2d to the plane direction.
 		const dir = b3d.subtract(a3d);
@@ -461,7 +461,7 @@ export class RegionElevationHandler {
   elevationUponEntry(pt) {
     const { PLATEAU, RAMP, NONE } = FLAGS.REGION.CHOICES;
     switch ( this.algorithm ) {
-      case NONE: return this.elevation;
+      case NONE: return this.region.elevationE.top;
       case PLATEAU: return this.plateauElevation;
       case RAMP: return this._rampElevation(pt);
     }
