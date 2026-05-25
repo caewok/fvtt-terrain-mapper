@@ -148,29 +148,34 @@ function traceSurfacePath(start, end, sceneSDF, stepSize = 1) {
   using verticalRayOrigin = Point3d.tmp.set(0, 0, maxHeight);
   using verticalRayDirection = Point3d.tmp.set(0, 0, -1);
   using testPt = Point3d.tmp;
-  const getWalkableSurfacesAtXY = currPt => {
+  const getWalkableSurfaceAbove = currPt => {
     verticalRayOrigin.x = currPt.x;
     verticalRayOrigin.y = currPt.y;
     const hits = SDF.findAllIntersections(verticalRayOrigin, verticalRayDirection, sceneSDF, raymarchOpts)
 
-    // Convert t-distances to z-elevations.
-    const zValues = hits.map(t => maxHeight - t);
-
-    // Surface is only wallkable if the space immediately above it is empty air.
     testPt.set(currPt.x, currPt.y, 0);
-    return zValues.filter(z => {
-      testPt.z = z + surfaceEpsilon;
-      return sceneSDF(testPt) > 0;
-    });
+    let minValid = Number.POSITIVE_INFINITY;
+    for ( const hit of hits ) {
+      // Convert t-distances to z-elevations.
+      const zValue = maxHeight - hit;
+
+      // Surface is only wallkable if the space immediately above it is empty air.
+      testPt.z = zValue + surfaceEpsilon;
+      if ( zValue >= currPt.z - surfaceEpsilon && sceneSDF(testPt) > 0 ) minValid = Math.min(minValid, zValue);
+    }
+    if ( !isFinite(minValid) ) throw Error(`traceSurfacePath|Cannot locate floor or ceiling at {${currPt.x}, ${currPt.y}, ${currPt.z}}.`);
+    return minValid;
   }
 
   // Helper: Z-correction when stepping.
   using liftPt = Point3d.tmp;
+  using rayOrigin = Point3d.tmp;
   const zCorrection = (d2, currPt) => {
     // Knee-height probe to detect an invalid surface.
     // If space immediately above our feet is blocked (SDF < 0), we hit a wall.
     let isAnomaly = Math.abs(d2) > surfaceEpsilon2;
     let liftD2 = d2;
+
     if ( !isAnomaly ) {
       // We are technically on a surface (d2 === 0). Check space immediately above.
       liftPt.copyFrom(currPt);
@@ -180,21 +185,21 @@ function traceSurfacePath(start, end, sceneSDF, stepSize = 1) {
       // If space above is solid, we are in a flush vertical wall.
       isAnomaly = liftD2 < 0;
     }
-    if ( isAnomaly ) {
-      const surfaces = getWalkableSurfacesAtXY(currPt);
 
+    if ( isAnomaly ) {
       // Determine if we are blocked (need to pop up) or falling based on effective state.
       const effectiveD2 = (Math.abs(d2) > surfaceEpsilon2) ? d2 : liftD2;
-      const validityTest = effectiveD2 > 0
-        // In empty air. Fall to highest valid surface beneath.
-        ? zValue => zValue <= currPt.z + surfaceEpsilon
-
-        // In a wall/obstacle. Pop up to the closest valid surface above.
-          : zValue => zValue >= currPt.z - surfaceEpsilon;
-
-      const valid = surfaces.filter(validityTest);
-      if ( !valid.length ) throw Error(`traceSurfacePath|Cannot locate floor or ceiling at {${currPt.x}, ${currPt.y}, ${currPt.z}}.`);
-      return effectiveD2 > 0 ? Math.max(...valid) : Math.min(...valid);
+      if ( effectiveD2 > 0 ) {
+        // Falling: Stepped into empty air.
+        // Raymarch downward from the exterior.
+        const dropDist = SDF.raymarch(currPt, verticalRayDirection, sceneSDF, raymarchOpts);
+        return dropDist !== null ? currPt.z - dropDist : currPt.z;
+      } else {
+        // Blocked: Stepped into an obstacle.
+        // Unsafe to raymarch upwards from inside a boolean union sdf.
+        // Instead, use more robust sky-drop to find closest valid surface above.
+        return getWalkableSurfaceAbove(currPt);
+      }
     }
     return currPt.z;
   }
