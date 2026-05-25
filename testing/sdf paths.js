@@ -18,6 +18,7 @@ Like walking but move through objects using -distance.
 
 */
 
+
 AABB2d = CONFIG.GeometryLib.lib.AABB2d
 AABB3d = CONFIG.GeometryLib.lib.threeD.AABB3d
 Draw = CONFIG.GeometryLib.lib.Draw
@@ -33,6 +34,7 @@ Plane = CONFIG.GeometryLib.lib.threeD.Plane
 PriorityQueue = CONFIG.GeometryLib.lib.PriorityQueue;
 almostLessThan = CONFIG.GeometryLib.lib.utils.almostLessThan
 cutawayUtil = CONFIG.GeometryLib.lib.utils.cutaway
+
 
 class SceneFloorSDF extends SDFPlaceable {
   plane = new Plane();
@@ -123,6 +125,7 @@ function percentToTarget(c, a, b) {
 
 
 // Create SDF object for each placeable
+/*
 tileSDFs = canvas.tiles.placeables.map(tile => new TileSDF(tile));
 regionSDFs = canvas.regions.placeables.map(region => new RegionSDF(region));
 sceneSDFs = [...tileSDFs, ...regionSDFs];
@@ -194,208 +197,8 @@ sdfSurfaces = p => SDF.union(...[...surfaceSDFs].map(sdfObj => sdfObj.sdf3d()(p)
 
 tokenProneHeight = (startToken.topZ - startToken.bottomZ)* CONFIG.GeometryLib.CONFIG.proneMultiplier;
 SURFACE_SPACER = 2.3
-
-
-nearestObstacles = (p, spacer) => {
-  if ( !obstacleSDFs.size ) return { t: Number.POSITIVE_INFINITY, hits: [] };
-  using pAdj = p.clone();
-  pAdj.add(gradient.multiplyScalar(spacer, tmp), pAdj);
-  return SDF.nearestObstacles(pAdj, currDirection, [...obstacleSDFs.map(sdfObj => sdfObj.sdf3d())]);
-
-  // Alternative:
-  // return SDF.findDistanceAlongRay(pAdj, currDirection, sdfObstacles); // Could use AABB to create initialGuess.
-}
-
-nearestSurfaceObstacle = p =>  {
-  if ( !surfaceSDFs.size ) return Number.POSITIVE_INFINITY; // Should not happen.
-  using pAdj = p.clone();
-  pAdj.add(gradient.multiplyScalar(SURFACE_SPACER, tmp), pAdj);
-
-  // Will take a lot of steps because we are likely close to a surface edge.
-  let maxSteps = 0;
-  surfaceSDFs.forEach(sdfObj => {
-    const length = sdfObj.aabb3d.length;
-    maxSteps = Math.max(length.x + length.y + length.z, maxSteps);
-  });
-  return SDF.raymarch(pAdj, currDirection, sdfSurfaces, { maxSteps }) || Number.POSITIVE_INFINITY;
-
-  // Alternative:
-  // return SDF.findDistanceAlongRay(pAdj, currDirection, sdfSurfaces); // Could use AABB to create initialGuess.
-}
-
-nearestSurfaceCliff = p => {
-  if ( !currSurface ) return Number.POSITIVE_INFINITY; // Should not happen.
-  using pAdj = p.clone();
-  pAdj.subtract(gradient.multiplyScalar(SURFACE_SPACER, tmp), pAdj); // Move below the surface.
-  pAdj.add(currDirection, pAdj); // Move forward a bit to avoid hitting the starting edge (e.g. cube sitting on floor).
-
-  // Will take a lot of steps because we are likely close to a surface edge.
-  const length = currSurface.aabb3d.length;
-  maxSteps = length.x + length.y + length.z; // Quicker than getting the diagonal (length.magnitude()) and gives similar results.
-  return SDF.raymarchInterior(pAdj, currDirection, currSurface.sdf3d(), { maxSteps }) || Number.POSITIVE_INFINITY;
-
-  // Alternative:
-  // return SDF.findDistanceAlongRay(pAdj, currDirection, sdfSurfaces); // Could use AABB to create initialGuess.
-}
-
-
-
-
-/*
-Track surface movement by testing point below and point above.
-So if at elevation 0, use a point at 2.3 and point at -2.3.
-(Chosen to be larger than epsilon and prime. Needs to be smaller than the width/depth/height of the object.)
-
-Determine obstacles by testing a top and bottom ray origin.
-Bottom is at the token base.
-Top is at the token height when prone (crawling).
-
-Move bottom up from token base (0) to hurdle.
-Move bottom up slightly from token base to better identify slopes
-
-
-Need to handle three scenarios:
-1. Surface and Obstacle joined, with obstacle sitting on surface. Interior SDF flawed.
-2. Surface and Obstacle joined, with obstacle sitting on surface. Smooth union. Interior SDF flawed.
-3. Surface distinct from obstacle. Interior SDF of either may be flawed.
 */
 
-currSurface = undefined;
-currSurfaceDown = down.clone();
-nextSurfaceObstacleT = Number.POSITIVE_INFINITY;
-nextSurfaceCliffT = Number.POSITIVE_INFINITY;
-nextSurfaceObstacleD = Number.POSITIVE_INFINITY;
-nextSurfaceCliffD = Number.POSITIVE_INFINITY;
-surfaceStartPosition = Point3d.tmp;
-
-steepestSurface = p => {
-  using pAdj = p.clone();
-  pAdj.add(gradient.multiplyScalar(SURFACE_SPACER, tmp), pAdj);
-
-  using grad = Point3d.tmp;
-  const iter = surfaceSDFs.values();
-  let steepest = iter.next().value;
-  SDF.calculateGradient(steepest.sdf3d(), pAdj, 1e-03, gradient);
-  for ( const sdfObj of iter ) {
-    SDF.calculateGradient(sdfObj.sdf3d(), pAdj, 1e-03, grad);
-    if ( grad.z.almostEqual(0) || grad.z > gradient.z ) {
-      gradient.copyFrom(grad);
-      steepest = sdfObj;
-    }
-  }
-  return steepest;
-}
-
-setSurface = p => {
-  currSurface = steepestSurface(p);
-  SDF.projectDirectionOntoSlope(rayDirection3d, gradient, currDirection);
-  if ( currDirection.magnitudeSquared().almostEqual(0) ) currDirection.copyFrom(up); // Ran into vertical wall, stopping all velocity.
-  nextSurfaceObstacleT = nearestSurfaceObstacle(p);
-  nextSurfaceCliffT = nearestSurfaceCliff(p);
-  surfaceStartPosition.copyFrom(p);
-}
-
-checkpoints = []
-let iter = 0;
-maxIter = 10000;
-while ( currT < 1 && iter++ < maxIter ) {
-  checkpoints.push(currPosition.clone());
-
-  // Do the surfaces still count?
-  for ( const surfaceSDF of surfaceSDFs ) {
-    const d = surfaceSDF.sdf3d()(currPosition);
-    if ( !onSurface(d) ) {
-      surfaceSDFs.delete(surfaceSDF);
-      obstacleSDFs.add(surfaceSDF);
-    }
-  }
-
-  // Does the current surface still work?
-  if ( !surfaceSDFs.has(currSurface)  ) {
-    // Pick the highest gradient of the remaining surfaces.
-    currSurface = undefined;
-    if ( surfaceSDFs.size ) setSurface(currPosition);
-
-  }
-
-  // If not on a surface, fall down.
-  if ( !currSurface ) {
-    currDirection.copyFrom(down);
-    const res = SDF.nearestObstacles(currPosition, currDirection, [...obstacleSDFs.map(sdfObj => sdfObj.sdf3d())])
-    currPosition.add(currDirection.multiplyScalar(res.t, tmp), currPosition);
-    const obstaclesArr = [...obstacleSDFs];
-    res.hits.forEach(i => {
-      sdfObj = obstaclesArr[i];
-      surfaceSDFs.add(sdfObj);
-      obstacleSDFs.delete(sdfObj);
-    });
-    setSurface(currPosition);
-  }
-
-  // At this point, the current surface is identified, and other surfaces at this point are known.
-  // Raymarch until hitting the nearest obstacle.
-
-  // 1. Calculate distance to nearest obstacle(s).
-  const marchRes = nearestObstacles(currPosition, SURFACE_SPACER);
-  // const marchResHigh = nearestObstacles(currPosition, tokenProneHeight);
-  // const marchRes = marchResHigh.t < marchResLow.t ? marchResHigh : marchResLow; // For ties, prefer low.
-
-  const obstaclesArr = [...obstacleSDFs];
-  const obstaclesHit = marchRes.hits.map(i => obstaclesArr[i]);
-
-  if ( nextSurfaceObstacleT.almostEqual(marchRes.t) ) obstaclesHit.push(currSurface);
-  else if ( nextSurfaceObstacleT < marchRes.t ) {
-    obstaclesHit.length = 1;
-    obstaclesHit[0] = currSurface;
-    marchRes.t = nextSurfaceObstacleT;
-  }
-
-  if ( obstaclesHit.length ) {
-    // Hit an obstacle.
-    // Move.
-    obstaclesHit.forEach(sdfObj => {
-      surfaceSDFs.add(sdfObj);
-      obstacleSDFs.delete(sdfObj);
-    });
-
-    currPosition.add(currDirection.multiplyScalar(marchRes.t, tmp), currPosition);
-
-    // Determine the obstacle gradient.
-    // TODO: Calculate obstacle distances and gradients together. Figure out how to do that for combined.
-    setSurface(currPosition);
-
-  } else if ( nextSurfaceCliffT < marchRes.t ) {
-    // Reached surface cliff.
-    // Move, plus an additional step "off" the cliff.
-    currPosition.add(currDirection.multiplyScalar(nextSurfaceCliffT + 1, tmp), currPosition);
-    currDirection.copyFrom(rayDirection3d);
-
-    // SDF.calculateGradient(steepest.sdf3d(), pAdj, 1e-03
-
-
-  } else break; // Move to the end.
-
-  // Are we done?
-  currT = percentToTarget(currPosition, start, end);
-
-  // Drop SDFs behind the current position.
-  while ( sdfBoundsQueue.length ) {
-    if ( sdfBoundsQueue.currentPriority < (currT * maxT) ) {
-      const sdfObj = sdfBoundsQueue.dequeue();
-      obstacleSDFs.delete(sdfObj);
-      surfaceSDFs.delete(sdfObj);
-    } else break;
-  }
-
-}
-
-// Add the end.
-checkpoints.push(end.clone());
-
-
-
-
-// ----- NOTE: Take two
 
 /* How to deal with cliff and obstacle transitions.
 
@@ -441,7 +244,7 @@ Same for ramps:
 
 */
 
-SURFACE_SPACER = 1.3
+const SURFACE_SPACER = 1.3
 
 function updatePercentFinished(currPosition, start, end, sdfBoundsQueue, obstacleSDFs, maxT, currSurface) {
 
@@ -529,7 +332,7 @@ function updateSurfaceGradient(currSurface, currPosition, currDirection, rayDire
   currSurface.cliffT = nearestSurfaceCliff(currSurface.sdfObj, currSurface.gradient, currSurface.startPoint, currDirection);
 }
 
-selectSurface = (potentialSurfaces, currSurface, currPosition, currDirection, rayDirection) => {
+function selectSurface(potentialSurfaces, currSurface, currPosition, currDirection, rayDirection) {
   // Select the steepest surface at that point.
   const steepest = steepestSurface(currPosition, potentialSurfaces) || currSurface;
   currSurface.sdfObj = steepest.sdfObj;
@@ -540,12 +343,15 @@ selectSurface = (potentialSurfaces, currSurface, currPosition, currDirection, ra
   updateSurfaceGradient(currSurface, currPosition, currDirection, rayDirection, false);
 }
 
-tileSDFs = canvas.tiles.placeables.map(tile => new TileSDF(tile));
-regionSDFs = canvas.regions.placeables.map(region => new RegionSDF(region));
-floorSDFObj = new SceneFloorSDF(canvas.scene);
-sceneSDFs = [...tileSDFs, ...regionSDFs, floorSDFObj];
+
 
 function traceSDFPath(start, end, sceneSDFs) {
+  if ( !sceneSDFs ) {
+    const tileSDFs = canvas.tiles.placeables.map(tile => new TileSDF(tile));
+    const regionSDFs = canvas.regions.placeables.map(region => new RegionSDF(region));
+    const sceneSDFs = [...tileSDFs, ...regionSDFs];
+  }
+
   const rayOrigin = start;
   const rayDirection = end.subtract(start).normalize()
 
@@ -560,6 +366,7 @@ function traceSDFPath(start, end, sceneSDFs) {
     obstacleSDFs.add(placeableSDF)
   });
 
+  const floorSDFObj = new SceneFloorSDF(canvas.scene);
   obstacleSDFs.add(floorSDFObj);
   const onSurface = d => d.almostEqual(0, 1e-02);
   const currSurface = {

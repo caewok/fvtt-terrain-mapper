@@ -204,27 +204,28 @@ function traceSurfacePath(start, end, sceneSDF, stepSize = 1) {
     return currPt.z;
   }
 
+  // Temporary objects used in the loop.
+  using nextPt = Point3d.tmp;
+
   // Initial gravity drop (or pop-up if spawned inside an object).
   const startD2 = sceneSDF(current);
   current.z = zCorrection(startD2, current)
   addPoint(path, current.clone());
 
-  // Trace the path.
+  // Precompute 2d trajectory.
+  using stepVec = Point3d.tmp.set(end.x - current.x, end.y - current.y, 0);
+  const totalDist2d = stepVec.magnitude();
+  const numSteps = Math.floor(totalDist2d / stepSize);
 
-  using dir2d = Point3d.tmp.set(end.x - current.x, end.y - current.y, 0);
-  using nextPt = Point3d.tmp;
-  let dist2d = dir2d.magnitudeSquared();
-  const stepSizeSquared = stepSize ** 2;
+  // Normalize and scale to stepSize length.
+  if ( totalDist2d > 0 ) stepVec.normalize(stepVec).multiplyScalar(stepSize, stepVec);
+
+  // Cap iterations to whichever is smaller to act as safety net.
+  const loopLimit = Math.min(numSteps, maxIterations);
   let iterations = 0;
-  while ( dist2d > stepSizeSquared && iterations++ < maxIterations ) {
-    dir2d.normalize(dir2d);
 
-    nextPt.set(
-      current.x + (dir2d.x * stepSize),
-      current.y + (dir2d.y * stepSize),
-      current.z,
-    );
-
+  while ( iterations++ < loopLimit ) {
+    current.add(stepVec, nextPt);
     const d2 = sceneSDF(nextPt);
 
     // If not perfectly resting on a surface, calculate the Z correction.
@@ -235,9 +236,6 @@ function traceSurfacePath(start, end, sceneSDF, stepSize = 1) {
 
     current.copyFrom(nextPt);
     addPoint(path, current.clone());
-
-    dir2d.set(end.x - current.x, end.y - current.y, 0); // 2d distance and direction.
-    dist2d = dir2d.magnitudeSquared();
   }
 
   // Final step on to the target XY.

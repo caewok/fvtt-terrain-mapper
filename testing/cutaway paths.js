@@ -211,25 +211,14 @@ function traceCutoutPath(start, end) {
   return checkpoints.map(checkpoint => cutawayUtil.from2d(checkpoint, start, end));
 }
 
-path = traceCutoutPath(start, end)
-
-
-
-
-pts = checkpoints.map(checkpoint => {
-  checkpoint = cutawayUtil.convertToDistance(checkpoint.clone());
-  checkpoint = cutawayUtil.convertToElevation(checkpoint)
-  checkpoint.y *= -1;
-  return checkpoint;
-})
-Draw.connectPoints(pts);
-pts.forEach(pt => Draw.point(pt))
-
+/*
 bench = CONFIG.GeometryLib.lib.bench
 
-floorSDF = new SceneFloorSDF(canvas.scene);
-sceneSDFs.push(floorSDF);
-sceneSDFObj = new SDFCombined(sceneSDFs)
+tileSDFs = canvas.tiles.placeables.map(tile => new TileSDF(tile));
+regionSDFs = canvas.regions.placeables.map(region => new RegionSDF(region));
+sceneSDFs = [...tileSDFs, ...regionSDFs];
+
+
 
 startToken = canvas.tokens.placeables.find(t => t.name === "Randal")
 endToken = canvas.tokens.placeables.find(t => t.name === "Riswynn")
@@ -240,6 +229,15 @@ end = GridCoordinates3d.fromTokenCenter(endToken)
 start.elevation = 20
 end.elevation = 20
 
+// Filter to include only those SDFs that could be encountered on the path.
+start2d = start.to2d();
+end2d = end.to2d();
+sceneSDFs = sceneSDFs.filter(sceneSDF => sceneSDF.aabb2d.overlapsSegment(start2d, end2d));
+
+floorSDF = new SceneFloorSDF(canvas.scene);
+sceneSDFs.push(floorSDF);
+sceneSDFObj = new SDFCombined(sceneSDFs)
+*/
 
 N = 1000
 tmp = await bench.QBenchmarkLoopFn(N, traceCutoutPath, "traceCutoutPath", start, end)
