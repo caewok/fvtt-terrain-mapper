@@ -13,6 +13,7 @@ Plane = CONFIG.GeometryLib.lib.threeD.Plane
 PriorityQueue = CONFIG.GeometryLib.lib.PriorityQueue;
 almostLessThan = CONFIG.GeometryLib.lib.utils.almostLessThan
 cutawayUtil = CONFIG.GeometryLib.lib.utils.cutaway
+bench = CONFIG.GeometryLib.lib.bench
 
 
 // For an array of polygons (cutaways), find the first one that a ray hits.
@@ -73,46 +74,80 @@ function *iterateFromEdge(cutaway, targetEdge) {
   }
 }
 
-function traceCutoutPath(start, end) {
+/**
+ * Identify the t-value on segment A|B closest to C.
+ * Picture the line segment as forming an infinite-width cylinder with a defined height
+ * equal to the length of the segment.
+ * 0: Point is below the cylinder.
+ * 1: Point is above.
+ * 0-1: If the point is within the cylinder, the function returns the percentage height
+ *      of the point relative to the cylinder base.
+ * @param {Point} c     The reference point C
+ * @param {Point} a     Point A on segment A|B
+ * @param {Point} b     Point B on segment A|B
+ * @returns {number}    T-value, where 0 is a and 1 is b. Negative numbers are before a; >1 is after b.
+ * @see {@link https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line#Line_defined_by_two_points}
+ */
+function percentToTarget(c, a, b) {
+  // Scalar projection of the vector start --> c onto the vector a|b, normalized.
+  using v = b.subtract(a);
+  using w = c.subtract(a);
+  return v.dot(w) / v.magnitudeSquared();
+}
+
+function traceCutoutPath(start, end, startToken) {
 
   // Versus using polygon shapes with proper intersections
-  cutaways = [canvas.scene, ...canvas.regions.placeables, ...canvas.tiles.placeables].flatMap(obj => obj.terrainmapper._cutaway(start, end, startToken));
+  const cutaways = [canvas.scene, ...canvas.regions.placeables, ...canvas.tiles.placeables].flatMap(obj => obj.terrainmapper._cutaway(start, end, startToken));
   // cutaways.forEach(cutaway => cutaway.reverseOrientation())
-  floor = cutaways[0];
-  cutaways = new Set(cutaways);
+  const floor = cutaways[0];
+  const cutawaysSet = new Set(cutaways);
 
-  right = PIXI.Point.tmp.set(1, 0);
-  down = PIXI.Point.tmp.set(0, -1);
-  start2d = floor._to2d(start);
-  end2d = floor._to2d(end)
-  currPosition = start2d.clone();
-  currDirection = down.clone()
-  currT = 0;
-  iter = 0;
-  checkpoints = [];
-  surfaces = new Set();
-  currSurface = undefined
-  tmp = PIXI.Point.tmp;
-  maxIter = 1000;
-  maxT = Point3d.distanceBetween(start2d, end2d);
+  // Temporary points.
+  using down = PIXI.Point.tmp.set(0, -1);
+  using start2d = floor._to2d(start);
+  using end2d = floor._to2d(end);
+  using currPosition = start2d.clone();
+  using currDirection = down.clone();
 
-  cutawayBoundsQueue = new PriorityQueue("low");
-  cutaways.forEach(cutaway => {
+  const checkpoints = [];
+  let currSurface = undefined
+
+  // Get bounds of each cutaway so they can be trimmed as we go.
+  const cutawayBoundsQueue = new PriorityQueue("low");
+  cutawaysSet.forEach(cutaway => {
     const bounds = cutaway.getBounds();
     cutawayBoundsQueue.enqueue(cutaway, bounds.right);
   });
 
+  // Helper to run at each step to trim obstacles that are behind us.
+  let currT = 0;
+  const maxT = Point3d.distanceBetween(start2d, end2d);
+  const cleanupObstacles = () => {
+    while ( cutawaysSet.size ) {
+      if ( cutawayBoundsQueue.currentPriority < (currT * maxT) ) {
+        const cutaway = cutawayBoundsQueue.dequeue();
+        cutawaysSet.delete(cutaway);
+      } else break;
+    }
+  };
+
+  let iter = 0;
+  const maxIter = 1000;
   whileLoop: while ( currT < 1 && iter++ < maxIter ) {
     checkpoints.push(currPosition.clone())
 
     // Locate a surface.
     if ( !currSurface ) {
       currDirection.copyFrom(down);
-      currSurface = findSurface(currPosition, currDirection, cutaways, false);
-      // if ( !currSurface.edge ) break whileLoop; // Should not happen.
+      currSurface = findSurface(currPosition, currDirection, cutawaysSet, false);
+      if ( !currSurface.edge ) {
+        console.error(`traceCutoutPath|Surface not found at ${currPosition} with direction ${currDirection}`);
+        break whileLoop; // Should not happen b/c we should always hit the floor.
+      }
 
       // Move down to the surface.
-      cutaways.delete(currSurface.cutaway);
+      cutawaysSet.delete(currSurface.cutaway);
       currPosition.copyFrom(currSurface.ix);
       checkpoints.push(currPosition.clone())
       currSurface.edge.b.subtract(currSurface.edge.a, currDirection);
@@ -140,19 +175,19 @@ function traceCutoutPath(start, end) {
 
       if ( isCliff ) {
         // Check if moving again will hit something.
-        const newSurface = findSurface(currPosition, currDirection, cutaways, true);
+        const newSurface = findSurface(currPosition, currDirection, cutawaysSet, true);
 
         // Move 1 pixel across unless we are going to hit something.
         if ( newSurface.ix.t0 > 1 ) {
-          cutaways.add(currSurface.cutaway)
+          cutawaysSet.add(currSurface.cutaway)
           currSurface = undefined;
           currPosition.add(currDirection, currPosition);
           break; // Go back to beginning to free fall until we find a surface.
 
         } else {
           // An obstacle immediately to the right becomes our new surface.
-          cutaways.add(currSurface.cutaway)
-          cutaways.delete(newSurface.cutaway);
+          cutawaysSet.add(currSurface.cutaway)
+          cutawaysSet.delete(newSurface.cutaway);
           currSurface = newSurface;
           currPosition.copyFrom(currSurface.ix);
           currSurface.edge.b.subtract(currSurface.edge.a, currDirection);
@@ -169,11 +204,11 @@ function traceCutoutPath(start, end) {
 
       } else {
         // Look for an obstacle.
-        const nextObstacle = findSurface(currPosition, currDirection, cutaways, true);
+        const nextObstacle = findSurface(currPosition, currDirection, cutawaysSet, true);
         if ( nextObstacle.ix.t0 < 1 ) {
           // We hit an obstacle before the end of this edge.
-          cutaways.add(currSurface.cutaway)
-          cutaways.delete(nextObstacle.cutaway);
+          cutawaysSet.add(currSurface.cutaway)
+          cutawaysSet.delete(nextObstacle.cutaway);
           currSurface = nextObstacle;
           currPosition.copyFrom(currSurface.ix);
           currSurface.edge.b.subtract(currSurface.edge.a, currDirection);
@@ -186,37 +221,18 @@ function traceCutoutPath(start, end) {
 
       // Are we done?
       currT = percentToTarget(currPosition, start2d, end2d);
-
-      // Drop obstacles behind the current position.
-      while ( cutaways.size ) {
-        if ( cutawayBoundsQueue.currentPriority < (currT * maxT) ) {
-          const cutaway = cutawayBoundsQueue.dequeue();
-          cutaways.delete(cutaway);
-        } else break;
-      }
+      cleanupObstacles();
     }
 
     // Are we done?
     currT = percentToTarget(currPosition, start2d, end2d);
-
-    // Drop obstacles behind the current position.
-    while ( cutaways.size ) {
-      if ( cutawayBoundsQueue.currentPriority < (currT * maxT) ) {
-        const cutaway = cutawayBoundsQueue.dequeue();
-        cutaways.delete(cutaway);
-      } else break;
-    }
+    cleanupObstacles();
   }
 
   return checkpoints.map(checkpoint => cutawayUtil.from2d(checkpoint, start, end));
 }
 
 /*
-bench = CONFIG.GeometryLib.lib.bench
-
-tileSDFs = canvas.tiles.placeables.map(tile => new TileSDF(tile));
-regionSDFs = canvas.regions.placeables.map(region => new RegionSDF(region));
-sceneSDFs = [...tileSDFs, ...regionSDFs];
 
 
 
@@ -226,20 +242,35 @@ endToken = canvas.tokens.placeables.find(t => t.name === "Riswynn")
 start = GridCoordinates3d.fromTokenCenter(startToken)
 end = GridCoordinates3d.fromTokenCenter(endToken)
 
-start.elevation = 20
-end.elevation = 20
+start.elevation = 10
+end.elevation = 10
 
 // Filter to include only those SDFs that could be encountered on the path.
 start2d = start.to2d();
 end2d = end.to2d();
 sceneSDFs = sceneSDFs.filter(sceneSDF => sceneSDF.aabb2d.overlapsSegment(start2d, end2d));
 
+
+tileSDFs = canvas.tiles.placeables.map(tile => new TileSDF(tile));
+regionSDFs = canvas.regions.placeables.map(region => new RegionSDF(region));
+sceneSDFs = [...tileSDFs, ...regionSDFs];
+
 floorSDF = new SceneFloorSDF(canvas.scene);
 sceneSDFs.push(floorSDF);
 sceneSDFObj = new SDFCombined(sceneSDFs)
 */
 
+tm = startToken.terrainmapper;
+
+
+
+walkingPath = tm.constructWalkingPath(start, end)
+flyingPath = tm.constructFlyingPath(start, end)
+burrowingPath = tm.constructBurrowingPath(start, end)
+
+
 N = 1000
-tmp = await bench.QBenchmarkLoopFn(N, traceCutoutPath, "traceCutoutPath", start, end)
-tmp = await bench.QBenchmarkLoopFn(N, traceSurfacePath, "traceSurfacePath", start, end, sceneSDFObj.sdf3d())
-tmp = await bench.QBenchmarkLoopFn(N, traceSDFPath, "traceSDFPath", start, end, sceneSDFs)
+tmp = await bench.QBenchmarkLoop(N, startToken.terrainmapper, "constructWalkingPath", start, end)
+tmp = await bench.QBenchmarkLoopFn(N, traceCutoutPath, "traceCutoutPath", start, end, startToken)
+// tmp = await bench.QBenchmarkLoopFn(N, traceSurfacePath, "traceSurfacePath", start, end, sceneSDFObj.sdf3d())
+// tmp = await bench.QBenchmarkLoopFn(N, traceSDFPath, "traceSDFPath", start, end, sceneSDFs)

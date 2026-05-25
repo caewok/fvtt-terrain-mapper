@@ -7,16 +7,14 @@ PIXI
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 
 import { MODULE_ID } from "./const.js";
-import { GEOMETRY_LIB_ID } from "./geometry/const.js";
 import {
   elevatedRegions,
   elevatedTiles } from "./util.js";
 import { ElevatedPoint } from "./geometry/3d/ElevatedPoint.js";
-import { cutaway, almostGreaterThan, almostLessThan, almostBetween, gridUnitsToPixels } from "./geometry/util.js";
-import { CutawayPolygon } from "./geometry/CutawayPolygon.js";
+import { cutaway, almostLessThan, almostBetween, gridUnitsToPixels } from "./geometry/util.js";
 import { Draw } from "./geometry/Draw.js";
 import { AABB2d } from "./geometry/AABB.js";
-
+import { PriorityQueue } from "./geometry/PriorityQueue.js";
 
 /**
  * Regions elevation handler
@@ -42,6 +40,10 @@ export class TokenElevationHandler {
     LEFT: 16,          // 010000
     RIGHT: 32,         // 100000
   }
+
+  static DOWN = new PIXI.Point(0, -1);
+
+
 
   // ----- NOTE: Static Getters ----- //
 
@@ -91,55 +93,38 @@ export class TokenElevationHandler {
     this.token = token;
   }
 
-  #start = new ElevatedPoint();
+  start = new ElevatedPoint();
 
-  get start() { return this.#start.clone(); }
+  end = new ElevatedPoint();
 
-  #end = new ElevatedPoint();
 
-  get end() { return this.#end.clone(); }
+  initialize(_start, _end) {
+    console.warn("TokenElevationHandler|initialize is deprecated.");
+  }
 
-  initialize(start, end) {
+  _initialize(start, end) {
     // Ensure that the cutaway polygons extend beyond the start and end point along x/y axes.
     // This avoids issues where the path artificially moves down or up b/c it is at the cutoff.
-    const startXY = PIXI.Point.fromObject(start);
-    const endXY = PIXI.Point.fromObject(end);
+    using startXY = PIXI.Point.fromObject(start);
+    using endXY = PIXI.Point.fromObject(end);
     if ( startXY.equals(endXY) ) startXY.x += 1;  // Arbitrarily extend so there is a cutaway x/y surface.
     const distXY = PIXI.Point.distanceBetween(startXY, endXY)
-    startXY.towardsPoint(endXY, distXY + 1, this.#end);
-    endXY.towardsPoint(startXY, distXY + 1, this.#start);
-    this.#start.z = start.z ?? (start.elevation ? gridUnitsToPixels(start.elevation) : 0);
-    this.#end.z = end.z ?? (end.elevation ? gridUnitsToPixels(end.elevation) : 0);
+    startXY.towardsPoint(endXY, distXY + 1, this.end);
+    endXY.towardsPoint(startXY, distXY + 1, this.start);
+    this.start.z = start.z ?? (start.elevation ? gridUnitsToPixels(start.elevation) : 0);
+    this.end.z = end.z ?? (end.elevation ? gridUnitsToPixels(end.elevation) : 0);
 
-    this.regions = this.constructor.filterElevatedRegionsByXYSegment(this.#start, this.#end);
-    this.tiles = this.constructor.filterElevatedTilesByXYSegment(this.#start, this.#end);
-
-
-    if ( this.regions.length || this.tiles.length ) {
-      const ClipperPaths = CONFIG[GEOMETRY_LIB_ID].CONFIG.ClipperPaths;
-      const cutaways = [canvas.scene, ...this.regions, ...this.tiles].flatMap(obj => obj[MODULE_ID]._cutaway(this.#start, this.#end, this.token));
-
-      // Have to reverse the polygons for Clipper to not treat as holes.
-      cutaways.forEach(poly => poly.reverseOrientation())
-      this.combinedCutaways = ClipperPaths.fromPolygons(cutaways)
-        .combine()
-        .clean()
-        .toPolygons()
-        .map(poly => {
-          // Don't need to reverse here.
-          const cutPoly = CutawayPolygon.fromCutawayPoints(poly.points, this.#start, this.#end);
-          return new CutawayHandler(cutPoly);
-        });
-
-      // Revert back the original polygons.
-      // cutaways.forEach(poly => poly.reverseOrientation())
-    } else this.combinedCutaways = canvas.scene[MODULE_ID]._cutaway(this.#start, this.#end).map(cutPoly => new CutawayHandler(cutPoly));
+    this.regions = this.constructor.filterElevatedRegionsByXYSegment(this.start, this.end);
+    this.tiles = this.constructor.filterElevatedTilesByXYSegment(this.start, this.end);
+    this.combinedCutaways = [canvas.scene, ...this.regions, ...this.tiles]
+      .flatMap(obj => obj[MODULE_ID]._cutaway(this.start, this.end, this.token))
+      .map(cutPoly => new CutawayHandler(cutPoly));
   }
 
 
   // ----- NOTE: Primary methods ----- //
 
-  constructPath(a, b, { flying, burrowing, walking } = {}) {
+  constructPath(a, b, { flying, burrowing, walking, initialize = true } = {}) {
     // if ( a.equals(b) ) return [a, b];
     flying ??= this.flying;
     burrowing ??= this.burrowing;
@@ -159,14 +144,14 @@ export class TokenElevationHandler {
       */
     }
 
-    if ( burrowing ) return this.constructBurrowingPath(a, b);
-    if ( flying ) return this.constructFlyingPath(a, b);
-    return this.constructWalkingPath(a, b);
+    if ( burrowing ) return this.constructBurrowingPath(a, b, initialize);
+    if ( flying ) return this.constructFlyingPath(a, b, initialize);
+    return this.constructWalkingPath(a, b, initialize);
   }
 
-  to2d(value) { return cutaway.to2d(value, this.#start, this.#end); }
+  to2d(value) { return cutaway.to2d(value, this.start, this.end); }
 
-  from2d(value) { return cutaway.from2d(value, this.#start, this.#end); }
+  from2d(value) { return cutaway.from2d(value, this.start, this.end); }
 
 
   #verifyPath2d(path2d) {
@@ -190,9 +175,10 @@ export class TokenElevationHandler {
       2. If above a region. Move vertically down.
       3. If below a region. Move vertically up.
     */
-  constructWalkingPath(a, b) {
-    const a2d = this.to2d(a);
-    const b2d = this.to2d(b);
+  constructWalkingPath(a, b, initialize = true) {
+    if ( initialize ) this._initialize(a, b);
+    using a2d = this.to2d(a);
+    using b2d = this.to2d(b);
     let path2d = [];
     try {
       path2d = this._constructWalkingPath(a2d, b2d);
@@ -215,39 +201,135 @@ export class TokenElevationHandler {
    * This simplifies the walking algorithm.
    * For floating regions or tiles, still might fall from one to another, so must account for that.
    */
-  _constructWalkingPath(a2d, b2d) {
-    const { ABOVE, BELOW } = this.constructor.ELEVATION_LOCATIONS;
+  _constructWalkingPath(start2d, end2d) {
+    // Temporary points.
+    using currPosition = start2d.clone();
+    using currDirection = this.constructor.DOWN.clone();
 
-    // Multiple polygons or polygons + tiles means vertical moves down can hit a tile or drop to another polygon.
-    // Note that other than for tiles, there are no intersecting polygons (combined by Clipper already).
-    let currWaypoint = a2d;
-    const waypoints = [a2d];
+    const checkpoints = [];
+    let currSurface = undefined;
+    const cutawaysSet = new Set(this.combinedCutaways.map(ch => ch.cutPoly));
 
-    const MAX_ITER = 10000;
-    let nIters = 0;
-    const finished = () => almostGreaterThan(currWaypoint.x, b2d.x); // waypoint ≥ end
-    do {
-      nIters += 1;
+    // Get bounds of each cutaway so they can be trimmed as we go.
+    const cutawayBoundsQueue = new PriorityQueue("low");
+    cutawaysSet.forEach(cutaway => {
+      const bounds = cutaway.getBounds();
+      cutawayBoundsQueue.enqueue(cutaway, bounds.right);
+    });
 
-      // Determine current location.
-      let { cutHandler, location, elevation } = this._nearestSupport(currWaypoint);
+    // Helper to run at each step to trim obstacles that are behind us.
+    let currT = 0;
+    const maxT = ElevatedPoint.distanceBetween(start2d, end2d);
+    const cleanupObstacles = () => {
+      while ( cutawaysSet.size ) {
+        if ( cutawayBoundsQueue.currentPriority < (currT * maxT) ) {
+          const cutaway = cutawayBoundsQueue.dequeue();
+          cutawaysSet.delete(cutaway);
+        } else break;
+      }
+    };
 
-      // Move up or down as needed.
-      // Poly intersections already checked.
-      if ( location === ABOVE || location === BELOW ) {
-        currWaypoint = PIXI.Point.tmp.set(currWaypoint.x, elevation);
-        waypoints.push(currWaypoint);
+    let iter = 0;
+    const maxIter = 1000;
+    whileLoop: while ( currT < 1 && iter++ < maxIter ) {
+      checkpoints.push(currPosition.clone())
+
+      // Locate a surface.
+      if ( !currSurface ) {
+        currDirection.copyFrom(this.constructor.DOWN);
+        currSurface = findSurface(currPosition, currDirection, cutawaysSet, false);
+        if ( !currSurface.edge ) {
+          console.error(`traceCutoutPath|Surface not found at ${currPosition} with direction ${currDirection}`);
+          break whileLoop; // Should not happen b/c we should always hit the floor.
+        }
+
+        // Move down to the surface.
+        cutawaysSet.delete(currSurface.cutaway);
+        currPosition.copyFrom(currSurface.ix);
+        checkpoints.push(currPosition.clone())
+        currSurface.edge.b.subtract(currSurface.edge.a, currDirection);
+        // currDirection.normalize(); // Can skip normalization here.
       }
 
-      // Walk surface.
-      waypoints.push(...cutHandler.surfaceWalk(currWaypoint));
-      currWaypoint = waypoints.at(-1);
+      // Move along the surface until:
+      // 1. We hit something.
+      // 2. We are moving straight down
+      // 3. We are moving to the left (back toward start.)
+      // 4. We pass the currT.
 
-    } while ( !finished() && nIters < MAX_ITER );
-    this.#adjustEndpoint(waypoints, b2d);
+      const surfaceIter = iterateFromEdge(currSurface.cutaway, currSurface.edge);
+      for ( const edge of surfaceIter ) {
+        // currT = percentToTarget(currPosition, start2d, end2d);
+        // if ( currT > 1 ) break whileLoop;
+        edge.b.subtract(edge.a, currDirection);
 
-    if ( waypoints.length === 1 ) return [waypoints[0], waypoints[0]]; // Avoid error where Token##preUpdateMovement assumes movement constrained and goes no further.
-    return waypoints;
+
+        // If x is 0, we are moving straight up or straight down.
+        const movingDown = currDirection.y < 0;
+        const isLeft = currDirection.x < 0;
+        const isCliff = currDirection.x.almostEqual(0) && currDirection.y < 0
+          || (isLeft && movingDown); // "Underhang"
+
+        if ( isCliff ) {
+          // Check if moving again will hit something.
+          const newSurface = findSurface(currPosition, currDirection, cutawaysSet, true);
+
+          // Move 1 pixel across unless we are going to hit something.
+          if ( newSurface.ix.t0 > 1 ) {
+            cutawaysSet.add(currSurface.cutaway)
+            currSurface = undefined;
+            currPosition.add(currDirection, currPosition);
+            break; // Go back to beginning to free fall until we find a surface.
+
+          } else {
+            // An obstacle immediately to the right becomes our new surface.
+            cutawaysSet.add(currSurface.cutaway)
+            cutawaysSet.delete(newSurface.cutaway);
+            currSurface = newSurface;
+            currPosition.copyFrom(currSurface.ix);
+            currSurface.edge.b.subtract(currSurface.edge.a, currDirection);
+            break;
+
+          }
+        } else if ( isLeft && !movingDown ) {
+           // Overhang. Keep moving up through the surface. Find the next surface edge in this direction.
+           currPosition.add(currDirection.normalize(), currPosition);
+           currSurface = findSurface(currPosition, currDirection, [currSurface.cutaway], true);
+           currPosition.copyFrom(currSurface.ix);
+           currSurface.edge.b.subtract(currSurface.edge.a, currDirection);
+           break;
+
+        } else {
+          // Look for an obstacle.
+          const nextObstacle = findSurface(currPosition, currDirection, cutawaysSet, true);
+          if ( nextObstacle.ix.t0 < 1 ) {
+            // We hit an obstacle before the end of this edge.
+            cutawaysSet.add(currSurface.cutaway)
+            cutawaysSet.delete(nextObstacle.cutaway);
+            currSurface = nextObstacle;
+            currPosition.copyFrom(currSurface.ix);
+            currSurface.edge.b.subtract(currSurface.edge.a, currDirection);
+            break;
+
+          } else currPosition.copyFrom(edge.b); // Move through the edge.
+        }
+
+        checkpoints.push(currPosition.clone())
+
+        // Are we done?
+        currT = percentToTarget(currPosition, start2d, end2d);
+        cleanupObstacles();
+      }
+
+      // Are we done?
+      currT = percentToTarget(currPosition, start2d, end2d);
+      cleanupObstacles();
+    }
+
+    // TODO: Is adjustEndpoint still needed?
+    this.#adjustEndpoint(checkpoints, end2d);
+    if ( checkpoints.length === 1 ) return [checkpoints[0], checkpoints[0]]; // Avoid error where Token##preUpdateMovement assumes movement constrained and goes no further.
+    return checkpoints;
   }
 
   #adjustEndpoint(waypoints, end2d) {
@@ -271,7 +353,8 @@ export class TokenElevationHandler {
 
   get burrowing() { return this.constructor.tokenIsBurrowing(this.token); }
 
-  constructBurrowingPath(a, b) {
+  constructBurrowingPath(a, b, initialize = true) {
+    if ( initialize ) this._initialize(a, b);
     const a2d = this.to2d(a);
     const b2d = this.to2d(b);
     let path2d = [];
@@ -434,7 +517,8 @@ export class TokenElevationHandler {
       - If blocked, try to connect using the BL corner of the blocking region as the swing point.
       - Need only connect each TL corner once.
     */
-  constructFlyingPath(a, b) {
+  constructFlyingPath(a, b, initialize = true) {
+    if ( initialize ) this._initialize(a, b);
     const a2d = this.to2d(a);
     const b2d = this.to2d(b);
     let path2d = [];
@@ -472,7 +556,7 @@ export class TokenElevationHandler {
   #connectFlyingPathToEnd(path2d, a, b, a2d, b2d) {
     a2d ??= this.to2d(a);
     b2d ??= this.to2d(b);
-    
+
     // Are we already at the endpoint?
     const pathEnd = path2d.at(-1);
     if ( pathEnd.almostEqual(b2d) ) return path2d;
@@ -545,8 +629,7 @@ export class TokenElevationHandler {
       }
       revA = revB;
     }
-    // TODO: Should this error be removed and instead just return the first path?
-    throw new Error("connectPaths|Unable to connect the two paths!");
+    console.error("connectPaths|Unable to connect the two paths!");
     return path;
   }
 
@@ -631,7 +714,7 @@ export class TokenElevationHandler {
 
   // ----- NOTE: Secondary methods ----- //
 
-  _nearestSupport(pt2d, excludeHandler) {
+  _nearestSupport(pt2d) {
     const LOCS = TokenElevationHandler.ELEVATION_LOCATIONS;
 
     // If burrowing, always move up.
@@ -639,7 +722,6 @@ export class TokenElevationHandler {
     const floatingHandlers = [];
     const groundHandlers = []
     for ( const cutHandler of this.combinedCutaways ) {
-      if ( cutHandler === excludeHandler ) continue;
       const type = cutHandler.elevationType(pt2d);
       if ( type & LOCS.BELOW ) return { cutHandler, location: LOCS.BELOW, elevation: cutHandler.elevationUponEntry(pt2d) };
       if ( type & LOCS.GROUND ) groundHandlers.push(cutHandler);
@@ -1105,3 +1187,83 @@ function _ixToPoint(ix) {
   pt.t0 = ix.t0;
   return pt;
 }
+
+// Iterate starting from the current edge. Do one full loop.
+function *iterateFromEdge(cutaway, targetEdge) {
+  // Note that Javascript breaks the iterator when breaking a for/of loop.
+  const iter = cutaway.iterateEdges();
+  let edge;
+  while ( (edge = iter.next().value) ) {
+    if ( edge.a.equals(targetEdge.a) ) {
+      yield edge;
+      break;
+    }
+  }
+
+  // Cycle through the remaining edges.
+  for ( edge of iter ) yield edge;
+
+  for ( edge of cutaway.iterateEdges() ) {
+    // Yield until we get back to the target edge.
+    if ( edge.a.equals(targetEdge.a) ) break;
+    yield edge;
+  }
+}
+
+/**
+ * Identify the t-value on segment A|B closest to C.
+ * Picture the line segment as forming an infinite-width cylinder with a defined height
+ * equal to the length of the segment.
+ * 0: Point is below the cylinder.
+ * 1: Point is above.
+ * 0-1: If the point is within the cylinder, the function returns the percentage height
+ *      of the point relative to the cylinder base.
+ * @param {Point} c     The reference point C
+ * @param {Point} a     Point A on segment A|B
+ * @param {Point} b     Point B on segment A|B
+ * @returns {number}    T-value, where 0 is a and 1 is b. Negative numbers are before a; >1 is after b.
+ * @see {@link https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line#Line_defined_by_two_points}
+ */
+function percentToTarget(c, a, b) {
+  // Scalar projection of the vector start --> c onto the vector a|b, normalized.
+  using v = b.subtract(a);
+  using w = c.subtract(a);
+  return v.dot(w) / v.magnitudeSquared();
+}
+
+// For an array of polygons (cutaways), find the first one that a ray hits.
+// If the ray hits multiple polygons at the same point, find the one with the steepest edge.
+// By steepest, we mean moving from right --> left (clockwise for cutaways), which one has the smallest y delta.
+function findSurface(rayOrigin, rayDirection, cutaways, skipZero = false) {
+  let minT = Number.POSITIVE_INFINITY;
+  const out = {
+    cutaway: undefined,
+    edge: undefined,
+    ix: { t0: minT },
+  };
+  using tmp = PIXI.Point.tmp;
+  const a = rayOrigin;
+  using b = rayOrigin.add(rayDirection);
+  using c = rayOrigin.add(rayDirection.multiplyScalar(1e06, tmp));
+
+  for ( const cutaway of cutaways ) {
+    for ( const edge of cutaway.iterateEdges() ) {
+      if ( !foundry.utils.lineSegmentIntersects(a, c, edge.a, edge.b) ) continue;
+      const ix = foundry.utils.lineLineIntersection(a, b, edge.a, edge.b);
+      if ( !ix ) continue; // Should not happen.
+      if ( ix.t0 < 0 || ix.t0 > minT ) continue;
+      if ( skipZero && ix.t0.almostEqual(0) ) continue;
+
+      // Test whether this is the steepest surface.
+      if ( out.edge && ix.t0.almostEqual(minT)
+        && (edge.b.y - edge.a.y) > (out.edge.b.y - out.edge.a.y) ) continue;
+
+      minT = ix.t0;
+      out.ix = ix;
+      out.edge = edge;
+      out.cutaway = cutaway;
+    }
+  }
+  return out;
+}
+
