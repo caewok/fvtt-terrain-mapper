@@ -147,16 +147,17 @@ function traceSurfacePath(start, end, sceneSDF, stepSize = 1) {
   // Strictly filter out interior boundaries, which may not be true SDFs.
   using verticalRayOrigin = Point3d.tmp.set(0, 0, maxHeight);
   using verticalRayDirection = Point3d.tmp.set(0, 0, -1);
-  const getWalkableSurfacesAtXY = (x, y) => {
-    verticalRayOrigin.x = x;
-    verticalRayOrigin.y = y;
+  using testPt = Point3d.tmp;
+  const getWalkableSurfacesAtXY = currPt => {
+    verticalRayOrigin.x = currPt.x;
+    verticalRayOrigin.y = currPt.y;
     const hits = SDF.findAllIntersections(verticalRayOrigin, verticalRayDirection, sceneSDF, raymarchOpts)
 
     // Convert t-distances to z-elevations.
     const zValues = hits.map(t => maxHeight - t);
 
     // Surface is only wallkable if the space immediately above it is empty air.
-    using testPt = Point3d.tmp.set(x, y, 0);
+    testPt.set(currPt.x, currPt.y, 0);
     return zValues.filter(z => {
       testPt.z = z + surfaceEpsilon;
       return sceneSDF(testPt) > 0;
@@ -164,41 +165,43 @@ function traceSurfacePath(start, end, sceneSDF, stepSize = 1) {
   }
 
   // Helper: Z-correction when stepping.
-  const zCorrection = (d2, x, y, z) => {
+  using liftPt = Point3d.tmp;
+  const zCorrection = (d2, currPt) => {
     // Knee-height probe to detect an invalid surface.
     // If space immediately above our feet is blocked (SDF < 0), we hit a wall.
     let isAnomaly = Math.abs(d2) > surfaceEpsilon2;
     let liftD2 = d2;
     if ( !isAnomaly ) {
       // We are technically on a surface (d2 === 0). Check space immediately above.
-      using liftPt = Point3d.tmp.set(x, y, z + surfaceEpsilon);
+      liftPt.copyFrom(currPt);
+      liftPt.z += surfaceEpsilon;
       liftD2 = sceneSDF(liftPt);
 
       // If space above is solid, we are in a flush vertical wall.
       isAnomaly = liftD2 < 0;
     }
     if ( isAnomaly ) {
-      const surfaces = getWalkableSurfacesAtXY(x, y);
+      const surfaces = getWalkableSurfacesAtXY(currPt);
 
       // Determine if we are blocked (need to pop up) or falling based on effective state.
       const effectiveD2 = (Math.abs(d2) > surfaceEpsilon2) ? d2 : liftD2;
       const validityTest = effectiveD2 > 0
         // In empty air. Fall to highest valid surface beneath.
-        ? zValue => zValue <= z + surfaceEpsilon
+        ? zValue => zValue <= currPt.z + surfaceEpsilon
 
         // In a wall/obstacle. Pop up to the closest valid surface above.
-          : zValue => zValue >= z - surfaceEpsilon;
+          : zValue => zValue >= currPt.z - surfaceEpsilon;
 
       const valid = surfaces.filter(validityTest);
-      if ( !valid.length ) throw Error(`traceSurfacePath|Cannot locate floor or ceiling at {${x}, ${y}, ${z}}.`);
+      if ( !valid.length ) throw Error(`traceSurfacePath|Cannot locate floor or ceiling at {${currPt.x}, ${currPt.y}, ${currPt.z}}.`);
       return effectiveD2 > 0 ? Math.max(...valid) : Math.min(...valid);
     }
-    return z;
+    return currPt.z;
   }
 
   // Initial gravity drop (or pop-up if spawned inside an object).
   const startD2 = sceneSDF(current);
-  current.z = zCorrection(startD2, current.x, current.y, current.z)
+  current.z = zCorrection(startD2, current)
   addPoint(path, current.clone());
 
   // Trace the path.
@@ -217,11 +220,10 @@ function traceSurfacePath(start, end, sceneSDF, stepSize = 1) {
       current.z,
     );
 
-
     const d2 = sceneSDF(nextPt);
 
     // If not perfectly resting on a surface, calculate the Z correction.
-    nextPt.z = zCorrection(d2, nextPt.x, nextPt.y, nextPt.z);
+    nextPt.z = zCorrection(d2, nextPt);
 
     // If it is a sheer drop or sheer wall, add the cliff-edge/base point before teleporting up.
     if ( Math.abs(nextPt.z - current.z) > stepSize ) addPoint(path, start.constructor.tmp.set(nextPt.x, nextPt.y, current.z));
@@ -236,7 +238,7 @@ function traceSurfacePath(start, end, sceneSDF, stepSize = 1) {
   // Final step on to the target XY.
   const endPt = end.constructor.tmp.set(end.x, end.y, current.z);
   const endD2 = sceneSDF(endPt);
-  endPt.z = zCorrection(endD2, end.x, end.y, current.z);
+  endPt.z = zCorrection(endD2, endPt);
   if ( Math.abs(endPt.z - current.z) > stepSize ) addPoint(path, end.constructor.tmp.set(end.x, end.y, current.z));
   addPoint(path, endPt);
   return path;
