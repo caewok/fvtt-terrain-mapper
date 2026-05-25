@@ -204,26 +204,29 @@ function traceSurfacePath(start, end, sceneSDF, stepSize = 1) {
   // Trace the path.
 
   using dir2d = Point3d.tmp.set(end.x - current.x, end.y - current.y, 0);
+  using nextPt = Point3d.tmp;
   let dist2d = dir2d.magnitudeSquared();
   const stepSizeSquared = stepSize ** 2;
   let iterations = 0;
   while ( dist2d > stepSizeSquared && iterations++ < maxIterations ) {
     dir2d.normalize(dir2d);
 
-    const nextX = current.x + (dir2d.x * stepSize);
-    const nextY = current.y + (dir2d.y * stepSize);
-    using nextPt = Point3d.tmp.set(nextX, nextY, current.z);
+    nextPt.set(
+      current.x + (dir2d.x * stepSize),
+      current.y + (dir2d.y * stepSize),
+      current.z,
+    );
+
 
     const d2 = sceneSDF(nextPt);
-    let nextZ = current.z;
 
     // If not perfectly resting on a surface, calculate the Z correction.
-    nextZ = zCorrection(d2, nextX, nextY, current.z);
+    nextPt.z = zCorrection(d2, nextPt.x, nextPt.y, nextPt.z);
 
     // If it is a sheer drop or sheer wall, add the cliff-edge/base point before teleporting up.
-    if ( Math.abs(nextZ - current.z) > stepSize ) addPoint(path, start.constructor.tmp.set(nextX, nextY, current.z));
+    if ( Math.abs(nextPt.z - current.z) > stepSize ) addPoint(path, start.constructor.tmp.set(nextPt.x, nextPt.y, current.z));
 
-    current.set(nextX, nextY, nextZ);
+    current.copyFrom(nextPt);
     addPoint(path, current.clone());
 
     dir2d.set(end.x - current.x, end.y - current.y, 0); // 2d distance and direction.
