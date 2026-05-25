@@ -825,10 +825,10 @@ export class WallTracer extends Graph {
     const points = Array(nVertices * 2);
     const wallSet = new Set();
     const restrictionTypes = {
-      light: CONST.WALL_SENSE_TYPES.NORMAL,
-      sight: CONST.WALL_SENSE_TYPES.NORMAL,
-      sound: CONST.WALL_SENSE_TYPES.NORMAL,
-      move: CONST.WALL_SENSE_TYPES.NORMAL
+      light: CONST.EDGE_SENSE_TYPES.NORMAL,
+      sight: CONST.EDGE_SENSE_TYPES.NORMAL,
+      sound: CONST.EDGE_SENSE_TYPES.NORMAL,
+      move: CONST.EDGE_SENSE_TYPES.NORMAL
     };
     const height = {
       min: Number.POSITIVE_INFINITY,
@@ -885,7 +885,7 @@ export class WallTracer extends Graph {
    * For a given origin point, find all polygons that encompass it.
    * Then narrow to the one that has the smallest area.
    * @param {Point} origin
-   * @param {CONST.WALL_RESTRICTION_TYPES} [type]   Limit to polygons that are CONST.WALL_SENSE_TYPES.NORMAL
+   * @param {CONST.WALL_RESTRICTION_TYPES} [type]   Limit to polygons that are CONST.EDGE_SENSE_TYPES.NORMAL
    *                                                for the given type
    * @returns {PIXI.Polygon|null}
    */
@@ -906,7 +906,7 @@ export class WallTracer extends Graph {
     if ( type ) encompassingPolygons = encompassingPolygons.filter(poly => {
       const wallData = poly._wallTracerData;
 
-      if ( wallData.restrictionTypes[type] !== CONST.WALL_SENSE_TYPES.NORMAL
+      if ( wallData.restrictionTypes[type] !== CONST.EDGE_SENSE_TYPES.NORMAL
         || wallData.height.max < origin.z
         || wallData.height.min > origin.z ) return false;
 
@@ -941,7 +941,7 @@ export class WallTracer extends Graph {
   /**
    * For a given polygon, find all polygons that could be holes within it.
    * @param {PIXI.Polygon} encompassingPolygon
-   * @param {CONST.WALL_RESTRICTION_TYPES} [type]   Limit to polygons that are CONST.WALL_SENSE_TYPES.NORMAL
+   * @param {CONST.WALL_RESTRICTION_TYPES} [type]   Limit to polygons that are CONST.EDGE_SENSE_TYPES.NORMAL
    *                                                for the given type
    * @returns {encompassingPolygon: {PIXI.Polygon}, holes: {Set<PIXI.Polygon>}}
    */
@@ -966,7 +966,7 @@ export class WallTracer extends Graph {
    * Build the representation of a polygon that encompasses the origin point,
    * along with any holes for that encompassing polygon.
    * @param {Point} origin
-   * @param {CONST.WALL_RESTRICTION_TYPES} [type]   Limit to polygons that are CONST.WALL_SENSE_TYPES.NORMAL
+   * @param {CONST.WALL_RESTRICTION_TYPES} [type]   Limit to polygons that are CONST.EDGE_SENSE_TYPES.NORMAL
    *                                                for the given type
    * @returns {PIXI.Polygon[]}
    */
