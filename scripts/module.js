@@ -182,6 +182,7 @@ Hooks.on("canvasReady", function(_canvas) {
   if ( game.user.isGM ) {
     setDefaultPlaceablesFlags(); // Async.
     setDefaultSceneFlags(); // Async.
+    removeDeprecatedRegionBehaviors();
   }
 
   // Placeable Geometry for collision testing.
@@ -374,6 +375,26 @@ async function setDefaultSceneFlags() {
   for ( const [key, defaultValue] of Object.entries(DEFAULT_FLAGS.SCENE) ) {
     if ( typeof canvas.scene.getFlag(MODULE_ID, key) !== "undefined" ) continue;
     promises.push(canvas.scene.setFlag(MODULE_ID, key, defaultValue));
+  }
+  await Promise.allSettled(promises);
+}
+
+/**
+ * Remove region behaviors that are no longer used.
+ */
+async function removeDeprecatedRegionBehaviors() {
+  const DEPRECATED = new Set([
+    `${MODULE_ID}.blockingWalls`,
+    `${MODULE_ID}.setTerrain`,
+  ]);
+
+  const promises = [];
+  for ( const region of canvas.regions.placeables ) {
+    // Use _source to get at non-loaded behaviors.
+    const idsToDelete = region.document.behaviors._source
+      .filter(b => DEPRECATED.has(b.type))
+      .map(b => b._id);
+    if ( idsToDelete.length ) promises.push(region.document.deleteEmbeddedDocuments("RegionBehavior", idsToDelete));
   }
   await Promise.allSettled(promises);
 }

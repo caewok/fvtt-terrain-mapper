@@ -4,35 +4,11 @@
   "terrainmapper.controls.fill-by-los.name": "Fill by line-of-sight",
   "terrainmapper.controls.fill-space.name": "Fill space enclosed by walls",
 
-  "terrainmapper.terrainbook.create-terrain": "Create Terrain",
-  "terrainmapper.terrainbook.create-folder": "Create Folder",
-  "terrainmapper.terrainbook.reset-defaults": "Reset Default Terrains",
-  "terrainmapper.terrainbook.edit-terrain": "Edit Terrain",
-  "terrainmapper.terrainbook.import-terrain": "Import Terrain",
-  "terrainmapper.terrainbook.export-terrain": "Export Terrain",
-  "terrainmapper.terrainbook.delete-terrain": "Delete Terrain",
-  "terrainmapper.terrainbook.search": "Search Terrains",
-  "terrainmapper.terrainbook.add-favorite": "Add Favorite",
-  "terrainmapper.terrainbook.remove-favorite": "Remove Favorite",
-  "terrainmapper.terrainbook.all-terrains": "All Terrains",
-  "terrainmapper.terrainbook.favorites": "Favorites",
-  "terrainmapper.terrainbook.are-you-sure": "Are you sure?",
-  "terrainmapper.terrainbook.remove-terrain-description": "This will remove the terrain from all scenes.",
-  "terrainmapper.terrainbook.create-defaults-description": "This will reset any existing default terrains and otherwise add new default terrains.",
-  "terrainmapper.terrainbook.import-terrain-description": "You may import terrain settings data from an exported JSON file. This operation will overwrite this terrain.",
-  "terrainmapper.terrainbook.default-terrain-folder": "Default Terrains",
-
   "terrainmapper.scene-config.backgroundElevation.name": "Background Elevation",
   "terrainmapper.scene-config.backgroundElevation.hint": "The default elevation for tokens placed on the canvas.",
 
   "terrainmapper.scene-config.constrainElevation.name": "Constrain Elevation",
   "terrainmapper.scene-config.constrainElevation.hint": "When enabled, limit vertical token movement based on terrain and movement type.",
-
-  "terrainmapper.active-effect-config.duplicatesAllowed.name": "Duplicates Allowed",
-  "terrainmapper.active-effect-config.duplicatesAllowed.hint": "When enabled, this terrain effect may be applied multiple times to a single token",
-
-  "terrainmapper.active-effect-config.displayStatusIcon.name": "Status Icon",
-  "terrainmapper.active-effect-config.displayStatusIcon.hint": "When disabled, the terrain status icon will not display on affected tokens.",
 
   "terrainmapper.region-config.algorithm.name": "Region Elevation Shape",
   "terrainmapper.region-config.algorithm.hint": "Define the 'ground' elevation for a region. Tokens entering the region will move to the defined ground elevation; tokens leaving the region will 'fall' back to the scene elevation unless flying.'None' is the Foundry default. 'Plateau' uses a single 'highest elevation.' Ramp applies a slope starting at the lowest elevation and moving up to the highest elevation in the given direction.",

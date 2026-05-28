@@ -4,17 +4,8 @@
   "terrainmapper.controls.fill-by-los.name": "Riempi in base alla linea di vista",
   "terrainmapper.controls.fill-space.name": "Riempi spazio racchiuso da mura",
 
-  "terrainmapper.terrainbook.create-terrain": "Crea Terreno",
-  "terrainmapper.terrainbook.create-defaults": "Ripristina Terreni Predefiniti",
-
   "terrainmapper.scene-config.backgroundElevation.name": "Elevazione Sfondo",
   "terrainmapper.scene-config.backgroundElevation.hint": "Elevazione predefinita per i token posizionati sull'area di disegno.",
-
-  "terrainmapper.active-effect-config.duplicatesAllowed.name": "Duplicati consentiti",
-  "terrainmapper.active-effect-config.duplicatesAllowed.hint": "Se abilitato, questo effetto del terreno può essere applicato più volte a un singolo token.",
-
-  "terrainmapper.active-effect-config.displayStatusIcon.name": "Icona di stato",
-  "terrainmapper.active-effect-config.displayStatusIcon.hint": "Quando disabilitato, l'icona dello stato del terreno non verrà visualizzata sui token interessati.",
 
   "terrainmapper.region-config.algorithm.name": "Forma Elevazione Regione",
   "terrainmapper.region-config.algorithm.hint": "Definisce l'elevazione del suolo per una regione. I token che entrano nella regione si sposteranno all'elevazione del terreno definita; i token che lasciano la regione ritorneranno all'elevazione della scena a meno che non volino. 'Nessuno' è l'impostazione predefinita di Foundry. 'Altopiano' utilizza un'unica elevazione, quella massima. 'Rampa' applica una pendenza partendo dall'elevazione minima e risalendo fino all'elevazione massima nella direzione indicata.",
@@ -45,21 +36,6 @@
   "terrainmapper.tile-config.alphaThreshold.name": "Soglia Alfa (Trasparenza)",
   "terrainmapper.tile-config.alphaThreshold.hint": "Quale percentuale di trasparenza conta per trattare un dato pixel come un buco o un confine esterno. Il valore predefinito in Foundry è 0,75.",
 
-  "terrainmapper.behavior.types.add-terrain.fields.terrain.hint": "Seleziona il terreno che verrà aggiunto al token come effetto attivo.",
-
-  "terrainmapper.behavior.types.set-terrain.fields.terrain.hint": "Seleziona il terreno che verrà aggiunto al token come effetto attivo. Quando il token esce dalla regione, il terreno verrà automaticamente rimosso.",
-
-  "terrainmapper.behavior.types.add-terrain.fields.removeOther.name": "Rimuovi Altri",
-  "terrainmapper.behavior.types.add-terrain.fields.removeOther.hint": "Se abilitato, tutti gli altri terreni sul token verranno rimossi.",
-
-  "terrainmapper.behavior.types.add-terrain.fields.secret.name": "Segreto",
-  "terrainmapper.behavior.types.add-terrain.fields.secret.hint": "Quando abilitato, il trascinamento del token non rivelerà agli utenti l'esistenza del terreno.",
-
-  "terrainmapper.behavior.types.remove-terrain.fields.terrain.hint": "Seleziona uno o più terreni che verranno rimossi dal token. Lascia vuoto per rimuovere tutti i terreni.",
-
-  "terrainmapper.behavior.types.remove-terrain.fields.keepSelected.name": "Mantieni Selezionato",
-  "terrainmapper.behavior.types.remove-terrain.fields.keepSelected.hint": "Abilita per mantenere i terreni selezionati e rimuovere tutto il resto dal token.",
-
   "terrainmapper.behavior.types.stairs.fields.algorithm.name": "Tipo",
 
   "terrainmapper.behavior.types.stairs.fields.elevation.name": "Cima delle scale",
@@ -85,9 +61,6 @@
   "terrainmapper.behavior.types.elevator.fields.resetOnExit.name": "Reimposta all'uscita",
   "terrainmapper.behavior.types.elevator.fields.resetOnExit.hint": "Se abilitato, il token verrà ripristinato all'elevazione della scena (terra) all'uscita. Ciò avverrà indipendentemente dal fatto che il token abbia preso le scale o l'ascensore quando entra nella regione.",
 
-  "TYPES.RegionBehavior.terrainmapper.addTerrain": "Aggiungi Terreni",
-  "TYPES.RegionBehavior.terrainmapper.removeTerrain": "Rimuovi Terreni",
-  "TYPES.RegionBehavior.terrainmapper.setTerrain": "Imposta Terreno",
   "TYPES.RegionBehavior.terrainmapper.setElevation": "Scale",
   "TYPES.RegionBehavior.terrainmapper.elevator": "Ascensore",
 

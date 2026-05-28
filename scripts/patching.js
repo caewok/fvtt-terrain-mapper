@@ -7,9 +7,6 @@ game
 import { Patcher } from "./Patcher.js";
 import { MODULES_ACTIVE } from "./const.js";
 
-import { PATCHES_SidebarTab, PATCHES_ItemDirectory } from "./settings.js";
-import { PATCHES as PATCHES_ActiveEffect } from "./ActiveEffect.js";
-import { PATCHES as PATCHES_ActiveEffectConfig } from "./ActiveEffectConfig.js";
 import { PATCHES as PATCHES_Token } from "./Token.js";
 import { PATCHES as PATCHES_Wall } from "./Wall.js";
 import { PATCHES as PATCHES_CanvasEdges } from "./CanvasEdges.js";
@@ -19,7 +16,6 @@ import { PATCHES as PATCHES_SceneConfig } from "./SceneConfig.js";
 import { PATCHES as PATCHES_StairsRegionBehaviorType } from "./regions/StairsRegionBehaviorType.js";
 import { PATCHES as PATCHES_ElevatorRegionBehaviorType } from "./regions/ElevatorRegionBehaviorType.js";
 import { PATCHES as PATCHES_ModuleSettingsAbstract } from "./ModuleSettingsAbstract.js";
-import { PATCHES as PATCHES_ItemSheet } from "./ItemSheet.js";
 import { PATCHES as PATCHES_Region } from "./regions/Region.js";
 import { PATCHES as PATCHES_RegionConfig } from "./regions/RegionConfig.js";
 import { PATCHES as PATCHES_Tile } from "./Tile.js";
@@ -27,12 +23,8 @@ import { PATCHES as PATCHES_TileConfig } from "./TileConfig.js";
 import { PATCHES as PATCHES_Scene } from "./Scene.js";
 
 export const PATCHES = {
-  "foundry.documents.ActiveEffect": PATCHES_ActiveEffect,
-  "foundry.applications.sheets.ActiveEffectConfig": PATCHES_ActiveEffectConfig,
   "foundry.canvas.edges.CanvasEdges": PATCHES_CanvasEdges,
   "foundry.helpers.ClientSettings": PATCHES_ModuleSettingsAbstract,
-  "foundry.applications.sidebar.tabs.ItemDirectory": PATCHES_ItemDirectory,
-  "foundry.appv1.sheets.ItemSheet": PATCHES_ItemSheet,
   "foundry.canvas.placeables.Region": PATCHES_Region,
   "foundry.applications.sheets.RegionConfig": PATCHES_RegionConfig,
   "foundry.canvas.layers.RegionLayer": PATCHES_RegionLayer,
@@ -44,7 +36,6 @@ export const PATCHES = {
   "foundry.documents.Scene": PATCHES_Scene,
 
   // Only hooks
-  SidebarTab: PATCHES_SidebarTab,
   RegionSceneControls: PATCHES_RegionSceneControls,
   StairsRegionBehaviorType: PATCHES_StairsRegionBehaviorType,
   ElevatorRegionBehaviorType: PATCHES_ElevatorRegionBehaviorType
@@ -58,7 +49,4 @@ export function initializePatching() {
   PATCHER.registerGroup("REGIONS");
   PATCHER.registerGroup("ELEVATION");
   PATCHER.registerGroup(game.system.id);
-
-  if ( game.system.id === "sfrpg" || game.system.id === "pf2e" ) PATCHER.registerGroup("COVER_ITEM");
-  if ( !MODULES_ACTIVE.ELEVATION_RULER ) PATCHER.registerGroup("RULER");
 }
