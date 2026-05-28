@@ -194,24 +194,6 @@ export function regionWaypointsXYEqual(a, b) { return a.x === b.x && a.y === b.y
 export function regionWaypointsXYAlmostEqual(a, b) { return a.x.almostEqual(b.x) && a.y.almostEqual(b.y); }
 
 /**
- * Is this region a plateau?
- * @param {Region} region
- * @returns {boolean}
- */
-export function isPlateau(region) {
-  return region.document.getFlag(MODULE_ID, FLAGS.REGION.ELEVATION_ALGORITHM) === FLAGS.REGION.CHOICES.PLATEAU;
-}
-
-/**
- * Is this region a ramp?
- * @param {Region} region
- * @returns {boolean}
- */
-export function isRamp(region) {
-  return region.document.getFlag(MODULE_ID, FLAGS.REGION.ELEVATION_ALGORITHM) === FLAGS.REGION.CHOICES.RAMP;
-}
-
-/**
  * Retrieve all plateau and ramp regions.
  * @param {Region[]} [regions]    Regions to use, if not all regions on the canvas
  * @returns {Region[]}

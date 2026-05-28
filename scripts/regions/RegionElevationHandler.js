@@ -8,10 +8,7 @@ Region
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 
 import { MODULE_ID, FLAGS } from "../const.js";
-import {
-  isPlateau,
-  isRamp,
-  regionWaypointsXYEqual } from "../util.js";
+import { regionWaypointsXYEqual } from "../util.js";
 import { Point3d } from "../geometry/3d/Point3d.js";
 import { Plane } from "../geometry/3d/Plane.js";
 import { ElevatedPoint } from "../geometry/3d/ElevatedPoint.js";
@@ -20,6 +17,7 @@ import { TokenElevationHandler } from "../TokenElevationHandler.js";
 import { gridUnitsToPixels, pixelsToGridUnits, cutaway } from "../geometry/util.js";
 import { AABB3d } from "../geometry/3d/AABB3d.js";
 import { almostGreaterThan, almostLessThan, almostBetween } from "../geometry/util.js";
+import { CutawayPolygon } from "../geometry/CutawayPolygon.js";
 
 /**
  * Single region elevation handler
@@ -36,14 +34,20 @@ export class RegionElevationHandler {
 
   // ----- NOTE: Getters ----- //
 
+  /** @type {ClientShapeData[]} */
+  get shapes() { return this.region.document.shapes; }
+
   /** @type {boolean} */
   get isElevated() { return this.isPlateau || this.isRamp; }
 
   /** @type {boolean} */
-  get isPlateau() { return isPlateau(this.region); }
+  get isPlateau() { return this.region.document.getFlag(MODULE_ID, FLAGS.REGION.ELEVATION_ALGORITHM) === FLAGS.REGION.CHOICES.PLATEAU };
 
   /** @type {boolean} */
-  get isRamp() { return isRamp(this.region); }
+  get isRamp() { return this.region.document.getFlag(MODULE_ID, FLAGS.REGION.ELEVATION_ALGORITHM) === FLAGS.REGION.CHOICES.RAMP };
+
+  /** @type {boolean} */
+  get isSteps() { return this.isRamp && this.rampStepSize !== 0; }
 
   /** @type {number} */
   get plateauElevation() { return this.region.document.getFlag(MODULE_ID, FLAGS.REGION.PLATEAU_ELEVATION) || 0; }
@@ -70,7 +74,122 @@ export class RegionElevationHandler {
 
   get holePolygons() { return this.region.document.polygons.filter(poly => !poly._isPositive); }
 
+  /** @type {number} */
+  get finitePlateauHeight() {
+    let topZ = gridUnitsToPixels(this.plateauElevation);
+		let bottomZ = this.region.bottomZ;
+		if ( !isFinite(topZ) ) topZ = 1e06;
+		if ( !isFinite(bottomZ) ) bottomZ = -1e06;
+		return topZ - bottomZ;
+  }
+
+  /** @type {number} */
+  get finiteRegionHeight() {
+    let { topZ, bottomZ } = this.region;
+		if ( !isFinite(topZ) ) topZ = 1e06;
+		if ( !isFinite(bottomZ) ) bottomZ = -1e06;
+		return topZ - bottomZ;
+  }
+
+  /** @type {number} */
+  get finiteRegionBottom() {
+    const bottomZ = this.region.bottomZ;
+    return isFinite(bottomZ) ? bottomZ : -1e06;
+  }
+
+  /** @type {number} */
+  get finiteRegionTop() {
+    const topZ = this.region.topZ;
+    return isFinite(topZ) ? topZ : 1e06;
+  }
+
+  /** @type {number} */
+  get numSteps() {
+    if ( !this.isSteps ) return 0;
+    const { rampFloor, plateauElevation, rampStepSize } = this;
+    // const totalStepHeight = plateauElevation - rampFloor;
+
+    // return Math.ceil(delta / rampStepSize);
+    throw Error("numSteps not yet implemented.");
+  }
+
   #terrainAABB = new WeakMap();
+
+  /**
+   * Calculate the plane of a ramp, for case where polygons are not split.
+   * Steps should be defined such that the top of each step hits this plane.
+   * @returns {Plane}
+   */
+  calculateSingleRampPlane() {
+    return this._calculatePolygonRamp(this.region.polygons);
+  }
+
+  /**
+   * Calculate the planes of a ramp, for case where polygons are split.
+   * Steps should be defined such that the top of each step hits this plane.
+   * @returns {Plane[]}
+   */
+  calculateMultiPolygonRampPlanes() {
+    return this.shapes.map(shape => this._calculatePolygonRamp(shape.polygons))
+  }
+
+  /**
+   * Determine the min/max point of the ramp along the center point.
+   * Intersection points of outermost polygon along the polygon center in direction of the region ramp.
+   * @param {PIXI.Polygon[]} polygons
+   * @returns {PIXI.Point[]}
+   */
+  _calculatePolygonRampPoints(polygons) {
+    const region = this.region;
+    const topZ = gridUnitsToPixels(this.plateauElevation);
+    const rampFloor = gridUnitsToPixels(this.rampFloor);
+
+		// Calculate the lowest and highest points on the plane.
+		// Non-split plane goes lowest point of intersection --> center --> highest point of intersection
+		// 0º is due south (0, 1), 90º is due west (1, 0)
+		using ctr = PIXI.Point.fromObject(region.center);
+		const rad = Math.toRadians(this.rampDirection);
+		using dir = PIXI.Point.tmp.set(Math.sin(rad), Math.cos(rad));
+		using a = ctr.add(dir);
+
+		// For simplicity, just intersect the polygons.
+		// TODO: Intersect individual shapes or use sd to intersect them in 2d.
+		// First and last intersections are what we need (holes must be internal).
+		let firstIx = { t0: Number.POSITIVE_INFINITY };
+		let lastIx = { t0: Number.NEGATIVE_INFINITY };
+		for ( const poly of polygons ) {
+			const ixs = poly.lineIntersections(ctr, a);
+			ixs.forEach(ix => {
+				if ( ix.t0 < firstIx.t0 ) firstIx = ix;
+				if ( ix.t0 > lastIx.t0 ) lastIx = ix;
+			});
+		}
+		if ( firstIx === lastIx || !isFinite(firstIx.t0) || !isFinite(lastIx.t0) ) throw Error("Ramp does not have sufficient intersecting points.");
+
+		// Construct 3d points from the intersection at the requisite elevations of the ramp.
+		const a3d = Point3d.tmp.set(firstIx.x, firstIx.y, rampFloor);
+		const b3d = Point3d.tmp.set(lastIx.x, lastIx.y, topZ);
+    return [a3d, b3d];
+  }
+
+  /**
+   * Calculate the plane of a ramp for a single group of polygons of this region.
+   * @param {PIXI.Polygon[]} polygons
+   * @returns {Plane}
+   */
+  _calculatePolygonRamp(polygons) {
+		const [a3d, b3d] = this._calculatePolygonRampPoints();
+
+		// Construct the ramp plane. Normal should face up (toward part to cut away).
+		// Find a perpendicular in 2d to the plane direction.
+		const dir = b3d.subtract(a3d);
+		using perpDir = Point3d.tmp.set(dir.y, -dir.x, 0); // Use y, -x so normal faces up.
+		using c3d = b3d.add(perpDir);
+		const p = Plane.fromPoints(a3d, b3d, c3d);
+		a3d.release();
+		b3d.release();
+		return p;
+  }
 
   /**
    * Returns the terrain aabb if elevated, and the full region aabb otherwise.
@@ -79,10 +198,9 @@ export class RegionElevationHandler {
     if ( this.#terrainAABB.has(shape) ) return this.#terrainAABB.get(shape);
     const maxZ = gridUnitsToPixels(this.isElevated ? this.plateauElevation : this.region.elevationE.top);
     const minZ = gridUnitsToPixels(this.region.elevationE.bottom);
-    const method = `from${capitalizeFirstLetter(shape.type)}`;
     const pixiShape = this.getPixiShape(shape);
     const z = [maxZ, minZ];
-    const aabb = AABB3d[method](pixiShape, z);
+    const aabb = AABB3d.fromShape(pixiShape, z);
     this.#terrainAABB.set(shape, aabb);
     return aabb;
   }
@@ -92,7 +210,7 @@ export class RegionElevationHandler {
 
     // Union all the shape AABBs, which is not so bad b/c they will be cached and likely reused.
     // Can skip holes, b/c they don't contribute to the bounds.
-    const solidShapes = this.region.document.shapes.filter(shape => !shape.hole);
+    const solidShapes = this.shapes.filter(shape => !shape.hole);
     const nShapes = solidShapes.length;
     const aabbs = new Array(nShapes);
     for ( let i = 0; i < nShapes; i += 1 ) aabbs[i] = this.getTerrainAABBForShape(solidShapes[i]);
@@ -100,8 +218,6 @@ export class RegionElevationHandler {
     this.#terrainAABB.set(this.region, aabb);
     return aabb;
   }
-
-
 
   /** @type {object} */
   #minMax;
@@ -182,7 +298,7 @@ export class RegionElevationHandler {
     if ( !( regionAABB.containsPoint(a)
          || regionAABB.containsPoint(b)
          || regionAABB.overlapsSegment(a, b, axes)) ) return false;
-    for ( const shape of this.region.document.shapes ) {
+    for ( const shape of this.shapes ) {
       if ( shape.hole ) continue;
       const shapeAABB = this.getTerrainAABBForShape(shape);
       if ( shapeAABB.containsPoint(a)
@@ -201,7 +317,7 @@ export class RegionElevationHandler {
   pointInBounds(a, axes) {
     const regionAABB = this.getTerrainAABBForRegion();
     if ( !regionAABB.containsPoint(a, axes) ) return false;
-    for ( const shape of this.region.document.shapes ) {
+    for ( const shape of this.shapes ) {
       if ( shape.hole ) continue;
       const shapeAABB = this.getTerrainAABBForShape(shape);
       if ( shapeAABB.containsPoint(a, axes) ) return true;
@@ -215,7 +331,7 @@ export class RegionElevationHandler {
    * @returns {boolean}
    */
   test2dPoint(a) {
-    for ( const shape of this.region.document.shapes ) {
+    for ( const shape of this.shapes ) {
       if ( shape.hole ) continue;
       const pixiShape = this.getPixiShape(shape);
       if ( pixiShape.contains(a.x, a.y) ) return true;
@@ -272,7 +388,7 @@ export class RegionElevationHandler {
 
     // If 2d change, the segment must cross the 2d border or a hole border.
     if ( !(a.x === b.x && a.y === b.y) ) {
-      for ( const shape of this.region.document.shapes ) {
+      for ( const shape of this.shapes ) {
         const pixiShape = this.getPixiShape(shape);
         if (  pixiShape.lineSegmentIntersects(a, b, { inside: true }) ) return true;
       }
@@ -313,7 +429,7 @@ export class RegionElevationHandler {
     if ( !(a.x === b.x && a.y === b.y) ) {
 
       // Test shapes, including holes. TODO: Better to test polygons here?
-      for ( const shape of this.region.document.shapes ) {
+      for ( const shape of this.shapes ) {
         const shapeIxs = this.getPixiShape(shape).segmentIntersections(a, b);
         if ( !shapeIxs.length ) continue;
 
@@ -343,7 +459,7 @@ export class RegionElevationHandler {
   elevationUponEntry(pt) {
     const { PLATEAU, RAMP, NONE } = FLAGS.REGION.CHOICES;
     switch ( this.algorithm ) {
-      case NONE: return this.elevation;
+      case NONE: return this.region.elevationE.top;
       case PLATEAU: return this.plateauElevation;
       case RAMP: return this._rampElevation(pt);
     }
@@ -461,7 +577,7 @@ export class RegionElevationHandler {
 
     // Process each layer in turn, building up the segments accordingly.
     const allSegments = [];
-    for ( const shape of this.region.document.shapes ) {
+    for ( const shape of this.shapes ) {
       const pixiShape = this.getPixiShape(shape);
       const ixs = pixiShape.segmentIntersections(a, b, { tangents: false });
       if ( !ixs.length ) continue;
@@ -651,21 +767,34 @@ export class RegionElevationHandler {
    * @param {ElevatedPoint} end            End of the segment
    * @param {object} [opts]                           Options that affect the polygon shape
    * @param {boolean} [opts.usePlateauElevation=true] Use the plateau or ramp shape instead of the region top elevation
-   * @returns {CutawayPolygon[]} The cutaway polygons for the region, or empty array if all polys are holes.
+   * @returns {s[]} The cutaway polygons for the region, or empty array if all polys are holes.
    */
   _cutaway(start, end, { usePlateauElevation = true } = {}) {
-    const result = [];
-    let allHoles = true;
     const opts = this.#cutawayOptionFunctions(usePlateauElevation);
     const addSteps = this.isRamp && this.rampStepSize;
+
+    let processedPolygons = [];
+    let hasSolids = false;
     for ( const regionPoly of this.region.document.polygons ) {
-      allHoles &&= !regionPoly.isPositive;
       const cutaways = regionPoly.cutaway(start, end, opts);
-      if ( addSteps && regionPoly.isPositive ) cutaways.forEach(cutawayPoly => this._insertTopStepsIntoCutaway(cutawayPoly));
-      result.push(...cutaways);
+      if ( !cutaways.length ) continue;
+      if ( regionPoly.isPositive ) {
+        hasSolids ||= true;
+        if ( addSteps )  cutaways.forEach(cutawayPoly => this._insertTopStepsIntoCutaway(cutawayPoly));
+        processedPolygons.push(...cutaways);
+      } else {
+        // It's a hole. Cut all accumulated polygons before it.
+        const updatedPolygons = [];
+        for ( const parentPoly of processedPolygons ) {
+          for ( const holePoly of cutaways ) {
+            const trimmedPolys = trimCutawayPolygonWithVerticalHole(parentPoly, holePoly);
+            updatedPolygons.push(...trimmedPolys);
+          }
+        }
+        processedPolygons = updatedPolygons;
+      }
     }
-    if ( allHoles ) return [];
-    return result;
+    return hasSolids ? processedPolygons : [];
   }
 
   #stepInsertionFunction(a, b) {
@@ -870,14 +999,18 @@ export class RegionElevationHandler {
   /**
    * For a given region shape, get its corresponding PIXI.Shape.
    * @param {RegionShapeData} shapeData
-   * @returns {PIXI.Polygon|PIXI.Rectangle|PIXI.Circle|PIXI.Ellipse}
+   * @returns {PIXI.Polygon|PIXI.Rectangle|PIXI.Circle|PIXI.Ellipse|PIXI.RoundedRectangle}
    */
   static pixiShapeForRegionShape(shapeData) {
+    if ( shapeData.rotation ) return shapeData.polygons[0];
     switch ( shapeData.type ) {
       case "rectangle": return new PIXI.Rectangle(shapeData.x, shapeData.y, shapeData.width, shapeData.height);
       case "circle": return new PIXI.Circle(shapeData.x, shapeData.y, shapeData.radius);
       case "ellipse": return new PIXI.Ellipse(shapeData.x, shapeData.y, shapeData.radiusX, shapeData.radiusY);
       case "polygon": return new PIXI.Polygon(shapeData.points);
+      case "emanation": return new PIXI.RoundedRectangle(shapeData.base.x, shapeData.base.y, shapeData.base.width * canvas.grid.size, shapeData.base.height * canvas.grid.size, shapeData.radius);
+      case "line": return new PIXI.Rectangle(shapeData.x, shapeData.y, shapeData.width, shapeData.length, shapeData.width);
+      case "cone": return shapeData.polygons[0];
       default: console.error(`RegionElevationHandler|pixiShapeForRegionShape|${shapeData.type} not recognized!`, { shapeData });
     }
     return PIXI.Circle(shapeData.x, shapeData.y, 1); // Should not be reached.
@@ -1228,3 +1361,64 @@ function rotatePolygon(poly, rotation = 0, centroid) {
 }
 
 function capitalizeFirstLetter(string) { return string.charAt(0).toUpperCase() + string.slice(1); }
+
+
+/**
+ * Helper function: Sutherland-Hodgman clipping against a vertical plane.
+ * @param {CutawayPolygon} poly     Polygon to clip
+ * @param {number} xVal           Vertical plane value
+ * @param {boolean} keepLeft      Whether to keep portion to the left of the vertical plane
+ * @returns {CutawayPolygon}
+ */
+function clipVertical(poly, xVal, keepLeft) {
+  const outPts = [];
+  if ( poly.points.length < 6 ) return new CutawayPolygon();
+  const isInside = x => keepLeft ? (x <= xVal) : (x >= xVal);
+  for ( const edge of poly.iterateEdges() ) {
+    const inA = isInside(edge.a.x);
+    const inB = isInside(edge.b.x);
+    if ( inA && inB ) outPts.push(edge.b);
+    else if ( inA || inB ) {
+      // Calculate intersection on x line.
+      const t = (xVal - edge.a.x) / (edge.b.x - edge.a.x);
+      const y = edge.a.y + (t * (edge.b.y - edge.a.y));
+      outPts.push({ x: xVal, y });
+
+      // If entering the valid zone, also add target.
+      if ( !inA && inB ) outPts.push(edge.b);
+    }
+  }
+  return CutawayPolygon.fromCutawayPoints(outPts, poly.start, poly.end);
+}
+
+/**
+ * Trim a parent cutaway polygon by removing the area intersected by a vertical hole polygon.
+ * @param {CutawayPolygon} parentPoly     The main cutout polygon
+ * @param {CutawayPolygon} holePoly       The hole polygon cutting straight through
+ * @returns {CutawayPolygon[]} Array of 0, 1, or 2 trimmed polygons.
+ */
+function trimCutawayPolygonWithVerticalHole(parentPoly, holePoly) {
+  // Check for invalid inputs.
+  if ( parentPoly.points.length < 6 || holePoly.points.length < 6 ) return [parentPoly];
+
+  // Calculate the horizontal extent of the hole.
+  let xMin = Number.POSITIVE_INFINITY;
+  let xMax = Number.NEGATIVE_INFINITY;
+  for ( const pt of holePoly.iteratePoints() ) {
+    xMin = Math.min(pt.x, xMin);
+    xMax = Math.max(pt.x, xMax);
+  }
+
+  // Clip the polygon.
+  const left = clipVertical(parentPoly, xMin, true);
+  const right = clipVertical(parentPoly, xMax, false);
+
+  // Ignore slivers or lines.
+  const resultPolygons = [];
+  const MIN_AREA = 0.01;
+  if ( left.points.length >= 6 && left.area > MIN_AREA ) resultPolygons.push(left);
+  if ( right.points.length >= 6 && right.area > MIN_AREA ) resultPolygons.push(right);
+  return resultPolygons;
+}
+
+

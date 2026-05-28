@@ -24,7 +24,6 @@ import { PATCHES as PATCHES_Region } from "./regions/Region.js";
 import { PATCHES as PATCHES_RegionConfig } from "./regions/RegionConfig.js";
 import { PATCHES as PATCHES_Tile } from "./Tile.js";
 import { PATCHES as PATCHES_TileConfig } from "./TileConfig.js";
-import { PATCHES as PATCHES_ClockwiseSweepPolygon } from "./regions/ClockwiseSweepPolygon.js";
 import { PATCHES as PATCHES_Scene } from "./Scene.js";
 
 export const PATCHES = {
@@ -32,7 +31,6 @@ export const PATCHES = {
   "foundry.applications.sheets.ActiveEffectConfig": PATCHES_ActiveEffectConfig,
   "foundry.canvas.edges.CanvasEdges": PATCHES_CanvasEdges,
   "foundry.helpers.ClientSettings": PATCHES_ModuleSettingsAbstract,
-  "foundry.canvas.geometry.ClockwiseSweepPolygon": PATCHES_ClockwiseSweepPolygon,
   "foundry.applications.sidebar.tabs.ItemDirectory": PATCHES_ItemDirectory,
   "foundry.appv1.sheets.ItemSheet": PATCHES_ItemSheet,
   "foundry.canvas.placeables.Region": PATCHES_Region,

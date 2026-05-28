@@ -138,7 +138,7 @@ function createTerrainMovementPath(wrapped, waypoints, options) {
     // log(`createTerrainMovementPath|${ElevatedPoint.fromObject(start)} --> ${ElevatedPoint.fromObject(next)}`, { flying, burrowing, walking });
     const a = _centerWaypoint(start, this);
     const b = _centerWaypoint(next, this);
-    tm.initialize(a, b);
+    tm._initialize(a, b);
 
     // If no regions or tiles, just allow the movement to continue as is.
     // Somewhat avoids issue where cannot change elevation when on the canvas, which can be unexpected.
@@ -149,7 +149,7 @@ function createTerrainMovementPath(wrapped, waypoints, options) {
       continue;
     }
 
-    const path = tm.constructPath(a, b, { flying, burrowing, walking });
+    const path = tm.constructPath(a, b, { flying, burrowing, walking, initialize: false });
     path.forEach(pt => _uncenterPathPointInPlace(pt, this));
 
     // Use the next waypoint parameters, changing only what is necessary.
@@ -182,7 +182,7 @@ function createTerrainMovementPath(wrapped, waypoints, options) {
 
   // Testing
   if ( newWaypoints.length > 1000 ) {
-    console.error(`createTerrainMovementPath|Too many waypoints! (${newWaypoints.length})`);
+    console.error(`createTerrainMovementPath|Too many waypoints! (${newWaypoints.length}; ${ElevatedPoint.fromObject(newWaypoints[0])} --> ${ElevatedPoint.fromObject(newWaypoints.at(-1))}`);
   }
 
   log(`createTerrainMovementPath|${newWaypoints.length} newWaypoints: ${ElevatedPoint.fromObject(newWaypoints[0])} --> ${ElevatedPoint.fromObject(newWaypoints.at(-1))}`);

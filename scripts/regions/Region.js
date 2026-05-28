@@ -15,7 +15,6 @@ Hook token movement to add/remove terrain effects and pause tokens dependent on 
 
 import { MODULE_ID, FLAGS } from "../const.js";
 import { RegionElevationHandler } from "./RegionElevationHandler.js";
-import { BlockingWallsRegionBehaviorType } from "./BlockingWallsRegionBehaviorType.js";
 
 export const PATCHES = {};
 PATCHES.REGIONS = {};
@@ -63,69 +62,6 @@ Hooks.on("init", function() {
   CONFIG.Region.objectClass.RENDER_FLAGS.refreshBorder.propagate.push("refreshTerrainMapperMesh");
 });
 
-/**
- * On initializeEdges, add edges for existing regions.
- */
-Hooks.on("initializeEdges", function() {
-  canvas.regions.placeables.forEach(region => addEdgesForRegion(region, false));
-  canvas.edges.refresh();
-});
-
-/* Region walls
-
-Based on move/sight/light/sound restriction settings.
-Store edges with special types in canvas.edges to label as region walls.
-Any region shape or any region hole shape should have vertical edges.
-For now, assume all region edges block both directions.
-Edges have height set by the region shape and ramp settings. Use wall-height flags.
-*/
-
-function addEdgesForRegion(region, refresh = true) {
-  const restrictionBehaviors = region.document.behaviors.filter(b => b.system instanceof BlockingWallsRegionBehaviorType);
-  if ( !restrictionBehaviors.length ) return;
-
-  const object = region;
-  const type = "region";
-  for ( const b of restrictionBehaviors ) {
-    // Add every edge from every polygon in this region to canvas.edges.
-    const restrictionsObj = b.system.types;
-    region.polygons.forEach((poly, shapeIdx) => {
-      [...poly.iterateEdges({ close: true })].forEach((e, edgeIdx) => {
-        const id = `region_${region.id}_poly${shapeIdx}_behavior_${b.id}_edge${edgeIdx}`;
-        const edge = new foundry.canvas.geometry.edges.Edge(e.A, e.B, { id, type, object, ...restrictionsObj });
-        canvas.edges.set(edge.id, edge);
-      });
-    });
-  }
-  if ( refresh ) canvas.edges.refresh();
-}
-
-export function removeEdgesForRegionId(regionId, refresh = true) {
-  for ( const id of canvas.edges.keys() ) {
-    if ( id.startsWith(`region_${regionId}`) ) canvas.edges.delete(id);
-  }
-  if ( refresh ) canvas.edges.refresh();
-}
-
-export function updateRegionEdgeRestrictions(region) {
-  removeEdgesForRegionId(region.id, false);
-  addEdgesForRegion(region);
-}
-
-/**
- * Hook createRegion
- * When the region is constructed, add walls for any shapes.
- * @event createDocument
- * @category Document
- * @param {Document} document                       The new Document instance which has been created
- * @param {Partial<DatabaseCreateOperation>} options Additional options which modified the creation request
- * @param {string} userId                           The ID of the User who triggered the creation workflow
- */
-function createRegion(regionDoc, _options, _userId) {
-  const region = regionDoc.object;
-  if ( !region ) return;
-  addEdgesForRegion(region);
-}
 
 /**
  * Hook updateRegion
@@ -145,24 +81,9 @@ function updateRegion(regionDoc, changed, _options, _userId) {
   if ( Object.hasOwn(changed, "shapes")
     || foundry.utils.hasProperty(changed, `flags.${MODULE_ID}.${FLAGS.REGION.RAMP.DIRECTION}`) ) region[MODULE_ID].clearCache();
 
-  // Update blocking walls
-  if ( Object.hasOwn(changed, "shapes") ) updateRegionEdgeRestrictions(region);
 }
 
-/**
- * Hook deleteRegion.
- * Remove edges associated with the region.
- * @event deleteDocument
- * @category Document
- * @param {Document} document                       The existing Document which was deleted
- * @param {Partial<DatabaseDeleteOperation>} options Additional options which modified the deletion request
- * @param {string} userId                           The ID of the User who triggered the deletion workflow
- */
-function deleteRegion(regionDoc, _options, _userId) {
-  removeEdgesForRegionId(regionDoc.id);
-}
-
-PATCHES.REGIONS.HOOKS = { createRegion, updateRegion, deleteRegion };
+PATCHES.REGIONS.HOOKS = { updateRegion };
 
 // ----- NOTE: Wraps ----- //
 
