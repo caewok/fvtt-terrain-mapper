@@ -33,6 +33,7 @@ function findSurface(rayOrigin, rayDirection, cutaways, skipZero = false) {
 
   for ( const cutaway of cutaways ) {
     for ( const edge of cutaway.iterateEdges() ) {
+      if ( cutaway.isHole && edge.a.x.almostEqual(edge.b.x) ) continue; // Holes don't have tops/bottoms.
       if ( !foundry.utils.lineSegmentIntersects(a, c, edge.a, edge.b) ) continue;
       const ix = foundry.utils.lineLineIntersection(a, b, edge.a, edge.b);
       if ( !ix ) continue; // Should not happen.
@@ -259,6 +260,8 @@ floorSDF = new SceneFloorSDF(canvas.scene);
 sceneSDFs.push(floorSDF);
 sceneSDFObj = new SDFCombined(sceneSDFs)
 */
+
+traceCutoutPath(start, end, startToken)
 
 tm = startToken.terrainmapper;
 

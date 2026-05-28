@@ -182,7 +182,7 @@ function createTerrainMovementPath(wrapped, waypoints, options) {
 
   // Testing
   if ( newWaypoints.length > 1000 ) {
-    console.error(`createTerrainMovementPath|Too many waypoints! (${newWaypoints.length})`);
+    console.error(`createTerrainMovementPath|Too many waypoints! (${newWaypoints.length}; ${ElevatedPoint.fromObject(newWaypoints[0])} --> ${ElevatedPoint.fromObject(newWaypoints.at(-1))}`);
   }
 
   log(`createTerrainMovementPath|${newWaypoints.length} newWaypoints: ${ElevatedPoint.fromObject(newWaypoints[0])} --> ${ElevatedPoint.fromObject(newWaypoints.at(-1))}`);
