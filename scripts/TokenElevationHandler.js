@@ -311,22 +311,13 @@ export class TokenElevationHandler {
         prevDirection.copyFrom(currDirection);
         edge.b.subtract(edge.a, currDirection);
 
-        // Is this edge moving vertically?
-        if ( currDirection.x.almostEqual(0) ) {
-          // Move vertically up.
-          if ( currDirection.y > 0 ) {
-            currPosition.y = edge.b.y; // Edges should already be sufficiently rounded, but just in case.
-            updatePosition(currPosition);
-          }
+        // Is this edge moving vertically up? If so, ignore obstacles and just move to edge end.
+        const isVertical = currDirection.x.almostEqual(0);
 
-          // Or move vertically down (free fall).
-          else {
-            freeFall();
-            break;
-          }
+        if ( isVertical && currDirection.y > 0 ) updatePosition(edge.b);
 
         // Is this edge moving backward (underhang or overhang)?
-        } else if ( currDirection.x < 0 ) {
+        else if ( !isVertical && currDirection.x < 0 ) {
           // If we were moving up, keep moving up.
           if (  prevDirection.x.almostEqual(0) && prevDirection.y > 0 ) {
             currDirection.copyFrom(prevDirection);
@@ -341,7 +332,7 @@ export class TokenElevationHandler {
           }
         }
 
-        // This edge is moving forward.
+        // This edge is moving forward or vertically straight down.
         else {
           // Look for the closest obstacle.
           const closestObstacle = this._closestObstacleAlongSegment(currPosition, edge.b, cutawaysSet);
@@ -1250,7 +1241,7 @@ export class CutawayHandler {
   /**
    * Draw a representation of the cutaway
    */
-  draw(opts) {
+  draw(opts = {}) {
     opts.close ??= true;
     Draw.connectPoints([...this.cutPoly.iteratePoints()].map(pt => new PIXI.Point(Math.sqrt(pt.x), -pt.y)), opts);
   }
