@@ -20,53 +20,6 @@ export function log(...args) {
 }
 
 /**
- * Get the snapped position for a token from a token center point.
- * @param {Token} token
- * @param {Point} center
- */
-export function getSnappedFromTokenCenter(token, center) {
-  center ??= token.center;
-  return token.getSnappedPosition(token.getTopLeft(center.x, center.y));
-}
-
-/**
- * Helper to inject configuration html into the application config.
- */
-export async function injectConfiguration(app, html, data, template, findString, attachMethod = "append") {
-  const myHTML = await renderTemplateSync(template, data);
-  const form = html.find(findString);
-  form[attachMethod](myHTML);
-  app.setPosition(app.position);
-}
-
-/**
- * Helper to inject configuration html into the application config.
- */
-export function injectConfigurationSync(app, html, data, template, findString, attachMethod = "append") {
-  const myHTML = renderTemplateSync(template, data);
-  const form = html.find(findString);
-  form[attachMethod](myHTML);
-  app.setPosition(app.position);
-}
-
-/**
- * Capitalize the first letter of a string.
- * @param {string} str
- * @returns {string}
- */
-export function capitalizeFirstLetter(str) { return `${str.charAt(0).toUpperCase()}${str.slice(1)}`; }
-
-/**
- * Test if something is a string.
- * See https://stackoverflow.com/questions/4059147/check-if-a-variable-is-a-string-in-javascript
- * @param {*} obj   Object to test
- * @returns {boolean}
- */
-export function isString(obj) {
-  return (typeof obj === "string" || obj instanceof String);
-}
-
-/**
  * From https://stackoverflow.com/questions/14446511/most-efficient-method-to-groupby-on-an-array-of-objects
  * Takes an Array<V>, and a grouping function,
  * and returns a Map of the array grouped by the grouping function.
@@ -88,50 +41,6 @@ export function groupBy(list, keyGetter) {
     else collection.push(item);
   });
   return map;
-}
-
-
-/**
- * Get the grid shape for a given set of grid coordinates.
- * @type {GridCoordinates} gridCoords  { i: row, j: col } location
- * @returns {PIXI.Rectangle|PIXI.Polygon}
- */
-export function gridShapeFromGridCoords(gridCoords) {
-  const tl = canvas.grid.getTopLeftPoint(gridCoords);
-  if ( canvas.grid.isHexagonal ) return hexGridShape(tl.x, tl.y);
-  return squareGridShape(tl.x, tl.y);
-}
-
-/**
- * Get a square grid shape from the top left corner position.
- * @param {number} tlx      Top left x coordinate
- * @param {number} tly      Top left y coordinate
- * @returns {PIXI.Rectangle}
- */
-function squareGridShape(tlx, tly) {
-  // Get the top left corner
-  const { w, h } = canvas.grid;
-  return new PIXI.Rectangle(tlx, tly, w, h);
-}
-
-/**
- * Get a hex grid shape from the top left corner position.
- * @param {number} tlx      Top left x coordinate
- * @param {number} tly      Top left y coordinate
- * @returns {PIXI.Polygon}
- */
-function hexGridShape(tlx, tly, { width = 1, height = 1 } = {}) {
-  // Canvas.grid.grid.getBorderPolygon will return null if width !== height.
-  if ( width !== height ) return null;
-
-  // Get the top left corner
-  const points = canvas.grid.grid.getBorderPolygon(width, height, 0);
-  const pointsTranslated = [];
-  const ln = points.length;
-  for ( let i = 0; i < ln; i += 2) {
-    pointsTranslated.push(points[i] + tlx, points[i+1] + tly);
-  }
-  return new PIXI.Polygon(pointsTranslated);
 }
 
 /**
@@ -162,26 +71,6 @@ export function renderTemplateSync(path, data) {
     allowProtoPropertiesByDefault: true
   });
 }
-
-/**
- * Locates a single active gm.
- * @returns {User|undefined}
- */
-export function firstGM() { return game.users?.find(u => u.isGM && u.active); }
-
-/**
- * Is the current user the first active GM user?
- * @returns {boolean}
- */
-export function isFirstGM() { return game.user && game.user.id === firstGM()?.id; }
-
-/**
- * Are two region waypoints equal in all coordinates?
- * @param {RegionMovementWaypoint} a
- * @param {RegionMovementWaypoint} b
- * @returns {boolean}
- */
-export function regionWaypointsEqual(a, b) { return a.x === b.x && a.y === b.y && a.elevation === b.elevation; }
 
 /**
  * Are two region waypoints equal in x,y coordinates?
