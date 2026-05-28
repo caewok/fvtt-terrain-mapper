@@ -17,17 +17,12 @@ import { PATCHER, initializePatching } from "./patching.js";
 import { WallTracerEdge, WallTracerVertex, WallTracer, SCENE_GRAPH } from "./WallTracer.js";
 
 // Regions
-import { SetTerrainRegionBehaviorType } from "./regions/SetTerrainRegionBehaviorType.js";
 import { StairsRegionBehaviorType } from "./regions/StairsRegionBehaviorType.js";
 import { ElevatorRegionBehaviorType } from "./regions/ElevatorRegionBehaviorType.js";
 import { StraightLinePath } from "./StraightLinePath.js";
 
 // Elevation
 import { TokenElevationHandler, CutawayHandler } from "./TokenElevationHandler.js";
-
-// Unique Terrain Effects
-import { TerrainActiveEffect, TerrainItemEffect, TerrainFlagEffect, TerrainPF2E } from "./terrain_unique_effects.js";
-import { defaultTerrains } from "./default_terrains.js";
 
 // Load the geometry library.
 import "./geometry/registration.js";
@@ -130,17 +125,14 @@ Hooks.once("init", function() {
   Settings.registerAll();
 
   Object.assign(CONFIG.RegionBehavior.dataModels, {
-    [`${MODULE_ID}.setTerrain`]: SetTerrainRegionBehaviorType,
     [`${MODULE_ID}.setElevation`]: StairsRegionBehaviorType,
     [`${MODULE_ID}.elevator`]: ElevatorRegionBehaviorType,
   });
 
   //   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.addTerrain`] = FA_ICONS.MODULE;
   //   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.removeTerrain`] = FA_ICONS.MODULE;
-  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.setTerrain`] = FA_ICONS.MODULE;
   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.setElevation`] = FA_ICONS.STAIRS;
   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.elevator`] = FA_ICONS.ELEVATOR;
-  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.blockingWalls`] = FA_ICONS.BLOCKING_WALLS;
 
   // Must go at end?
   foundry.applications.handlebars.loadTemplates(Object.values(TEMPLATES)).then(_value => log("Templates loaded."));
@@ -171,7 +163,6 @@ Hooks.on("quenchReady", async (quench) => {
  * A hook event that fires when the game is fully ready.
  */
 Hooks.on("ready", function(_canvas) {
-  CONFIG[MODULE_ID].Terrain.initialize(); // Async. Must wait until ready hook to store Settings for UniqueEffectFlag
 });
 //
 //
@@ -188,12 +179,11 @@ Hooks.on("ready", function(_canvas) {
  * @param {Canvas} canvas The Canvas which is now ready for use
  */
 Hooks.on("canvasReady", function(_canvas) {
-  CONFIG[MODULE_ID].Terrain.transitionTokens(); // Async
   if ( game.user.isGM ) {
     setDefaultPlaceablesFlags(); // Async.
     setDefaultSceneFlags(); // Async.
   }
-  
+
   // Placeable Geometry for collision testing.
   const geometryTracking = CONFIG.GeometryLib.lib.placeableGeometryTracking;
   const geometryTypes = [
@@ -219,9 +209,6 @@ function initializeAPI() {
     WallTracerVertex,
     WallTracer,
     SCENE_GRAPH,
-    TerrainActiveEffect,
-    TerrainItemEffect,
-    TerrainFlagEffect,
     regionElevationAtPoint,
     StraightLinePath,
     TokenElevationHandler,
@@ -247,12 +234,6 @@ function initializeConfig() {
      * @type {boolean}
      */
     debug: false,
-
-    /**
-     * Default terrain jsons
-     * @type {string} File path
-     */
-    defaultTerrainJSONs: defaultTerrains(),
 
     /**
      * As a percent of token (width/height), how far from the edge can a token move
@@ -314,22 +295,6 @@ function initializeConfig() {
 
     // DND5e: displace and blink are currently excluded; token will be moved directly.
   };
-
-  Object.defineProperty(CONFIG[MODULE_ID], "UniqueEffect", {
-    get: function() { return this.Terrain; }
-  });
-
-  /**
-   * The terrain type used for this system.
-   * @type {TerrainActiveEffect|TerrainItemEffect|TerrainFlagEffect}
-   */
-  switch ( game.system.id ) {
-    case "sfrpg":
-    case "pf2e":
-      CONFIG[MODULE_ID].Terrain = TerrainPF2E; break;
-    default:
-      CONFIG[MODULE_ID].Terrain = TerrainActiveEffect;
-  }
 }
 
 /**

@@ -66,21 +66,6 @@
   "terrainmapper.tile-config.alphaThreshold.name": "Transparency Threshold",
   "terrainmapper.tile-config.alphaThreshold.hint": "Percentage alpha to be transparent. Default: 0.75.",
 
-  "terrainmapper.behavior.types.add-terrain.fields.terrain.hint": "Select terrain that will be added to the token as an active effect.",
-
-  "terrainmapper.behavior.types.set-terrain.fields.terrain.hint": "Select terrain that will be added to the token as an active effect. When the token exits the region, the terrain will be automatically removed.",
-
-  "terrainmapper.behavior.types.add-terrain.fields.removeOther.name": "Remove Others",
-  "terrainmapper.behavior.types.add-terrain.fields.removeOther.hint": "When enabled, all other terrains on the token will be removed.",
-
-  "terrainmapper.behavior.types.add-terrain.fields.secret.name": "Secret",
-  "terrainmapper.behavior.types.add-terrain.fields.secret.hint": "When enabled, dragging the token will not reveal the existence of the terrain to users.",
-
-  "terrainmapper.behavior.types.remove-terrain.fields.terrain.hint": "Select one or more terrains that will be removed from the token. Leave blank to remove all terrains.",
-
-  "terrainmapper.behavior.types.remove-terrain.fields.keepSelected.name": "Keep selected",
-  "terrainmapper.behavior.types.remove-terrain.fields.keepSelected.hint": "Enable to keep the selected terrains and remove all the rest from the token.",
-
   "terrainmapper.behavior.types.stairs.fields.algorithm.name": "Type",
 
   "terrainmapper.behavior.types.stairs.fields.elevation.name": "Stairs Top",
@@ -106,13 +91,6 @@
   "terrainmapper.behavior.types.elevator.fields.resetOnExit.name": "Reset on Exit",
   "terrainmapper.behavior.types.elevator.fields.resetOnExit.hint": "If enabled, the token will be reset to the scene elevation (ground) on exit. This will occur regardless of whether the token took stairs or elevator when entering the region.",
 
-  "terrainmapper.behavior.types.blockingWalls.fields.types.cover.name": "Physical Cover",
-  "terrainmapper.behavior.types.blockingWalls.fields.types.cover.hint": "Allows modules to treat the region like physical cover without actually blocking token movement",
-
-
-  "TYPES.RegionBehavior.terrainmapper.addTerrain": "Add Terrains",
-  "TYPES.RegionBehavior.terrainmapper.removeTerrain": "Remove Terrains",
-  "TYPES.RegionBehavior.terrainmapper.setTerrain": "Set Terrain",
   "TYPES.RegionBehavior.terrainmapper.setElevation": "Stairs",
   "TYPES.RegionBehavior.terrainmapper.elevator": "Elevator",
 
@@ -128,9 +106,6 @@
   "terrainmapper.phrases.no-terrain": "No Terrain",
   "terrainmapper.phrases.new-terrain": "New Terrain",
   "terrainmapper.phrases.layer-number": "Layer {layerNumber}",
-  "terrainmapper.phrases.difficult_x2": "Difficult (x2)",
-  "terrainmapper.phrases.water_swimming": "Water (Swimming)",
-  "terrainmapper.phrases.cliff_climbing": "Cliff (Climbing)",
   "terrainmapper.phrases.stairs-go-up": "Take these stairs up?",
   "terrainmapper.phrases.stairs-go-down": "Take these stairs down?",
   "terrainmapper.phrases.elevator": "Elevator",
