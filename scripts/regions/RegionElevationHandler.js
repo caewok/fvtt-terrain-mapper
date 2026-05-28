@@ -8,10 +8,7 @@ Region
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 
 import { MODULE_ID, FLAGS } from "../const.js";
-import {
-  isPlateau,
-  isRamp,
-  regionWaypointsXYEqual } from "../util.js";
+import { regionWaypointsXYEqual } from "../util.js";
 import { Point3d } from "../geometry/3d/Point3d.js";
 import { Plane } from "../geometry/3d/Plane.js";
 import { ElevatedPoint } from "../geometry/3d/ElevatedPoint.js";
@@ -20,6 +17,7 @@ import { TokenElevationHandler } from "../TokenElevationHandler.js";
 import { gridUnitsToPixels, pixelsToGridUnits, cutaway } from "../geometry/util.js";
 import { AABB3d } from "../geometry/3d/AABB3d.js";
 import { almostGreaterThan, almostLessThan, almostBetween } from "../geometry/util.js";
+import { CutawayPolygon } from "../geometry/CutawayPolygon.js";
 
 /**
  * Single region elevation handler
@@ -43,10 +41,10 @@ export class RegionElevationHandler {
   get isElevated() { return this.isPlateau || this.isRamp; }
 
   /** @type {boolean} */
-  get isPlateau() { return isPlateau(this.region); }
+  get isPlateau() { return this.region.document.getFlag(MODULE_ID, FLAGS.REGION.ELEVATION_ALGORITHM) === FLAGS.REGION.CHOICES.PLATEAU };
 
   /** @type {boolean} */
-  get isRamp() { return isRamp(this.region); }
+  get isRamp() { return this.region.document.getFlag(MODULE_ID, FLAGS.REGION.ELEVATION_ALGORITHM) === FLAGS.REGION.CHOICES.RAMP };
 
   /** @type {boolean} */
   get isSteps() { return this.isRamp && this.rampStepSize !== 0; }
@@ -769,21 +767,34 @@ export class RegionElevationHandler {
    * @param {ElevatedPoint} end            End of the segment
    * @param {object} [opts]                           Options that affect the polygon shape
    * @param {boolean} [opts.usePlateauElevation=true] Use the plateau or ramp shape instead of the region top elevation
-   * @returns {CutawayPolygon[]} The cutaway polygons for the region, or empty array if all polys are holes.
+   * @returns {s[]} The cutaway polygons for the region, or empty array if all polys are holes.
    */
   _cutaway(start, end, { usePlateauElevation = true } = {}) {
-    const result = [];
-    let allHoles = true;
     const opts = this.#cutawayOptionFunctions(usePlateauElevation);
     const addSteps = this.isRamp && this.rampStepSize;
+
+    let processedPolygons = [];
+    let hasSolids = false;
     for ( const regionPoly of this.region.document.polygons ) {
-      allHoles &&= !regionPoly.isPositive;
       const cutaways = regionPoly.cutaway(start, end, opts);
-      if ( addSteps && regionPoly.isPositive ) cutaways.forEach(cutawayPoly => this._insertTopStepsIntoCutaway(cutawayPoly));
-      result.push(...cutaways);
+      if ( !cutaways.length ) continue;
+      if ( regionPoly.isPositive ) {
+        hasSolids ||= true;
+        if ( addSteps )  cutaways.forEach(cutawayPoly => this._insertTopStepsIntoCutaway(cutawayPoly));
+        processedPolygons.push(...cutaways);
+      } else {
+        // It's a hole. Cut all accumulated polygons before it.
+        const updatedPolygons = [];
+        for ( const parentPoly of processedPolygons ) {
+          for ( const holePoly of cutaways ) {
+            const trimmedPolys = trimCutawayPolygonWithVerticalHole(parentPoly, holePoly);
+            updatedPolygons.push(...trimmedPolys);
+          }
+        }
+        processedPolygons = updatedPolygons;
+      }
     }
-    if ( allHoles ) return [];
-    return result;
+    return hasSolids ? processedPolygons : [];
   }
 
   #stepInsertionFunction(a, b) {
@@ -1350,3 +1361,64 @@ function rotatePolygon(poly, rotation = 0, centroid) {
 }
 
 function capitalizeFirstLetter(string) { return string.charAt(0).toUpperCase() + string.slice(1); }
+
+
+/**
+ * Helper function: Sutherland-Hodgman clipping against a vertical plane.
+ * @param {CutawayPolygon} poly     Polygon to clip
+ * @param {number} xVal           Vertical plane value
+ * @param {boolean} keepLeft      Whether to keep portion to the left of the vertical plane
+ * @returns {CutawayPolygon}
+ */
+function clipVertical(poly, xVal, keepLeft) {
+  const outPts = [];
+  if ( poly.points.length < 6 ) return new CutawayPolygon();
+  const isInside = x => keepLeft ? (x <= xVal) : (x >= xVal);
+  for ( const edge of poly.iterateEdges() ) {
+    const inA = isInside(edge.a.x);
+    const inB = isInside(edge.b.x);
+    if ( inA && inB ) outPts.push(edge.b);
+    else if ( inA || inB ) {
+      // Calculate intersection on x line.
+      const t = (xVal - edge.a.x) / (edge.b.x - edge.a.x);
+      const y = edge.a.y + (t * (edge.b.y - edge.a.y));
+      outPts.push({ x: xVal, y });
+
+      // If entering the valid zone, also add target.
+      if ( !inA && inB ) outPts.push(edge.b);
+    }
+  }
+  return CutawayPolygon.fromCutawayPoints(outPts, poly.start, poly.end);
+}
+
+/**
+ * Trim a parent cutaway polygon by removing the area intersected by a vertical hole polygon.
+ * @param {CutawayPolygon} parentPoly     The main cutout polygon
+ * @param {CutawayPolygon} holePoly       The hole polygon cutting straight through
+ * @returns {CutawayPolygon[]} Array of 0, 1, or 2 trimmed polygons.
+ */
+function trimCutawayPolygonWithVerticalHole(parentPoly, holePoly) {
+  // Check for invalid inputs.
+  if ( parentPoly.points.length < 6 || holePoly.points.length < 6 ) return [parentPoly];
+
+  // Calculate the horizontal extent of the hole.
+  let xMin = Number.POSITIVE_INFINITY;
+  let xMax = Number.NEGATIVE_INFINITY;
+  for ( const pt of holePoly.iteratePoints() ) {
+    xMin = Math.min(pt.x, xMin);
+    xMax = Math.max(pt.x, xMax);
+  }
+
+  // Clip the polygon.
+  const left = clipVertical(parentPoly, xMin, true);
+  const right = clipVertical(parentPoly, xMax, false);
+
+  // Ignore slivers or lines.
+  const resultPolygons = [];
+  const MIN_AREA = 0.01;
+  if ( left.points.length >= 6 && left.area > MIN_AREA ) resultPolygons.push(left);
+  if ( right.points.length >= 6 && right.area > MIN_AREA ) resultPolygons.push(right);
+  return resultPolygons;
+}
+
+
