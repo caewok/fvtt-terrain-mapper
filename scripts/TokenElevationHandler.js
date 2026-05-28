@@ -14,7 +14,6 @@ import { ElevatedPoint } from "./geometry/3d/ElevatedPoint.js";
 import { cutaway, almostLessThan, almostBetween, gridUnitsToPixels } from "./geometry/util.js";
 import { Draw } from "./geometry/Draw.js";
 import { AABB2d } from "./geometry/AABB.js";
-import { PriorityQueue } from "./geometry/PriorityQueue.js";
 
 /**
  * @typedef {object} Edge2d
@@ -1078,65 +1077,6 @@ export class CutawayHandler {
   elevationUponEntry(pt2d) { return this._elevationTypeAndEntry(pt2d).floor; }
 
   /**
-   * Does this edge contain a2d?
-   * @param {Edge2d} edge
-   * @param {CutawayPoint} a2d
-   * @returns {boolean|null} Null if moving backwards at the intersection point with a2d.
-   */
-  #isStartingEdge(edge, a2d) {
-    if ( edge.a.almostEqual(a2d) ) return true;
-    if ( edge.b.almostEqual(a2d) ) return false;
-
-    // Test for vertical A|B.
-    if ( edge.a.x === edge.b.x ) return edge.a.x.almostEqual(a2d.x) && almostBetween(a2d.y, edge.a.y, edge.b.y);
-
-    // Test for ix with non-vertical A|B.
-    const a1 = PIXI.Point.tmp.set(a2d.x, a2d.y + 1);
-    const a2 = PIXI.Point.tmp.set(a2d.x, a2d.y - 1);
-    if ( foundry.utils.lineSegmentIntersects(edge.a, edge.b, a1, a2) ) {
-      a1.release();
-      a2.release();
-      if ( edge.a.x > edge.b.x ) return null; // Moving backwards.
-      return true;
-    }
-    a1.release();
-    a2.release();
-    return false;
-  }
-
-  /**
-   * Does this edge pass b2d x value?
-   * @param {Edge2d} edge
-   * @param {CutawayPoint} b2d
-   * @returns {PIXI.Point[]|null} Points to add if necessary; null if not at the ending edge.
-   */
-  #isEndingEdge(edge, b2d) {
-    if ( edge.a.x > edge.b.x ) return []; // Moving backwards, so nothing to add but need to cancel the move.
-    if ( edge.b.x < b2d.x ) return null;
-
-    // Test for vertical A|B.
-    if ( edge.a.x === edge.b.x && edge.a.x.almostEqual(b2d.x) ) {
-      // Moving up or down.
-      if ( b2d.y.almostEqual(edge.a.y) ) return [edge.a];
-      if ( almostBetween(b2d.y, edge.a.y, edge.b.y) ) return [edge.a, b2d];
-      return [edge.a, edge.b];
-    }
-
-    // Test for ix in non-vertical A|B.
-    if ( almostBetween(b2d.x, edge.a.x, edge.b.x) ) {
-      if ( edge.a.x.almostEqual(b2d.x) ) return [edge.a];
-
-      const a1 = PIXI.Point.tmp.set(b2d.x, b2d.y + 1);
-      const a2 = PIXI.Point.tmp.set(b2d.x, b2d.y - 1);
-      const ix = foundry.utils.lineLineIntersection(edge.a, edge.b, a1, a2);
-      a1.release();
-      a2.release();
-      return [edge.a, _ixToPoint(ix)];
-    }
-    return null;
-  }
-
-  /**
    * Does a 2d segment definitely intersect this cut polygon?
    * Does not test bounds.
    * @param {PIXI.Point} a2d
@@ -1270,70 +1210,3 @@ function _ixToPoint(ix) {
   pt.t0 = ix.t0;
   return pt;
 }
-
-
-/**
- * Identify the t-value on segment A|B closest to C.
- * Picture the line segment as forming an infinite-width cylinder with a defined height
- * equal to the length of the segment.
- * 0: Point is below the cylinder.
- * 1: Point is above.
- * 0-1: If the point is within the cylinder, the function returns the percentage height
- *      of the point relative to the cylinder base.
- * @param {Point} c     The reference point C
- * @param {Point} a     Point A on segment A|B
- * @param {Point} b     Point B on segment A|B
- * @returns {number}    T-value, where 0 is a and 1 is b. Negative numbers are before a; >1 is after b.
- * @see {@link https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line#Line_defined_by_two_points}
- */
-function percentToTarget(c, a, b) {
-  // Scalar projection of the vector start --> c onto the vector a|b, normalized.
-  using v = b.subtract(a);
-  using w = c.subtract(a);
-  return v.dot(w) / v.magnitudeSquared();
-}
-
-// For an array of polygons (cutaways), find the first one that a ray hits.
-// If the ray hits multiple polygons at the same point, find the one with the steepest edge.
-// By steepest, we mean moving from right --> left (clockwise for cutaways), which one has the smallest y delta.
-function findSurface(rayOrigin, rayDirection, cutaways, skipZero = false) {
-  let minT = Number.POSITIVE_INFINITY;
-  const out = {
-    cutaway: undefined,
-    edge: undefined,
-    ix: { t0: minT },
-  };
-
-  using tmp = PIXI.Point.tmp;
-
-  // If falling down, count as surface if we start very near it. Avoids numeric issues with ramps.
-  using a = rayOrigin.clone();
-  if ( rayDirection.x.almostEqual(0) && rayDirection.y < 0 ) {
-    const SURFACE_EPSILON = 0.5;
-    rayOrigin.add(TokenElevationHandler.UP.multiplyScalar(SURFACE_EPSILON, tmp), a);
-  }
-  using b = a.add(rayDirection);
-  using c = a.add(rayDirection.multiplyScalar(1e06, tmp));
-
-  for ( const cutaway of cutaways ) {
-    for ( const edge of cutaway.iterateEdges() ) {
-      if ( !foundry.utils.lineSegmentIntersects(a, c, edge.a, edge.b) ) continue;
-      const ix = foundry.utils.lineLineIntersection(a, b, edge.a, edge.b);
-      if ( !ix ) continue; // Should not happen.
-      if ( ix.t0 < 0 || ix.t0 > minT ) continue;
-      if ( skipZero && ix.t0.almostEqual(0) ) continue;
-
-      // Test whether this is the steepest surface.
-      if ( out.edge && ix.t0.almostEqual(minT)
-        && (edge.b.y - edge.a.y) > (out.edge.b.y - out.edge.a.y) ) continue;
-
-      minT = ix.t0;
-      out.ix = ix;
-      out.edge = edge;
-      out.cutaway = cutaway;
-    }
-  }
-  return out;
-}
-
-
