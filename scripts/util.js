@@ -9,7 +9,7 @@ PIXI,
 "use strict";
 
 import { MODULE_ID, FLAGS } from "./const.js";
-
+import { CutawayPolygon } from "./geometry/CutawayPolygon.js";
 
 export function log(...args) {
   try {
@@ -103,5 +103,64 @@ export function elevatedTiles(tiles) {
   if ( !tiles ) return [];
   return tiles.filter(tile => tile[MODULE_ID].isElevated);
 }
+
+/**
+ * Helper function: Sutherland-Hodgman clipping against a vertical plane.
+ * @param {CutawayPolygon} poly     Polygon to clip
+ * @param {number} xVal           Vertical plane value
+ * @param {boolean} keepLeft      Whether to keep portion to the left of the vertical plane
+ * @returns {CutawayPolygon}
+ */
+function clipVertical(poly, xVal, keepLeft) {
+  const outPts = [];
+  if ( poly.points.length < 6 ) return new CutawayPolygon();
+  const isInside = x => keepLeft ? (x <= xVal) : (x >= xVal);
+  for ( const edge of poly.iterateEdges() ) {
+    const inA = isInside(edge.a.x);
+    const inB = isInside(edge.b.x);
+    if ( inA && inB ) outPts.push(edge.b);
+    else if ( inA || inB ) {
+      // Calculate intersection on x line.
+      const t = (xVal - edge.a.x) / (edge.b.x - edge.a.x);
+      const y = edge.a.y + (t * (edge.b.y - edge.a.y));
+      outPts.push({ x: xVal, y });
+
+      // If entering the valid zone, also add target.
+      if ( !inA && inB ) outPts.push(edge.b);
+    }
+  }
+  return CutawayPolygon.fromCutawayPoints(outPts, poly.start, poly.end);
+}
+
+/**
+ * Trim a parent cutaway polygon by removing the area intersected by a vertical hole polygon.
+ * @param {CutawayPolygon} parentPoly     The main cutout polygon
+ * @param {CutawayPolygon} holePoly       The hole polygon cutting straight through
+ * @returns {CutawayPolygon[]} Array of 0, 1, or 2 trimmed polygons.
+ */
+export function trimCutawayPolygonWithVerticalHole(parentPoly, holePoly) {
+  // Check for invalid inputs.
+  if ( parentPoly.points.length < 6 || holePoly.points.length < 6 ) return [parentPoly];
+
+  // Calculate the horizontal extent of the hole.
+  let xMin = Number.POSITIVE_INFINITY;
+  let xMax = Number.NEGATIVE_INFINITY;
+  for ( const pt of holePoly.iteratePoints() ) {
+    xMin = Math.min(pt.x, xMin);
+    xMax = Math.max(pt.x, xMax);
+  }
+
+  // Clip the polygon.
+  const left = clipVertical(parentPoly, xMin, true);
+  const right = clipVertical(parentPoly, xMax, false);
+
+  // Ignore slivers or lines.
+  const resultPolygons = [];
+  const MIN_AREA = 0.01;
+  if ( left.points.length >= 6 && left.area > MIN_AREA ) resultPolygons.push(left);
+  if ( right.points.length >= 6 && right.area > MIN_AREA ) resultPolygons.push(right);
+  return resultPolygons;
+}
+
 
 

@@ -16,17 +16,6 @@ PATCHES.ELEVATION = {};
 // ----- NOTE: Hooks ----- //
 
 /**
- * Hook canvas ready to construct the hole caches for any tiles.
- */
-async function canvasReady() {
-  for ( const tile of canvas.tiles.placeables ) {
-    const tm = tile[MODULE_ID];
-    if ( !tm.isElevated || !tm.testHoles ) continue;
-    await tm.buildHoleCache();
-  }
-}
-
-/**
  * Hook createTile
  * Set default flags.
  * @category Document
@@ -62,17 +51,10 @@ function updateTile(tileD, changed, _options, _userId) {
 
   // Rebuild the hole cache if the alpha threshold changed
   if ( foundry.utils.hasProperty(changed, `flags.${MODULE_ID}.${FLAGS.TILE.ALPHA_THRESHOLD}`) ) tm.clearHoleCache();
-
-  // This constructs the hole cache if not yet present; otherwise pulls the hole cache.
-  tm.buildHoleCache().then(_result => {
-    const holeCache = tm.holeCache;
-    if ( resized ) holeCache._resize();
-    if ( transformed ) holeCache.clearTransforms();
-  });
 }
 
 
-PATCHES.BASIC.HOOKS = { canvasReady, createTile, updateTile };
+PATCHES.BASIC.HOOKS = { createTile, updateTile };
 
 
 // ----- NOTE: Getters ----- //
