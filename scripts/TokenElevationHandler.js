@@ -11,7 +11,7 @@ import {
   elevatedRegions,
   elevatedTiles } from "./util.js";
 import { ElevatedPoint } from "./geometry/3d/ElevatedPoint.js";
-import { cutaway, almostLessThan, gridUnitsToPixels } from "./geometry/util.js";
+import { cutaway, almostLessThan, almostGreaterThan, gridUnitsToPixels } from "./geometry/util.js";
 import { Draw } from "./geometry/Draw.js";
 import { AABB2d } from "./geometry/AABB.js";
 
@@ -793,7 +793,7 @@ export class TokenElevationHandler {
     let res;
     for ( const cutaway of cutaways ) {
       for ( const edgeIx of cutaway.iterateValidEdgeIntersections(a, b) ) {
-        if ( edgeIx.ix.t0 >= minT ) continue;
+        if ( edgeIx.ix.t0 < 0 || edgeIx.ix.t0 >= minT ) continue; // Surface is above or below the nearest.
         minT = edgeIx.ix.t0;
         res = edgeIx;
       }
