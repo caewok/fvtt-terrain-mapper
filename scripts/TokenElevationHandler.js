@@ -11,7 +11,7 @@ import {
   elevatedRegions,
   elevatedTiles } from "./util.js";
 import { ElevatedPoint } from "./geometry/3d/ElevatedPoint.js";
-import { cutaway, almostLessThan, almostBetween, gridUnitsToPixels } from "./geometry/util.js";
+import { cutaway, almostLessThan, gridUnitsToPixels } from "./geometry/util.js";
 import { Draw } from "./geometry/Draw.js";
 import { AABB2d } from "./geometry/AABB.js";
 
@@ -270,22 +270,26 @@ export class TokenElevationHandler {
       cutawaysSet.add(currSurface.cutaway);
       currSurface = undefined;
     };
+
+    let lastCheckpoint = start2d.constructor.tmp;
     const addCheckpoint = () => {
-      if ( !checkpoints.length ||
-        !checkpoints.at(-1).almostEqual(currPosition) ) checkpoints.push(currPosition.clone());
+      if ( !lastCheckpoint.almostEqual(currPosition) ) {
+        lastCheckpoint = currPosition.clone();
+        checkpoints.push(lastCheckpoint);
+      }
     };
 
     // Numerical errors with intersection tests will creep in unless we round the position.
-    const updatePosition = newPosition => {
-      currPosition.copyFrom(newPosition);
-      currPosition.roundDecimals(2);
-    };
+    const updatePosition = newPosition => currPosition.copyFrom(newPosition).roundDecimals(2);
 
-    let currT = 0;
     let iter = 0;
     const maxIter = 1000;
-    const maxT = end2d.x - start2d.x;
-    while ( currT < 1 && iter++ < maxIter ) {
+    while ( currPosition.x < end2d.x ) {
+      if ( iter++ > maxIter ) {
+        console.error(`Too many iterations for ${start2d} --> ${end2d} (${this.start} --> ${this.end})`);
+        break;
+      }
+
       addCheckpoint();
 
       // Locate a surface.
@@ -342,20 +346,16 @@ export class TokenElevationHandler {
             currSurface.edge.b.subtract(currSurface.edge.a, currDirection);
             updatePosition(closestObstacle.ix);
             break; // Moving to new surface.
-          } else updatePosition(edge.b); // Move to end of edge.
+          }
+          updatePosition(edge.b); // Move to end of edge if no obstacle.
         }
 
         addCheckpoint();
 
         // Are we done?
-        currT = (currPosition.x - start2d.x ) / maxT
-        if ( currT > 1 || iter++ > maxIter ) break;
+        if ( currPosition.x >= end2d.x ) break;
       }
-
-      // Are we done?
-      currT = (currPosition.x - start2d.x ) / maxT
     }
-    if ( iter >= maxIter ) console.error(`Too many iterations for ${start2d} --> ${end2d} (${this.start} --> ${this.end})`);
 
     this.#adjustEndpoint(checkpoints, end2d);
     if ( checkpoints.length === 1 ) return [checkpoints[0], checkpoints[0]]; // Avoid error where Token##preUpdateMovement assumes movement constrained and goes no further.
