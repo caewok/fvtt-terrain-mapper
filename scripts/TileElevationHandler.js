@@ -1,6 +1,8 @@
 /* globals
 canvas,
 CONFIG,
+PIXI,
+ClipperLib
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 
@@ -139,12 +141,35 @@ export class TileElevationHandler {
     const bottomElevationFn = _pt => bottomE;
 
     // Start with the polygons for the tile, which contain all holes.
-    const polys2d = this.alphaPolygons;
+    // Determine if we have any holes to deal with.
+    const areaThreshold = holeThreshold ** 2;
+    let hasHoles = false;
+    const polys2d = this.alphaPolygons
+      .filter(poly => {
+        const isSolid = poly.isPositive;
+        hasHoles ||= isSolid;
+        return isSolid || (poly.area > areaThreshold);
+      });
+    if ( !hasHoles ) return polys2d.flatMap(poly => poly.cutaway(start, end, { topElevationFn, bottomElevationFn }));
+
+    // For testing holes, create the start-->end sweep path using holeThreshold as the width.
+    using start2d = start.to2d();
+    using end2d = end.to2d();
+    using dir = end2d.subtract(start2d);
+    dir.normalize(dir);
+    using cross = PIXI.Point.tmp.set(dir.y, -dir.x);
+    cross.multiplyScalar(holeThreshold * 0.5, cross);
+    const sweep = new PIXI.Polygon(
+      start2d.add(cross),
+      end2d.add(cross),
+      end2d.subtract(cross),
+      start2d.subtract(cross)
+    );
 
     // Get the cutaway for each.
     // Trim by area first.
     // TODO: Is first trimming by area worth it?
-    const areaThreshold = holeThreshold ** 2;
+
     let processedCutaways = [];
     for ( const poly of polys2d ) {
       // Similar to RegionElevationHandler#_cutaway.
@@ -152,9 +177,10 @@ export class TileElevationHandler {
 
       else {
         // If not sufficiently large hole, skip.
-        if ( poly.area < areaThreshold ) continue;
+        if ( !willFallIn(poly, sweep, holeThreshold) ) continue;
         const holeCutaways = poly.cutaway(start, end, { topElevationFn, bottomElevationFn })
           .filter(cutaway => {
+            // Additional test to confirm width is sufficient to fall in.
             const bounds = cutaway.getBounds();
             return bounds.width > holeThreshold;
           });
@@ -178,17 +204,38 @@ export class TileElevationHandler {
 
 }
 
-/*
-TileElevationHandler.js:345 terrainmapper|constructHoleCache mC8FvDWgb3da4m3g
-TileElevationHandler.js:349 terrainmapper|Mark each alpha pixel: 3.1689453125 ms
-TileElevationHandler.js:370 terrainmapper|Iterate over every pixel: 78.195068359375 ms
-TileElevationHandler.js:388 terrainmapper|Update pixels: 467.125 ms
-TileElevationHandler.js:389 terrainmapper|132 iterations.
+/**
+ * Flag if a hole's shape is large enough to swallow a square object anywhere along the
+ * object's movement path.
+ * @param {PIXI.Polygon} pixiHole         The complex hole
+ * @param {PIXI.Polygon} pixiSweep        The rectangle/polygon of the movement path.
+ * @param {number} objectSize             Width/height of the square to test
+ * @returns {boolean} True if the object will fall in
+ */
+function willFallIn(pixiHole, pixiSweep, objectSize) {
+  const ClipperPaths = CONFIG.GeometryLib.CONFIG.ClipperPaths;
 
-TileElevationHandler.js:345 terrainmapper|constructHoleCache 6tV5ynPSXgSA04X6
-TileElevationHandler.js:349 terrainmapper|Mark each alpha pixel: 3.134033203125 ms
-TileElevationHandler.js:370 terrainmapper|Iterate over every pixel: 180.170166015625 ms
-TileElevationHandler.js:388 terrainmapper|Update pixels: 1013.5439453125 ms
-TileElevationHandler.js:389 terrainmapper|280 iterations.
+  // Reverse the hole orientation so we can handle it like a regular polygon.
+  pixiHole = pixiHole.clone().reverseOrientation();
 
-*/
+  // Erode the hole to find the danger zone, where the object's center could be swallowed.
+  const holePaths = ClipperPaths.fromPolygons([pixiHole]);
+  const shrinkDistance = objectSize * 0.5;
+  const dangerZone = holePaths.pad(-shrinkDistance);
+
+  // If the hole disappears, it is safe everywhere.
+  if ( dangerZone.area.almostEqual(0) ) return false;
+
+  // Erode the sweep to find the center path.
+  // Shrink by slightly less than half the size to prevent it from collapsing to 0.
+  const epsilon = 0.1;
+  const sweepPaths = ClipperPaths.fromPolygons([pixiSweep]);
+  const centerPathSliver = sweepPaths.pad(-(shrinkDistance - epsilon));
+  if ( centerPathSliver.area.almostEqual(0) ) return false;
+
+  // Intersect the danger zone with the center sliver.
+  // Any intersection is where the object would fall in.
+  const ixPath = dangerZone.intersectPaths(centerPathSliver);
+  return !ixPath.area.almostEqual(0);
+}
+
