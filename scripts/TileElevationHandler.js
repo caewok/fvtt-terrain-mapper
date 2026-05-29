@@ -7,6 +7,7 @@ PIXI,
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 
 import { MODULE_ID, FLAGS } from "./const.js";
+import { GEOMETRY_LIB_ID, GEOMETRY_ID } from "./geometry/const.js";
 import { Point3d } from "./geometry/3d/Point3d.js";
 import { Plane } from "./geometry/3d/Plane.js";
 import { ElevatedPoint } from "./geometry/3d/ElevatedPoint.js";
@@ -57,7 +58,10 @@ export class TileElevationHandler {
    * Border of the tile that removes the transparent alpha pixels along the edges.
    * @type {PIXI.Rectangle|PIXI.Polygon}
    */
-  get alphaBorder() { return this.tile.evPixelCache.getThresholdCanvasBoundingBox(this.alphaThreshold); }
+  get alphaBorder() {
+    const geom = this.tile[GEOMETRY_LIB_ID][GEOMETRY_ID];
+    return geom.alphaBoundingPolygon.top.toPolygon2d(); // Parallel to XY plane, so can just drop z axis.
+  }
 
   /** @type {boolean} */
   get testHoles() { return this.tile.document.getFlag(MODULE_ID, FLAGS.TILE.TEST_HOLES); }
