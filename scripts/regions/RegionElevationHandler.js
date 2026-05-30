@@ -773,20 +773,29 @@ export class RegionElevationHandler {
     const opts = this.#cutawayOptionFunctions(usePlateauElevation);
     const addSteps = this.isRamp && this.rampStepSize;
     const isBelowGround = this.isBelowGround;
-
-
     let processedPolygons = [];
     let hasSolids = false;
     for ( const regionPoly of this.region.document.polygons ) {
       const cutaways = regionPoly.cutaway(start, end, opts);
       if ( !cutaways.length ) continue;
 
-      // If
-
-
       if ( regionPoly.isPositive ) {
         hasSolids ||= true;
         if ( addSteps ) cutaways.forEach(cutawayPoly => this._insertTopStepsIntoCutaway(cutawayPoly));
+        if ( isBelowGround ) {
+          // The cutaway should have reversed order and its bottom should be at 0 (so it is flipped).
+          const bottomZ = opts.bottomElevationFn();
+          const sceneFloor = gridUnitsToPixels(SceneElevationHandler.sceneFloor);
+          cutaways.forEach(cutawayPoly => {
+            for ( let i = 1, iMax = cutawayPoly.points.length; i < iMax; i += 2 ) {
+              if ( cutawayPoly.points[i] === bottomZ ) cutawayPoly.points[i] = sceneFloor; // Change y value.
+            }
+            // Changing the bottom to scene floor should flip the orientation.
+            // TODO: What about ramps or steps that only create a hole on 1 side?
+            // E.g. ramp from 10 to -10.
+          })
+        }
+
         processedPolygons.push(...cutaways);
       } else {
         // It's a hole. Cut all accumulated polygons before it.
