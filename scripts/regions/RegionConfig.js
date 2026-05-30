@@ -30,6 +30,7 @@ Hooks.once("init", function() {
  */
 async function _prepareContext(wrapper, options) {
   const context = await wrapper(options);
+  if ( !context.tabs ) return;
   context.tabs[MODULE_ID] =  {
     id: MODULE_ID,
     group: "sheet",

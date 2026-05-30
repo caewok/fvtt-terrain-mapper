@@ -27,7 +27,6 @@ import { ElevatedPoint } from "./geometry/3d/ElevatedPoint.js";
 
 export const PATCHES = {};
 PATCHES.BASIC = {};
-PATCHES.RULER = {};
 PATCHES.ELEVATION = {};
 
 // ----- NOTE: Hooks ----- //
@@ -138,7 +137,7 @@ function createTerrainMovementPath(wrapped, waypoints, options) {
     // log(`createTerrainMovementPath|${ElevatedPoint.fromObject(start)} --> ${ElevatedPoint.fromObject(next)}`, { flying, burrowing, walking });
     const a = _centerWaypoint(start, this);
     const b = _centerWaypoint(next, this);
-    tm.initialize(a, b);
+    tm._initialize(a, b);
 
     // If no regions or tiles, just allow the movement to continue as is.
     // Somewhat avoids issue where cannot change elevation when on the canvas, which can be unexpected.
@@ -149,7 +148,7 @@ function createTerrainMovementPath(wrapped, waypoints, options) {
       continue;
     }
 
-    const path = tm.constructPath(a, b, { flying, burrowing, walking });
+    const path = tm.constructPath(a, b, { flying, burrowing, walking, initialize: false });
     path.forEach(pt => _uncenterPathPointInPlace(pt, this));
 
     // Use the next waypoint parameters, changing only what is necessary.
@@ -182,7 +181,7 @@ function createTerrainMovementPath(wrapped, waypoints, options) {
 
   // Testing
   if ( newWaypoints.length > 1000 ) {
-    console.error(`createTerrainMovementPath|Too many waypoints! (${newWaypoints.length})`);
+    console.error(`createTerrainMovementPath|Too many waypoints! (${newWaypoints.length}; ${ElevatedPoint.fromObject(newWaypoints[0])} --> ${ElevatedPoint.fromObject(newWaypoints.at(-1))}`);
   }
 
   log(`createTerrainMovementPath|${newWaypoints.length} newWaypoints: ${ElevatedPoint.fromObject(newWaypoints[0])} --> ${ElevatedPoint.fromObject(newWaypoints.at(-1))}`);
@@ -243,23 +242,6 @@ export function hasCollisionAlongPath(path, token) {
 
 // ----- NOTE: Methods ----- //
 
-/**
- * Retrieve all terrains on the token.
- * @returns {Terrain[]}
- */
-function getAllTerrains() { return CONFIG[MODULE_ID].Terrain.allOnToken(this); }
-
-/**
- * Remove all terrains from the token.
- */
-async function removeAllTerrains() { return CONFIG[MODULE_ID].Terrain.removeAllFromToken(this); }
-
-/**
- * Test if token has a given terrain.
- * @param {Terrain}
- * @returns {boolean}
- */
-function hasTerrain(terrain) { return terrain.tokenHasTerrain(this); }
 
 /**
  * Calculate the top left corner location for a token given an assumed center point.
@@ -273,9 +255,6 @@ function getTopLeft(x, y) {
 }
 
 PATCHES.BASIC.METHODS = {
-  getAllTerrains,
-  removeAllTerrains,
-  hasTerrain,
   getTopLeft
 };
 

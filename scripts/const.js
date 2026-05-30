@@ -11,16 +11,9 @@ export const MODULE_ID = "terrainmapper";
 // Templates used in this module when displaying configs.
 export const TEMPLATES = {
   SCENE: `modules/${MODULE_ID}/templates/scene-config.html`,
-  ACTIVE_EFFECT: `modules/${MODULE_ID}/templates/active-effect-config.html`,
   SETTINGS: `modules/${MODULE_ID}/templates/settings-menu-tab-partial.html`,
-  ITEM_PF2e: `modules/${MODULE_ID}/templates/item-config-pf2e.html`,
   REGION: `modules/${MODULE_ID}/templates/region-config.html`,
   TILE: `modules/${MODULE_ID}/templates/tile-config.html`,
-  TERRAIN_BOOK_DIRECTORY: `modules/${MODULE_ID}/templates/terrain-effects-menu-app-directory.html`,
-  TERRAIN_BOOK_DOCUMENT_PARTIAL: `modules/${MODULE_ID}/templates/terrain-effects-menu-app-document-partial.html`,
-  TERRAIN_BOOK_FOLDER: `modules/${MODULE_ID}/templates/terrain-effects-menu-app-folder-config.html`,
-  TERRAIN_BOOK_FOLDER_PARTIAL: `modules/${MODULE_ID}/templates/terrain-effects-menu-app-folder-partial.html`,
-  TERRAIN_BOOK_HEADER: `modules/${MODULE_ID}/templates/terrain-effects-menu-app-header.html`,
 };
 
 // Track certain modules that complement features of this module.
@@ -39,14 +32,6 @@ Hooks.once("init", function() {
 
 // Flags set on various documents.
 export const FLAGS = {
-  // ActiveEffect
-  UNIQUE_EFFECT: {
-    ID: "uniqueEffectId",
-    TYPE: "uniqueEffectType",
-    DUPLICATES_ALLOWED: "duplicatesAllowed",
-    IS_LOCAL: "isLocal",
-    DISPLAY_ICON: "displayStatusIcon"
-  },
 
   // Scene
   SCENE: {
@@ -74,7 +59,6 @@ export const FLAGS = {
       STEP_SIZE: "rampStepSize",
       SPLIT_POLYGONS: "splitPolygons"
     },
-    WALL_RESTRICTIONS: "wallRestrictions",
   },
 
   TILE: {
@@ -96,22 +80,8 @@ export const FLAGS = {
     }
   },
 
-  // Terrain Book
-  TERRAIN_BOOK: {
-    FOLDER_COLOR: "folderColor",
-    FOLDERS: "folders",
-  },
-
   VERSION: "version"
 };
-
-export const MOVEMENT_TYPES = {
-  BURROW: 0,
-  WALK: 1,
-  FLY: 2
-};
-
-export const MOVEMENT_TYPES_INV = foundry.utils.invertObject(MOVEMENT_TYPES);
 
 // Icons used in this module in controls or tabs
 export const FA_ICONS = {
@@ -121,8 +91,6 @@ export const FA_ICONS = {
   FILL_BY_WALLS: "fa-solid fa-fill-drip",       // https://fontawesome.com/icons/fill-drip
   STAIRS: "fa-solid fa-stairs",                 // https://fontawesome.com/icons/stairs
   ELEVATOR: "fa-solid fa-elevator",             // https://fontawesome.com/icons/elevator
-  TERRAIN_BOOK: "fa-solid fa-mountain-sun",     // https://fontawesome.com/icons/mountain-sun
-  BLOCKING_WALLS: "fa-solid fa-person-walking-dashed-line-arrow-right",    // https://fontawesome.com/icons/person-walking-dashed-line-arrow-right
 };
 
 export const ICONS = {

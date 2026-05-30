@@ -1,7 +1,6 @@
 /* globals
 canvas,
 CONFIG,
-game,
 PIXI,
 PreciseText,
 ui
@@ -11,7 +10,6 @@ ui
 
 import { MODULE_ID, FA_ICONS } from "../const.js";
 import { Draw } from "../geometry/Draw.js";
-import { TerrainEffectsAppV2 } from "../TerrainEffectsAppV2.js";
 
 export const PATCHES = {};
 PATCHES.REGIONS = {};
@@ -40,15 +38,6 @@ TOOLS.FILL_BY_WALLS = {
   icon: FA_ICONS.FILL_BY_WALLS,
   toggle: false,
   onChange: toggleWallDisplay,
-  order: 0,
-}
-
-TOOLS.TERRAIN_BOOK = {
-  name: "terrain-book",
-  title: `${MODULE_ID}.phrases.terrains`,
-  icon: FA_ICONS.TERRAIN_BOOK,
-  onChange: () => { new TerrainEffectsAppV2().render(true); },
-  button: true,
   order: 0,
 }
 
@@ -98,15 +87,6 @@ function getSceneControlButtons(controls, _html, _data) {
       .forEach(tool => tool.order += 2);
   regionTools.tools[TOOLS.FILL_BY_WALLS.name] = TOOLS.FILL_BY_WALLS;
   regionTools.tools[TOOLS.FILL_BY_LOS.name] = TOOLS.FILL_BY_LOS;
-
-  if ( game.user.isGM ) {
-    const trashIdx = regionTools.tools.clear;
-    TOOLS.TERRAIN_BOOK.order = trashIdx;
-    Object.values(regionTools.tools)
-      .filter(tool => tool.order >= trashIdx)
-      .forEach(tool => tool.order += 1);
-    regionTools.tools[TOOLS.TERRAIN_BOOK.name] = TOOLS.TERRAIN_BOOK;
-  }
 }
 
 PATCHES.REGIONS.HOOKS = {
