@@ -3,6 +3,7 @@
   "terrainmapper.controls.fill-by-grid.name": "Fill by grid",
   "terrainmapper.controls.fill-by-los.name": "Fill by line-of-sight",
   "terrainmapper.controls.fill-space.name": "Fill space enclosed by walls",
+  "terrainmapper.controls.draw-hill.name": "Draw hill in region",
 
   "terrainmapper.scene-config.backgroundElevation.name": "Background Elevation",
   "terrainmapper.scene-config.backgroundElevation.hint": "The default elevation for tokens placed on the canvas.",

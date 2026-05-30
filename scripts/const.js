@@ -45,20 +45,21 @@ export const FLAGS = {
     CHOICES: {
       NONE: "none",
       PLATEAU: "plateau",
-      RAMP: "ramp"
+      RAMP: "ramp",
     },
     LABELS: {
       none: `${MODULE_ID}.elevationAlgorithm.labels.none`,
       plateau: `${MODULE_ID}.elevationAlgorithm.labels.plateau`,
-      ramp: `${MODULE_ID}.elevationAlgorithm.labels.ramp`
+      ramp: `${MODULE_ID}.elevationAlgorithm.labels.ramp`,
     },
     PLATEAU_ELEVATION: "plateauElevation",
     RAMP: {
       FLOOR: "rampFloor",
       DIRECTION: "rampDirection",
       STEP_SIZE: "rampStepSize",
-      SPLIT_POLYGONS: "splitPolygons"
+      SPLIT_POLYGONS: "splitPolygons",
     },
+    HILL: "hill",
   },
 
   TILE: {
@@ -91,6 +92,7 @@ export const FA_ICONS = {
   FILL_BY_WALLS: "fa-solid fa-fill-drip",       // https://fontawesome.com/icons/fill-drip
   STAIRS: "fa-solid fa-stairs",                 // https://fontawesome.com/icons/stairs
   ELEVATOR: "fa-solid fa-elevator",             // https://fontawesome.com/icons/elevator
+  DRAW_HILL: "fa-solid fa-mountain",            // https://fontawesome.com/icons/mountain
 };
 
 export const ICONS = {
