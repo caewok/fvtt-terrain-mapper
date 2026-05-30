@@ -14,6 +14,7 @@ PriorityQueue = CONFIG.GeometryLib.lib.PriorityQueue;
 almostLessThan = CONFIG.GeometryLib.lib.utils.almostLessThan
 cutawayUtil = CONFIG.GeometryLib.lib.utils.cutaway
 bench = CONFIG.GeometryLib.lib.bench
+CutawayPolygon = CONFIG.GeometryLib.lib.CutawayPolygon
 
 
 // For an array of polygons (cutaways), find the first one that a ray hits.
@@ -243,8 +244,8 @@ endToken = canvas.tokens.placeables.find(t => t.name === "Riswynn")
 start = GridCoordinates3d.fromTokenCenter(startToken)
 end = GridCoordinates3d.fromTokenCenter(endToken)
 
-start.elevation = 10
-end.elevation = 10
+start.elevation = 0
+end.elevation = 0
 
 // Filter to include only those SDFs that could be encountered on the path.
 start2d = start.to2d();

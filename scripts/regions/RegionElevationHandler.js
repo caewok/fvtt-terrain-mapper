@@ -790,10 +790,11 @@ export class RegionElevationHandler {
             for ( let i = 1, iMax = cutawayPoly.points.length; i < iMax; i += 2 ) {
               if ( cutawayPoly.points[i] === bottomZ ) cutawayPoly.points[i] = sceneFloor; // Change y value.
             }
-            // Changing the bottom to scene floor should flip the orientation.
-            // TODO: What about ramps or steps that only create a hole on 1 side?
-            // E.g. ramp from 10 to -10.
-          })
+
+            // Changing the bottom to scene floor typically flips the orientation; flip back.
+            // Note that cutaways have reversed orientation to that of Foundry (cutaways have y up).
+            if ( cutawayPoly.isPositive ) cutawayPoly.reverseOrientation();
+          });
         }
 
         processedPolygons.push(...cutaways);
