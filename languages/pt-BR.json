@@ -27,6 +27,9 @@
   "terrainmapper.region-config.splitPolygons.name": "Rampa: Polígonos Separados",
   "terrainmapper.region-config.splitPolygons.hint": "Quando ativado, cada polígono de Região sem Furo terá sua própria rampa, da elevação mais baixa para a mais alta. Quando desabilitado, todos os polígonos que não sejam buracos são considerados uma rampa, definida por seus limites combinados.",
 
+  "terrainmapper.region-config.wallRestrictions.name": "Tipos de Restrição de Parede",
+  "terrainmapper.region-config.wallRestrictions.hint": "Quando ativado, a região funcionará como uma parede, bloqueando os tipos de fontes selecionados. 'Cobertura Física' foi projetada para permitir que módulos tratem a região como cobertura física sem realmente bloquear o movimento dos tokens.",
+  
   "terrainmapper.tile-config.isFloor.name": "Tratar como Chão",
   "terrainmapper.tile-config.isFloor.hint": "Quando habilitado, será tratado como piso sólido (chão) ao mover tokens.",
 
@@ -64,9 +67,6 @@
   "terrainmapper.behavior.types.elevator.fields.resetOnExit.name": "Redefinir ao Sair",
   "terrainmapper.behavior.types.elevator.fields.resetOnExit.hint": "Se ativado, o token será redefinido para a elevação da cena (chão) na saída. Isso ocorrerá independentemente de o token ter subido escadas ou elevador ao entrar na região.",
 
-  "terrainmapper.behavior.types.blockingWalls.fields.types.cover.name": "Cobertura Física",
-  "terrainmapper.behavior.types.blockingWalls.fields.types.cover.hint": "Permite que os módulos tratem a região como cobertura física sem realmente bloquear o movimento do token.",
-
   "TYPES.RegionBehavior.terrainmapper.setElevation": "Definir Elevação",
   "TYPES.RegionBehavior.terrainmapper.elevator": "Elevador",
 
@@ -82,9 +82,6 @@
   "terrainmapper.phrases.no-terrain": "Sem Terreno",
   "terrainmapper.phrases.new-terrain": "Novo Terreno",
   "terrainmapper.phrases.layer-number": "Camada {layerNumber}",
-  "terrainmapper.phrases.difficult_x2": "Dificuldade (x2)",
-  "terrainmapper.phrases.water_swimming": "Água (Natação)",
-  "terrainmapper.phrases.cliff_climbing": "Penhasco (Escalada)",
   "terrainmapper.phrases.stairs-go-up": "Subir as escadas?",
   "terrainmapper.phrases.stairs-go-down": "Descer as escadas?",
   "terrainmapper.phrases.elevator": "Elevador",
