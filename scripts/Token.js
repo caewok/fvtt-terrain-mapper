@@ -27,7 +27,6 @@ import { ElevatedPoint } from "./geometry/3d/ElevatedPoint.js";
 
 export const PATCHES = {};
 PATCHES.BASIC = {};
-PATCHES.RULER = {};
 PATCHES.ELEVATION = {};
 
 // ----- NOTE: Hooks ----- //
@@ -243,23 +242,6 @@ export function hasCollisionAlongPath(path, token) {
 
 // ----- NOTE: Methods ----- //
 
-/**
- * Retrieve all terrains on the token.
- * @returns {Terrain[]}
- */
-function getAllTerrains() { return CONFIG[MODULE_ID].Terrain.allOnToken(this); }
-
-/**
- * Remove all terrains from the token.
- */
-async function removeAllTerrains() { return CONFIG[MODULE_ID].Terrain.removeAllFromToken(this); }
-
-/**
- * Test if token has a given terrain.
- * @param {Terrain}
- * @returns {boolean}
- */
-function hasTerrain(terrain) { return terrain.tokenHasTerrain(this); }
 
 /**
  * Calculate the top left corner location for a token given an assumed center point.
@@ -273,9 +255,6 @@ function getTopLeft(x, y) {
 }
 
 PATCHES.BASIC.METHODS = {
-  getAllTerrains,
-  removeAllTerrains,
-  hasTerrain,
   getTopLeft
 };
 

@@ -8,36 +8,6 @@ game,
 import { MODULE_ID, FLAGS } from "./const.js";
 import { ModuleSettingsAbstract } from "./ModuleSettingsAbstract.js";
 
-export const PATCHES_SidebarTab = {};
-export const PATCHES_ItemDirectory = {};
-PATCHES_SidebarTab.BASIC = {};
-PATCHES_ItemDirectory.BASIC = {};
-
-/**
- * Remove the terrains item from sidebar so it does not display.
- * From https://github.com/DFreds/dfreds-convenient-effects/blob/main/scripts/ui/remove-custom-item-from-sidebar.js#L3
- * @param {ItemDirectory} dir
- */
-function removeTerrainsItemFromSidebar(dir) {
-  if ( !(dir instanceof foundry.applications.sidebar.tabs.ItemDirectory) ) return;
-  if ( !game.items ) return;
-  for ( const item of game.items ) {
-    if ( !(item.name === "Terrains" || item.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.ID)) ) continue;
-    const li = dir.element.querySelector(`[data-entry-id="${item.id}"]`)
-    if ( li ) li.remove();
-  }
-}
-
-/**
- * Hooks for changeSidebarTab and renderItemDirectory to remove the terrains item from the directory.
- */
-function removeTerrainItemHook(directory) {
-  removeTerrainsItemFromSidebar(directory);
-}
-
-PATCHES_SidebarTab.BASIC.HOOKS = { changeSidebarTab: removeTerrainItemHook };
-PATCHES_ItemDirectory.BASIC.HOOKS = { renderItemDirectory: removeTerrainItemHook };
-
 /**
  * @typedef {object} TMFolder
  * Data that describes a folder in the Terrain Book. Stored in settings.

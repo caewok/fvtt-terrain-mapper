@@ -9,7 +9,7 @@ PIXI,
 "use strict";
 
 import { MODULE_ID, FLAGS } from "./const.js";
-
+import { CutawayPolygon } from "./geometry/CutawayPolygon.js";
 
 export function log(...args) {
   try {
@@ -17,53 +17,6 @@ export function log(...args) {
   } catch(_e) { // eslint-disable-line no-unused-vars
     // Empty
   }
-}
-
-/**
- * Get the snapped position for a token from a token center point.
- * @param {Token} token
- * @param {Point} center
- */
-export function getSnappedFromTokenCenter(token, center) {
-  center ??= token.center;
-  return token.getSnappedPosition(token.getTopLeft(center.x, center.y));
-}
-
-/**
- * Helper to inject configuration html into the application config.
- */
-export async function injectConfiguration(app, html, data, template, findString, attachMethod = "append") {
-  const myHTML = await renderTemplateSync(template, data);
-  const form = html.find(findString);
-  form[attachMethod](myHTML);
-  app.setPosition(app.position);
-}
-
-/**
- * Helper to inject configuration html into the application config.
- */
-export function injectConfigurationSync(app, html, data, template, findString, attachMethod = "append") {
-  const myHTML = renderTemplateSync(template, data);
-  const form = html.find(findString);
-  form[attachMethod](myHTML);
-  app.setPosition(app.position);
-}
-
-/**
- * Capitalize the first letter of a string.
- * @param {string} str
- * @returns {string}
- */
-export function capitalizeFirstLetter(str) { return `${str.charAt(0).toUpperCase()}${str.slice(1)}`; }
-
-/**
- * Test if something is a string.
- * See https://stackoverflow.com/questions/4059147/check-if-a-variable-is-a-string-in-javascript
- * @param {*} obj   Object to test
- * @returns {boolean}
- */
-export function isString(obj) {
-  return (typeof obj === "string" || obj instanceof String);
 }
 
 /**
@@ -88,50 +41,6 @@ export function groupBy(list, keyGetter) {
     else collection.push(item);
   });
   return map;
-}
-
-
-/**
- * Get the grid shape for a given set of grid coordinates.
- * @type {GridCoordinates} gridCoords  { i: row, j: col } location
- * @returns {PIXI.Rectangle|PIXI.Polygon}
- */
-export function gridShapeFromGridCoords(gridCoords) {
-  const tl = canvas.grid.getTopLeftPoint(gridCoords);
-  if ( canvas.grid.isHexagonal ) return hexGridShape(tl.x, tl.y);
-  return squareGridShape(tl.x, tl.y);
-}
-
-/**
- * Get a square grid shape from the top left corner position.
- * @param {number} tlx      Top left x coordinate
- * @param {number} tly      Top left y coordinate
- * @returns {PIXI.Rectangle}
- */
-function squareGridShape(tlx, tly) {
-  // Get the top left corner
-  const { w, h } = canvas.grid;
-  return new PIXI.Rectangle(tlx, tly, w, h);
-}
-
-/**
- * Get a hex grid shape from the top left corner position.
- * @param {number} tlx      Top left x coordinate
- * @param {number} tly      Top left y coordinate
- * @returns {PIXI.Polygon}
- */
-function hexGridShape(tlx, tly, { width = 1, height = 1 } = {}) {
-  // Canvas.grid.grid.getBorderPolygon will return null if width !== height.
-  if ( width !== height ) return null;
-
-  // Get the top left corner
-  const points = canvas.grid.grid.getBorderPolygon(width, height, 0);
-  const pointsTranslated = [];
-  const ln = points.length;
-  for ( let i = 0; i < ln; i += 2) {
-    pointsTranslated.push(points[i] + tlx, points[i+1] + tly);
-  }
-  return new PIXI.Polygon(pointsTranslated);
 }
 
 /**
@@ -164,26 +73,6 @@ export function renderTemplateSync(path, data) {
 }
 
 /**
- * Locates a single active gm.
- * @returns {User|undefined}
- */
-export function firstGM() { return game.users?.find(u => u.isGM && u.active); }
-
-/**
- * Is the current user the first active GM user?
- * @returns {boolean}
- */
-export function isFirstGM() { return game.user && game.user.id === firstGM()?.id; }
-
-/**
- * Are two region waypoints equal in all coordinates?
- * @param {RegionMovementWaypoint} a
- * @param {RegionMovementWaypoint} b
- * @returns {boolean}
- */
-export function regionWaypointsEqual(a, b) { return a.x === b.x && a.y === b.y && a.elevation === b.elevation; }
-
-/**
  * Are two region waypoints equal in x,y coordinates?
  * @param {RegionMovementWaypoint} a
  * @param {RegionMovementWaypoint} b
@@ -214,5 +103,64 @@ export function elevatedTiles(tiles) {
   if ( !tiles ) return [];
   return tiles.filter(tile => tile[MODULE_ID].isElevated);
 }
+
+/**
+ * Helper function: Sutherland-Hodgman clipping against a vertical plane.
+ * @param {CutawayPolygon} poly     Polygon to clip
+ * @param {number} xVal           Vertical plane value
+ * @param {boolean} keepLeft      Whether to keep portion to the left of the vertical plane
+ * @returns {CutawayPolygon}
+ */
+function clipVertical(poly, xVal, keepLeft) {
+  const outPts = [];
+  if ( poly.points.length < 6 ) return new CutawayPolygon();
+  const isInside = x => keepLeft ? (x <= xVal) : (x >= xVal);
+  for ( const edge of poly.iterateEdges() ) {
+    const inA = isInside(edge.a.x);
+    const inB = isInside(edge.b.x);
+    if ( inA && inB ) outPts.push(edge.b);
+    else if ( inA || inB ) {
+      // Calculate intersection on x line.
+      const t = (xVal - edge.a.x) / (edge.b.x - edge.a.x);
+      const y = edge.a.y + (t * (edge.b.y - edge.a.y));
+      outPts.push({ x: xVal, y });
+
+      // If entering the valid zone, also add target.
+      if ( !inA && inB ) outPts.push(edge.b);
+    }
+  }
+  return CutawayPolygon.fromCutawayPoints(outPts, poly.start, poly.end);
+}
+
+/**
+ * Trim a parent cutaway polygon by removing the area intersected by a vertical hole polygon.
+ * @param {CutawayPolygon} parentPoly     The main cutout polygon
+ * @param {CutawayPolygon} holePoly       The hole polygon cutting straight through
+ * @returns {CutawayPolygon[]} Array of 0, 1, or 2 trimmed polygons.
+ */
+export function trimCutawayPolygonWithVerticalHole(parentPoly, holePoly) {
+  // Check for invalid inputs.
+  if ( parentPoly.points.length < 6 || holePoly.points.length < 6 ) return [parentPoly];
+
+  // Calculate the horizontal extent of the hole.
+  let xMin = Number.POSITIVE_INFINITY;
+  let xMax = Number.NEGATIVE_INFINITY;
+  for ( const pt of holePoly.iteratePoints() ) {
+    xMin = Math.min(pt.x, xMin);
+    xMax = Math.max(pt.x, xMax);
+  }
+
+  // Clip the polygon.
+  const left = clipVertical(parentPoly, xMin, true);
+  const right = clipVertical(parentPoly, xMax, false);
+
+  // Ignore slivers or lines.
+  const resultPolygons = [];
+  const MIN_AREA = 0.01;
+  if ( left.points.length >= 6 && left.area > MIN_AREA ) resultPolygons.push(left);
+  if ( right.points.length >= 6 && right.area > MIN_AREA ) resultPolygons.push(right);
+  return resultPolygons;
+}
+
 
 

@@ -259,6 +259,12 @@ sceneSDFs = [...tileSDFs, ...regionSDFs];
 floorSDF = new SceneFloorSDF(canvas.scene);
 sceneSDFs.push(floorSDF);
 sceneSDFObj = new SDFCombined(sceneSDFs)
+
+function _centerWaypoint(waypoint, token) {
+  const ctr = token.getCenterPoint(waypoint);
+  return GridCoordinates3d.fromLocationWithElevation(ctr, waypoint.elevation);
+}
+
 */
 
 traceCutoutPath(start, end, startToken)
