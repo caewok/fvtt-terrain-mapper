@@ -109,10 +109,8 @@ export class RegionElevationHandler {
   get numSteps() {
     if ( !this.isSteps ) return 0;
     const { rampFloor, plateauElevation, rampStepSize } = this;
-    // const totalStepHeight = plateauElevation - rampFloor;
-
-    // return Math.ceil(delta / rampStepSize);
-    throw Error("numSteps not yet implemented.");
+    const totalStepHeight = plateauElevation - rampFloor;
+    return Math.ceil(totalStepHeight / rampStepSize);
   }
 
   #terrainAABB = new WeakMap();
