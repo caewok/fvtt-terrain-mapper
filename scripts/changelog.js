@@ -164,7 +164,23 @@ Hooks.once("ready", () => {
                 `
         })
 
+        .addEntry({
+            version: "14.0.0",
+            title: "Foundry v14",
+            body: `\
+                Foundry v14 regions handle active effects and difficult terrain, so this release
+                removes the Terrain Book and the related "setTerrain" region behavior. I also removed
+                the "blockingWalls" region behavior because Foundry v14 regions provide a similar option.
+                This dramatically simplifies the module, which is great!
 
+                You can now define below-ground terrains, meaning terrain that is below the level of the
+                scene elevation, creating a hole. Set the plateau top (or ramp top/bottom) to any value below the scene elevation.
+                Don't forget to set your region top/bottom elevation as well.
+
+                Note: if you get DataModelValidationErrors, open the associated scene and the module will
+                remove the deprecated terrain behaviors. Otherwise, you can just ignore those errors.
+                `
+        })
 
         .build()
         ?.render(true);

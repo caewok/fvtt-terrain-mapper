@@ -1,3 +1,20 @@
+## 14.0.0
+Update for Foundry v14.
+Change version numbering to follow Foundry versions.
+
+Deprecations:
+- Removed the Terrain Book and all active effect handling, including the setTerrani . Foundry v14 has difficult terrains for regions and better active effects handling for regions, so this feature no longer provided sufficient additional value over base Foundry, and was quite complex.
+- Removed blocking wall behavior type, as Foundry v14 has a similar option in regions.
+
+Features:
+- You can now define below-ground terrains by setting the plateau top (or ramp top/bottom) to a value less than the scene elevation. By default, scene elevation is 0 and negative values for terrain are acceptable.
+
+Performance improvements:
+- Avoid using Clipper for terrain path creation unless below-ground regions are present.
+- Simpler method to identify tile holes that does not rely on pixel-level measurements.
+
+Update to libGeometry v0.6.0.
+
 ## 0.5.2
 Update to libGeometry v0.5.3.
 

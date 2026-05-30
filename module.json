@@ -1,13 +1,13 @@
 {
   "id": "terrainmapper",
   "title": "Terrain Mapper",
-  "description": "Paint coded terrain values on Foundry scene maps.",
+  "description": "Treat regions as physical plateaus, ramps, or steps.",
   "version": "#{VERSION}#",
   "library": "false",
   "socket": "true",
   "compatibility": {
-    "minimum": "13",
-    "verified": "13.351"
+    "minimum": "14",
+    "verified": "14.361"
   },
   "authors": [
     {
