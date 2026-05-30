@@ -10,8 +10,9 @@ import { MODULE_ID } from "./const.js";
 import {
   elevatedRegions,
   elevatedTiles } from "./util.js";
+import { GEOMETRY_LIB_ID } from "./geometry/const.js";
 import { ElevatedPoint } from "./geometry/3d/ElevatedPoint.js";
-import { cutaway, almostLessThan, almostGreaterThan, gridUnitsToPixels } from "./geometry/util.js";
+import { cutaway, almostLessThan, gridUnitsToPixels } from "./geometry/util.js";
 import { Draw } from "./geometry/Draw.js";
 import { AABB2d } from "./geometry/AABB.js";
 
@@ -123,8 +124,41 @@ export class TokenElevationHandler {
 
     this.regions = this.constructor.filterElevatedRegionsByXYSegment(this.start, this.end);
     this.tiles = this.constructor.filterElevatedTilesByXYSegment(this.start, this.end);
-    this.combinedCutaways = [canvas.scene, ...this.regions, ...this.tiles]
-      .flatMap(obj => obj[MODULE_ID]._cutaway(this.start, this.end, this.token))
+
+    // Define the cutaways for the start|end path.
+    let sceneFloorCutaway = canvas.scene[MODULE_ID]._cutaway(this.start, this.end, this.token);
+    const tileCutaways = this.tiles.flatMap(obj => obj[MODULE_ID]._cutaway(this.start, this.end, this.token));
+
+
+    // If there are below-ground region cutaways, combine with the scene floor.
+    const regionCutaways = [];
+    const belowGroundRegionCutaways = [];
+    for ( const region of this.regions ) {
+      const cutaways = region[MODULE_ID]._cutaway(this.start, this.end, this.token);
+      for ( const cutaway of cutaways ) {
+        if ( region[MODULE_ID].isBelowGround ) belowGroundRegionCutaways.push(cutaway);
+        else regionCutaways.push(cutaway);
+      }
+    }
+    if ( belowGroundRegionCutaways.length ) {
+      const ClipperPaths = CONFIG[GEOMETRY_LIB_ID].CONFIG.ClipperPaths;
+
+      // Flip orientation to match Clipper expectations.
+      sceneFloorCutaway.forEach(poly => poly.reverseOrientation());
+      belowGroundRegionCutaways.forEach(poly => poly.reverseOrientation());
+
+      const sceneFloorPaths = ClipperPaths.fromPolygons(sceneFloorCutaway);
+      const regionPaths = ClipperPaths.fromPolygons(belowGroundRegionCutaways);
+      const combinedFloor = regionPaths.combine().diffPaths(sceneFloorPaths).clean();
+      const polygons = combinedFloor.toPolygons();
+      if ( polygons.length === 1 ) {
+        polygons.forEach(poly => poly.reverseOrientation());
+        sceneFloorCutaway = polygons;
+      }
+      else console.error("TokenElevationHandler|Below-ground polygons failed to combine.");
+    }
+
+    this.combinedCutaways = [...sceneFloorCutaway, ...tileCutaways, ...regionCutaways]
       .map(cutPoly => new CutawayHandler(cutPoly));
   }
 
@@ -325,8 +359,15 @@ export class TokenElevationHandler {
           if (  prevDirection.x.almostEqual(0) && prevDirection.y > 0 ) {
             currDirection.copyFrom(prevDirection);
             currPosition.y = 1e06; // Free fall from top, but only back to this surface.
-            currSurface = this._supportingFloorEdge(currPosition, [currSurface.cutaway]);
+            const newSurface = this._supportingFloorEdge(currPosition, [currSurface.cutaway]);
+            if ( newSurface.cutaway !== currSurface.cutaway ) {
+              // Reached top of old surface. Likely due to below ground surface.
+              currSurface = newSurface;
+              updatePosition(currSurface.ix);
+              break;
+            }
             updatePosition(currSurface.ix);
+            // Continue along this current surface.
 
           // Otherwise, fall.
           } else {
@@ -800,7 +841,8 @@ export class TokenElevationHandler {
     }
     if ( !res ) {
       const newPt = PIXI.Point.tmp.set(pt2d.x, this._nearestSupport(pt2d).elevation);
-      return this._supportingFloorEdge(newPt, cutaways, _iter);
+      _iter++;
+      return this._supportingFloorEdge(newPt, this.combinedCutaways, _iter);
     }
     return res;
   }
@@ -949,9 +991,6 @@ export class CutawayHandler {
   }
 
   // ----- NOTE: Elevation and surface testing ----- //
-
-
-
 
   /**
    * Where is this point relative to this terrain polygon cutaway?
@@ -1123,11 +1162,20 @@ export class CutawayHandler {
    * - @prop {PIXI.Point} ix
    */
   *iterateValidEdgeIntersections(a, b) {
+    const isVertical = edge => {
+      if ( !edge.a.x.almostEqual(edge.b.x) ) return TokenElevationHandler.VERTICAL_LOCATIONS.NONE;
+      const aabb = this.aabb;
+      if ( edge.a.x === aabb.min.x ) return TokenElevationHandler.VERTICAL_LOCATIONS.LEFT;
+      return TokenElevationHandler.VERTICAL_LOCATIONS.RIGHT;
+    }
+
     for ( const edge of this.cutPoly.iterateEdges() ) {
-      // If vertical edge, only bottom --> top count (left edge).
-      if ( edge.a.x.almostEqual(edge.b.x) ) {
-        if ( edge.a.y > edge.b.y ) continue; // Vertical, top --> bottom.
-      } else if ( edge.a.x > edge.b.x ) continue; // Moves right --> left (bottom edge).
+      const verticalType = isVertical(edge);
+      if ( verticalType === TokenElevationHandler.VERTICAL_LOCATIONS.RIGHT
+
+        // Moves right --> left (bottom edge).
+        || (verticalType === TokenElevationHandler.VERTICAL_LOCATIONS.NONE
+          && edge.a.x > edge.b.x) ) continue;
 
       // Test if the line intersects the edge segment (first half of lineSegmentIntersects test)
       const xa = foundry.utils.orient2dFast(a, b, edge.a);

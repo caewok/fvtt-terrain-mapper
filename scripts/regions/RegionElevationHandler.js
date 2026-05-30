@@ -48,6 +48,9 @@ export class RegionElevationHandler {
   /** @type {boolean} */
   get isSteps() { return this.isRamp && this.rampStepSize !== 0; }
 
+  /** @type {boolean} */
+  get isBelowGround() { return SceneElevationHandler.sceneFloor > Math.min(this.rampFloor, this.plateauElevation); }
+
   /** @type {number} */
   get plateauElevation() { return this.region.document.getFlag(MODULE_ID, FLAGS.REGION.PLATEAU_ELEVATION) || 0; }
 
@@ -106,10 +109,8 @@ export class RegionElevationHandler {
   get numSteps() {
     if ( !this.isSteps ) return 0;
     const { rampFloor, plateauElevation, rampStepSize } = this;
-    // const totalStepHeight = plateauElevation - rampFloor;
-
-    // return Math.ceil(delta / rampStepSize);
-    throw Error("numSteps not yet implemented.");
+    const totalStepHeight = plateauElevation - rampFloor;
+    return Math.ceil(totalStepHeight / rampStepSize);
   }
 
   #terrainAABB = new WeakMap();
@@ -177,7 +178,7 @@ export class RegionElevationHandler {
    * @returns {Plane}
    */
   _calculatePolygonRamp(polygons) {
-		const [a3d, b3d] = this._calculatePolygonRampPoints();
+		const [a3d, b3d] = this._calculatePolygonRampPoints(polygons);
 
 		// Construct the ramp plane. Normal should face up (toward part to cut away).
 		// Find a perpendicular in 2d to the plane direction.
@@ -771,15 +772,31 @@ export class RegionElevationHandler {
   _cutaway(start, end, { usePlateauElevation = true } = {}) {
     const opts = this.#cutawayOptionFunctions(usePlateauElevation);
     const addSteps = this.isRamp && this.rampStepSize;
-
+    const isBelowGround = this.isBelowGround;
     let processedPolygons = [];
     let hasSolids = false;
     for ( const regionPoly of this.region.document.polygons ) {
       const cutaways = regionPoly.cutaway(start, end, opts);
       if ( !cutaways.length ) continue;
+
       if ( regionPoly.isPositive ) {
         hasSolids ||= true;
-        if ( addSteps )  cutaways.forEach(cutawayPoly => this._insertTopStepsIntoCutaway(cutawayPoly));
+        if ( addSteps ) cutaways.forEach(cutawayPoly => this._insertTopStepsIntoCutaway(cutawayPoly));
+        if ( isBelowGround ) {
+          // The cutaway should have reversed order and its bottom should be at 0 (so it is flipped).
+          const bottomZ = opts.bottomElevationFn();
+          const sceneFloor = gridUnitsToPixels(SceneElevationHandler.sceneFloor);
+          cutaways.forEach(cutawayPoly => {
+            for ( let i = 1, iMax = cutawayPoly.points.length; i < iMax; i += 2 ) {
+              if ( cutawayPoly.points[i] === bottomZ ) cutawayPoly.points[i] = sceneFloor; // Change y value.
+            }
+
+            // Changing the bottom to scene floor typically flips the orientation; flip back.
+            // Note that cutaways have reversed orientation to that of Foundry (cutaways have y up).
+            if ( cutawayPoly.isPositive ) cutawayPoly.reverseOrientation();
+          });
+        }
+
         processedPolygons.push(...cutaways);
       } else {
         // It's a hole. Cut all accumulated polygons before it.
@@ -1150,12 +1167,12 @@ export class RegionElevationHandler {
     // Note: in grid units to avoid recalculation later.
     const MIN_ELEV = -1e06;
     const MAX_ELEV = 1e06;
-    const topE = Math.min(this.region.topE, MAX_ELEV);
-    const bottomE = Math.max(this.region.bottomE, MIN_ELEV);
+    const topZ = Math.min(gridUnitsToPixels(this.region.topE), MAX_ELEV);
+    const bottomZ = Math.max(gridUnitsToPixels(this.region.bottomE), MIN_ELEV);
     const topElevationFn = usePlateauElevation
       ? pt => gridUnitsToPixels(this.elevationUponEntry({ ...pt, elevation: pixelsToGridUnits(pt.z) }))
-      : _pt => topE;
-    const bottomElevationFn = _pt => bottomE;
+      : _pt => topZ;
+    const bottomElevationFn = _pt => bottomZ;
     return { topElevationFn, bottomElevationFn };
   }
 }
