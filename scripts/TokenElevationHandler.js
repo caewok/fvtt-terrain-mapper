@@ -380,7 +380,7 @@ export class TokenElevationHandler {
         else {
           // Look for the closest obstacle.
           const closestObstacle = this._closestObstacleAlongSegment(currPosition, edge.b, cutawaysSet);
-          if ( closestObstacle && closestObstacle.ix.t0 > 0 ) {
+          if ( closestObstacle ) {
             cutawaysSet.add(currSurface.cutaway)
             cutawaysSet.delete(closestObstacle.cutaway);
             currSurface = closestObstacle;
@@ -860,6 +860,7 @@ export class TokenElevationHandler {
     for ( const cutaway of obstacles ) {
       for ( const edgeIx of cutaway.iterateValidEdgeIntersections(a2d, b2d) ) {
         if ( edgeIx.ix.t0 > minT ) continue;
+        if ( edgeIx.ix.t0 < 0 ) continue;
         minT = edgeIx.ix.t0;
         closestObstacle = edgeIx;
       }
