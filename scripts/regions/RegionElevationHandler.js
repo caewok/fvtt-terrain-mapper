@@ -802,10 +802,14 @@ export class RegionElevationHandler {
         // It's a hole. Cut all accumulated polygons before it.
         const updatedPolygons = [];
         for ( const parentPoly of processedPolygons ) {
+          // For each parent polygon, apply all the holes to it.
+          // Each hole may create subset polygons, which in turn will need to be processed.
+
+          let toProcess = [parentPoly];
           for ( const holePoly of cutaways ) {
-            const trimmedPolys = trimCutawayPolygonWithVerticalHole(parentPoly, holePoly);
-            updatedPolygons.push(...trimmedPolys);
+            toProcess = toProcess.flatMap(poly => trimCutawayPolygonWithVerticalHole(poly, holePoly));
           }
+          updatedPolygons.push(...toProcess);
         }
         processedPolygons = updatedPolygons;
       }
