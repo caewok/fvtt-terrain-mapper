@@ -178,7 +178,7 @@ export class RegionElevationHandler {
    * @returns {Plane}
    */
   _calculatePolygonRamp(polygons) {
-		const [a3d, b3d] = this._calculatePolygonRampPoints();
+		const [a3d, b3d] = this._calculatePolygonRampPoints(polygons);
 
 		// Construct the ramp plane. Normal should face up (toward part to cut away).
 		// Find a perpendicular in 2d to the plane direction.
