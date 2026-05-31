@@ -17,6 +17,7 @@ import { TokenElevationHandler } from "../TokenElevationHandler.js";
 import { gridUnitsToPixels, pixelsToGridUnits, cutaway } from "../geometry/util.js";
 import { AABB3d } from "../geometry/3d/AABB3d.js";
 import { almostGreaterThan, almostLessThan, almostBetween } from "../geometry/util.js";
+import { HillDrawingManager } from "./HillDrawingManager.js";
 
 /**
  * Single region elevation handler
@@ -37,7 +38,7 @@ export class RegionElevationHandler {
   get shapes() { return this.region.document.shapes; }
 
   /** @type {boolean} */
-  get isElevated() { return this.isPlateau || this.isRamp; }
+  get isElevated() { return this.isPlateau || this.isRamp || this.isHill; }
 
   /** @type {boolean} */
   get isPlateau() { return this.region.document.getFlag(MODULE_ID, FLAGS.REGION.ELEVATION_ALGORITHM) === FLAGS.REGION.CHOICES.PLATEAU };
@@ -50,6 +51,12 @@ export class RegionElevationHandler {
 
   /** @type {boolean} */
   get isBelowGround() { return SceneElevationHandler.sceneFloor > Math.min(this.rampFloor, this.plateauElevation); }
+
+  /** @type {boolean} */
+  get isHill() {
+    return this.region.document.getFlag(MODULE_ID, FLAGS.REGION.ELEVATION_ALGORITHM) === FLAGS.REGION.CHOICES.HILL
+      && this.region.document.getFlag(MODULE_ID, FLAGS.REGION.HILL);
+  }
 
   /** @type {number} */
   get plateauElevation() { return this.region.document.getFlag(MODULE_ID, FLAGS.REGION.PLATEAU_ELEVATION) || 0; }
@@ -773,8 +780,11 @@ export class RegionElevationHandler {
     const opts = this.#cutawayOptionFunctions(usePlateauElevation);
     const addSteps = this.isRamp && this.rampStepSize;
     const isBelowGround = this.isBelowGround;
+    const isHill = this.isHill;
+    const hillPoly = isHill ? this.hillPolygon() : undefined;
     let processedPolygons = [];
     let hasSolids = false;
+
     for ( const regionPoly of this.region.document.polygons ) {
       const cutaways = regionPoly.cutaway(start, end, opts);
       if ( !cutaways.length ) continue;
@@ -782,6 +792,7 @@ export class RegionElevationHandler {
       if ( regionPoly.isPositive ) {
         hasSolids ||= true;
         if ( addSteps ) cutaways.forEach(cutawayPoly => this._insertTopStepsIntoCutaway(cutawayPoly));
+        else if ( isHill ) cutaways.forEach(cutawayPoly => this._insertHillIntoCutaway(cutawayPoly, hillPoly));
         if ( isBelowGround ) {
           // The cutaway should have reversed order and its bottom should be at 0 (so it is flipped).
           const bottomZ = opts.bottomElevationFn();
@@ -815,6 +826,40 @@ export class RegionElevationHandler {
       }
     }
     return hasSolids ? processedPolygons : [];
+  }
+
+  /**
+   * Retrieve the hill polygon for this region, if any.
+   */
+  hillPolygon() { return HillDrawingManager.generateHillPolygonForRegion(this.region); }
+
+  /**
+   * For a given region cutaway, construct a hill from it and given hill data.
+   * Goes from scene elevation to the plateau elevation.
+   */
+  _insertHillIntoCutaway(cutawayPoly, step = Math.round(canvas.grid.size / 4)) {
+    const curve = HillDrawingManager.hillDataForRegion(this.region);
+    const sceneFloorZ = gridUnitsToPixels(SceneElevationHandler.sceneFloor);
+    const y2d = cutawayPoly._to2d(Point3d.tmp.set(0, 0, sceneFloorZ)).y;
+
+    // Replace the top edge with the curve.
+    const maxY = this.finiteRegionTop;
+    const points = [];
+
+    for ( const edge of cutawayPoly.iterateEdges() ) {
+      if ( edge.a.y === maxY && edge.b.y === maxY ) {
+        for ( let x = edge.a.x; x < edge.b.x; x += step ) {
+          const polyPt = cutawayPoly._from2d(PIXI.Point.tmp.set(x, y2d)).to2d();
+          const z = HillDrawingManager.hillZAtPoint(polyPt, curve);
+          const hillPt2d = cutaway._to2d(Point3d.tmp.set(polyPt.x, polyPt.y, z));
+          points.push(hillPt2d.x, hillPt2d.y);
+        }
+      } else if ( edge.a.y === maxY ) points.push(edge.a.x, y2d);
+      else points.push(edge.a.x, edge.a.y);
+    }
+    cutawayPoly.points = points;
+    cutawayPoly.clearCache();
+    return cutawayPoly;
   }
 
   #stepInsertionFunction(a, b) {
@@ -1169,10 +1214,8 @@ export class RegionElevationHandler {
    */
   #cutawayOptionFunctions(usePlateauElevation = true) {
     // Note: in grid units to avoid recalculation later.
-    const MIN_ELEV = -1e06;
-    const MAX_ELEV = 1e06;
-    const topZ = Math.min(gridUnitsToPixels(this.region.topE), MAX_ELEV);
-    const bottomZ = Math.max(gridUnitsToPixels(this.region.bottomE), MIN_ELEV);
+    const topZ = this.finiteRegionTop;
+    const bottomZ = this.finiteRegionBottom;
     const topElevationFn = usePlateauElevation
       ? pt => gridUnitsToPixels(this.elevationUponEntry({ ...pt, elevation: pixelsToGridUnits(pt.z) }))
       : _pt => topZ;

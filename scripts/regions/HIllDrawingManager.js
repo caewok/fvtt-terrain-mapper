@@ -177,23 +177,23 @@ export class HillDrawingManager {
     } else ui.notifications.warn("No region found under the start or end points.");
   }
 
-  static generateHillPolygon(start, cp1, cp2, end, resolution = 20) {
-    // Sample along the curved roof of the hill.
-    const points = [start];
-    const invRes = 1 / resolution;
-    for ( let i = 1; i <= resolution; i += 1 ) {
-      const t = i * invRes;
-      points.push(getBezierPoint(t, start, cp1, cp2, end));
-    }
-    points.push(end);
-    return new PIXI.Polygon(points);
-  }
+  /**
+   * @typedef {BézierCurve}
+   * @prop {PIXI.Point} start
+   * @prop {PIXI.Point} cp1
+   * @prop {PIXI.Point} cp2
+   * @prop {PIXI.Point} end
+   */
 
-  static generateHillPolygonForRegion(region, resolution = 20) {
+  /**
+   * Return curve data for a given region.
+   * @param {Region} region
+   * @returns {BézierCurve}
+   */
+  static hillDataForRegion(region) {
     const hillData = region.document.getFlag(MODULE_ID, FLAGS.REGION.HILL);
     if ( !hillData || !hillData.length === 8 ) return null;
 
-    // Adjust the elevation to
     const start = PIXI.Point.tmp.set(hillData[0], hillData[1]);
     const cp1 = PIXI.Point.tmp.set(hillData[2], hillData[3])
     const cp2 = PIXI.Point.tmp.set(hillData[4], hillData[5])
@@ -211,21 +211,67 @@ export class HillDrawingManager {
     const cp1Adj = ix1.towardsPoint(cp1, elevationZ);
     const cp2Adj = ix2.towardsPoint(cp2, elevationZ)
 
-    return this.generateHillPolygon(start, cp1Adj, cp2Adj, end, resolution = 20);
+    return { start, cp1, cp2, end };
+  }
+
+  /**
+   * Create a polygon representing the vertical cut of the hill.
+   * @param {BézierCurve} curve
+   * @param {number} [resolution=20]
+   * @returns {PIXI.Polygon}
+   */
+  static generateHillPolygon(curve, resolution = 20) {
+    // Sample along the curved roof of the hill.
+    const points = [curve.start];
+    const invRes = 1 / resolution;
+    for ( let i = 1; i <= resolution; i += 1 ) {
+      const t = i * invRes;
+      points.push(getBezierPoint(t, curve.start, curve.cp1, curve.cp2, end));
+    }
+    points.push(end);
+    return new PIXI.Polygon(points);
+  }
+
+  /**
+   * Get the z value for a 2d point based on a symmetrical Bézier hill profile.
+   * @param {PIX.Point} pt          Point to test
+   * @param {BézierCurve} curve     Curve data
+   * @returns {number} Z height or 0 if outside the radius of the curve.
+   */
+  static hillZAtPoint(pt, curve) {
+    const { start, cp1, cp2, end } = curve;
+
+    // Center of the hill.
+    using center = PIXI.Point.tmp;
+    start.add(end, center).multiplyScalar(0.5, center);
+
+    // Maximum radius of the hill base.
+    const radius = PIXI.Point.distanceBetween(start, center);
+
+    // Distance of the target point from the center.
+    const dist = PIXI.Point.distanceBetween(pt, center);
+    if ( dist >= radius ) return 0;
+
+    // Map distance to a symmetrical Bézier "t" parameter (0 -> 1).
+    // At center, t = 0.5 (peak). At edge, t = 0 or t = 1.
+    const distRatio = dist / radius;
+    const t = 0.5 * (1 - distRatio); // Project to 1/2 of the symmetrical curve.
+
+    // Evaluate the Bézier equation for z.
+    return bezierValue(t, start.y, cp1.y, cp2.y, end.y);
   }
 }
 
 /**
- * Evaluate the cubic Bézier formula for a given value.
- * Map y value to height (z).
- * @param {number} t                Distance along the curve.
- * @param {PIXI.Point} start
- * @param {PIXI.Point} cp1
- * @param {PIXI.Point} cp2
- * @param {PIXI.Point} end
- * @returns { x, z }
+ * Calculate a value along the Bézier curve.
+ * @param {number} t      Distance along the curve.
+ * @param {number} start
+ * @param {number} cp1
+ * @param {number} cp2
+ * @param {number} end
+ * @returns {number}
  */
-function getBezierPoint(t, start, cp1, cp2, end) {
+function bezierValue(t, start, cp1, cp2, end) {
   const mt = 1 - t;
   const mt2 = mt * mt;
   const mt3 = mt2 * mt;
@@ -233,11 +279,20 @@ function getBezierPoint(t, start, cp1, cp2, end) {
   const t3 = t2 * t;
 
   // Calculate X (Ground distance)
-  const x = mt3 * start.x + 3 * mt2 * t * cp1.x + 3 * mt * t2 * cp2.x + t3 * end.x;
+  return (mt3 * start) + (3 * mt2 * t * cp1) + (3 * mt * t2 * cp2) + (t3 * end);
+}
 
-  // Calculate Z (Height, pulled from the Y-values of the curve configuration)
-  const z = mt3 * start.y + 3 * mt2 * t * cp1.y + 3 * mt * t2 * cp2.y + t3 * end.y;
-
+/**
+ * Evaluate the cubic Bézier formula for a given value.
+ * Map y value to height (z).
+ * @param {number} t                Distance along the curve.
+ * @param {BézierCurve} curve
+ * @returns {PIXI.Point}
+ */
+function getBezierPoint(t, curve) {
+  const { start, cp1, cp2, end } = curve;
+  const x = bezierValue(t, start.x, cp1.x, cp2.x, end.x);
+  const z = bezierValue(t, start.y, cp1.y, cp2.y, end.y);
   return PIXI.Point.tmp.set(x, z);
 }
 

@@ -46,11 +46,13 @@ export const FLAGS = {
       NONE: "none",
       PLATEAU: "plateau",
       RAMP: "ramp",
+      HILL: "hill",
     },
     LABELS: {
       none: `${MODULE_ID}.elevationAlgorithm.labels.none`,
       plateau: `${MODULE_ID}.elevationAlgorithm.labels.plateau`,
       ramp: `${MODULE_ID}.elevationAlgorithm.labels.ramp`,
+      hill: `${MODULE_ID}.elevationAlgorithm.labels.hill`,
     },
     PLATEAU_ELEVATION: "plateauElevation",
     RAMP: {
