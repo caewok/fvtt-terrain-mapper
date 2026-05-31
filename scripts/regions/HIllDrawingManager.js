@@ -10,7 +10,7 @@ PIXI,
 
 import { MODULE_ID, FLAGS } from "../const.js";
 import { Draw } from "../geometry/Draw.js";
-import { pixelsToGridUnits } from "../geometry/util.js";
+import { pixelsToGridUnits, gridUnitsToPixels } from "../geometry/util.js";
 
 /**
  * Allows the user to define a bezier curve to represent a hill in a region.
@@ -176,4 +176,68 @@ export class HillDrawingManager {
       ui.notifications.info(`Hill curve saved to region: ${targetRegion.document.name}`);
     } else ui.notifications.warn("No region found under the start or end points.");
   }
+
+  static generateHillPolygon(start, cp1, cp2, end, resolution = 20) {
+    // Sample along the curved roof of the hill.
+    const points = [start];
+    const invRes = 1 / resolution;
+    for ( let i = 1; i <= resolution; i += 1 ) {
+      const t = i * invRes;
+      points.push(getBezierPoint(t, start, cp1, cp2, end));
+    }
+    points.push(end);
+    return new PIXI.Polygon(points);
+  }
+
+  static generateHillPolygonForRegion(region, resolution = 20) {
+    const hillData = region.document.getFlag(MODULE_ID, FLAGS.REGION.HILL);
+    if ( !hillData || !hillData.length === 8 ) return null;
+
+    // Adjust the elevation to
+    const start = PIXI.Point.tmp.set(hillData[0], hillData[1]);
+    const cp1 = PIXI.Point.tmp.set(hillData[2], hillData[3])
+    const cp2 = PIXI.Point.tmp.set(hillData[4], hillData[5])
+    const end = PIXI.Point.tmp.set(hillData[6], hillData[7]);
+
+    // Determine the intended elevation from the control points.
+    const normal = end.subtract(start);
+    const perp = PIXI.Point.tmp.set(normal.y, -normal.x);
+    const ix1 = PIXI.Point.fromObject(foundry.utils.lineLineIntersection(start, end, cp1, cp1.add(perp)));
+    const ix2 = PIXI.Point.fromObject(foundry.utils.lineLineIntersection(start, end, cp2, cp2.add(perp)));
+    const elevation = Math.round(pixelsToGridUnits(PIXI.Point.distanceBetween(ix1, cp1)))
+    const elevationZ = gridUnitsToPixels(elevation);
+
+    // Adjust the control points to the exact elevation.
+    const cp1Adj = ix1.towardsPoint(cp1, elevationZ);
+    const cp2Adj = ix2.towardsPoint(cp2, elevationZ)
+
+    return this.generateHillPolygon(start, cp1Adj, cp2Adj, end, resolution = 20);
+  }
 }
+
+/**
+ * Evaluate the cubic Bézier formula for a given value.
+ * Map y value to height (z).
+ * @param {number} t                Distance along the curve.
+ * @param {PIXI.Point} start
+ * @param {PIXI.Point} cp1
+ * @param {PIXI.Point} cp2
+ * @param {PIXI.Point} end
+ * @returns { x, z }
+ */
+function getBezierPoint(t, start, cp1, cp2, end) {
+  const mt = 1 - t;
+  const mt2 = mt * mt;
+  const mt3 = mt2 * mt;
+  const t2 = t * t;
+  const t3 = t2 * t;
+
+  // Calculate X (Ground distance)
+  const x = mt3 * start.x + 3 * mt2 * t * cp1.x + 3 * mt * t2 * cp2.x + t3 * end.x;
+
+  // Calculate Z (Height, pulled from the Y-values of the curve configuration)
+  const z = mt3 * start.y + 3 * mt2 * t * cp1.y + 3 * mt * t2 * cp2.y + t3 * end.y;
+
+  return PIXI.Point.tmp.set(x, z);
+}
+

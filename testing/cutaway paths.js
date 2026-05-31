@@ -15,7 +15,7 @@ almostLessThan = CONFIG.GeometryLib.lib.utils.almostLessThan
 cutawayUtil = CONFIG.GeometryLib.lib.utils.cutaway
 bench = CONFIG.GeometryLib.lib.bench
 CutawayPolygon = CONFIG.GeometryLib.lib.CutawayPolygon
-
+HillDrawingManager = game.modules.get('terrainmapper').api.HillDrawingManager
 
 // For an array of polygons (cutaways), find the first one that a ray hits.
 // If the ray hits multiple polygons at the same point, find the one with the steepest edge.
@@ -267,6 +267,13 @@ function _centerWaypoint(waypoint, token) {
 }
 
 */
+
+/*
+region = canvas.regions.controlled[0]
+poly = HillDrawingManager.generateHillPolygonForRegion(region, 20)
+
+*/
+
 
 traceCutoutPath(start, end, startToken)
 
