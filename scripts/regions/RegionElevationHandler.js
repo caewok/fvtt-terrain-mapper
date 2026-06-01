@@ -101,13 +101,25 @@ export class RegionElevationHandler {
   }
 
   /** @type {number} */
-  get finiteRegionBottom() {
+  get finiteRegionBottomE() {
+    const bottomE = this.region.bottomE;
+    return isFinite(bottomE) ? bottomE : pixelsToGridUnits(-1e06);
+  }
+
+  /** @type {number} */
+  get finiteRegionBottomZ() {
     const bottomZ = this.region.bottomZ;
     return isFinite(bottomZ) ? bottomZ : -1e06;
   }
 
   /** @type {number} */
-  get finiteRegionTop() {
+  get finiteRegionTopE() {
+    const topE = this.region.topE;
+    return isFinite(topE) ? topE : pixelsToGridUnits(1e06);
+  }
+
+  /** @type {number} */
+  get finiteRegionTopZ() {
     const topZ = this.region.topZ;
     return isFinite(topZ) ? topZ : 1e06;
   }
@@ -466,7 +478,7 @@ export class RegionElevationHandler {
   elevationUponEntry(pt) {
     const { PLATEAU, RAMP, NONE } = FLAGS.REGION.CHOICES;
     switch ( this.algorithm ) {
-      case NONE: return this.region.elevationE.top;
+      case NONE: return this.finiteRegionTopE;
       case PLATEAU: return this.plateauElevation;
       case RAMP: return this._rampElevation(pt);
     }
@@ -831,32 +843,67 @@ export class RegionElevationHandler {
   /**
    * Retrieve the hill polygon for this region, if any.
    */
-  hillPolygon() { return HillDrawingManager.generateHillPolygonForRegion(this.region); }
+  hillPolygon(resolution = 20) {
+    const curve = HillDrawingManager.hillDataForRegion(this.region);
+    return HillDrawingManager.generateHillPolygon(curve, resolution);
+  }
 
   /**
    * For a given region cutaway, construct a hill from it and given hill data.
    * Goes from scene elevation to the plateau elevation.
    */
-  _insertHillIntoCutaway(cutawayPoly, step = Math.round(canvas.grid.size / 4)) {
+  _insertHillIntoCutaway(cutawayPoly, resolution = 20) {
+    const hillOpts = {
+      type: "linear",
+      mirrorRatio: 1,
+    };
+
     const curve = HillDrawingManager.hillDataForRegion(this.region);
-    const sceneFloorZ = gridUnitsToPixels(SceneElevationHandler.sceneFloor);
-    const y2d = cutawayPoly._to2d(Point3d.tmp.set(0, 0, sceneFloorZ)).y;
+    const floorZ = gridUnitsToPixels(SceneElevationHandler.sceneFloor);
 
     // Replace the top edge with the curve.
-    const maxY = this.finiteRegionTop;
+    const maxY = this.finiteRegionTopZ;
     const points = [];
+
+    /* Testing: z values for the line.
+    testPts = []
+    xMinMax = Math.minMax(...cutawayPoly.points.filter((_elem, idx) => idx % 2 === 0))
+    step = 1 / resolution;
+    startXY = cutawayPoly._from2d(PIXI.Point.tmp.set(xMinMax.min, 0)).to2d();
+    endXY = cutawayPoly._from2d(PIXI.Point.tmp.set(xMinMax.max, 0)).to2d();
+    for ( let t = 0; t <= 1; t += step ) {
+      const canvasPt = startXY.projectToward(endXY, t);
+      const z = HillDrawingManager.hillZAtPoint(canvasPt, curve, hillOpts);
+      testPts.push(Point3d.tmp.set(canvasPt.x, canvasPt.y, z))
+    }
+    delta = curve.end.subtract(curve.start).normalize()
+    dir = PIXI.Point.tmp.set(delta.y, -delta.x)
+    testPts.forEach(pt => Draw.point(pt.add(dir.multiplyScalar(pt.z))))
+    */
+
 
     for ( const edge of cutawayPoly.iterateEdges() ) {
       if ( edge.a.y === maxY && edge.b.y === maxY ) {
-        for ( let x = edge.a.x; x < edge.b.x; x += step ) {
-          const polyPt = cutawayPoly._from2d(PIXI.Point.tmp.set(x, y2d)).to2d();
-          const z = HillDrawingManager.hillZAtPoint(polyPt, curve);
-          const hillPt2d = cutaway._to2d(Point3d.tmp.set(polyPt.x, polyPt.y, z));
-          points.push(hillPt2d.x, hillPt2d.y);
+        using pt3d = Point3d.tmp;
+        let lastZ = null;
+        const startXY = cutawayPoly._from2d(edge.a).to2d();
+        const endXY = cutawayPoly._from2d(edge.b).to2d();
+        const step = 1 / resolution;
+        for ( let t = 0; t <= 1; t += step ) {
+          const canvasPt = startXY.projectToward(endXY, t);
+          const z = HillDrawingManager.hillZAtPoint(canvasPt, curve, hillOpts);
+          if ( lastZ === z ) { points.pop(); points.pop(); }
+          pt3d.set(canvasPt.x, canvasPt.y, z);
+          const pt2d = cutawayPoly._to2d(pt3d);
+          points.push(pt2d.x, z);
+          lastZ = z;
         }
-      } else if ( edge.a.y === maxY ) points.push(edge.a.x, y2d);
-      else points.push(edge.a.x, edge.a.y);
+      } else if ( edge.a.y !== maxY ) points.push(edge.a.x, edge.a.y);
     }
+    // Process the end point.
+    // const endY = cutawayPoly.points.at(-1);
+    // if ( endY !== maxY ) points.push(cutawayPoly.points.at(-2), endY);
+
     cutawayPoly.points = points;
     cutawayPoly.clearCache();
     return cutawayPoly;
@@ -1214,8 +1261,8 @@ export class RegionElevationHandler {
    */
   #cutawayOptionFunctions(usePlateauElevation = true) {
     // Note: in grid units to avoid recalculation later.
-    const topZ = this.finiteRegionTop;
-    const bottomZ = this.finiteRegionBottom;
+    const topZ = this.finiteRegionTopZ;
+    const bottomZ = this.finiteRegionBottomZ;
     const topElevationFn = usePlateauElevation
       ? pt => gridUnitsToPixels(this.elevationUponEntry({ ...pt, elevation: pixelsToGridUnits(pt.z) }))
       : _pt => topZ;

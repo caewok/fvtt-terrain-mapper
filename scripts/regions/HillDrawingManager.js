@@ -211,7 +211,7 @@ export class HillDrawingManager {
     const cp1Adj = ix1.towardsPoint(cp1, elevationZ);
     const cp2Adj = ix2.towardsPoint(cp2, elevationZ)
 
-    return { start, cp1, cp2, end };
+    return { start, cp1: cp1Adj, cp2: cp2Adj, end };
   }
 
   /**
@@ -222,44 +222,123 @@ export class HillDrawingManager {
    */
   static generateHillPolygon(curve, resolution = 20) {
     // Sample along the curved roof of the hill.
-    const points = [curve.start];
+    const { start, cp1, cp2, end } = curve;
+    const points = [start.x, start.y];
     const invRes = 1 / resolution;
-    for ( let i = 1; i <= resolution; i += 1 ) {
+    for ( let i = 1; i < resolution; i += 1 ) {
       const t = i * invRes;
-      points.push(getBezierPoint(t, curve.start, curve.cp1, curve.cp2, end));
+      const x = bezierValue(t, start.x, cp1.x, cp2.x, end.x);
+      const y = bezierValue(t, start.y, cp1.y, cp2.y, end.y);
+      points.push(x, y);
     }
-    points.push(end);
+    points.push(end.x, end.y);
     return new PIXI.Polygon(points);
   }
 
   /**
-   * Get the z value for a 2d point based on a symmetrical Bézier hill profile.
+   * Get the z value for a 2d point based on a Bézier hill profile.
    * @param {PIX.Point} pt          Point to test
    * @param {BézierCurve} curve     Curve data
+   * @param {object} [opts]
+   * @param {"linear"|"symmetrical"} [opts.type]
+   *   - linear: The hill has a defined linear direction and is the same at parallel lines to start|end.
+   *   - symmetrical: The hill is rotated around its center point (center of start|end)
+   * @param {number} mirrorRatio
+   *   - mirrorRatio === 1: End at center; edge of circle is middle of hill.
+   *   - mirrorRatio === 2: End of hill is at center; edge of circle is start of hill.
    * @returns {number} Z height or 0 if outside the radius of the curve.
    */
-  static hillZAtPoint(pt, curve) {
+  static hillZAtPoint(pt, curve, { type = "linear" } = {}) {
     const { start, cp1, cp2, end } = curve;
 
     // Center of the hill.
+
     using center = PIXI.Point.tmp;
     start.add(end, center).multiplyScalar(0.5, center);
 
     // Maximum radius of the hill base.
     const radius = PIXI.Point.distanceBetween(start, center);
 
-    // Distance of the target point from the center.
-    const dist = PIXI.Point.distanceBetween(pt, center);
-    if ( dist >= radius ) return 0;
+    // Set t dependent on how the curve is mapped to the XY surface.
+    let t = 0;
+    switch ( type ) {
+      case "linear": {
+        // Oriented hill.
+        // Rectangular hill base stretching infinitely in the normal to start|end.
+        const pointOnLine = foundry.utils.closestPointToSegment(pt, start, end);
+        t = PIXI.Point.distanceBetween(start, pointOnLine) / (radius * 2);
+        if ( t.almostEqual(0) || t.almostEqual(1) ) return 0;
+        break;
+      }
+      case "symmetrical": {
+        const dist = PIXI.Point.distanceBetween(pt, center);
+        if ( dist >= radius ) return 0;
+        t = 0.5 * (1 - (dist / radius));
+        break;
+      }
 
-    // Map distance to a symmetrical Bézier "t" parameter (0 -> 1).
-    // At center, t = 0.5 (peak). At edge, t = 0 or t = 1.
-    const distRatio = dist / radius;
-    const t = 0.5 * (1 - distRatio); // Project to 1/2 of the symmetrical curve.
+      case "ridge": {
+        // Non-symmetrical, treating the Bézier like a ridge line. Where the curve is
+        // steeper, the fall-off from the ridge will be faster.
+        /* Original:
+        const dx = end.x - start.x;
+        const dy = end.y - start.y;
+        const length2 = dx * dx + dy * dy;
+        */
+        using tmp = PIXI.Point.tmp;
+        using delta = end.subtract(start);
+        const length2 = delta.dot2();
+        if ( length2.almostEqual(0) ) return 0;
+
+        // Project target point onto the ridge line.
+        /* Original:
+        const u = ((pt.x - start.x) * dx + (pt.y - start.y) * dy) / length2;
+        */
+        const u = pt.subtract(start, tmp).dot(delta) / length2;
+        if ( u < 0 || u > 1 ) return 0;
+
+        // Find closest point on the ridge line to calculate perpendicular distance "d".
+        /* Original:
+        const closestX = start.x + u * dx;
+        const closestY = start.y + u * dy;
+        const perpDist = Math.hypot(pt.x - closestX, pt.y - closestY);
+        */
+
+        // Could use foundry util but we already need to calculate u:
+        // const closest = foundry.utils.closestPointToSegment(pt, start, end);
+        // const perpDist = closestDistanceToSegment(pt, start, end)
+        const closest = start.add(delta.multiplyScalar(u, tmp));
+        const perpDist = pt.subtract(closest, tmp).magnitude()
+
+        // Determine the dynamic maximum radius (slop footprint) at this specific slice.
+        // Blend maximum footprint allowed at the start vs the end based on "u".
+        const maxDist = Math.sqrt(length2) / 2; // Using half-length as max slope width.
+        if ( perpDist >= maxDist ) return 0; // Beyond the foot of the hill.
+
+        // Normalized distance down the slope (0 at ridge, 1 at base of hill).
+        const slopeProgress = perpDist / maxDist;
+
+        // Calculate the blended "t" parameter.
+        // On the ridge: slopeProgress = 0, t = u.
+        // At the base: slopeProgress = 1, t should migrate to 0 (near start) or 1 (near end).
+        // Use "u" to smoothly blend whether the base edge pulls toward 0 or 1.
+        const edgeTargetT = u; // Splitting 50/50 down the center normal line.
+        if ( u < 0.5 ) t = u * (1 - slopeProgress);
+        else t = u + (1 - u) * slopeProgress;
+        t = Math.clamp(t, 0, 1);
+        // return bezierValue(t, start.y, cp1.y, cp2.y, end.y);
+        break;
+      }
+      default: t = 0.5;
+    }
 
     // Evaluate the Bézier equation for z.
-    return bezierValue(t, start.y, cp1.y, cp2.y, end.y);
+    // Distance from the XY point to the start|end base.
+    const x = bezierValue(t, start.x, cp1.x, cp2.x, end.x);
+    const y = bezierValue(t, start.y, cp1.y, cp2.y, end.y);
+    return closestDistanceToSegment(PIXI.Point.tmp.set(x, y), start, end);
   }
+
 }
 
 /**
@@ -277,22 +356,13 @@ function bezierValue(t, start, cp1, cp2, end) {
   const mt3 = mt2 * mt;
   const t2 = t * t;
   const t3 = t2 * t;
-
-  // Calculate X (Ground distance)
   return (mt3 * start) + (3 * mt2 * t * cp1) + (3 * mt * t2 * cp2) + (t3 * end);
 }
 
 /**
- * Evaluate the cubic Bézier formula for a given value.
- * Map y value to height (z).
- * @param {number} t                Distance along the curve.
- * @param {BézierCurve} curve
- * @returns {PIXI.Point}
+ * Closest distance to segment
  */
-function getBezierPoint(t, curve) {
-  const { start, cp1, cp2, end } = curve;
-  const x = bezierValue(t, start.x, cp1.x, cp2.x, end.x);
-  const z = bezierValue(t, start.y, cp1.y, cp2.y, end.y);
-  return PIXI.Point.tmp.set(x, z);
+function closestDistanceToSegment(c, a, b) {
+  const ix = foundry.utils.closestPointToSegment(c, a, b);
+  return PIXI.Point.distanceBetween(ix, c);
 }
-

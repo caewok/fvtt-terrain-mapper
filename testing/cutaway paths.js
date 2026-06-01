@@ -270,6 +270,13 @@ function _centerWaypoint(waypoint, token) {
 
 /*
 region = canvas.regions.controlled[0]
+regionTM = region.terrainmapper
+regionPoly = region.document.polygons[0]
+opts = regionTM.#cutawayOptionFunctions()
+cutawayPoly = regionPoly.cutaway(start, end, opts)[0]
+
+
+
 poly = HillDrawingManager.generateHillPolygonForRegion(region, 20)
 
 */
