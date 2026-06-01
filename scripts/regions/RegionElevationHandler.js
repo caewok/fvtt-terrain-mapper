@@ -860,8 +860,11 @@ export class RegionElevationHandler {
   /**
    * For a given region cutaway, construct a hill from it and given hill data.
    * Goes from scene elevation to the plateau elevation.
+   * @param {CutawayPolygon} cutawayPoly
+   * @param {number} [pointsPerGrid=5]            How many points per grid size should be used.
+   * @returns {CutawayPolygon} Same polygon with new points.
    */
-  _insertHillIntoCutaway(cutawayPoly, resolution = 20) {
+  _insertHillIntoCutaway(cutawayPoly, pointsPerGrid = 5) {
     const type = "linear";
     const curve = this.hillCurve;
 
@@ -915,7 +918,8 @@ export class RegionElevationHandler {
         using pt3d = Point3d.tmp;
         const startXY = cutawayPoly._from2d(edge.a).to2d();
         const endXY = cutawayPoly._from2d(edge.b).to2d();
-        const step = 1 / resolution;
+        const totalSteps = PIXI.Point.distanceBetween(startXY, endXY) / canvas.grid.size * pointsPerGrid;
+        const step = 1 / totalSteps;
         for ( let t = 0; t <= 1; t += step ) {
           const canvasPt = startXY.projectToward(endXY, t);
           const z = HillDrawingManager.hillZAtPoint(canvasPt, curve, type);

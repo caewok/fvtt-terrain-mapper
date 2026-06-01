@@ -825,8 +825,10 @@ export class TokenElevationHandler {
    */
   _supportingFloorEdge(pt2d, cutaways, _iter = 0) {
     if ( _iter > 2 ) throw Error(`_supportingFloorEdge failed to locate edge for ${this.start} -> ${this.end}`);
+
     cutaways ??= this.combinedCutaways
-    const SURFACE_EPSILON = 0.5;
+
+    const SURFACE_EPSILON = 1; // How much above the surface to allow?
     using a = PIXI.Point.tmp.set(pt2d.x, pt2d.y + SURFACE_EPSILON);
     using b = PIXI.Point.tmp.set(pt2d.x, pt2d.y - 1e06);
 
@@ -834,7 +836,8 @@ export class TokenElevationHandler {
     let res;
     for ( const cutaway of cutaways ) {
       for ( const edgeIx of cutaway.iterateValidEdgeIntersections(a, b) ) {
-        if ( edgeIx.ix.t0 < 0 || edgeIx.ix.t0 >= minT ) continue; // Surface is above or below the nearest.
+        if ( edgeIx.ix.t0 >= minT
+          || (edgeIx.ix.t0 < 0 && !edgeIx.ix.t0.almostEqual(0, 1e-06)) ) continue; // Surface is above or below the nearest.
         minT = edgeIx.ix.t0;
         res = edgeIx;
       }
