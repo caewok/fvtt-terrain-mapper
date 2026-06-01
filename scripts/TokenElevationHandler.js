@@ -860,7 +860,7 @@ export class TokenElevationHandler {
     for ( const cutaway of obstacles ) {
       for ( const edgeIx of cutaway.iterateValidEdgeIntersections(a2d, b2d) ) {
         if ( edgeIx.ix.t0 > minT ) continue;
-        if ( edgeIx.ix.t0 < 0 ) continue;
+        if ( almostLessThan(edgeIx.ix.t0, 0) ) continue;
         minT = edgeIx.ix.t0;
         closestObstacle = edgeIx;
       }

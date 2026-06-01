@@ -239,16 +239,13 @@ export class HillDrawingManager {
    * Get the z value for a 2d point based on a Bézier hill profile.
    * @param {PIX.Point} pt          Point to test
    * @param {BézierCurve} curve     Curve data
-   * @param {object} [opts]
-   * @param {"linear"|"symmetrical"} [opts.type]
+   * @param {"linear"|"symmetrical"|"ridge"} [opts.type]
    *   - linear: The hill has a defined linear direction and is the same at parallel lines to start|end.
-   *   - symmetrical: The hill is rotated around its center point (center of start|end)
-   * @param {number} mirrorRatio
-   *   - mirrorRatio === 1: End at center; edge of circle is middle of hill.
-   *   - mirrorRatio === 2: End of hill is at center; edge of circle is start of hill.
+   *   - symmetrical: Half the hill is rotated around its center point (center of start|end).
+   *   - ridge: The hill defines the ridge line, and falls back proportionally on the sides.
    * @returns {number} Z height or 0 if outside the radius of the curve.
    */
-  static hillZAtPoint(pt, curve, { type = "linear" } = {}) {
+  static hillZAtPoint(pt, curve, type = "linear") {
     const { start, cp1, cp2, end } = curve;
 
     // Center of the hill.

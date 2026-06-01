@@ -161,7 +161,7 @@ function createTerrainMovementPath(wrapped, waypoints, options) {
         explicit: false,
         x: pathPt.x,
         y: pathPt.y,
-        elevation: pathPt.elevation,
+        elevation: Math.round(pathPt.elevation * 10) / 10,
       });
       newWaypoints.push(waypoint);
     }
@@ -172,7 +172,7 @@ function createTerrainMovementPath(wrapped, waypoints, options) {
       const waypoint = Object.assign({}, next, {
         x: pathPt.x,
         y: pathPt.y,
-        elevation: pathPt.elevation,
+        elevation: Math.round(pathPt.elevation * 10) / 10,
       });
       newWaypoints.push(waypoint);
       start = waypoint;

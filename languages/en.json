@@ -75,6 +75,7 @@
   "terrainmapper.elevationAlgorithm.labels.oneWay": "One-Way Stairs",
   "terrainmapper.elevationAlgorithm.labels.plateau": "Plateau / Mesa",
   "terrainmapper.elevationAlgorithm.labels.ramp": "Ramp / Steps",
+  "terrainmapper.elevationAlgorithm.labels.hill": "Hill",
   "terrainmapper.elevationAlgorithm.labels.stairs": "Two-Way Stairs",
 
   "terrainmapper.phrases.terrainLayer": "Terrain Layer",

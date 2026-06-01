@@ -274,7 +274,7 @@ regionTM = region.terrainmapper
 regionPoly = region.document.polygons[0]
 opts = regionTM.#cutawayOptionFunctions()
 cutawayPoly = regionPoly.cutaway(start, end, opts)[0]
-
+cutaway = regionTM._cutaway(start, end)
 
 
 poly = HillDrawingManager.generateHillPolygonForRegion(region, 20)
