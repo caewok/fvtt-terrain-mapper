@@ -41,10 +41,10 @@ export class RegionElevationHandler {
   get isElevated() { return this.isPlateau || this.isRamp || this.isHill; }
 
   /** @type {boolean} */
-  get isPlateau() { return this.region.document.getFlag(MODULE_ID, FLAGS.REGION.ELEVATION_ALGORITHM) === FLAGS.REGION.CHOICES.PLATEAU };
+  get isPlateau() { return this.region.document.getFlag(MODULE_ID, FLAGS.REGION.TERRAIN.TYPE) === FLAGS.REGION.TERRAIN.CHOICES.PLATEAU };
 
   /** @type {boolean} */
-  get isRamp() { return this.region.document.getFlag(MODULE_ID, FLAGS.REGION.ELEVATION_ALGORITHM) === FLAGS.REGION.CHOICES.RAMP };
+  get isRamp() { return this.region.document.getFlag(MODULE_ID, FLAGS.REGION.TERRAIN.TYPE) === FLAGS.REGION.TERRAIN.CHOICES.RAMP };
 
   /** @type {boolean} */
   get isSteps() { return this.isRamp && this.rampStepSize !== 0; }
@@ -54,12 +54,14 @@ export class RegionElevationHandler {
 
   /** @type {boolean} */
   get isHill() {
-    if ( this.region.document.getFlag(MODULE_ID, FLAGS.REGION.ELEVATION_ALGORITHM) !== FLAGS.REGION.CHOICES.HILL ) return false;
+    if ( this.region.document.getFlag(MODULE_ID, FLAGS.REGION.TERRAIN.TYPE) !== FLAGS.REGION.TERRAIN.CHOICES.HILL ) return false;
 
     // Confirm data exists (for now).
     const hillData = this.hillCurve;
     return hillData && hillData.length !== 0;
   }
+
+  get hillType() { return this.region.document.getFlag(MODULE_ID, FLAGS.REGION.HILL.TYPE) || FLAGS.REGION.HILL.CHOICES.RIDGE; }
 
   get hillCurve() { return HillDrawingManager.hillDataForRegion(this.region); }
 
@@ -80,7 +82,7 @@ export class RegionElevationHandler {
 
   /** @type {FLAGS.REGION.CHOICES} */
   get algorithm() {
-    return this.region.document.getFlag(MODULE_ID, FLAGS.REGION.ELEVATION_ALGORITHM) || FLAGS.REGION.CHOICES.PLATEAU;
+    return this.region.document.getFlag(MODULE_ID, FLAGS.REGION.TERRAIN.TYPE) || FLAGS.REGION.TERRAIN.CHOICES.PLATEAU;
   }
 
   /** @type {PIXI.Polygon} */
@@ -481,7 +483,7 @@ export class RegionElevationHandler {
    * @returns {number} The elevation of the plateau or the ramp at this location
    */
   elevationUponEntry(pt) {
-    const { PLATEAU, RAMP, HILL, NONE } = FLAGS.REGION.CHOICES;
+    const { PLATEAU, RAMP, HILL, NONE } = FLAGS.REGION.TERRAIN.CHOICES;
     switch ( this.algorithm ) {
       case NONE: return this.finiteRegionTopE;
       case PLATEAU: return this.plateauElevation;
@@ -865,8 +867,9 @@ export class RegionElevationHandler {
    * @returns {CutawayPolygon} Same polygon with new points.
    */
   _insertHillIntoCutaway(cutawayPoly, pointsPerGrid = 5) {
-    const type = "linear";
+    const type = this.hillType;
     const curve = this.hillCurve;
+    if ( !curve || !curve.length ) return cutawayPoly;
 
     /* Testing: z values for the line.
     testPts = []

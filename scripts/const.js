@@ -41,18 +41,20 @@ export const FLAGS = {
 
   // RegionDocument
   REGION: {
-    ELEVATION_ALGORITHM: "elevationAlgorithm",
-    CHOICES: {
-      NONE: "none",
-      PLATEAU: "plateau",
-      RAMP: "ramp",
-      HILL: "hill",
-    },
-    LABELS: {
-      none: `${MODULE_ID}.elevationAlgorithm.labels.none`,
-      plateau: `${MODULE_ID}.elevationAlgorithm.labels.plateau`,
-      ramp: `${MODULE_ID}.elevationAlgorithm.labels.ramp`,
-      hill: `${MODULE_ID}.elevationAlgorithm.labels.hill`,
+    TERRAIN: {
+      TYPE: "elevationAlgorithm",
+      CHOICES: {
+        NONE: "none",
+        PLATEAU: "plateau",
+        RAMP: "ramp",
+        HILL: "hill",
+      },
+      LABELS: {
+        none: `${MODULE_ID}.elevationAlgorithm.labels.none`,
+        plateau: `${MODULE_ID}.elevationAlgorithm.labels.plateau`,
+        ramp: `${MODULE_ID}.elevationAlgorithm.labels.ramp`,
+        hill: `${MODULE_ID}.elevationAlgorithm.labels.hill`,
+      },
     },
     PLATEAU_ELEVATION: "plateauElevation",
     RAMP: {
@@ -61,7 +63,20 @@ export const FLAGS = {
       STEP_SIZE: "rampStepSize",
       SPLIT_POLYGONS: "splitPolygons",
     },
-    HILL: "hill",
+    HILL: {
+      CURVE: "hillData",
+      TYPE: "hillType",
+      CHOICES: {
+        LINEAR: "linear",
+        RIDGE: "ridge",
+        SYMMETRICAL: "symmetrical",
+      },
+      LABELS: {
+        linear: `${MODULE_ID}.hillType.labels.linear`,
+        ridge: `${MODULE_ID}.hillType.labels.ridge`,
+        symmetrical: `${MODULE_ID}.hillType.labels.symmetrical`,
+      },
+    },
   },
 
   TILE: {
@@ -114,3 +129,10 @@ export const DEFAULT_FLAGS = {
     [FLAGS.SCENE.CONSTRAIN_ELEVATION]: true,
   }
 };
+
+// Ids for the submenu blocks for configuring region terrain shapes.
+export const CONFIG_BLOCK_IDS = {
+  RAMP: `${MODULE_ID}-config-ramp`,
+  HILL: `${MODULE_ID}-config-hill`,
+};
+

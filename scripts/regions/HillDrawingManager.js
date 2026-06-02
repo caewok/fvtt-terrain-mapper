@@ -172,7 +172,7 @@ export class HillDrawingManager {
       ?? canvas.regions.placeables.find(r => r.document.testPoint(end));
     if ( targetRegion ) {
       // Save to document flag.
-      await targetRegion.document.setFlag(MODULE_ID, FLAGS.REGION.HILL, curveData);
+      await targetRegion.document.setFlag(MODULE_ID, FLAGS.REGION.HILL.CURVE, curveData);
       ui.notifications.info(`Hill curve saved to region: ${targetRegion.document.name}`);
     } else ui.notifications.warn("No region found under the start or end points.");
   }
@@ -191,7 +191,7 @@ export class HillDrawingManager {
    * @returns {BézierCurve}
    */
   static hillDataForRegion(region) {
-    const hillData = region.document.getFlag(MODULE_ID, FLAGS.REGION.HILL);
+    const hillData = region.document.getFlag(MODULE_ID, FLAGS.REGION.HILL.CURVE);
     if ( !hillData || !hillData.length === 8 ) return null;
 
     const start = PIXI.Point.tmp.set(hillData[0], hillData[1]);

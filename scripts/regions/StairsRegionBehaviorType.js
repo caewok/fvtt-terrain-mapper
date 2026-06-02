@@ -77,7 +77,7 @@ PreMove -> Exit -> Move -> MoveOut
  * @property {number} rampStepHeight  The vertical size, in grid units, of ramp elevation increments
  * @property {number} rampDirection   The direction of incline for the ramp, in degrees
  * @property {boolean} reset          When enabled, elevation will be reset to floor on exit
- * @property {FLAGS.REGION.CHOICES} algorithm       How elevation change should be handled. plateau, ramp, stairs
+ * @property {FLAGS.REGION.TERRAIN.CHOICES} algorithm       How elevation change should be handled. plateau, ramp, stairs
  */
 export class StairsRegionBehaviorType extends foundry.data.regionBehaviors.RegionBehaviorType {
   static defineSchema() {

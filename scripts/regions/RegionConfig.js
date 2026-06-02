@@ -1,12 +1,11 @@
 /* globals
-CONST,
 foundry,
 Hooks,
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { MODULE_ID, FLAGS, TEMPLATES, FA_ICONS } from "../const.js";
+import { MODULE_ID, FLAGS, TEMPLATES, FA_ICONS, CONFIG_BLOCK_IDS } from "../const.js";
 
 // Patches for the RegionConfig class
 export const PATCHES = {};
@@ -21,6 +20,58 @@ Hooks.once("init", function() {
     footer
   }
 });
+
+/**
+ * Hook the region config render.
+ * @param {ApplicationV2} application          The Application instance being rendered
+ * @param {HTMLElement} element                The inner HTML of the document that will be displayed and may be modified
+ * @param {ApplicationRenderContext} context   The application rendering context data
+ * @param {ApplicationRenderOptions} options   The application rendering options
+ */
+function renderRegionConfig(app, element, _context, _options) {
+  app.position.width = Math.max(app.position.width || 0, 600); // Make tabs long enough for the title.
+  activateListeners(app, element);
+}
+
+/**
+ * Monitor algorithm change for the region terrain type.
+ */
+function activateListeners(app, html) {
+  const shapeSelector = html.querySelector("#terrainmapperalgorithm");
+  shapeSelector.addEventListener("change", terrainAlgorithmChanged.bind(app));
+  initializeSubmenu(app, html);
+}
+
+/**
+ * When first displaying the Terrain Mapper tab, show the blocks corresponding to the selected terrain type.
+ */
+function initializeSubmenu(app, html) {
+  const alg = app._preview?.flags?.[MODULE_ID]?.[FLAGS.REGION.TERRAIN.TYPE];
+  if ( !alg ) return;
+
+  const elems = html.getElementsByClassName(`form-group ${MODULE_ID}`);
+  const [key, _value] = Object.entries(FLAGS.REGION.TERRAIN.CHOICES).find(([_key, value]) => value === alg);
+  const id = CONFIG_BLOCK_IDS[key];
+  if ( !id ) return;
+
+  for ( const elem of elems ) {
+    if ( elem.id === id ) elem.style.display = "block";
+  }
+}
+
+/**
+ * When the terrain algorithm changes, update which config options are visible.
+ */
+function terrainAlgorithmChanged(event) {
+  const alg = event.target.value;
+  for ( const [key, id] of Object.entries(CONFIG_BLOCK_IDS) ) {
+    const elem = document.getElementById(id);
+    elem.style.display = alg === FLAGS.REGION.TERRAIN.CHOICES[key]
+      ? "block" : "none";
+  }
+}
+
+PATCHES.REGIONS.HOOKS = { renderRegionConfig };
 
 // ----- NOTE: Wraps ----- //
 
@@ -61,14 +112,9 @@ async function _preparePartContext(wrapper, partId, context, options) {
   // See https://ptb.discord.com/channels/170995199584108546/722559135371231352/1262802116628451359
   // Needed to set region-{{tab.id}} in the html for region-config
   context.tab = context.tabs[partId];
-
-  // Add default flags.
-  if ( typeof context.document.getFlag(MODULE_ID, FLAGS.REGION.TELEPORT) === "undefined" ) {
-    await context.document.setFlag(MODULE_ID, FLAGS.REGION.TELEPORT, true);
-  }
-
   context[MODULE_ID] = {
-    algorithmChoices: FLAGS.REGION.LABELS,
+    algorithmChoices: FLAGS.REGION.TERRAIN.LABELS,
+    hillChoices: FLAGS.REGION.HILL.LABELS,
   }
   return context;
 }
