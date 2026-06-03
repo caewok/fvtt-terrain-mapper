@@ -1,16 +1,15 @@
 /* globals
 canvas,
-CONST,
 foundry,
-game,
 PIXI,
+ui,
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
 import { MODULE_ID, FLAGS } from "../const.js";
 import { Draw } from "../geometry/Draw.js";
-import { pixelsToGridUnits, gridUnitsToPixels } from "../geometry/util.js";
+import { gridUnitsToPixels } from "../geometry/util.js";
 
 /**
  * Allows the user to define a bezier curve to represent a hill in a region.
@@ -20,133 +19,256 @@ export class HillDrawingManager {
   /** @type {boolean} */
   static active = false;
 
-  /** @type {PIXI.Point[]} */
-  static points = [];
+  /** @type {PIXI.Container} */
+  static container = new PIXI.Container();
 
-  /** @type {PIXI.Graphics} */
-  static graphics = new PIXI.Graphics();
-
-  /** @type {Draw} */
-  static draw = new Draw(this.graphics);
-
-  /** @type {object} */
-  static pointDrawingOpts = { radius: 2, color: Draw.COLORS.orange };
-
-  /** @type {object} */
-  static curveDrawingOpts = { width: 1, color: Draw.COLORS.orange }
+  /** @type {Map<Region, PIXI.Container>} */
+  static regionContainers = new Map();
 
   /**
    * Start monitoring for mouse movements.
    */
   static activate() {
-    this.points.length = 0;
     this.active = true;
 
-    // Add PIXI.Graphics object to the canvas.
-    canvas.controls.addChild(this.graphics);
+    // Initialize the UI for every region in the scene.
+    for ( const region of canvas.regions.placeables ) this._activateRegionUI(region)
 
-    // Bind PIXI canvas interaction events.
-    canvas.stage.on("pointerdown", this._onPointerDown, this);
-    canvas.stage.on("pointermove", this._onPointerMove, this);
+
+    // TODO: Temp Hook region creation and deletion to update.
+
+
+    // Add PIXI.Graphics objects to the canvas.
+    this.container.zIndex = 1000;
+    canvas.controls.addChild(this.container);
+    canvas.controls.sortableChildren = true;
   }
+
+  // TODO: Add destroy and hook canvas takedown.
 
   /**
    * End monitoring for mouse movements.
    */
   static deactivate() {
     this.active = false;
-    this.points.length = 0;
-    this.draw.clearDrawings();
-    this.draw.g.children.forEach(child => child.destroy());
-    canvas.controls.removeChild(this.graphics);
+    canvas.controls.removeChild(this.container);
 
-    canvas.stage.off("pointerdown", this._onPointerDown, this);
-    canvas.stage.off("pointermove", this._onPointerMove, this);
+    // Turn off draggability?
+    // for ( const region of canvas.region.placeables ) this._deactivateRegionUI(region);
+
   }
 
   /**
-   * Capture the start and end points of the curve.
-   * First click: sets start point.
-   * Second click: sets end point.
-   * Third click finalizes curve and saves it.
-   * @param {Event} event
+   * Initialize the curve and interaction handles for a specific region.
    */
-  static _onPointerDown(event) {
-    if ( !this.active ) return;
+  static _activateRegionUI(region) {
+    const defaultCurve = this._defaultCurve(region);
+    const curveData = this._unadjustedHillDataForRegion(region) || defaultCurve;
 
-    // Get local canvas coordinates.
-    const position = event.data.getLocalPosition(canvas.app.stage);
+    // Create or retrieve container for region's UI elements.
+    if ( !this.regionContainers.has(region) ) {
+      const regionUI = new PIXI.Container();
+      const curveGraphics = new PIXI.Graphics();
+      regionUI.addChild(curveGraphics);
 
-    switch ( this.points.length ) {
-      case 0:
-      case 1: {
-        const pt = PIXI.Point.fromObject(position)
-        this.points.push(pt);
-        this.draw.point(pt, this.pointDrawingOpts);
-        break;
-      }
-      case 2: {
-        // Finalize the curve with current mouse position dictating the arch.
-        this._saveCurveToRegion();
-        this.deactivate();
-        break;
-      }
+      // Graphics for the region bounds.
+      const boundsGraphics = new PIXI.Graphics();
+      regionUI.addChild(boundsGraphics);
+      boundsGraphics.zIndex = 1;
+
+      // Create interactive handles.
+      const startHandle = this._createHandle(Draw.COLORS.red);
+      const endHandle = this._createHandle(Draw.COLORS.red);
+      const cp1Handle = this._createHandle(Draw.COLORS.blue);
+      const cp2Handle = this._createHandle(Draw.COLORS.blue);
+      regionUI.addChild(startHandle, endHandle, cp1Handle, cp2Handle);
+
+      // Add to the overall container.
+      this.container.addChild(regionUI);
+
+      // Store for future use.
+      this.regionContainers.set(region, {
+        regionUI,
+        curveGraphics,
+        boundsGraphics,
+        startHandle,
+        endHandle,
+        cp1Handle,
+        cp2Handle,
+      });
     }
+
+    const {
+        curveGraphics,
+        boundsGraphics,
+        startHandle,
+        endHandle,
+        cp1Handle,
+        cp2Handle } = this.regionContainers.get(region);
+
+    // Update handles.
+    this._updateHandle(startHandle, curveData.start);
+    this._updateHandle(endHandle, curveData.end);
+    this._updateHandle(cp1Handle, curveData.cp1);
+    this._updateHandle(cp2Handle, curveData.cp2);
+
+    // Draw the curve.
+    this._drawCurve(curveGraphics, curveData);
+
+    // Bind drag logic to the handles
+    const updateCurve = () => {
+      // Update the curveData object with the new handle positions
+      curveData.start = { x: startHandle.x, y: startHandle.y };
+      curveData.end = { x: endHandle.x, y: endHandle.y };
+      curveData.cp1 = { x: cp1Handle.x, y: cp1Handle.y };
+      curveData.cp2 = { x: cp2Handle.x, y: cp2Handle.y };
+
+      this._drawCurve(curveGraphics, curveData);
+
+      // Draw the bounds
+      this._drawBounds(boundsGraphics, region);
+
+    };
+
+    const saveCurve = async () => {
+      const curveArray = [curveData.start.x, curveData.start.y, curveData.cp1.x, curveData.cp1.y, curveData.cp2.x, curveData.cp2.y, curveData.end.x, curveData.end.y];
+      await region.document.setFlag(MODULE_ID, FLAGS.REGION.HILL.CURVE, curveArray);
+      ui.notifications.info(`Hill curve saved to region: ${region.document.name}`);
+
+      boundsGraphics.clear();
+    };
+
+    this._makeDraggable(startHandle, updateCurve, saveCurve, endHandle, defaultCurve.start);
+    this._makeDraggable(endHandle, updateCurve, saveCurve, startHandle, defaultCurve.end);
+    this._makeDraggable(cp1Handle, updateCurve, saveCurve, cp2Handle, defaultCurve.cp1);
+    this._makeDraggable(cp2Handle, updateCurve, saveCurve, cp1Handle, defaultCurve.cp2);
   }
 
   /**
-   * Capture the mouse move to dynamically control points based on mouse position.
-   * (Pull the curve upwards like a hill.)
-   * @param {Event} event
+   * Attach drag-and-drop event listeners to a handle.
    */
-  static _onPointerMove(event) {
-    if ( !this.active || this.points.length < 2 ) return;
+  static _makeDraggable(handle, onDragMove, onDragEnd, pairHandle, defaultPosition) {
+    const DRAG_ALPHA = 0.5;
+    const HANDLE_ALPHA = 1.0;
+    let dragging = false;
 
-    const position = event.data.getLocalPosition(canvas.app.stage);
-    const [start, end] = this.points;
+    handle.on("pointerdown", event => {
+      event.stopPropagation();
+      // console.log("pointerdown");
+      dragging = true;
+      handle.alpha = DRAG_ALPHA; // Visual feedback for dragging
 
-    // Calculate control dynamically based on mouse position.
-    // For a simple hill, use the mouse Y position to pull the curve up.
+    });
 
-    // Simple arc:
-    // const cp1 = PIXI.Point.tmp.set(start.x, position.y);
-    // const cp2 = PIXI.Point.tmp.set(end.x, position.y);
+    handle.on("click", event => {
+      if ( event.detail === 2 ) { // Double-click.
+        event.stopPropagation();
+        handle.x = defaultPosition.x;
+        handle.y = defaultPosition.y;
+        onDragMove();
+        onDragEnd();
+      }
+    });
 
-    const cp1 = PIXI.Point.tmp.set(position.x, position.y);
-    const cp2 = PIXI.Point.tmp.set(position.x, position.y);
+    handle.on("globalpointermove", event => {
+      if (dragging) {
+        event.stopPropagation();
+        // console.log("globalpointermove");
+        const newPosition = handle.parent.toLocal(event.global);
 
-    this.draw.clearDrawings();
-    this.draw.point(start, this.pointDrawingOpts);
-    this.draw.point(end, this.pointDrawingOpts);
-    this.draw.curve(start, cp1, cp2, end, this.curveDrawingOpts);
+        // If shift is held, move the partner in tandem.
+        if ( event.shiftKey ) {
+          using delta = newPosition.subtract(handle);
+          pairHandle.x += delta.x
+          pairHandle.y += delta.y
+        }
 
-    // Label elevation based on distance from start|end base.
-    this._updateElevationLabel(cp1);
+        handle.x = newPosition.x;
+        handle.y = newPosition.y;
+        onDragMove(); // Redraw the curve dynamically
+      }
+    });
+
+    const finishDrag = event => {
+      if (dragging) {
+        event.stopPropagation();
+        // console.log("finish");
+        dragging = false;
+        handle.alpha = HANDLE_ALPHA;
+        onDragEnd(); // Save to database flag
+      }
+    };
+
+    handle.on("pointerup", finishDrag);
+    handle.on("pointerupoutside", finishDrag);
+  }
+
+
+  /**
+   * Create a single interactive PIXI.Graphics handle.
+   */
+  static _createHandle(color) {
+    const handle = new PIXI.Graphics;
+    const circle = new PIXI.Circle(0, 0, 8);
+    const draw = new Draw(handle);
+    draw.shape(circle, { color, width: 2, alpha: 1 });
+
+    handle.hitArea = new PIXI.Circle(0, 0, 15);
+    handle.eventMode = "static";
+    handle.cursor = "pointer";
+
+    return handle;
+  }
+
+  static _updateHandle(handle, position) {
+    handle.x = position.x;
+    handle.y = position.y;
   }
 
   /**
-   * Update an elevation text label.
+   * Render the bounds of the region as a circular bounds to assist with placing the hill.
    */
-  static _updateElevationLabel(position) {
-    const [start, end] = this.points;
+  static _drawBounds(graphics, region) {
+    const center = region.center;
+    const bounds = region.bounds;
+    const diameter = Math.hypot(bounds.width, bounds.height);
+    const draw = new Draw(graphics);
+    draw.clearDrawings();
+    draw.shape(new PIXI.Circle(center.x, center.y, diameter * 0.5), { width: 2, color: Draw.COLORS.brown, alpha: 0.3, fill: Draw.COLORS.brown, fillAlpha: 0.1 });
+      // width: 2, color: Draw.COLORS.brown, fill: Draw.COLORS.brown, alpha: 0.2, fillAlpha: 0.2 });
+  }
 
-    // Label elevation based on distance from start|end base.
-    const normal = end.subtract(start);
-    const perp = PIXI.Point.tmp.set(normal.y, -normal.x);
-    const ix = foundry.utils.lineLineIntersection(start, end, position, position.add(perp));
-    const elevation = Math.round(pixelsToGridUnits(PIXI.Point.distanceBetween(ix, position)));
+  /**
+   * Render the Bézier curve and the visual control lines connecting the points.
+   */
+  static _drawCurve(graphics, curveData) {
+    const { start, cp1, cp2, end } = curveData;
+    const draw = new Draw(graphics);
+    draw.clearDrawings();
 
-     // Create or update new label.
-    const opts = {};
-    const style = foundry.utils.mergeObject(CONFIG.canvasTextStyle, opts);
-    let label;
-    if ( this.draw.g.children.length ) label = this.draw.g.getChildAt(0);
-    else {
-      label = new PIXI.Text(String(elevation), style);
-      this.draw.g.addChild(label);
-    }
-    label.text = String(elevation);
-    label.position.set(position.x - 25, position.y); // Shift slightly left to not be in front of the arrow.
+    // Draw thin lines to the control points.
+    draw.segment({ a: start, b: cp1 }, { width: 2, color: Draw.COLORS.gray, alpha: 0.5 });
+    draw.segment({ a: end, b: cp2 }, { width: 2, color: Draw.COLORS.gray, alpha: 0.5 });
+
+    // Draw the main curve.
+    draw.curve(start, cp1, cp2, end, { width: 4, color: Draw.COLORS.green, alpha: 1 });
+  }
+
+
+  /**
+   * Flat baseline curve across a region's x-axis. Passing through center.
+   */
+  static _defaultCurve(region) {
+    const bounds = region.bounds;
+    const center = region.center;
+
+    const start = PIXI.Point.tmp.set(bounds.left, center.y);
+    const end = PIXI.Point.tmp.set(bounds.right, center.y);
+
+    // Space the control points evenly along the flat line.
+    const cp1 = PIXI.Point.tmp.set(bounds.left + (bounds.width / 3), center.y);
+    const cp2 = PIXI.Point.tmp.set(bounds.left + (bounds.width * 2 / 3), center.y);
+    return { start, end, cp1, cp2 };
   }
 
   /**
@@ -186,11 +308,11 @@ export class HillDrawingManager {
    */
 
   /**
-   * Return curve data for a given region.
+   * Retrieve hill curve data for a region.
    * @param {Region} region
    * @returns {BézierCurve}
    */
-  static hillDataForRegion(region) {
+  static _unadjustedHillDataForRegion(region) {
     const hillData = region.document.getFlag(MODULE_ID, FLAGS.REGION.HILL.CURVE);
     if ( !hillData || !hillData.length === 8 ) return null;
 
@@ -198,20 +320,33 @@ export class HillDrawingManager {
     const cp1 = PIXI.Point.tmp.set(hillData[2], hillData[3])
     const cp2 = PIXI.Point.tmp.set(hillData[4], hillData[5])
     const end = PIXI.Point.tmp.set(hillData[6], hillData[7]);
+    return { start, cp1, cp2, end };
+  }
+
+  /**
+   * Return curve data for a given region.
+   * @param {Region} region
+   * @returns {BézierCurve}
+   */
+  static hillDataForRegion(region) {
+    const data = this._unadjustedHillDataForRegion(region);
+    if ( !data ) return null;
 
     // Determine the intended elevation from the control points.
-    const normal = end.subtract(start);
-    const perp = PIXI.Point.tmp.set(normal.y, -normal.x);
-    const ix1 = PIXI.Point.fromObject(foundry.utils.lineLineIntersection(start, end, cp1, cp1.add(perp)));
-    const ix2 = PIXI.Point.fromObject(foundry.utils.lineLineIntersection(start, end, cp2, cp2.add(perp)));
-    const elevation = Math.round(pixelsToGridUnits(PIXI.Point.distanceBetween(ix1, cp1)))
-    const elevationZ = gridUnitsToPixels(elevation);
+    const elevationE = this.region[MODULE_ID].plateauElevation ?? this.region[MODULE_ID].finiteRegionTopE;
+    const elevationZ = gridUnitsToPixels(elevationE);
+
+    using tmp = PIXI.Point.tmp;
+    using normal = data.end.subtract(data.start);
+    using perp = PIXI.Point.tmp.set(normal.y, -normal.x);
+    using ix1 = PIXI.Point.fromObject(foundry.utils.lineLineIntersection(data.start, data.end, data.cp1, data.cp1.add(perp, tmp)));
+    using ix2 = PIXI.Point.fromObject(foundry.utils.lineLineIntersection(data.start, data.end, data.cp2, data.cp2.add(perp, tmp)));
 
     // Adjust the control points to the exact elevation.
-    const cp1Adj = ix1.towardsPoint(cp1, elevationZ);
-    const cp2Adj = ix2.towardsPoint(cp2, elevationZ)
+    ix1.towardsPoint(data.cp1, elevationZ, data.cp1);
+    ix2.towardsPoint(data.cp2, elevationZ, data.cp2);
 
-    return { start, cp1: cp1Adj, cp2: cp2Adj, end };
+    return data;
   }
 
   /**
@@ -319,7 +454,6 @@ export class HillDrawingManager {
         // On the ridge: slopeProgress = 0, t = u.
         // At the base: slopeProgress = 1, t should migrate to 0 (near start) or 1 (near end).
         // Use "u" to smoothly blend whether the base edge pulls toward 0 or 1.
-        const edgeTargetT = u; // Splitting 50/50 down the center normal line.
         if ( u < 0.5 ) t = u * (1 - slopeProgress);
         else t = u + (1 - u) * slopeProgress;
         t = Math.clamp(t, 0, 1);
