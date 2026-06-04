@@ -2,7 +2,6 @@
 canvas,
 foundry,
 PIXI,
-ui,
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
@@ -11,10 +10,14 @@ import { MODULE_ID, FLAGS } from "../const.js";
 import { Draw } from "../geometry/Draw.js";
 import { gridUnitsToPixels } from "../geometry/util.js";
 
+// TODO: Temp Hook region creation and deletion to update.
+
 /**
  * Allows the user to define a bezier curve to represent a hill in a region.
  */
 export class HillDrawingManager {
+
+  // ------ NOTE: Static Manager Lifecycle ----- //
 
   /** @type {boolean} */
   static active = false;
@@ -22,8 +25,8 @@ export class HillDrawingManager {
   /** @type {PIXI.Container} */
   static container = new PIXI.Container();
 
-  /** @type {Map<Region, PIXI.Container>} */
-  static regionContainers = new Map();
+  /** @type {Map<Region, HillDrawingManager>} */
+  static managers = new Map();
 
   /**
    * Start monitoring for mouse movements.
@@ -32,19 +35,35 @@ export class HillDrawingManager {
     this.active = true;
 
     // Initialize the UI for every region in the scene.
-    for ( const region of canvas.regions.placeables ) this._activateRegionUI(region)
+    for ( const region of canvas.regions.placeables ) {
+      if ( this.managers.has(region) ) continue;
+      const mgr = new this(region);
+      this.container.addChild(mgr.regionUI);
+      this.managers.set(region, mgr);
+      mgr.initUI();
+    }
+
+    // Drop managers for removed regions.
 
 
-    // TODO: Temp Hook region creation and deletion to update.
+    for ( const mgr of this.managers.values() ) {
 
+      mgr.activateUI();
+    }
 
     // Add PIXI.Graphics objects to the canvas.
     this.container.zIndex = 1000;
     canvas.controls.addChild(this.container);
     canvas.controls.sortableChildren = true;
+    this.container.eventMode = "static";
   }
 
   // TODO: Add destroy and hook canvas takedown.
+
+  static destroy() {
+    this.container.destroy(true); // True to destroy children.
+    this.managers.clear();
+  }
 
   /**
    * End monitoring for mouse movements.
@@ -52,155 +71,196 @@ export class HillDrawingManager {
   static deactivate() {
     this.active = false;
     canvas.controls.removeChild(this.container);
+    this.container.eventMode = "none";
+  }
 
-    // Turn off draggability?
-    // for ( const region of canvas.region.placeables ) this._deactivateRegionUI(region);
+  // ----- NOTE: Instance Lifecycle (per region) ----- //
 
+  /** @type {Region} */
+  region;
+
+  /** @type {PIXI.Container} */
+  regionUI = new PIXI.Container();
+
+  /** @type {BézierCurve} */
+  get curve() { return this.constructor._unadjustedHillDataForRegion(this.region) || this.constructor._defaultCurve(this.region); }
+
+  /** @type {object<PIXI.Graphics>} */
+  handles = {}
+
+  /** @type {PIXI.Graphics|undefined} */
+  curveGraphics;
+
+  /** @type {PIXI.Graphics|undefined} */
+  boundsGraphics;
+
+  constructor(region) {
+    this.region = region;
   }
 
   /**
    * Initialize the curve and interaction handles for a specific region.
    */
-  static _activateRegionUI(region) {
-    const defaultCurve = this._defaultCurve(region);
-    const curveData = this._unadjustedHillDataForRegion(region) || defaultCurve;
+  #initialized = false;
 
-    // Create or retrieve container for region's UI elements.
-    if ( !this.regionContainers.has(region) ) {
-      const regionUI = new PIXI.Container();
-      const curveGraphics = new PIXI.Graphics();
-      regionUI.addChild(curveGraphics);
+  initUI() {
+    if ( this.regionUI.destroyed ) {
+      this.regionUI = new PIXI.Container();
+      this.#initialized = false;
+    }
+    if ( this.#initialized ) return;
 
-      // Graphics for the region bounds.
-      const boundsGraphics = new PIXI.Graphics();
-      regionUI.addChild(boundsGraphics);
-      boundsGraphics.zIndex = 1;
+    // Graphics for the region curves.
+    this.curveGraphics = new PIXI.Graphics();
+    this.regionUI.addChild(this.curveGraphics);
 
-      // Create interactive handles.
-      const startHandle = this._createHandle(Draw.COLORS.red);
-      const endHandle = this._createHandle(Draw.COLORS.red);
-      const cp1Handle = this._createHandle(Draw.COLORS.blue);
-      const cp2Handle = this._createHandle(Draw.COLORS.blue);
-      regionUI.addChild(startHandle, endHandle, cp1Handle, cp2Handle);
+    // Graphics for the region bounds.
+    const boundsGraphics = this.boundsGraphics = new PIXI.Graphics();
+    this.regionUI.addChild(boundsGraphics);
+    boundsGraphics.zIndex = 1;
 
-      // Add to the overall container.
-      this.container.addChild(regionUI);
+    // Create interactive handles.
+    for ( const [key, color] of [
+      ["start", Draw.COLORS.red],
+      ["end", Draw.COLORS.red],
+      ["cp1", Draw.COLORS.red],
+      ["cp2", Draw.COLORS.red]] ) {
+      const handle = this.handles[key] = this.constructor._createHandle(color);
+      handle.name = key;
+      this.regionUI.addChild(handle);
 
-      // Store for future use.
-      this.regionContainers.set(region, {
-        regionUI,
-        curveGraphics,
-        boundsGraphics,
-        startHandle,
-        endHandle,
-        cp1Handle,
-        cp2Handle,
-      });
+      // Add interactivity.
+      handle.on("pointerdown", this._onDragStart.bind(this));
+      handle.on("click", this._onDoubleClick.bind(this));
+      handle.on("globalpointermove", this._onDragMove.bind(this));
+      handle.on("pointerup", this._onDragEnd.bind(this));
+      handle.on("pointerup", this._onDragEnd.bind(this));
     }
 
-    const {
-        curveGraphics,
-        boundsGraphics,
-        startHandle,
-        endHandle,
-        cp1Handle,
-        cp2Handle } = this.regionContainers.get(region);
+    this.#initialized = true;
+  }
 
-    // Update handles.
-    this._updateHandle(startHandle, curveData.start);
-    this._updateHandle(endHandle, curveData.end);
-    this._updateHandle(cp1Handle, curveData.cp1);
-    this._updateHandle(cp2Handle, curveData.cp2);
+  #curveData;
+
+  activateUI() {
+    // Update the handle positions based on last saved data.
+    const curveData = this.#curveData = this.curve;
+    for ( const key of Object.keys(this.handles) ) { this.constructor._updateHandle(this.handles[key], curveData[key]); }
 
     // Draw the curve.
-    this._drawCurve(curveGraphics, curveData);
+    this._drawCurve();
+  }
 
-    // Bind drag logic to the handles
-    const updateCurve = () => {
-      // Update the curveData object with the new handle positions
-      curveData.start = { x: startHandle.x, y: startHandle.y };
-      curveData.end = { x: endHandle.x, y: endHandle.y };
-      curveData.cp1 = { x: cp1Handle.x, y: cp1Handle.y };
-      curveData.cp2 = { x: cp2Handle.x, y: cp2Handle.y };
+  destroy() {
+    this.regionUI.destroy(true); // True to destroy children.
+    this.#initialized = false;
+  }
 
-      this._drawCurve(curveGraphics, curveData);
 
-      // Draw the bounds
-      this._drawBounds(boundsGraphics, region);
 
-    };
+  // ----- NOTE: User Interaction ----- //
 
-    const saveCurve = async () => {
-      const curveArray = [curveData.start.x, curveData.start.y, curveData.cp1.x, curveData.cp1.y, curveData.cp2.x, curveData.cp2.y, curveData.end.x, curveData.end.y];
-      await region.document.setFlag(MODULE_ID, FLAGS.REGION.HILL.CURVE, curveArray);
-      ui.notifications.info(`Hill curve saved to region: ${region.document.name}`);
+  static DRAG_ALPHA = 0.5;
 
-      boundsGraphics.clear();
-    };
+  static HANDLE_ALPHA = 1.0;
 
-    this._makeDraggable(startHandle, updateCurve, saveCurve, endHandle, defaultCurve.start);
-    this._makeDraggable(endHandle, updateCurve, saveCurve, startHandle, defaultCurve.end);
-    this._makeDraggable(cp1Handle, updateCurve, saveCurve, cp2Handle, defaultCurve.cp1);
-    this._makeDraggable(cp2Handle, updateCurve, saveCurve, cp1Handle, defaultCurve.cp2);
+  #dragging = false;
+
+  /**
+   * Keys to move curve controls in pairs.
+   * @typedef {Object}
+   */
+  static HANDLE_PAIR = {
+    start: "end",
+    end: "start",
+    cp1: "cp2",
+    cp2: "cp1",
+  };
+
+  /**
+   * Handle when a drag starts on a curve handle.
+   * @param {InteractionEvent} event
+   */
+  _onDragStart(event) {
+    event.stopPropagation();
+    this.#dragging = true;
+    const handle = event.target;
+    handle.alpha = this.constructor.DRAG_ALPHA; // Visual feedback for dragging.
+    this._drawBounds();
   }
 
   /**
-   * Attach drag-and-drop event listeners to a handle.
+   * Handle when a curve handle is double-clicked.
+   * @param {InteractionEvent} event
    */
-  static _makeDraggable(handle, onDragMove, onDragEnd, pairHandle, defaultPosition) {
-    const DRAG_ALPHA = 0.5;
-    const HANDLE_ALPHA = 1.0;
-    let dragging = false;
+  _onDoubleClick(event) {
+    if ( event.detail !== 2 ) return;
+    event.stopPropagation();
+    const handle = event.target;
 
-    handle.on("pointerdown", event => {
-      event.stopPropagation();
-      // console.log("pointerdown");
-      dragging = true;
-      handle.alpha = DRAG_ALPHA; // Visual feedback for dragging
+    // Reset the handle to its default position.
+    const defaultPosition = this.defaultCurve[handle.name];
+    handle.x = defaultPosition.x;
+    handle.y = defaultPosition.y;
+    this._updateCurveData();
+    this._saveCurveData();
+  }
 
-    });
+  /**
+   * Handle when a curve handle is moved.
+   * @param {InteractionEvent} event
+   */
+  _onDragMove(event) {
+    if ( !this.#dragging ) return;
+    event.stopPropagation();
 
-    handle.on("click", event => {
-      if ( event.detail === 2 ) { // Double-click.
-        event.stopPropagation();
-        handle.x = defaultPosition.x;
-        handle.y = defaultPosition.y;
-        onDragMove();
-        onDragEnd();
-      }
-    });
+    const handle = event.target;
+    const handleKey = handle.name;
+    const newPosition = handle.parent.toLocal(event.global);
 
-    handle.on("globalpointermove", event => {
-      if (dragging) {
-        event.stopPropagation();
-        // console.log("globalpointermove");
-        const newPosition = handle.parent.toLocal(event.global);
+    // If shift is held, move the partner in tandem.
+    if ( event.shiftKey ) {
+      const pairKey = this.constructor.HANDLE_PAIR[handleKey];
+      const pairHandle = this.handles[pairKey];
+      using delta = newPosition.subtract(handle);
+      pairHandle.x += delta.x
+      pairHandle.y += delta.y
+    }
+    handle.x = newPosition.x;
+    handle.y = newPosition.y;
+    this._updateCurveData();
+    this._drawBounds();
+  }
 
-        // If shift is held, move the partner in tandem.
-        if ( event.shiftKey ) {
-          using delta = newPosition.subtract(handle);
-          pairHandle.x += delta.x
-          pairHandle.y += delta.y
-        }
+  /**
+   * Handle when a curve handle is dropped (drag is finished).
+   * @param {InteractionEvent} event
+   */
+  _onDragEnd(event) {
+    if ( !this.#dragging ) return;
+    event.stopPropagation();
+    this.#dragging = false;
+    const handle = event.target;
+    handle.alpha = this.constructor.HANDLE_ALPHA;
+    this._saveCurveData();
+    this.boundsGraphics.clear();
+  }
 
-        handle.x = newPosition.x;
-        handle.y = newPosition.y;
-        onDragMove(); // Redraw the curve dynamically
-      }
-    });
+  /**
+   * Update the temporary curve data for this manager.
+   */
+  _updateCurveData() {
+    const curveData = this.#curveData;
+    for ( const key of Object.keys(this.handles) ) curveData[key].copyFrom(this.handles[key]);
+    this._drawCurve();
+    this._drawBounds();
+  }
 
-    const finishDrag = event => {
-      if (dragging) {
-        event.stopPropagation();
-        // console.log("finish");
-        dragging = false;
-        handle.alpha = HANDLE_ALPHA;
-        onDragEnd(); // Save to database flag
-      }
-    };
-
-    handle.on("pointerup", finishDrag);
-    handle.on("pointerupoutside", finishDrag);
+  /**
+   * Save the curve data.
+   */
+  _saveCurveData() {
+    this.constructor.saveHillDataForRegion(this.region, this.#curveData);
   }
 
 
@@ -228,11 +288,11 @@ export class HillDrawingManager {
   /**
    * Render the bounds of the region as a circular bounds to assist with placing the hill.
    */
-  static _drawBounds(graphics, region) {
-    const center = region.center;
-    const bounds = region.bounds;
+  _drawBounds() {
+    const center = this.region.center;
+    const bounds = this.region.bounds;
     const diameter = Math.hypot(bounds.width, bounds.height);
-    const draw = new Draw(graphics);
+    const draw = new Draw(this.boundsGraphics);
     draw.clearDrawings();
     draw.shape(new PIXI.Circle(center.x, center.y, diameter * 0.5), { width: 2, color: Draw.COLORS.brown, alpha: 0.3, fill: Draw.COLORS.brown, fillAlpha: 0.1 });
       // width: 2, color: Draw.COLORS.brown, fill: Draw.COLORS.brown, alpha: 0.2, fillAlpha: 0.2 });
@@ -241,9 +301,9 @@ export class HillDrawingManager {
   /**
    * Render the Bézier curve and the visual control lines connecting the points.
    */
-  static _drawCurve(graphics, curveData) {
-    const { start, cp1, cp2, end } = curveData;
-    const draw = new Draw(graphics);
+  _drawCurve() {
+    const { start, cp1, cp2, end } = this.#curveData ??= this.curve;
+    const draw = new Draw(this.curveGraphics);
     draw.clearDrawings();
 
     // Draw thin lines to the control points.
@@ -261,42 +321,16 @@ export class HillDrawingManager {
   static _defaultCurve(region) {
     const bounds = region.bounds;
     const center = region.center;
+    const diameter = Math.hypot(bounds.width, bounds.height);
+    const radius = diameter * 0.5;
 
-    const start = PIXI.Point.tmp.set(bounds.left, center.y);
-    const end = PIXI.Point.tmp.set(bounds.right, center.y);
+    const start = PIXI.Point.tmp.set(center.x - radius, center.y);
+    const end = PIXI.Point.tmp.set(center.x + radius, center.y);
 
     // Space the control points evenly along the flat line.
-    const cp1 = PIXI.Point.tmp.set(bounds.left + (bounds.width / 3), center.y);
-    const cp2 = PIXI.Point.tmp.set(bounds.left + (bounds.width * 2 / 3), center.y);
+    const cp1 = PIXI.Point.tmp.set(start.x + (diameter / 3), center.y);
+    const cp2 = PIXI.Point.tmp.set(start.x + (diameter * 2 / 3), center.y);
     return { start, end, cp1, cp2 };
-  }
-
-  /**
-   * Save the curve to the region.
-   */
-  static async _saveCurveToRegion() {
-    const [start, end] = this.points;
-
-    // Grab the final mouse position.
-    const interactionData = canvas.app.renderer.events.pointer.global;
-    const finalPosition = canvas.stage.worldTransform.applyInverse(interactionData);
-
-    const cp1 = PIXI.Point.tmp.set(start.x, finalPosition.y);
-    const cp2 = PIXI.Point.tmp.set(end.x, finalPosition.y);
-    const curveData = [start.x, start.y, cp1.x, cp1.y, cp2.x, cp2.y, end.x, end.y];
-
-    let targetRegion = canvas.regions.placeables.filter(r => r.document.polygons.some(poly => poly.contains(start.x, start.y)));
-    if ( targetRegion.length > 1 ) targetRegion = targetRegion.filter(r => r.document.polygons.some(poly => poly.contains(end.x, end.y)));
-    else if ( !targetRegion.length ) targetRegion = canvas.regions.placeables.filter(r => r.document.polygons.some(poly => poly.contains(end.x, end.y)));
-    targetRegion = targetRegion[0];
-
-    canvas.regions.placeables.find(r => r.document.testPoint(start))
-      ?? canvas.regions.placeables.find(r => r.document.testPoint(end));
-    if ( targetRegion ) {
-      // Save to document flag.
-      await targetRegion.document.setFlag(MODULE_ID, FLAGS.REGION.HILL.CURVE, curveData);
-      ui.notifications.info(`Hill curve saved to region: ${targetRegion.document.name}`);
-    } else ui.notifications.warn("No region found under the start or end points.");
   }
 
   /**
@@ -321,6 +355,17 @@ export class HillDrawingManager {
     const cp2 = PIXI.Point.tmp.set(hillData[4], hillData[5])
     const end = PIXI.Point.tmp.set(hillData[6], hillData[7]);
     return { start, cp1, cp2, end };
+  }
+
+  /**
+   * Store hill curve data for a region.
+   * @param {Region} region
+   * @param {BézierCurve} curve
+   */
+  static async saveHillDataForRegion(region, curveData) {
+    const { start, end, cp1, cp2 } = curveData;
+    const curveArray = [start.x, start.y, cp1.x, cp1.y, cp2.x, cp2.y, end.x, end.y];
+    await region.document.setFlag(MODULE_ID, FLAGS.REGION.HILL.CURVE, curveArray);
   }
 
   /**
