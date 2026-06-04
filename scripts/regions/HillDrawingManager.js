@@ -137,13 +137,15 @@ export class HillDrawingManager {
     if ( this.#initialized ) return;
 
     // Graphics for the region curves.
-    this.curveGraphics = new PIXI.Graphics();
-    this.regionUI.addChild(this.curveGraphics);
+    const curveGraphics = this.curveGraphics = new PIXI.Graphics();
+    this.regionUI.addChild(curveGraphics);
+    curveGraphics.eventMode = "none";
 
     // Graphics for the region bounds.
     const boundsGraphics = this.boundsGraphics = new PIXI.Graphics();
     this.regionUI.addChild(boundsGraphics);
     boundsGraphics.zIndex = 1;
+    boundsGraphics.eventMode = "none";
 
     // Create interactive handles.
     for ( const [key, color] of [
@@ -182,8 +184,6 @@ export class HillDrawingManager {
     this.#initialized = false;
   }
 
-
-
   // ----- NOTE: User Interaction ----- //
 
   static DRAG_ALPHA = 0.5;
@@ -208,9 +208,11 @@ export class HillDrawingManager {
    * @param {InteractionEvent} event
    */
   _onDragStart(event) {
+    const handle = event.target;
+    if ( !handle.name ) return;
+
     event.stopPropagation();
     this.#dragging = true;
-    const handle = event.target;
     handle.alpha = this.constructor.DRAG_ALPHA; // Visual feedback for dragging.
     this._drawBounds();
   }
@@ -221,8 +223,9 @@ export class HillDrawingManager {
    */
   _onDoubleClick(event) {
     if ( event.detail !== 2 ) return;
-    event.stopPropagation();
     const handle = event.target;
+    if ( !handle.name ) return;
+    event.stopPropagation();
 
     // Reset the handle to its default position.
     const defaultPosition = this.defaultCurve[handle.name];
@@ -238,9 +241,10 @@ export class HillDrawingManager {
    */
   _onDragMove(event) {
     if ( !this.#dragging ) return;
+    const handle = event.target;
+    if ( !handle.name ) return;
     event.stopPropagation();
 
-    const handle = event.target;
     const handleKey = handle.name;
     const newPosition = handle.parent.toLocal(event.global);
 
@@ -264,9 +268,11 @@ export class HillDrawingManager {
    */
   _onDragEnd(event) {
     if ( !this.#dragging ) return;
-    event.stopPropagation();
-    this.#dragging = false;
     const handle = event.target;
+    if ( !handle.name ) return;
+    event.stopPropagation();
+
+    this.#dragging = false;
     handle.alpha = this.constructor.HANDLE_ALPHA;
     this._saveCurveData();
     this.boundsGraphics.clear();
