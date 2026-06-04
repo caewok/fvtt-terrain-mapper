@@ -11,6 +11,20 @@ import { Draw } from "../geometry/Draw.js";
 import { gridUnitsToPixels } from "../geometry/util.js";
 
 // TODO: Temp Hook region creation and deletion to update.
+export const PATCHES = {};
+PATCHES.BASIC = {};
+
+// Hook region deletion to remove.
+
+/**
+ * Hook when regions are destroyed.
+ * @param {PlaceableObject} object    The object instance being destroyed
+ */
+function destroyRegion(region) {
+  HillDrawingManager.destroyRegionUI(region);
+}
+
+PATCHES.BASIC.HOOKS = { destroyRegion };
 
 /**
  * Allows the user to define a bezier curve to represent a hill in a region.
@@ -44,11 +58,15 @@ export class HillDrawingManager {
     }
 
     // Drop managers for removed regions.
+    // Don't use a weak map here b/c it would lose the graphic objects.
+    const regionSet = new Set(canvas.regions.placeables);
+    for ( const [region, mgr] of this.managers.entries() ) {
+      if ( !regionSet.has(region) ) {
+        this.container.removeChild(mgr.regionUI);
+        mgr.destroy();
+        this.managers.delete(region);
 
-
-    for ( const mgr of this.managers.values() ) {
-
-      mgr.activateUI();
+      } else mgr.activateUI();
     }
 
     // Add PIXI.Graphics objects to the canvas.
@@ -72,6 +90,14 @@ export class HillDrawingManager {
     this.active = false;
     canvas.controls.removeChild(this.container);
     this.container.eventMode = "none";
+  }
+
+  static destroyRegionUI(region) {
+    const mgr = this.managers.get(region);
+    if ( !mgr ) return;
+    this.container.removeChild(mgr.regionUI);
+    mgr.destroy();
+    this.managers.delete(region);
   }
 
   // ----- NOTE: Instance Lifecycle (per region) ----- //
