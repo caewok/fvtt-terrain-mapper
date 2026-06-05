@@ -9,6 +9,7 @@ PIXI,
 import { MODULE_ID, FLAGS } from "../const.js";
 import { Draw } from "../geometry/Draw.js";
 import { gridUnitsToPixels } from "../geometry/util.js";
+import { MatrixFloat32 } from "../geometry/Matrix.js";
 
 // TODO: Temp Hook region creation and deletion to update.
 export const PATCHES = {};
@@ -109,7 +110,9 @@ export class HillDrawingManager {
   regionUI = new PIXI.Container();
 
   /** @type {BézierCurve} */
-  get curve() { return this.constructor._unadjustedHillDataForRegion(this.region) || this.constructor._defaultCurve(this.region); }
+  get curve() { return this.constructor._unadjustedHillDataForRegion(this.region) || this.defaultCurve; }
+
+  get defaultCurve() { return this.constructor._defaultCurve(this.region); }
 
   /** @type {object<PIXI.Graphics>} */
   handles = {}
@@ -148,12 +151,9 @@ export class HillDrawingManager {
     boundsGraphics.eventMode = "none";
 
     // Create interactive handles.
-    for ( const [key, color] of [
-      ["start", Draw.COLORS.red],
-      ["end", Draw.COLORS.red],
-      ["cp1", Draw.COLORS.red],
-      ["cp2", Draw.COLORS.red]] ) {
-      const handle = this.handles[key] = this.constructor._createHandle(color);
+    const { HANDLE_COLORS, HANDLE_SHAPES } = this.constructor;
+    for ( const key of Object.keys(HANDLE_COLORS) ) {
+      const handle = this.handles[key] = this.constructor._createHandle(HANDLE_COLORS[key], HANDLE_SHAPES[key]);
       handle.name = key;
       this.regionUI.addChild(handle);
 
@@ -194,13 +194,29 @@ export class HillDrawingManager {
 
   /**
    * Keys to move curve controls in pairs.
-   * @typedef {Object}
+   * @typedef {object<string>}
    */
   static HANDLE_PAIR = {
     start: "end",
     end: "start",
     cp1: "cp2",
     cp2: "cp1",
+  };
+
+  /** @type {object<string>} */
+  static HANDLE_SHAPES = {
+    start: "circle",
+    end: "circle",
+    cp1: "square",
+    cp2: "square",
+  };
+
+  /** @type {object<Hex>} */
+  static HANDLE_COLORS = {
+    start: Draw.COLORS.red,
+    end: Draw.COLORS.red,
+    cp1: Draw.COLORS.blue,
+    cp2: Draw.COLORS.blue,
   };
 
   /**
@@ -233,6 +249,7 @@ export class HillDrawingManager {
     handle.y = defaultPosition.y;
     this._updateCurveData();
     this._saveCurveData();
+    this.boundsGraphics.clear();
   }
 
   /**
@@ -299,11 +316,15 @@ export class HillDrawingManager {
   /**
    * Create a single interactive PIXI.Graphics handle.
    */
-  static _createHandle(color) {
+  static _createHandle(color, shape = "circle") {
     const handle = new PIXI.Graphics;
-    const circle = new PIXI.Circle(0, 0, 8);
+    let obj;
+    switch ( shape ) {
+      case "square": obj = new PIXI.Rectangle(-4, -4, 8, 8); break;
+      default: obj = new PIXI.Circle(0, 0, 8);
+    }
     const draw = new Draw(handle);
-    draw.shape(circle, { color, width: 2, alpha: 1 });
+    draw.shape(obj, { color, width: 2, alpha: 1 });
 
     handle.hitArea = new PIXI.Circle(0, 0, 15);
     handle.eventMode = "static";
@@ -353,9 +374,12 @@ export class HillDrawingManager {
   static _defaultCurve(region) {
     const bounds = region.bounds;
     const center = region.center;
-    const diameter = Math.hypot(bounds.width, bounds.height);
-    const radius = diameter * 0.5;
 
+    // Take the horizontal bounds length.
+    // Could take the diameter of the encompassing circle, but for most templates that would
+    // appear too large.
+    const diameter = bounds.width;
+    const radius = diameter * 0.5;
     const start = PIXI.Point.tmp.set(center.x - radius, center.y);
     const end = PIXI.Point.tmp.set(center.x + radius, center.y);
 
@@ -406,24 +430,134 @@ export class HillDrawingManager {
    * @returns {BézierCurve}
    */
   static hillDataForRegion(region) {
-    const data = this._unadjustedHillDataForRegion(region);
-    if ( !data ) return null;
+    const curve = this._unadjustedHillDataForRegion(region);
+    if ( !curve ) return null;
 
-    // Determine the intended elevation from the control points.
-    const elevationE = this.region[MODULE_ID].plateauElevation ?? this.region[MODULE_ID].finiteRegionTopE;
+    // Determine the intended peak elevation.
+    const tm = region[MODULE_ID];
+    const elevationE = tm.plateauElevation ?? tm.finiteRegionTopE;
     const elevationZ = gridUnitsToPixels(elevationE);
 
+    // Scale the curve accordingly.
+    return this.scaleCurve(curve, elevationZ);
+  }
+
+  /**
+   * Translate the Bézier hill data so that it is along the x origin, where the
+   * y values represent elevation.
+   * @param {BézierCurve} curve
+   * @returns {BézierCurve} The curve, modified in place.
+   */
+  static translateCurveToOrigin(curve) {
+    using delta = curve.end.subtract(curve.start);
+    const angle = Math.atan2(delta.y, delta.x);
+    using txMat = MatrixFloat32.translation(-curve.start.x, -curve.start.y);
+    using rotMat = MatrixFloat32.rotationZ(angle, false);
+    using M = rotMat.multiply3x3(txMat);
+    M.multiplyPoint2d(curve.start, curve.start);
+    M.multiplyPoint2d(curve.end, curve.end);
+    M.multiplyPoint2d(curve.cp1, curve.cp1);
+    M.multiplyPoint2d(curve.cp2, curve.cp2);
+    return curve;
+  }
+
+  /**
+   * Find the maximum height of a cubic Bézier curve relative to its baseline.
+   * May return a negative height.
+   */
+  static curveHeight(curve) {
+    const { start, cp1, cp2, end } = curve;
+    using deltaStartEnd = end.subtract(start);
+    const len2 = deltaStartEnd.magnitudeSquared();
+    if ( len2 === 0 ) return 0; // Curve start, end identical.
+
+    const orient2d = foundry.utils.orient2dFast;
+    const invLen = 1 / Math.sqrt(len2);
+    const h1 = orient2d(start, end, cp1) * invLen;
+    const h2 = orient2d(start, end, cp2) * invLen;
+
+    // Quadratic coefficients for derivative of the equation of the signed distance of P from baseline.
+    // Take the signed perpendicular distance and substitute the cubic Bézier formula.
+    // Leaves us with: h(t) = 3(1 - t)^2 * h1 + 3(1 - t)^2 * h2
+    // Take the derivative h'(t) = 0. to get At^2 + Bt + C = 0.
+    const A = 3 * (h1 - h2);
+    const B = (2 * h2) - (4 * h1);
+    const C = h1;
+    const tValues = [0, 1]; // Always evaluate boundaries.
+
+    const EPSILON = 1e-08;
+    if ( Math.abs(A) < EPSILON ) {
+      if ( Math.abs(B) > EPSILON ) {
+        const t = -C / B;
+        if ( t >= 0 && t <= 1 ) tValues.push(t);
+      }
+    } else {
+      const disc = (B * B) - (4 * A * C);
+      if ( disc >= 0 ) {
+        const sqrtDisc = Math.sqrt(disc);
+        const invDenom = 1 / (2 * A);
+        const t1 = (-B + sqrtDisc) * invDenom;
+        const t2 = (-B - sqrtDisc) * invDenom;
+        if ( t1 >= 0 && t1 <= 1 ) tValues.push(t1);
+        if ( t2 >= 0 && t2 <= 1 ) tValues.push(t2);
+      }
+    }
+
+    // Evaluate critical points to find the peak.
+    let maxH = 0;
+    let maxAbsH = 0;
+    for ( const t of tValues ) {
+      const mt = 1 - t;
+      const hVal = (3 * mt * mt * t * h1) + (3 * mt * t * t * h2);
+      if ( Math.abs(hVal) > maxAbsH ) {
+        maxAbsH = Math.abs(hVal);
+        maxH = hVal;
+      }
+    }
+    return maxH;
+  }
+
+  /**
+   * Scales control points perpendicularly away or toward the baseline.
+   * Leaves start and end points untouched.
+   * @param {BézierCurve} curve         Scaled in place.
+   * @param {number} [scaleFactor=1]
+   */
+  static scaleCurvePerpendicular(curve, scaleFactor = 1) {
+    const { start, cp1, cp2, end } = curve;
+    using delta = end.subtract(start);
+    const len2 = delta.magnitudeSquared()
+    if ( len2.almostEqual(0) ) return curve;
+
     using tmp = PIXI.Point.tmp;
-    using normal = data.end.subtract(data.start);
-    using perp = PIXI.Point.tmp.set(normal.y, -normal.x);
-    using ix1 = PIXI.Point.fromObject(foundry.utils.lineLineIntersection(data.start, data.end, data.cp1, data.cp1.add(perp, tmp)));
-    using ix2 = PIXI.Point.fromObject(foundry.utils.lineLineIntersection(data.start, data.end, data.cp2, data.cp2.add(perp, tmp)));
+    const scalePoint = p => {
+      // Project point onto the baseline vector to locate baseline anchor point.
+      using deltaP = p.subtract(start);
+      const u = deltaP.dot(delta) / len2;
+      using proj = start.add(delta.multiplyScalar(u, tmp));
 
-    // Adjust the control points to the exact elevation.
-    ix1.towardsPoint(data.cp1, elevationZ, data.cp1);
-    ix2.towardsPoint(data.cp2, elevationZ, data.cp2);
+      // Adjust distance from the baseline anchor by scale factor.
+      using deltaProj = p.subtract(proj);
+      proj.add(deltaProj.multiplyScalar(scaleFactor, tmp), p);
+    }
 
-    return data;
+    scalePoint(cp1);
+    scalePoint(cp2);
+    return curve;
+  }
+
+  /**
+   * Scale a curve to a target height.
+   * @param {BézierCurve} curve         Scaled in place.
+   * @param {number} [targetHeight=1]
+   */
+  static scaleCurve(curve, targetHeight = 1) {
+    const maxH = Math.abs(this.curveHeight(curve));
+    if ( maxH.almostEqual(0) ) return curve;
+
+    // Compute positive scaling factor based on absolute peak.
+    const scaleFactor = targetHeight / maxH;
+    return this.scaleCurvePerpendicular(curve, scaleFactor);
   }
 
   /**
@@ -544,8 +678,15 @@ export class HillDrawingManager {
     // Distance from the XY point to the start|end base.
     const x = bezierValue(t, start.x, cp1.x, cp2.x, end.x);
     const y = bezierValue(t, start.y, cp1.y, cp2.y, end.y);
-    return closestDistanceToSegment(PIXI.Point.tmp.set(x, y), start, end);
+    using curvePt = PIXI.Point.tmp.set(x, y)
+    const absDist = closestDistanceToSegment(curvePt, start, end);
+
+    // Check if the point is below the baseline.
+    const o = foundry.utils.orient2dFast(start, end, curvePt);
+    return o < 0 ? -absDist : absDist;
   }
+
+
 
 }
 
@@ -558,7 +699,7 @@ export class HillDrawingManager {
  * @param {number} end
  * @returns {number}
  */
-function bezierValue(t, start, cp1, cp2, end) {
+export function bezierValue(t, start, cp1, cp2, end) {
   const mt = 1 - t;
   const mt2 = mt * mt;
   const mt3 = mt2 * mt;

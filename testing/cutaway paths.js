@@ -269,15 +269,31 @@ function _centerWaypoint(waypoint, token) {
 */
 
 /*
+duplicateCurve = curve => {
+  return {
+    start: curve.start.clone(),
+    end: curve.end.clone(),
+    cp1: curve.cp1.clone(),
+    cp2: curve.cp2.clone()
+  }
+}
+
+
 region = canvas.regions.controlled[0]
 regionTM = region.terrainmapper
 regionPoly = region.document.polygons[0]
 opts = regionTM.#cutawayOptionFunctions()
 cutawayPoly = regionPoly.cutaway(start, end, opts)[0]
-cutaway = regionTM._cutaway(start, end)
+cutaway = regionTM._cutaway(start, end)[0]
 
 
-poly = HillDrawingManager.generateHillPolygonForRegion(region, 20)
+curveUnadj = HillDrawingManager._unadjustedHillDataForRegion(region)
+HillDrawingManager.curveHeight(curveUnadj)
+curve = HillDrawingManager.scaleCurve(duplicateCurve(curveUnadj), 400)
+curveOrigin = HillDrawingManager.translateCurveToOrigin(duplicateCurve(curve))
+Draw.shape(HillDrawingManager.generateHillPolygon(curve))
+Draw.shape(HillDrawingManager.generateHillPolygon(curveOrigin))
+
 
 */
 

@@ -17,7 +17,8 @@ import { TokenElevationHandler } from "../TokenElevationHandler.js";
 import { gridUnitsToPixels, pixelsToGridUnits, cutaway } from "../geometry/util.js";
 import { AABB3d } from "../geometry/3d/AABB3d.js";
 import { almostGreaterThan, almostLessThan, almostBetween } from "../geometry/util.js";
-import { HillDrawingManager } from "./HillDrawingManager.js";
+import { HillDrawingManager, bezierValue } from "./HillDrawingManager.js";
+
 
 /**
  * Single region elevation handler
@@ -50,7 +51,16 @@ export class RegionElevationHandler {
   get isSteps() { return this.isRamp && this.rampStepSize !== 0; }
 
   /** @type {boolean} */
-  get isBelowGround() { return SceneElevationHandler.sceneFloor > Math.min(this.rampFloor, this.plateauElevation); }
+  get isBelowGround() {
+    if ( this.isHill ) {
+      // Origin curve is the curve points translated and rotated so start --> end goes from 0,0 to x,0.
+      // As such, cp1 and cp2 define top and bottom points.
+      const { start, cp1, cp2, end } = HillDrawingManager.translateCurveToOrigin(this.hillCurve);
+      const out = cp1.y < 0 || cp2.y < 0;
+      PIXI.Point.release(start, cp1, cp2, end);
+      return out;
+    } else if ( floor > Math.min(this.rampFloor, this.plateauElevation) ) return true;
+  }
 
   /** @type {boolean} */
   get isHill() {
@@ -816,6 +826,7 @@ export class RegionElevationHandler {
         hasSolids ||= true;
         if ( addSteps ) cutaways.forEach(cutawayPoly => this._insertTopStepsIntoCutaway(cutawayPoly));
         else if ( isHill ) cutaways.forEach(cutawayPoly => this._insertHillIntoCutaway(cutawayPoly));
+        /*
         if ( isBelowGround ) {
           // The cutaway should have reversed order and its bottom should be at 0 (so it is flipped).
           const bottomZ = opts.bottomElevationFn();
@@ -830,6 +841,7 @@ export class RegionElevationHandler {
             if ( cutawayPoly.isPositive ) cutawayPoly.reverseOrientation();
           });
         }
+        */
 
         processedPolygons.push(...cutaways);
       } else {
@@ -869,7 +881,7 @@ export class RegionElevationHandler {
   _insertHillIntoCutaway(cutawayPoly, pointsPerGrid = 5) {
     const type = this.hillType;
     const curve = this.hillCurve;
-    if ( !curve || !curve.length ) return cutawayPoly;
+    if ( !curve ) return cutawayPoly;
 
     /* Testing: z values for the line.
     testPts = []

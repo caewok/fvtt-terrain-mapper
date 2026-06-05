@@ -10,11 +10,11 @@ import { MODULE_ID } from "./const.js";
 import {
   elevatedRegions,
   elevatedTiles } from "./util.js";
-import { GEOMETRY_LIB_ID } from "./geometry/const.js";
 import { ElevatedPoint } from "./geometry/3d/ElevatedPoint.js";
 import { cutaway, almostLessThan, gridUnitsToPixels } from "./geometry/util.js";
 import { Draw } from "./geometry/Draw.js";
 import { AABB2d } from "./geometry/AABB.js";
+import { CutawayPolygon } from "./geometry/CutawayPolygon.js";
 
 /**
  * @typedef {object} Edge2d
@@ -122,43 +122,54 @@ export class TokenElevationHandler {
     this.start.roundDecimals(1);
     this.end.roundDecimals(1);
 
+    // Find regions within the start|end path.
     this.regions = this.constructor.filterElevatedRegionsByXYSegment(this.start, this.end);
     this.tiles = this.constructor.filterElevatedTilesByXYSegment(this.start, this.end);
 
     // Define the cutaways for the start|end path.
-    let sceneFloorCutaway = canvas.scene[MODULE_ID]._cutaway(this.start, this.end, this.token);
-    const tileCutaways = this.tiles.flatMap(obj => obj[MODULE_ID]._cutaway(this.start, this.end, this.token));
-
-
-    // If there are below-ground region cutaways, combine with the scene floor.
-    const regionCutaways = [];
-    const belowGroundRegionCutaways = [];
+    // Locate below-ground regions.
+    const floor = canvas.scene[MODULE_ID].sceneFloor;
+    const aboveGroundCutaways = [];
+    const belowGroundCutaways = [];
     for ( const region of this.regions ) {
       const cutaways = region[MODULE_ID]._cutaway(this.start, this.end, this.token);
-      for ( const cutaway of cutaways ) {
-        if ( region[MODULE_ID].isBelowGround ) belowGroundRegionCutaways.push(cutaway);
-        else regionCutaways.push(cutaway);
-      }
-    }
-    if ( belowGroundRegionCutaways.length ) {
-      const ClipperPaths = CONFIG[GEOMETRY_LIB_ID].CONFIG.ClipperPaths;
-
-      // Flip orientation to match Clipper expectations.
-      sceneFloorCutaway.forEach(poly => poly.reverseOrientation());
-      belowGroundRegionCutaways.forEach(poly => poly.reverseOrientation());
-
-      const sceneFloorPaths = ClipperPaths.fromPolygons(sceneFloorCutaway);
-      const regionPaths = ClipperPaths.fromPolygons(belowGroundRegionCutaways);
-      const combinedFloor = regionPaths.combine().diffPaths(sceneFloorPaths).clean();
-      const polygons = combinedFloor.toPolygons();
-      if ( polygons.length === 1 ) {
-        polygons.forEach(poly => poly.reverseOrientation());
-        sceneFloorCutaway = polygons;
-      }
-      else console.error("TokenElevationHandler|Below-ground polygons failed to combine.");
+      const arr = region[MODULE_ID].isBelowGround ? belowGroundCutaways : aboveGroundCutaways;
+      arr.push(...cutaways);
     }
 
-    this.combinedCutaways = [...sceneFloorCutaway, ...tileCutaways, ...regionCutaways]
+    // Same for tiles.
+    for ( const tile of this.tiles ) {
+      const cutaways = tile[MODULE_ID]._cutaway(this.start, this.end, this.token);
+      const arr = tile.elevationE < floor ? belowGroundCutaways : aboveGroundCutaways;
+      arr.push(...cutaways);
+    }
+
+    // Build the scene floor cutaway(s).
+    const floorIntervals = [];
+    const maxDist2 = PIXI.Point.distanceSquaredBetween(this.start, this.end);
+    if ( belowGroundCutaways.length ) {
+      const getInterval = cutaway => Math.minMax(...cutaway.points.filter((_coord, idx) => !(idx & 1))); // Filter all evens.
+      const intervals = mergeIntervals(belowGroundCutaways.map(cutaway => getInterval(cutaway)));
+
+      // Subtract the below-ground intervals from the scene floor.
+      let currentX = 0;
+      for ( const block of intervals ) {
+        if ( block.min > currentX ) floorIntervals.push({ min: currentX, max: block.min });
+        if ( block.max > currentX ) currentX = block.max;
+      }
+      floorIntervals.push({ min: currentX, max: maxDist2 });
+    } else floorIntervals.push({ min: 0, max: maxDist2 });
+
+    // Create scene floor polygons.
+    const floorCutways = floorIntervals.map(({ min, max }) => CutawayPolygon.fromCutawayPoints([
+      min, floor,
+      max, floor,
+      max, -1e06,
+      min, -1e06
+    ], start, end));
+
+    // Create a handler for each cutaway and store for use with the walking algorithm.
+    this.combinedCutaways = [...floorCutways, ...aboveGroundCutaways, ...belowGroundCutaways]
       .map(cutPoly => new CutawayHandler(cutPoly));
   }
 
@@ -1261,4 +1272,26 @@ function _ixToPoint(ix) {
   const pt = PIXI.Point.tmp.set(ix.x, ix.y);
   pt.t0 = ix.t0;
   return pt;
+}
+
+
+/**
+ * For a given array of {min, max} intervals, sort and merge overlapping.
+ * @param {object<min: number, max: number>[]} intervals
+ * @returns {object<min: number, max: number>[]}
+ */
+function mergeIntervals(intervals) {
+  intervals.sort((a, b) => a.min - b.min);
+  const mergedIntervals = [];
+  const iter = intervals.values();
+  mergedIntervals.push(iter.next().value);
+  let last = mergedIntervals[0];
+  for ( const curr of iter ) {
+    if ( curr.min < last.max ) last.max = Math.max(last.max, curr.max);
+    else {
+      mergedIntervals.push(curr);
+      last = curr;
+    }
+  }
+  return mergedIntervals;
 }
