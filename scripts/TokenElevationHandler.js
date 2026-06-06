@@ -11,7 +11,7 @@ import {
   elevatedRegions,
   elevatedTiles } from "./util.js";
 import { ElevatedPoint } from "./geometry/3d/ElevatedPoint.js";
-import { cutaway, almostLessThan, gridUnitsToPixels } from "./geometry/util.js";
+import { cutaway, almostLessThan, gridUnitsToPixels, almostBetween } from "./geometry/util.js";
 import { Draw } from "./geometry/Draw.js";
 import { AABB2d } from "./geometry/AABB.js";
 import { CutawayPolygon } from "./geometry/CutawayPolygon.js";
@@ -148,7 +148,7 @@ export class TokenElevationHandler {
     const floorIntervals = [];
     const maxDist2 = PIXI.Point.distanceSquaredBetween(this.start, this.end);
     if ( belowGroundCutaways.length ) {
-      const getInterval = cutaway => Math.minMax(...cutaway.points.filter((_coord, idx) => !(idx & 1))); // Filter all evens.
+      const getInterval = cutaway => Math.minMax(...cutaway.points.filter((_coord, idx) => !isOdd(idx))); // Filter out all odds (y values).
       const intervals = mergeIntervals(belowGroundCutaways.map(cutaway => getInterval(cutaway)));
 
       // Subtract the below-ground intervals from the scene floor.
@@ -291,9 +291,7 @@ export class TokenElevationHandler {
 
 
   /**
-   * Use Clipper to join regions together.
-   * This simplifies the walking algorithm.
-   * For floating regions or tiles, still might fall from one to another, so must account for that.
+   * Build walking path from start2d to end2d.
    * @param {PIXI.Point} start2d
    * @param {PIXI.Point} end2d          Must be different from start2d.
    */
@@ -322,12 +320,11 @@ export class TokenElevationHandler {
     const addCheckpoint = () => {
       if ( !lastCheckpoint.almostEqual(currPosition) ) {
         lastCheckpoint = currPosition.clone();
-        checkpoints.push(lastCheckpoint);
+        checkpoints.push(lastCheckpoint.roundDecimals(2));
       }
     };
 
-    // Numerical errors with intersection tests will creep in unless we round the position.
-    const updatePosition = newPosition => currPosition.copyFrom(newPosition).roundDecimals(2);
+    const updatePosition = newPosition => currPosition.copyFrom(newPosition);
 
     let iter = 0;
     const maxIter = 1000;
@@ -363,7 +360,6 @@ export class TokenElevationHandler {
 
         // Is this edge moving vertically up? If so, ignore obstacles and just move to edge end.
         const isVertical = currDirection.x.almostEqual(0);
-
         if ( isVertical && currDirection.y > 0 ) updatePosition(edge.b);
 
         // Is this edge moving backward (underhang or overhang)?
@@ -394,7 +390,7 @@ export class TokenElevationHandler {
           // Look for the closest obstacle.
           // Don't go beyond the end plane.
           const horizon = edge.b.x <= end2d.x || edge.a.x === edge.b.x ? edge.b
-            : foundry.utils.lineLineIntersection(edge.a, edge.b, tmp1.set(end2d.x, 1), tmp2.set(end2d.x, -1));
+            : tmp1.copyFrom(foundry.utils.lineLineIntersection(edge.a, edge.b, tmp1.set(end2d.x, 1), tmp2.set(end2d.x, -1)));
 
           const closestObstacle = this._closestObstacleAlongSegment(currPosition, horizon, cutawaysSet);
           if ( closestObstacle ) {
@@ -1136,24 +1132,6 @@ export class CutawayHandler {
   elevationUponEntry(pt2d) { return this._elevationTypeAndEntry(pt2d).floor; }
 
   /**
-   * Does a 2d segment definitely intersect this cut polygon?
-   * Does not test bounds.
-   * @param {PIXI.Point} a2d
-   * @param {PIXI.Point} b2d
-   * @returns {boolean}
-   */
-  lineSegmentIntersects(a2d, b2d) { return this.cutPoly.lineSegmentIntersects(a2d, b2d); }
-
-  /**
-   * Does a 2d segment cross into this cut polygon?
-   * Does not test bounds.
-   * @param {PIXI.Point} a2d
-   * @param {PIXI.Point} b2d
-   * @returns {boolean}
-   */
-  lineSegmentCrosses(a2d, b2d, opts) { return this.cutPoly.lineSegmentCrosses(a2d, b2d, opts); }
-
-  /**
    * Obtain the intersection points for a 2d segment against this cut polygon.
    * Does not test bounds.
    * @param {PIXI.Point} a2d
@@ -1182,7 +1160,7 @@ export class CutawayHandler {
    * - @prop {PIXI.Point} ix
    */
   *iterateValidEdgeIntersections(a, b) {
-    const isVertical = edge => {
+    const verticalType = edge => {
       if ( !edge.a.x.almostEqual(edge.b.x) ) return TokenElevationHandler.VERTICAL_LOCATIONS.NONE;
       const aabb = this.aabb;
       if ( edge.a.x === aabb.min.x ) return TokenElevationHandler.VERTICAL_LOCATIONS.LEFT;
@@ -1190,29 +1168,26 @@ export class CutawayHandler {
     }
 
     for ( const edge of this.cutPoly.iterateEdges() ) {
-      const verticalType = isVertical(edge);
-      if ( verticalType === TokenElevationHandler.VERTICAL_LOCATIONS.RIGHT
+      switch ( verticalType(edge) ) {
+        case TokenElevationHandler.VERTICAL_LOCATIONS.RIGHT: continue;
+        case TokenElevationHandler.VERTICAL_LOCATIONS.LEFT: break;
+        case TokenElevationHandler.VERTICAL_LOCATIONS.NONE: {
+          if ( edge.a.x > edge.b.x ) continue; // Moves right --> left, indicating a bottom edge.
+          break;
+        }
+      }
 
-        // Moves right --> left (bottom edge).
-        || (verticalType === TokenElevationHandler.VERTICAL_LOCATIONS.NONE
-          && edge.a.x > edge.b.x) ) continue;
-
-      // Test if the line intersects the edge segment (first half of lineSegmentIntersects test)
-      const xa = foundry.utils.orient2dFast(a, b, edge.a);
-      const xb = foundry.utils.orient2dFast(a, b, edge.b);
-      if ( (xa * xb) > 0 ) continue;
-
-      // Determine the actual intersection.
-      const ix = foundry.utils.lineLineIntersection(a, b, edge.a, edge.b);
+      // If a|b is collinear with edge, return the collinear intersection.
+      // Otherwise return the regular intersection.
+      let ix = collinearIntersection(a, b, edge.a, edge.b) || foundry.utils.lineLineIntersection(a, b, edge.a, edge.b, { t1: true });
       if ( !ix ) continue;
-
-      // Don't count intersections at the very end of the edge.
-      // if ( edge.b.almostEqual(ix) ) continue;
+      if ( !almostBetween(ix.t0, 0, 1) ) continue;
+      if ( !almostBetween(ix.t1, 0, 1) ) continue;
 
       yield {
         cutaway: this,
         edge,
-        ix: _ixToPoint(ix).roundDecimals(2),
+        ix: _ixToPoint(ix),
       };
     }
   }
@@ -1299,3 +1274,70 @@ function mergeIntervals(intervals) {
   }
   return mergedIntervals;
 }
+
+/**
+ * Collinear intersections.
+ * For collinear segments a|b and c|d, return the point at which they first collide.
+ * Assumes a --> b and c --> d.
+ * @param {PIXI.Point} a
+ * @param {PIXI.Point} b
+ * @param {PIXI.Point} c
+ * @param {PIXI.Point} d
+ * @returns {PIXI.Point|null}
+ */
+function collinearIntersection(a, b, c, d) {
+  if ( !(foundry.utils.orient2dFast(a, b, c).almostEqual(0)
+      && foundry.utils.orient2dFast(a, b, d).almostEqual(0)) ) return null;
+
+  using ab = b.subtract(a);
+  using ac = c.subtract(a);
+  using ad = d.subtract(a);
+
+  // Project points onto a|b to convert 2d coordinates into 1d scalars.
+  const ta = 0; // dot({0, 0}, ab) === 0.
+  const tb = ab.dot2();
+  const tc = ac.dot(ab);
+  const td = ad.dot(ab);
+
+  // Determine the true 1d bounds of c|d.
+  const cdBounds = Math.minMax(tc, td);
+
+  // Condition 1: a|b is completely before c|d. E.g, a -- b  c -- d
+  if ( tb < cdBounds.min ) {
+    const ix = c.clone();
+    ix.t0 = PIXI.Point.distanceBetween(a, c) / PIXI.Point.distanceBetween(a, b);
+    ix.t1 = -PIXI.Point.distanceBetween(c, b) / PIXI.Point.distanceBetween(c, d);
+    return ix;
+  }
+
+  // Condition 2: a|b is completely after c|d. E.g. c -- d  a -- b
+  if ( ta > cdBounds.max ) {
+    const ix = d.clone();
+    ix.t0 = -PIXI.Point.distanceBetween(a, d) / PIXI.Point.distanceBetween(a, b);
+    ix.t1 = PIXI.Point.distanceBetween(c, a) / PIXI.Point.distanceBetween(c, d);
+    return ix;
+  }
+
+  // Condition 3: a|b is contained within c|d or overlaps d.
+  // Starting point lies within the c|d interval.
+  // E.g. c -- a -- b -- d or c -- a -- d -- b
+  if ( ta >= cdBounds.min && ta <= cdBounds.max ) {
+    const ix = a.clone();
+    ix.t0 = 0;
+    ix.t1 = PIXI.Point.distanceBetween(c, a) / PIXI.Point.distanceBetween(c, d);
+    return ix;
+  }
+
+  // Condition 4: a|b overlaps c.
+  // E.g. a -- c -- b -- d
+  if ( ta < cdBounds.min && tb >= cdBounds.min ) {
+    const ix = c.clone();
+    ix.t0 = PIXI.Point.distanceBetween(a, c) / PIXI.Point.distanceBetween(a, b);
+    ix.t1 = 0;
+    return ix;
+  }
+
+  return null; // Fallback.
+}
+
+function isOdd(n) { return n & 1 === 1; }

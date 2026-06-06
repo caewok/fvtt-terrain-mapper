@@ -908,7 +908,7 @@ export class RegionElevationHandler {
         const zStart = zFn(startXY);
         const zEnd = zFn(endXY);
 
-        // Construct edge geometry in order.
+        // Add start point
         pt3d.set(startXY.x, startXY.y, zStart);
         cutawayPoly._to2d(pt3d, pt2d);
         addPoint(pt2d.x, zStart);
@@ -924,10 +924,7 @@ export class RegionElevationHandler {
         cutawayPoly._to2d(pt3d, pt2d);
         addPoint(pt2d.x, zEnd);
 
-      } else if ( edge.a === maxEdge.a || edge.a === maxEdge.b ) {
-        cutawayPoly._from2d(edge.a, pt3d).to2d(pt2d);
-        addPoint(edge.a.x, HillDrawingManager.hillZAtPoint(pt2d, curve, type));
-      }
+      } else if ( edge.a === maxEdge.a || edge.a === maxEdge.b ) continue; // We already added (or will add) this point.
       else addPoint(edge.a.x, edge.a.y);
     }
 
