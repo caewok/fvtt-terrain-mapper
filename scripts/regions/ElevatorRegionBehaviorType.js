@@ -32,7 +32,7 @@ PATCHES.REGIONS = {};
 /**
  * Region behavior set the elevation of a token based on multiple elevation options.
  * @property {Set<>}
- * @property {FLAGS.REGION.CHOICES} algorithm       How elevation change should be handled. plateau, ramp, stairs
+ * @property {FLAGS.REGION.TERRAIN.CHOICES} algorithm       How elevation change should be handled. plateau, ramp, stairs
  */
 export class ElevatorRegionBehaviorType extends foundry.data.regionBehaviors.RegionBehaviorType {
   static defineSchema() {

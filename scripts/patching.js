@@ -21,6 +21,7 @@ import { PATCHES as PATCHES_RegionConfig } from "./regions/RegionConfig.js";
 import { PATCHES as PATCHES_Tile } from "./Tile.js";
 import { PATCHES as PATCHES_TileConfig } from "./TileConfig.js";
 import { PATCHES as PATCHES_Scene } from "./Scene.js";
+import { PATCHES as PATCHES_HillDrawingManager } from "./regions/HillDrawingManager.js";
 
 export const PATCHES = {
   "foundry.canvas.edges.CanvasEdges": PATCHES_CanvasEdges,
@@ -38,7 +39,8 @@ export const PATCHES = {
   // Only hooks
   RegionSceneControls: PATCHES_RegionSceneControls,
   StairsRegionBehaviorType: PATCHES_StairsRegionBehaviorType,
-  ElevatorRegionBehaviorType: PATCHES_ElevatorRegionBehaviorType
+  ElevatorRegionBehaviorType: PATCHES_ElevatorRegionBehaviorType,
+  HillDrawingManager: PATCHES_HillDrawingManager,
 };
 
 export const PATCHER = new Patcher();

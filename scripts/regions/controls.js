@@ -10,6 +10,7 @@ ui
 
 import { MODULE_ID, FA_ICONS } from "../const.js";
 import { Draw } from "../geometry/Draw.js";
+import { HillDrawingManager } from "./HillDrawingManager.js";
 
 export const PATCHES = {};
 PATCHES.REGIONS = {};
@@ -38,6 +39,18 @@ TOOLS.FILL_BY_WALLS = {
   icon: FA_ICONS.FILL_BY_WALLS,
   toggle: false,
   onChange: toggleWallDisplay,
+  order: 0,
+}
+
+TOOLS.DRAW_HILL = {
+  name: "draw-hill",
+  title: `${MODULE_ID}.controls.draw-hill.name`,
+  icon: FA_ICONS.DRAW_HILL,
+  toggle: false,
+  onChange: (_event, active) => {
+    if ( active ) HillDrawingManager.activate.call(HillDrawingManager);
+    else HillDrawingManager.deactivate.call(HillDrawingManager);
+  },
   order: 0,
 }
 
@@ -82,11 +95,13 @@ function getSceneControlButtons(controls, _html, _data) {
   const polyIdx = regionTools.tools.polygon.order;
   TOOLS.FILL_BY_WALLS.order = polyIdx;
   TOOLS.FILL_BY_LOS.order = polyIdx + 1;
+  TOOLS.DRAW_HILL.order = polyIdx + 2;
   Object.values(regionTools.tools)
       .filter(tool => tool.order >= polyIdx)
-      .forEach(tool => tool.order += 2);
+      .forEach(tool => tool.order += 3);
   regionTools.tools[TOOLS.FILL_BY_WALLS.name] = TOOLS.FILL_BY_WALLS;
   regionTools.tools[TOOLS.FILL_BY_LOS.name] = TOOLS.FILL_BY_LOS;
+  regionTools.tools[TOOLS.DRAW_HILL.name] = TOOLS.DRAW_HILL;
 }
 
 PATCHES.REGIONS.HOOKS = {

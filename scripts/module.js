@@ -20,6 +20,7 @@ import { WallTracerEdge, WallTracerVertex, WallTracer, SCENE_GRAPH } from "./Wal
 import { StairsRegionBehaviorType } from "./regions/StairsRegionBehaviorType.js";
 import { ElevatorRegionBehaviorType } from "./regions/ElevatorRegionBehaviorType.js";
 import { StraightLinePath } from "./StraightLinePath.js";
+import { HillDrawingManager} from "./regions/HillDrawingManager.js";
 
 // Elevation
 import { TokenElevationHandler, CutawayHandler } from "./TokenElevationHandler.js";
@@ -214,6 +215,7 @@ function initializeAPI() {
     StraightLinePath,
     TokenElevationHandler,
     CutawayHandler,
+    HillDrawingManager,
 
     /**
      * API to determine the elevation of a line through 0+ setElevation regions.
@@ -294,7 +296,13 @@ function initializeConfig() {
      */
     terrainBurrowActions: new Set(["burrow", "swim"]),
 
-    // DND5e: displace and blink are currently excluded; token will be moved directly.
+    /**
+     * Tolerance for approximating curve with a polygon.
+     * Lower values provide for higher resolution polygons (more edges).
+     * Requires a positive number.
+     * @type {number}
+     */
+    polygonCurveTolerance: 1.0,
   };
 }
 

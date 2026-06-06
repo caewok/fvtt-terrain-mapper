@@ -3,6 +3,7 @@
   "terrainmapper.controls.fill-by-grid.name": "Fill by grid",
   "terrainmapper.controls.fill-by-los.name": "Fill by line-of-sight",
   "terrainmapper.controls.fill-space.name": "Fill space enclosed by walls",
+  "terrainmapper.controls.draw-hill.name": "Draw hill in region",
 
   "terrainmapper.scene-config.backgroundElevation.name": "Background Elevation",
   "terrainmapper.scene-config.backgroundElevation.hint": "The default elevation for tokens placed on the canvas.",
@@ -15,6 +16,9 @@
 
   "terrainmapper.region-config.plateauElevation.name": "Highest Elevation",
   "terrainmapper.region-config.plateauElevation.hint": "Defines the ground level for a plateau or the topmost elevation of a ramp.",
+
+  "terrainmapper.region-config.hillType.name": "Hill Type",
+  "terrainmapper.region-config.hillType.hint": "Linear: Lines parallel to the start/end of the hill share the hill shape. Ridge: Lines parallel to the start/end of the hill fall off in elevation proportionally. Symmetrical: Half the hill shape is copied in a circular pattern around the hill center point.",
 
   "terrainmapper.region-config.rampFloor.name": "Ramp: Lowest Elevation",
 
@@ -74,7 +78,12 @@
   "terrainmapper.elevationAlgorithm.labels.oneWay": "One-Way Stairs",
   "terrainmapper.elevationAlgorithm.labels.plateau": "Plateau / Mesa",
   "terrainmapper.elevationAlgorithm.labels.ramp": "Ramp / Steps",
+  "terrainmapper.elevationAlgorithm.labels.hill": "Hill",
   "terrainmapper.elevationAlgorithm.labels.stairs": "Two-Way Stairs",
+
+  "terrainmapper.hillType.labels.linear": "Linear",
+  "terrainmapper.hillType.labels.ridge": "Ridge",
+  "terrainmapper.hillType.labels.symmetrical": "Symmetrical",
 
   "terrainmapper.phrases.terrainLayer": "Terrain Layer",
   "terrainmapper.phrases.terrain": "Terrain",

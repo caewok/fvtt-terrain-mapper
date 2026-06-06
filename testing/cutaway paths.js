@@ -15,7 +15,7 @@ almostLessThan = CONFIG.GeometryLib.lib.utils.almostLessThan
 cutawayUtil = CONFIG.GeometryLib.lib.utils.cutaway
 bench = CONFIG.GeometryLib.lib.bench
 CutawayPolygon = CONFIG.GeometryLib.lib.CutawayPolygon
-
+HillDrawingManager = game.modules.get('terrainmapper').api.HillDrawingManager
 
 // For an array of polygons (cutaways), find the first one that a ray hits.
 // If the ray hits multiple polygons at the same point, find the one with the steepest edge.
@@ -267,6 +267,41 @@ function _centerWaypoint(waypoint, token) {
 }
 
 */
+
+/*
+duplicateCurve = curve => {
+  return {
+    start: curve.start.clone(),
+    end: curve.end.clone(),
+    cp1: curve.cp1.clone(),
+    cp2: curve.cp2.clone()
+  }
+}
+
+
+region = canvas.regions.controlled[0]
+regionTM = region.terrainmapper
+regionPoly = region.document.polygons[0]
+opts = regionTM.#cutawayOptionFunctions()
+cutawayPoly = regionPoly.cutaway(start, end, opts)[0]
+cutaway = regionTM._cutaway(start, end)[0]
+
+
+curveUnadj = HillDrawingManager._unadjustedHillDataForRegion(region)
+HillDrawingManager.curveHeight(curveUnadj)
+curve = HillDrawingManager.scaleCurve(duplicateCurve(curveUnadj), 400)
+curveOrigin = HillDrawingManager.translateCurveToOrigin(duplicateCurve(curve))
+Draw.shape(HillDrawingManager.generateHillPolygon(curve))
+Draw.shape(HillDrawingManager.generateHillPolygon(curveOrigin))
+
+Draw.shape(HillDrawingManager.generateHillPolygonAdaptive(curve, 0.5), { color: Draw.COLORS.yellow })
+Draw.shape(HillDrawingManager.generateHillPolygonAdaptive(curve, 1), { color: Draw.COLORS.orange })
+Draw.shape(HillDrawingManager.generateHillPolygonAdaptive(curve, 2), { color: Draw.COLORS.red })
+
+Draw.shape(HillDrawingManager.generateHillPolygonAdaptive(curveOrigin))
+
+*/
+
 
 traceCutoutPath(start, end, startToken)
 
