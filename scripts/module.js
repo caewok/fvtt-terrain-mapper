@@ -296,7 +296,13 @@ function initializeConfig() {
      */
     terrainBurrowActions: new Set(["burrow", "swim"]),
 
-    // DND5e: displace and blink are currently excluded; token will be moved directly.
+    /**
+     * Tolerance for approximating curve with a polygon.
+     * Lower values provide for higher resolution polygons (more edges).
+     * Requires a positive number.
+     * @type {number}
+     */
+    polygonCurveTolerance: 1.0,
   };
 }
 

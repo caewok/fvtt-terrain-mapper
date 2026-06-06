@@ -582,6 +582,18 @@ export class HillDrawingManager {
   }
 
   /**
+   * Create a polygon representing the vertical cut of the hill.
+   * Uses adaptive spacing for the points on the curve.
+   * @param {BézierCurve} curve
+   * @param {number} [tolerance=0.5]      Pixel tolerance; lower --> higher resolution near peaks
+   * @returns {PIXI.Polygon}
+   */
+  static generateHillPolygonAdaptive(curve, tolerance = 0.5) {
+    const points = [curve.start, ...subdivideCurve(curve, tolerance)];
+    return new PIXI.Polygon(points);
+  }
+
+  /**
    * Get the z value for a 2d point based on a Bézier hill profile.
    * @param {PIX.Point} pt          Point to test
    * @param {BézierCurve} curve     Curve data
@@ -690,6 +702,8 @@ export class HillDrawingManager {
 
 }
 
+// ----- NOTE: Helper functions ----- //
+
 /**
  * Calculate a value along the Bézier curve.
  * @param {number} t      Distance along the curve.
@@ -714,4 +728,52 @@ export function bezierValue(t, start, cp1, cp2, end) {
 function closestDistanceToSegment(c, a, b) {
   const ix = foundry.utils.closestPointToSegment(c, a, b);
   return PIXI.Point.distanceBetween(ix, c);
+}
+
+/**
+ * Recursively subdivide a curve using De Casteljau's algorithm, based on flatness.
+ * @param {BézierCurve} curve     Curve data
+ * @returns {PIXI.Point[]} Points along the curve
+ */
+function subdivideCurve(curve, tolerance) {
+  tolerance ||= CONFIG[MODULE_ID].polygonCurveTolerance || 1.0;
+  // Calculate flatness metric (approximation of second derivative).
+  using d1 = PIXI.Point.tmp.set(
+    curve.cp1.x - (2 * curve.cp2.x) + curve.end.x,
+    curve.cp1.y - (2 * curve.cp2.y) + curve.end.y,
+  );
+  using d2 = PIXI.Point.tmp.set(
+    curve.start.x - (2 * curve.cp1.x) + curve.cp2.x,
+    curve.start.y - (2 * curve.cp1.y) + curve.cp2.y,
+  );
+  const flatness = Math.max(d1.dot2(), d2.dot2());
+
+  // If flat enough, stop dividing and return the point.
+  if ( flatness <= (tolerance * tolerance) ) return [curve.end.clone()];
+
+  // Not flat enough: Subdivide into two halves using De Casteljau's algorithm.
+  using l1 = PIXI.Point.tmp;
+  using l2 = PIXI.Point.tmp;
+  using r1 = PIXI.Point.tmp;
+  using r2 = PIXI.Point.tmp;
+  using h = PIXI.Point.tmp;
+  using mid = PIXI.Point.tmp;
+
+  // Left side control points.
+  curve.start.add(curve.cp1, l1).multiplyScalar(0.5, l1); // l1
+  curve.cp1.add(curve.cp2, h).multiplyScalar(0.5, h);     // h
+  l1.add(h, l2).multiplyScalar(0.5, l2);                  // l2
+
+  // Right side control points.
+  curve.cp2.add(curve.end, r2).multiplyScalar(0.5, r2);   // r2
+  h.add(r2, r1).multiplyScalar(0.5, r1);                  // r1
+
+  // Midpoint sharing both curves.
+  l2.add(r1, mid).multiplyScalar(0.5, mid);               // mid
+
+  // Handle left, then right.
+  return [
+    ...subdivideCurve({ start: curve.start, cp1: l1, cp2: l2, end: mid }, tolerance),
+    ...subdivideCurve({ start: mid, cp1: r1, cp2: r2, end: curve.end }, tolerance),
+  ];
 }

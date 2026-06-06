@@ -17,7 +17,7 @@ import { TokenElevationHandler } from "../TokenElevationHandler.js";
 import { gridUnitsToPixels, pixelsToGridUnits, cutaway } from "../geometry/util.js";
 import { AABB3d } from "../geometry/3d/AABB3d.js";
 import { almostGreaterThan, almostLessThan, almostBetween } from "../geometry/util.js";
-import { HillDrawingManager, bezierValue } from "./HillDrawingManager.js";
+import { HillDrawingManager } from "./HillDrawingManager.js";
 
 
 /**
@@ -59,7 +59,8 @@ export class RegionElevationHandler {
       const out = cp1.y < 0 || cp2.y < 0;
       PIXI.Point.release(start, cp1, cp2, end);
       return out;
-    } else if ( floor > Math.min(this.rampFloor, this.plateauElevation) ) return true;
+    } else if ( SceneElevationHandler.sceneFloor > Math.min(this.rampFloor, this.plateauElevation) ) return true;
+    return false;
   }
 
   /** @type {boolean} */
@@ -813,7 +814,6 @@ export class RegionElevationHandler {
   _cutaway(start, end, { usePlateauElevation = true } = {}) {
     const opts = this.#cutawayOptionFunctions(usePlateauElevation);
     const addSteps = this.isRamp && this.rampStepSize;
-    const isBelowGround = this.isBelowGround;
     const isHill = this.isHill;
     let processedPolygons = [];
     let hasSolids = false;
@@ -826,23 +826,6 @@ export class RegionElevationHandler {
         hasSolids ||= true;
         if ( addSteps ) cutaways.forEach(cutawayPoly => this._insertTopStepsIntoCutaway(cutawayPoly));
         else if ( isHill ) cutaways.forEach(cutawayPoly => this._insertHillIntoCutaway(cutawayPoly));
-        /*
-        if ( isBelowGround ) {
-          // The cutaway should have reversed order and its bottom should be at 0 (so it is flipped).
-          const bottomZ = opts.bottomElevationFn();
-          const sceneFloor = gridUnitsToPixels(SceneElevationHandler.sceneFloor);
-          cutaways.forEach(cutawayPoly => {
-            for ( let i = 1, iMax = cutawayPoly.points.length; i < iMax; i += 2 ) {
-              if ( cutawayPoly.points[i] === bottomZ ) cutawayPoly.points[i] = sceneFloor; // Change y value.
-            }
-
-            // Changing the bottom to scene floor typically flips the orientation; flip back.
-            // Note that cutaways have reversed orientation to that of Foundry (cutaways have y up).
-            if ( cutawayPoly.isPositive ) cutawayPoly.reverseOrientation();
-          });
-        }
-        */
-
         processedPolygons.push(...cutaways);
       } else {
         // It's a hole. Cut all accumulated polygons before it.
@@ -875,29 +858,14 @@ export class RegionElevationHandler {
    * For a given region cutaway, construct a hill from it and given hill data.
    * Goes from scene elevation to the plateau elevation.
    * @param {CutawayPolygon} cutawayPoly
-   * @param {number} [pointsPerGrid=5]            How many points per grid size should be used.
+   * @param {number} [tolerance=0.5]            Pixel tolerance; Lower = higher resolution near peaks
    * @returns {CutawayPolygon} Same polygon with new points.
    */
-  _insertHillIntoCutaway(cutawayPoly, pointsPerGrid = 5) {
+  _insertHillIntoCutaway(cutawayPoly, tolerance) {
+    tolerance ||= CONFIG[MODULE_ID].polygonCurveTolerance || 1.0;
     const type = this.hillType;
     const curve = this.hillCurve;
     if ( !curve ) return cutawayPoly;
-
-    /* Testing: z values for the line.
-    testPts = []
-    xMinMax = Math.minMax(...cutawayPoly.points.filter((_elem, idx) => idx % 2 === 0))
-    step = 1 / resolution;
-    startXY = cutawayPoly._from2d(PIXI.Point.tmp.set(xMinMax.min, 0)).to2d();
-    endXY = cutawayPoly._from2d(PIXI.Point.tmp.set(xMinMax.max, 0)).to2d();
-    for ( let t = 0; t <= 1; t += step ) {
-      const canvasPt = startXY.projectToward(endXY, t);
-      const z = HillDrawingManager.hillZAtPoint(canvasPt, curve, type);
-      testPts.push(Point3d.tmp.set(canvasPt.x, canvasPt.y, z))
-    }
-    delta = curve.end.subtract(curve.start).normalize()
-    dir = PIXI.Point.tmp.set(delta.y, -delta.x)
-    testPts.forEach(pt => Draw.point(pt.add(dir.multiplyScalar(pt.z))))
-    */
 
     // Replace the top edge with the curve.
     const edges = [...cutawayPoly.iterateEdges()];
@@ -920,31 +888,45 @@ export class RegionElevationHandler {
       if ( prevPt.equals(tmpPt) ) return;
 
       // Prevent multiple elevations at the same level.
-      // Probably don't need full orient2d test.
       if ( prevPt2.y === prevPt.y === tmpPt.y ) {
-        points.pop(); point.pop();
+        points.pop(); points.pop();
       } else prevPt.clone(prevPt2);
       points.push(x, y);
       tmpPt.clone(prevPt);
     }
 
+    using pt2d = PIXI.Point.tmp;
+    using pt3d = Point3d.tmp;
     for ( const edge of edges ) {
       if ( edge === maxEdge ) {
-        using pt3d = Point3d.tmp;
+
         const startXY = cutawayPoly._from2d(edge.a).to2d();
         const endXY = cutawayPoly._from2d(edge.b).to2d();
-        const totalSteps = PIXI.Point.distanceBetween(startXY, endXY) / canvas.grid.size * pointsPerGrid;
-        const step = 1 / totalSteps;
-        for ( let t = 0; t <= 1; t += step ) {
-          const canvasPt = startXY.projectToward(endXY, t);
-          const z = HillDrawingManager.hillZAtPoint(canvasPt, curve, type);
-          pt3d.set(canvasPt.x, canvasPt.y, z);
-          const pt2d = cutawayPoly._to2d(pt3d);
-          addPoint(pt2d.x, z);
-        }
+
+        // Precalculate the start and end elevations.
+        const zFn = pt => HillDrawingManager.hillZAtPoint(pt, curve, type);
+        const zStart = zFn(startXY);
+        const zEnd = zFn(endXY);
+
+        // Construct edge geometry in order.
+        pt3d.set(startXY.x, startXY.y, zStart);
+        cutawayPoly._to2d(pt3d, pt2d);
+        addPoint(pt2d.x, zStart);
+
+        // Recursive subdivision based on height map deviation.
+        const ptForTFn = t => startXY.projectToward(endXY, t);
+        const pts = subdivideCurveForCutaway(0, 1, zStart, zEnd, ptForTFn, zFn, cutawayPoly, tolerance);
+        pts.forEach(pt => addPoint(pt.x, pt.y));
+        PIXI.Point.release(...pts);
+
+        // Add end point.
+        pt3d.set(endXY.x, endXY.y, zEnd);
+        cutawayPoly._to2d(pt3d, pt2d);
+        addPoint(pt2d.x, zEnd);
+
       } else if ( edge.a === maxEdge.a || edge.a === maxEdge.b ) {
-        const canvasPt = cutawayPoly._from2d(edge.a).to2d();
-        addPoint(edge.a.x, HillDrawingManager.hillZAtPoint(canvasPt, curve, type));
+        cutawayPoly._from2d(edge.a, pt3d).to2d(pt2d);
+        addPoint(edge.a.x, HillDrawingManager.hillZAtPoint(pt2d, curve, type));
       }
       else addPoint(edge.a.x, edge.a.y);
     }
@@ -1525,4 +1507,42 @@ function rotatePolygon(poly, rotation = 0, centroid) {
     rotatedPoints[j+1] = rotatedM.arr[i][1];
   }
   return new PIXI.Polygon(rotatedPoints);
+}
+
+/**
+ * Subdivide a curve recursively based on height map deviation.
+ * Used in _insertHillIntoCutaway.
+ * @param {number} t0
+ * @param {number} t1
+ * @param {number} z0
+ * @param {number} z1
+ * @param {number} _depth=0         To limit recursion on near-vertical slopes.
+ * @returns {PIXI.Point[]}
+ */
+function subdivideCurveForCutaway(t0, t1, z0, z1, ptForTFn, zFn, cutawayPoly, tolerance = 0.5, _depth = 0) {
+  const tMid = (t0 + t1) * 0.5;
+  using midCanvasPt = ptForTFn(tMid);
+  const zMid = zFn(midCanvasPt)
+
+  // Expected z if the slope between t0|t1 was perfectly flat.
+  const zLinear = (z0 + z1) * 0.5;
+
+  // If actual z deviates from the linear by more than tolerance, subdivide further.
+  // Enforce a hard depth limit to prevent infinit loops.
+  if ( Math.abs(zMid - zLinear) > tolerance && _depth < 10 ) {
+    // Midpoint.
+    using pt3d = Point3d.tmp.set(midCanvasPt.x, midCanvasPt.y, zMid);
+    using pt2d = cutawayPoly._to2d(pt3d);
+    return [
+      // Left half.
+      ...subdivideCurveForCutaway(t0, tMid, z0, zMid, ptForTFn, zFn, cutawayPoly, tolerance, _depth + 1),
+
+      // Midpoint.
+      PIXI.Point.tmp.set(pt2d.x, zMid),
+
+      // Right half.
+      ...subdivideCurveForCutaway(tMid, t1, zMid, z1, ptForTFn, zFn, cutawayPoly, tolerance, _depth + 1),
+    ];
+  }
+  return [];
 }

@@ -305,6 +305,8 @@ export class TokenElevationHandler {
     using currPosition = start2d.clone();
     using currDirection = this.constructor.DOWN.clone();
     using prevDirection = this.constructor.DOWN.clone();
+    using tmp1 = PIXI.Point.tmp;
+    using tmp2 = PIXI.Point.tmp;
 
     const checkpoints = [];
     let currSurface = undefined;
@@ -390,7 +392,11 @@ export class TokenElevationHandler {
         // This edge is moving forward or vertically straight down.
         else {
           // Look for the closest obstacle.
-          const closestObstacle = this._closestObstacleAlongSegment(currPosition, edge.b, cutawaysSet);
+          // Don't go beyond the end plane.
+          const horizon = edge.b.x <= end2d.x || edge.a.x === edge.b.x ? edge.b
+            : foundry.utils.lineLineIntersection(edge.a, edge.b, tmp1.set(end2d.x, 1), tmp2.set(end2d.x, -1));
+
+          const closestObstacle = this._closestObstacleAlongSegment(currPosition, horizon, cutawaysSet);
           if ( closestObstacle ) {
             cutawaysSet.add(currSurface.cutaway)
             cutawaysSet.delete(closestObstacle.cutaway);
@@ -399,7 +405,7 @@ export class TokenElevationHandler {
             updatePosition(closestObstacle.ix);
             break; // Moving to new surface.
           }
-          updatePosition(edge.b); // Move to end of edge if no obstacle.
+          updatePosition(horizon); // Move to end of edge if no obstacle.
         }
 
         addCheckpoint();
@@ -834,31 +840,30 @@ export class TokenElevationHandler {
    * - @prop {Edge2d} edge
    * - @prop {PIXI.Point} ix
    */
-  _supportingFloorEdge(pt2d, cutaways, _iter = 0) {
-    if ( _iter > 2 ) throw Error(`_supportingFloorEdge failed to locate edge for ${this.start} -> ${this.end}`);
-
+  _supportingFloorEdge(pt2d, cutaways, tolerance = 1) {
     cutaways ??= this.combinedCutaways
 
-    const SURFACE_EPSILON = 1; // How much above the surface to allow?
-    using a = PIXI.Point.tmp.set(pt2d.x, pt2d.y + SURFACE_EPSILON);
+    using a = PIXI.Point.tmp.set(pt2d.x, pt2d.y + 1e06);
     using b = PIXI.Point.tmp.set(pt2d.x, pt2d.y - 1e06);
 
-    let minT = Number.POSITIVE_INFINITY;
-    let res;
+    // Locate the nearest above and below intersections.
+    let aboveIx;
+    let belowIx;
     for ( const cutaway of cutaways ) {
       for ( const edgeIx of cutaway.iterateValidEdgeIntersections(a, b) ) {
-        if ( edgeIx.ix.t0 >= minT
-          || (edgeIx.ix.t0 < 0 && !edgeIx.ix.t0.almostEqual(0, 1e-06)) ) continue; // Surface is above or below the nearest.
-        minT = edgeIx.ix.t0;
-        res = edgeIx;
+        if ( edgeIx.ix.y > pt2d.y ) { // Above.
+          aboveIx ??= edgeIx;
+          if ( edgeIx.ix.y < aboveIx.ix.y ) aboveIx = edgeIx;
+        }
+        else { // Below.
+          belowIx ??= edgeIx;
+          if ( edgeIx.ix.y > belowIx.ix.y ) belowIx = edgeIx;
+         }
       }
     }
-    if ( !res ) {
-      const newPt = PIXI.Point.tmp.set(pt2d.x, this._nearestSupport(pt2d).elevation);
-      _iter++;
-      return this._supportingFloorEdge(newPt, this.combinedCutaways, _iter);
-    }
-    return res;
+    if ( !(aboveIx || belowIx) ) throw Error(`_supportingFloorEdge failed to locate edge for ${this.start} -> ${this.end}`);
+    if ( !belowIx || (aboveIx && aboveIx.ix.y.almostEqual(pt2d.y, tolerance)) ) return aboveIx;
+    return belowIx;
   }
 
   /**
@@ -1202,8 +1207,7 @@ export class CutawayHandler {
       if ( !ix ) continue;
 
       // Don't count intersections at the very end of the edge.
-      // Use a fairly loose epsilon to deal with rounding.
-      if ( edge.b.almostEqual(ix, 1e-02) ) continue;
+      // if ( edge.b.almostEqual(ix) ) continue;
 
       yield {
         cutaway: this,

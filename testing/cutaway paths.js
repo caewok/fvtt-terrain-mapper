@@ -294,6 +294,11 @@ curveOrigin = HillDrawingManager.translateCurveToOrigin(duplicateCurve(curve))
 Draw.shape(HillDrawingManager.generateHillPolygon(curve))
 Draw.shape(HillDrawingManager.generateHillPolygon(curveOrigin))
 
+Draw.shape(HillDrawingManager.generateHillPolygonAdaptive(curve, 0.5), { color: Draw.COLORS.yellow })
+Draw.shape(HillDrawingManager.generateHillPolygonAdaptive(curve, 1), { color: Draw.COLORS.orange })
+Draw.shape(HillDrawingManager.generateHillPolygonAdaptive(curve, 2), { color: Draw.COLORS.red })
+
+Draw.shape(HillDrawingManager.generateHillPolygonAdaptive(curveOrigin))
 
 */
 
