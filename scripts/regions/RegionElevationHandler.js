@@ -29,8 +29,12 @@ export class RegionElevationHandler {
   /** @type {Region} */
   region;
 
+  /** @type {HillDrawingManager} */
+  hillManager;
+
   constructor(region) {
     this.region = region;
+    this.hillManager = new HillDrawingManager(region);
   }
 
   // ----- NOTE: Getters ----- //
@@ -53,28 +57,21 @@ export class RegionElevationHandler {
   /** @type {boolean} */
   get isBelowGround() {
     if ( this.isHill ) {
-      // Origin curve is the curve points translated and rotated so start --> end goes from 0,0 to x,0.
-      // As such, cp1 and cp2 define top and bottom points.
-      const { start, cp1, cp2, end } = HillDrawingManager.translateCurveToOrigin(this.hillCurve);
-      const out = cp1.y < 0 || cp2.y < 0;
-      PIXI.Point.release(start, cp1, cp2, end);
+      // The stored normalized curve has start --> end goes from 0,0 to x,0.
+      // As such, cp1 and cp2 define top and bottom points, and end
+      // But y axis is inverted in Foundry, so look for high values.
+      const curve = this.hillManager.hillData();
+      const out = curve.cp1.y > 0 || curve.cp2.y > 0 || curve.end.y > 0;
+      Object.values(curve).forEach(pt => pt.release());
       return out;
     } else if ( SceneElevationHandler.sceneFloor > Math.min(this.rampFloor, this.plateauElevation) ) return true;
     return false;
   }
 
   /** @type {boolean} */
-  get isHill() {
-    if ( this.region.document.getFlag(MODULE_ID, FLAGS.REGION.TERRAIN.TYPE) !== FLAGS.REGION.TERRAIN.CHOICES.HILL ) return false;
+  get isHill() { return this.region.document.getFlag(MODULE_ID, FLAGS.REGION.TERRAIN.TYPE) === FLAGS.REGION.TERRAIN.CHOICES.HILL; }
 
-    // Confirm data exists (for now).
-    const hillData = this.hillCurve;
-    return hillData && hillData.length !== 0;
-  }
-
-  get hillType() { return this.region.document.getFlag(MODULE_ID, FLAGS.REGION.HILL.TYPE) || FLAGS.REGION.HILL.CHOICES.RIDGE; }
-
-  get hillCurve() { return HillDrawingManager.hillDataForRegion(this.region); }
+  get hillType() { return this.region.document.getFlag(MODULE_ID, FLAGS.REGION.HILL.TYPE) || FLAGS.REGION.HILL.CHOICES.LINEAR; }
 
   /** @type {number} */
   get plateauElevation() { return this.region.document.getFlag(MODULE_ID, FLAGS.REGION.PLATEAU_ELEVATION) || 0; }
@@ -850,7 +847,7 @@ export class RegionElevationHandler {
    * Retrieve the hill polygon for this region, if any.
    */
   hillPolygon(resolution = 20) {
-    const curve = this.hillCurve;
+    const curve = this.hillManager.hillData();
     return HillDrawingManager.generateHillPolygon(curve, resolution);
   }
 
@@ -864,8 +861,8 @@ export class RegionElevationHandler {
   _insertHillIntoCutaway(cutawayPoly, tolerance) {
     tolerance ||= CONFIG[MODULE_ID].polygonCurveTolerance || 1.0;
     const type = this.hillType;
-    const curve = this.hillCurve;
-    if ( !curve ) return cutawayPoly;
+    const normalizedCurve = this.hillManager.hillData();
+    const scaledCurve = this.hillManager.scaleCurveOrientation(HillDrawingManager.duplicateCurve(normalizedCurve));
 
     // Replace the top edge with the curve.
     const edges = [...cutawayPoly.iterateEdges()];
@@ -904,7 +901,7 @@ export class RegionElevationHandler {
         const endXY = cutawayPoly._from2d(edge.b).to2d();
 
         // Precalculate the start and end elevations.
-        const zFn = pt => HillDrawingManager.hillZAtPoint(pt, curve, type);
+        const zFn = pt => this.hillManager._hillZAtPoint(pt, type, normalizedCurve, scaledCurve);
         const zStart = zFn(startXY);
         const zEnd = zFn(endXY);
 
@@ -930,6 +927,8 @@ export class RegionElevationHandler {
 
     cutawayPoly.points = points;
     cutawayPoly.clearCache();
+    Object.values(normalizedCurve).forEach(pt => pt.release());
+    Object.values(scaledCurve).forEach(pt => pt.release());
     return cutawayPoly;
   }
 
@@ -1200,8 +1199,7 @@ export class RegionElevationHandler {
    * @returns {number} Elevation of the hill at this location.
    */
   _hillElevation(waypoint, type = "linear") {
-    const curve = this.hillCurve;
-    const z = HillDrawingManager.hillZAtPoint(waypoint, curve, type);
+    const z = this.hillManager.hillZAtPoint(waypoint, type);
     return Math.round(pixelsToGridUnits(z));
   }
 
