@@ -394,8 +394,9 @@ export class TokenElevationHandler {
 
           // Look for the closest obstacle.
           // Don't go beyond the end plane.
-          const horizon = edge.b.x <= end2d.x || edge.a.x === edge.b.x ? edge.b
-            : tmp1.copyFrom(foundry.utils.lineLineIntersection(edge.a, edge.b, tmp1.set(end2d.x, 1), tmp2.set(end2d.x, -1)));
+          // We know the line is not vertical (see above), so use simple point-slope to get position.
+          const horizon = (edge.b.x <= end2d.x || isVertical) ? edge.b
+            : xIntersectionForNonVerticalLine(edge.a, edge.b, end2d.x);
 
           const closestObstacle = this._closestObstacleAlongSegment(currPosition, horizon, cutawaysSet);
           if ( closestObstacle ) {
@@ -1351,3 +1352,18 @@ function collinearIntersection(a, b, c, d) {
 }
 
 function isOdd(n) { return (n & 1) === 1; }
+
+/**
+ * Use linear interpolation (point-slope) to get a specific intersection point in a|b
+ * @param {PIXI.Point} a
+ * @param {PIXI.Point} b
+ * @param {number} x
+ * @returns {PIXI.Point} The location of x on the line a|b
+ */
+function xIntersectionForNonVerticalLine(a, b, x, outPoint) {
+  outPoint ??= PIXI.Point.tmp;
+  const slope = (b.y - a.y) / (b.x - a.x);
+  const y = a.y + ((x - a.x) * slope);
+  outPoint.set(x, y);
+  return outPoint;
+}
