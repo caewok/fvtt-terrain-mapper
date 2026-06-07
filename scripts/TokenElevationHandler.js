@@ -161,7 +161,7 @@ export class TokenElevationHandler {
     } else floorIntervals.push({ min: 0, max: maxDist2 });
 
     // Create scene floor polygons.
-    const floorCutways = floorIntervals.map(({ min, max }) => CutawayPolygon.fromCutawayPoints([
+    const floorCutaways = floorIntervals.map(({ min, max }) => CutawayPolygon.fromCutawayPoints([
       min, floor,
       max, floor,
       max, -1e06,
@@ -169,7 +169,7 @@ export class TokenElevationHandler {
     ], start, end));
 
     // Create a handler for each cutaway and store for use with the walking algorithm.
-    this.combinedCutaways = [...floorCutways, ...aboveGroundCutaways, ...belowGroundCutaways]
+    this.combinedCutaways = [...floorCutaways, ...aboveGroundCutaways, ...belowGroundCutaways]
       .map(cutPoly => new CutawayHandler(cutPoly));
   }
 
@@ -178,8 +178,8 @@ export class TokenElevationHandler {
 
   constructPath(a, b, { flying, burrowing, walking, initialize = true } = {}) {
     if ( a.equals(b) ) return [a];
-    a.roundDecimals(a);
-    b.roundDecimals(b);
+    a.roundDecimals(1);
+    b.roundDecimals(1);
 
     flying ??= this.flying;
     burrowing ??= this.burrowing;
@@ -1346,4 +1346,4 @@ function collinearIntersection(a, b, c, d) {
   return null; // Fallback.
 }
 
-function isOdd(n) { return n & 1 === 1; }
+function isOdd(n) { return (n & 1) === 1; }
