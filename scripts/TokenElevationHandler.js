@@ -301,8 +301,6 @@ export class TokenElevationHandler {
 
     // Temporary points.
     using currPosition = start2d.clone();
-    using currDirection = this.constructor.DOWN.clone();
-    using prevDirection = this.constructor.DOWN.clone();
     using tmp1 = PIXI.Point.tmp;
     using tmp2 = PIXI.Point.tmp;
 
@@ -344,8 +342,6 @@ export class TokenElevationHandler {
         cutawaysSet.delete(currSurface.cutaway);
         updatePosition(currSurface.ix);
         addCheckpoint();
-        // currSurface.edge.b.subtract(currSurface.edge.a, currDirection); // Handled in for loop.
-        // currDirection.normalize(); // Can skip normalization here.
       }
 
       // Move along the surface until:
@@ -353,26 +349,32 @@ export class TokenElevationHandler {
       // 2. We are moving straight down
       // 3. We are moving to the left (back toward start.)
       // 4. We pass the currT.
+      let wasMovingUp = false;
+
       const surfaceIter = currSurface.cutaway.iterateFromEdge(currSurface.edge);
       for ( const edge of surfaceIter ) {
-        prevDirection.copyFrom(currDirection);
-        edge.b.subtract(edge.a, currDirection);
 
         // Is this edge moving vertically up? If so, ignore obstacles and just move to edge end.
-        const isVertical = currDirection.x.almostEqual(0);
-        if ( isVertical && currDirection.y > 0 ) updatePosition(edge.b);
+        const isVertical = edge.a.x.almostEqual(edge.b.x);
+        const isMovingUp = edge.b.y > edge.a.y;
+        const isMovingBackward = edge.b.x < edge.a.x;
+
+        if ( isVertical && isMovingUp ) {
+          wasMovingUp = isMovingUp;
+          updatePosition(edge.b);
+        }
 
         // Is this edge moving backward (underhang or overhang)?
-        else if ( !isVertical && currDirection.x < 0 ) {
+        else if ( !isVertical && isMovingBackward ) {
           // If we were moving up, keep moving up.
-          if (  prevDirection.x.almostEqual(0) && prevDirection.y > 0 ) {
-            currDirection.copyFrom(prevDirection);
+          if (  wasMovingUp ) {
             currPosition.y = 1e06; // Free fall from top, but only back to this surface.
             const newSurface = this._supportingFloorEdge(currPosition, [currSurface.cutaway]);
             if ( newSurface.cutaway !== currSurface.cutaway ) {
               // Reached top of old surface. Likely due to below ground surface.
               currSurface = newSurface;
               updatePosition(currSurface.ix);
+              wasMovingUp = isMovingUp;
               break;
             }
             updatePosition(currSurface.ix);
@@ -380,6 +382,7 @@ export class TokenElevationHandler {
 
           // Otherwise, fall.
           } else {
+            wasMovingUp = false;
             freeFall();
             break;
           }
@@ -387,6 +390,8 @@ export class TokenElevationHandler {
 
         // This edge is moving forward or vertically straight down.
         else {
+          wasMovingUp = isMovingUp;
+
           // Look for the closest obstacle.
           // Don't go beyond the end plane.
           const horizon = edge.b.x <= end2d.x || edge.a.x === edge.b.x ? edge.b
@@ -397,7 +402,6 @@ export class TokenElevationHandler {
             cutawaysSet.add(currSurface.cutaway)
             cutawaysSet.delete(closestObstacle.cutaway);
             currSurface = closestObstacle;
-            currSurface.edge.b.subtract(currSurface.edge.a, currDirection);
             updatePosition(closestObstacle.ix);
             break; // Moving to new surface.
           }
