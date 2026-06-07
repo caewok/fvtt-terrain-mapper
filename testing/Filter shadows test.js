@@ -103,27 +103,11 @@ function generateHillNormalMap(region, steepness = 2.5) {
 class HillShaderFilter extends PIXI.Filter {
   constructor(normalMapTexture) {
     // Default PIXI vertex shader
-    const vertexSrc = `
-      attribute vec2 aVertexPosition;
-      attribute vec2 aTextureCoord;
-
-      uniform mat3 projectionMatrix;
-      uniform mat3 filterMatrix; // From PIXI.
-
-      varying vec2 vTextureCoord; // Screen-clamped space.
-      varying vec2 vFilterCoord; // Unclamped, stable map space.
-
-      void main(void) {
-        gl_Position = vec4((projectionMatrix * vec3(aVertexPosition, 1.0)).xy, 0.0, 1.0);
-        vTextureCoord = aTextureCoord;
-        vFilterCoord = (filterMatrix * vec3(aTextureCoord, 1.0)).xy;
-      }
-    `;
+    const vertexSrc = PIXI.Filter.defaultVertexSrc;
 
     // Custom Fragment Shader
     const fragmentSrc = `
       varying vec2 vTextureCoord;
-      varying vec2 vFilterCoord;
 
       uniform sampler2D uSampler;     // The underlying map texture
       uniform sampler2D uNormalMap;   // Our generated normal map
@@ -131,37 +115,23 @@ class HillShaderFilter extends PIXI.Filter {
       uniform vec3 uLightColor;       // The color of the sun
       uniform vec3 uAmbientColor;     // Base shadow color
 
-      // Coordinates mapping the region bounding box inside the whole map.
-      uniform vec2 uRegionUVOffset;
-      uniform vec2 uRegionUVScale;
-
       void main(void) {
         // Sample the original map pixel
         vec4 baseColor = texture2D(uSampler, vTextureCoord);
 
+        // Sample the normal map directly using the native texture coordinates
+        vec4 normalColor = texture2D(uNormalMap, vTextureCoord);
 
-        // Translate the stable map UV coordinate down to our region's isolated normal map UV space
-        vec2 uvNormal = (vFilterCoord - uRegionUVOffset) / uRegionUVScale;
+        // Unpack RGB [0.0, 1.0] to a 3D surface normal vector [-1.0, 1.0]
+        vec3 normal = normalize(normalColor.rgb * 2.0 - 1.0);
 
-        // Default to a perfectly flat surface vector pointing straight up (no shadow adjustment)
-        vec3 normal = vec3(0.0, 0.0, 1.0);
-        gl_FragColor = vec4(normal, 0.5);
-
-        // Only sample the normal map if we are within the boundaries of the region bounding box
-        if (uvNormal.x >= 0.0 && uvNormal.x <= 1.0 && uvNormal.y >= 0.0 && uvNormal.y <= 1.0) {
-          vec4 normalColor = texture2D(uNormalMap, uvNormal);
-          gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
-          normal = normalize(normalColor.rgb * 2.0 - 1.0);
-        }
-        /*
-        // Calculate stable diffuse lighting
+        // Standard Lambertian lighting calculations
         float diff = max(dot(normal, normalize(uLightDirection)), 0.0);
         vec3 diffuse = diff * uLightColor;
 
+        // Combine and output the final pixel color
         vec3 finalLighting = uAmbientColor + diffuse;
         gl_FragColor = vec4(baseColor.rgb * finalLighting, baseColor.a);
-        */
-
       }
     `;
 
@@ -177,9 +147,6 @@ class HillShaderFilter extends PIXI.Filter {
 
       // Default: 40% ambient brightness for shadows
       uAmbientColor: new Float32Array([0.4, 0.4, 0.4]),
-
-      uRegionUVOffset: new Float32Array([0.0, 0.0]),
-      uRegionUVScale: new Float32Array([1.0, 1.0]),
     });
   }
 
@@ -221,34 +188,24 @@ function applyPhotorealisticHill(hillContainer, region) {
 
     if ( primaryBg.anchor ) bgSprite.anchor.copyFrom(primaryBg.anchor);
 
-    // Calculate where the region lives inside the world map asset (0.0 to 1.0 scale)
-    const mapWidth = primaryBg.width;
-    const mapHeight = primaryBg.height;
-
-    const uvX = region.bounds.left / mapWidth;
-    const uvY = region.bounds.top / mapHeight;
-    const uvW = region.bounds.width / mapWidth;
-    const uvH = region.bounds.height / mapHeight;
-
-    // Inject the layout metrics into the shader uniforms
-    lightingFilter.uniforms.uRegionUVOffset = new Float32Array([uvX, uvY]);
-    lightingFilter.uniforms.uRegionUVScale = new Float32Array([uvW, uvH]);
-
     // Apply the WebGL shader to the sprite
-    bgSprite.filters = [lightingFilter];
+    // bgSprite.filters = [lightingFilter]; // Apply instead on the main container.
+
     hillContainer.addChild(bgSprite);
   }
 
-  // 4. Mask to Region
+  // Mask to Region
   const mask = new PIXI.Graphics();
   mask.beginFill(0xFFFFFF);
   region.document.polygons.forEach(poly => mask.drawShape(poly));
   mask.endFill();
-
   hillContainer.addChild(mask);
   hillContainer.mask = mask;
 
-  // 5. Store the filter reference to update it dynamically during dragging
+  // Apply filters directly to the localized container.
+  hillContainer.filters = [lightingFilter];
+
+  // Store the filter reference to update it dynamically during dragging
   return lightingFilter;
 }
 
