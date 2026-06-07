@@ -314,12 +314,9 @@ export class TokenElevationHandler {
       currSurface = undefined;
     };
 
-    let lastCheckpoint = start2d.constructor.tmp;
     const addCheckpoint = () => {
-      if ( !lastCheckpoint.almostEqual(currPosition) ) {
-        lastCheckpoint = currPosition.clone();
-        checkpoints.push(lastCheckpoint.roundDecimals(2));
-      }
+      const lastCheckpoint = checkpoints.at(-1);
+      if ( !(last && lastCheckpoint.almostEqual(currPosition)) ) checkpoints.push(lastCheckpoint.roundDecimals(2));
     };
 
     const updatePosition = newPosition => currPosition.copyFrom(newPosition);
