@@ -419,9 +419,15 @@ export class TokenElevationHandler {
   #adjustEndpoint(waypoints, end2d) {
     // Confirm where the endpoint is located in the final edge.
     if ( waypoints.length < 2 ) return waypoints;
-    const a = waypoints.at(-2);
-    const b = waypoints.at(-1);
-    if ( a.almostEqual(b) ) throw Error("_constructWalkingPath returned duplicate end waypoints.");
+
+    let a = waypoints.at(-2);
+    let b = waypoints.at(-1);
+    if ( a.almostEqual(b) ) {
+      console.warn("_constructWalkingPath returned duplicate end waypoints.", {...waypoints});
+      waypoints.pop();
+      a = waypoints.at(-2);
+      b = waypoints.at(-1);
+    }
 
     // Determine where end2d lies in relation to the last move segment.
     const newEnd = foundry.utils.closestPointToSegment(end2d, a, b);
