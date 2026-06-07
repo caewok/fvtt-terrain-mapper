@@ -239,7 +239,7 @@ function traceCutoutPath(start, end, startToken) {
 
 
 startToken = canvas.tokens.placeables.find(t => t.name === "Randal")
-endToken = canvas.tokens.placeables.find(t => t.name === "Riswynn")
+endToken = canvas.tokens.placeables.find(t => t.name === "Krusk")
 
 start = GridCoordinates3d.fromTokenCenter(startToken)
 end = GridCoordinates3d.fromTokenCenter(endToken)
@@ -281,6 +281,7 @@ duplicateCurve = curve => {
 
 region = canvas.regions.controlled[0]
 regionTM = region.terrainmapper
+regionHM = region.terrainmapper.hillManager
 regionPoly = region.document.polygons[0]
 opts = regionTM.#cutawayOptionFunctions()
 cutawayPoly = regionPoly.cutaway(start, end, opts)[0]
