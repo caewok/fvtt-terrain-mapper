@@ -161,7 +161,7 @@ export class TokenElevationHandler {
     } else floorIntervals.push({ min: 0, max: maxDist2 });
 
     // Create scene floor polygons.
-    const floorCutways = floorIntervals.map(({ min, max }) => CutawayPolygon.fromCutawayPoints([
+    const floorCutaways = floorIntervals.map(({ min, max }) => CutawayPolygon.fromCutawayPoints([
       min, floor,
       max, floor,
       max, -1e06,
@@ -169,7 +169,7 @@ export class TokenElevationHandler {
     ], start, end));
 
     // Create a handler for each cutaway and store for use with the walking algorithm.
-    this.combinedCutaways = [...floorCutways, ...aboveGroundCutaways, ...belowGroundCutaways]
+    this.combinedCutaways = [...floorCutaways, ...aboveGroundCutaways, ...belowGroundCutaways]
       .map(cutPoly => new CutawayHandler(cutPoly));
   }
 
@@ -178,8 +178,8 @@ export class TokenElevationHandler {
 
   constructPath(a, b, { flying, burrowing, walking, initialize = true } = {}) {
     if ( a.equals(b) ) return [a];
-    a.roundDecimals(a);
-    b.roundDecimals(b);
+    a.roundDecimals(1);
+    b.roundDecimals(1);
 
     flying ??= this.flying;
     burrowing ??= this.burrowing;
@@ -301,8 +301,6 @@ export class TokenElevationHandler {
 
     // Temporary points.
     using currPosition = start2d.clone();
-    using currDirection = this.constructor.DOWN.clone();
-    using prevDirection = this.constructor.DOWN.clone();
     using tmp1 = PIXI.Point.tmp;
     using tmp2 = PIXI.Point.tmp;
 
@@ -316,12 +314,10 @@ export class TokenElevationHandler {
       currSurface = undefined;
     };
 
-    let lastCheckpoint = start2d.constructor.tmp;
     const addCheckpoint = () => {
-      if ( !lastCheckpoint.almostEqual(currPosition) ) {
-        lastCheckpoint = currPosition.clone();
-        checkpoints.push(lastCheckpoint.roundDecimals(2));
-      }
+      const lastCheckpoint = checkpoints.at(-1);
+      if ( !(lastCheckpoint
+          && lastCheckpoint.almostEqual(currPosition)) ) checkpoints.push(currPosition.clone().roundDecimals(2));
     };
 
     const updatePosition = newPosition => currPosition.copyFrom(newPosition);
@@ -344,8 +340,6 @@ export class TokenElevationHandler {
         cutawaysSet.delete(currSurface.cutaway);
         updatePosition(currSurface.ix);
         addCheckpoint();
-        // currSurface.edge.b.subtract(currSurface.edge.a, currDirection); // Handled in for loop.
-        // currDirection.normalize(); // Can skip normalization here.
       }
 
       // Move along the surface until:
@@ -353,26 +347,32 @@ export class TokenElevationHandler {
       // 2. We are moving straight down
       // 3. We are moving to the left (back toward start.)
       // 4. We pass the currT.
+      let wasMovingUp = false;
+
       const surfaceIter = currSurface.cutaway.iterateFromEdge(currSurface.edge);
       for ( const edge of surfaceIter ) {
-        prevDirection.copyFrom(currDirection);
-        edge.b.subtract(edge.a, currDirection);
 
         // Is this edge moving vertically up? If so, ignore obstacles and just move to edge end.
-        const isVertical = currDirection.x.almostEqual(0);
-        if ( isVertical && currDirection.y > 0 ) updatePosition(edge.b);
+        const isVertical = edge.a.x.almostEqual(edge.b.x);
+        const isMovingUp = edge.b.y > edge.a.y;
+        const isMovingBackward = edge.b.x < edge.a.x;
+
+        if ( isVertical && isMovingUp ) {
+          wasMovingUp = isMovingUp;
+          updatePosition(edge.b);
+        }
 
         // Is this edge moving backward (underhang or overhang)?
-        else if ( !isVertical && currDirection.x < 0 ) {
+        else if ( !isVertical && isMovingBackward ) {
           // If we were moving up, keep moving up.
-          if (  prevDirection.x.almostEqual(0) && prevDirection.y > 0 ) {
-            currDirection.copyFrom(prevDirection);
+          if (  wasMovingUp ) {
             currPosition.y = 1e06; // Free fall from top, but only back to this surface.
             const newSurface = this._supportingFloorEdge(currPosition, [currSurface.cutaway]);
             if ( newSurface.cutaway !== currSurface.cutaway ) {
               // Reached top of old surface. Likely due to below ground surface.
               currSurface = newSurface;
               updatePosition(currSurface.ix);
+              wasMovingUp = isMovingUp;
               break;
             }
             updatePosition(currSurface.ix);
@@ -380,6 +380,7 @@ export class TokenElevationHandler {
 
           // Otherwise, fall.
           } else {
+            wasMovingUp = false;
             freeFall();
             break;
           }
@@ -387,17 +388,19 @@ export class TokenElevationHandler {
 
         // This edge is moving forward or vertically straight down.
         else {
+          wasMovingUp = isMovingUp;
+
           // Look for the closest obstacle.
           // Don't go beyond the end plane.
-          const horizon = edge.b.x <= end2d.x || edge.a.x === edge.b.x ? edge.b
-            : tmp1.copyFrom(foundry.utils.lineLineIntersection(edge.a, edge.b, tmp1.set(end2d.x, 1), tmp2.set(end2d.x, -1)));
+          // We know the line is not vertical (see above), so use simple point-slope to get position.
+          const horizon = (edge.b.x <= end2d.x || isVertical) ? edge.b
+            : xIntersectionForNonVerticalLine(edge.a, edge.b, end2d.x);
 
           const closestObstacle = this._closestObstacleAlongSegment(currPosition, horizon, cutawaysSet);
           if ( closestObstacle ) {
             cutawaysSet.add(currSurface.cutaway)
             cutawaysSet.delete(closestObstacle.cutaway);
             currSurface = closestObstacle;
-            currSurface.edge.b.subtract(currSurface.edge.a, currDirection);
             updatePosition(closestObstacle.ix);
             break; // Moving to new surface.
           }
@@ -1346,4 +1349,19 @@ function collinearIntersection(a, b, c, d) {
   return null; // Fallback.
 }
 
-function isOdd(n) { return n & 1 === 1; }
+function isOdd(n) { return (n & 1) === 1; }
+
+/**
+ * Use linear interpolation (point-slope) to get a specific intersection point in a|b
+ * @param {PIXI.Point} a
+ * @param {PIXI.Point} b
+ * @param {number} x
+ * @returns {PIXI.Point} The location of x on the line a|b
+ */
+function xIntersectionForNonVerticalLine(a, b, x, outPoint) {
+  outPoint ??= PIXI.Point.tmp;
+  const slope = (b.y - a.y) / (b.x - a.x);
+  const y = a.y + ((x - a.x) * slope);
+  outPoint.set(x, y);
+  return outPoint;
+}
