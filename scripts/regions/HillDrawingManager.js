@@ -1,5 +1,6 @@
 /* globals
 canvas,
+CONFIG,
 foundry,
 PIXI,
 */
@@ -205,6 +206,8 @@ export class HillDrawingManager {
     end: "start",
     cp1: "cp2",
     cp2: "cp1",
+    left: "right",
+    right: "left",
   };
 
   /** @type {object<string>} */
@@ -213,6 +216,8 @@ export class HillDrawingManager {
     end: "circle",
     cp1: "square",
     cp2: "square",
+    left: "triangle",
+    right: "triangle",
   };
 
   /** @type {object<Hex>} */
@@ -221,6 +226,8 @@ export class HillDrawingManager {
     end: Draw.COLORS.red,
     cp1: Draw.COLORS.blue,
     cp2: Draw.COLORS.blue,
+    left: Draw.COLORS.orange,
+    right: Draw.COLORS.orange,
   };
 
   /**
@@ -234,7 +241,7 @@ export class HillDrawingManager {
     event.stopPropagation();
     this.#activeHandle = handle;
     handle.alpha = this.constructor.DRAG_ALPHA; // Visual feedback for dragging.
-    this._drawBounds();
+    if ( handle.name === "left" || handle.name === "right" ) this._drawBounds();
   }
 
   /**
@@ -279,7 +286,7 @@ export class HillDrawingManager {
     handle.x = newPosition.x;
     handle.y = newPosition.y;
     this._updateCurveData();
-    this._drawBounds();
+
   }
 
   /**
@@ -304,7 +311,6 @@ export class HillDrawingManager {
     const curveData = this.#curveData;
     for ( const key of Object.keys(this.handles) ) curveData[key].copyFrom(this.handles[key]);
     this._drawCurve();
-    this._drawBounds();
   }
 
   /**
@@ -322,7 +328,8 @@ export class HillDrawingManager {
     const handle = new PIXI.Graphics;
     let obj;
     switch ( shape ) {
-      case "square": obj = new PIXI.Rectangle(-4, -4, 8, 8); break;
+      case "square": obj = new PIXI.Rectangle(-5, -5, 10, 10); break;
+      case "triangle": obj = new PIXI.Polygon(-8, 8, 0, -8, 8, 8); break;
       default: obj = new PIXI.Circle(0, 0, 8);
     }
     const draw = new Draw(handle);
@@ -347,23 +354,44 @@ export class HillDrawingManager {
     const center = this.region.center;
     const bounds = this.region.bounds;
     const diameter = Math.hypot(bounds.width, bounds.height);
+    const radius = diameter * 0.5;
     const draw = new Draw(this.boundsGraphics);
     draw.clearDrawings();
-    draw.shape(new PIXI.Circle(center.x, center.y, diameter * 0.5), { width: 2, color: Draw.COLORS.brown, alpha: 0.3, fill: Draw.COLORS.brown, fillAlpha: 0.1 });
-      // width: 2, color: Draw.COLORS.brown, fill: Draw.COLORS.brown, alpha: 0.2, fillAlpha: 0.2 });
+    draw.shape(new PIXI.Circle(center.x, center.y, radius), { width: 2, color: Draw.COLORS.brown, alpha: 0.3, fill: Draw.COLORS.brown, fillAlpha: 0.1 });
+
+    // Draw center and axis.
+    using left = PIXI.Point.tmp.set(center.x - radius, center.y);
+    using right = PIXI.Point.tmp.set(center.x + radius, center.y);
+    using top = PIXI.Point.tmp.set(center.x, center.y - radius);
+    using bottom = PIXI.Point.tmp.set(center.x, center.y + radius);
+    draw.segment({ a: left, b: right }, { width: 2, color: Draw.COLORS.brown, alpha: 0.3, dashLength: 5, gapLength: 1 });
+    draw.segment({ a: top, b: bottom }, { width: 2, color: Draw.COLORS.brown, alpha: 0.3, dashLength: 5, gapLength: 1 });
+    draw.star(center, { radius: 4, color: Draw.COLORS.brown, alpha: 0.3 });
   }
 
   /**
    * Render the Bézier curve and the visual control lines connecting the points.
    */
   _drawCurve() {
-    const { start, cp1, cp2, end } = this.#curveData ??= this.curve;
+    const { start, cp1, cp2, end, left, right } = this.#curveData ??= this.curve;
     const draw = new Draw(this.curveGraphics);
     draw.clearDrawings();
 
     // Draw thin lines to the control points.
     draw.segment({ a: start, b: cp1 }, { width: 2, color: Draw.COLORS.gray, alpha: 0.5 });
     draw.segment({ a: end, b: cp2 }, { width: 2, color: Draw.COLORS.gray, alpha: 0.5 });
+
+    // Draw the "floor" for the curve.
+    const center = this.region.center;
+    using baseStart = PIXI.Point.tmp.set(start.x, center.y);
+    using baseEnd = PIXI.Point.tmp.set(end.x, center.y);
+    draw.segment({ a: baseStart, b: baseEnd },
+      { width: 2, color: Draw.COLORS.green, alpha: 0.5, dashLength: 5, gapLength: 2 });
+
+    // Draw the orientation line for the curve.
+    using lrCenter = PIXI.Point.midPoint(left, right)
+    draw.segment({ a: left, b: right }, { width: 4, color: Draw.COLORS.orange, alpha: 1 });
+    draw.point(lrCenter, { radius: 6, color: Draw.COLORS.orange, alpha: 1, fill: Draw.COLORS.orange  });
 
     // Draw the main curve.
     draw.curve(start, cp1, cp2, end, { width: 4, color: Draw.COLORS.green, alpha: 1 });
@@ -378,18 +406,26 @@ export class HillDrawingManager {
     const bounds = region.bounds;
     const center = region.center;
 
-    // Take the horizontal bounds length.
+    // Orientation
+    // Use horizontal bounds length.
     // Could take the diameter of the encompassing circle, but for most templates that would
     // appear too large.
     const diameter = bounds.width;
     const radius = diameter * 0.5;
-    const start = PIXI.Point.tmp.set(center.x - radius, center.y);
-    const end = PIXI.Point.tmp.set(center.x + radius, center.y);
+    const left = PIXI.Point.tmp.set(center.x - radius, center.y);
+    const right = PIXI.Point.tmp.set(center.x + radius, center.y);
+
+    // Use a slightly smaller diameter for start/end so those controls are not on top of the left/right.
+    const seDiameter = diameter * 0.9;
+    const seRadius = seDiameter * 0.5;
+    const start = PIXI.Point.tmp.set(center.x - seRadius, center.y);
+    const end = PIXI.Point.tmp.set(center.x + seRadius, center.y);
 
     // Space the control points evenly along the flat line.
-    const cp1 = PIXI.Point.tmp.set(start.x + (diameter / 3), center.y);
-    const cp2 = PIXI.Point.tmp.set(start.x + (diameter * 2 / 3), center.y);
-    return { start, end, cp1, cp2 };
+    const cp1 = PIXI.Point.tmp.set(start.x + (seDiameter / 3), center.y);
+    const cp2 = PIXI.Point.tmp.set(start.x + (seDiameter * 2 / 3), center.y);
+
+    return { start, end, cp1, cp2, left, right };
   }
 
   /**
@@ -398,6 +434,10 @@ export class HillDrawingManager {
    * @prop {PIXI.Point} cp1
    * @prop {PIXI.Point} cp2
    * @prop {PIXI.Point} end
+   *
+   * Optional orientation:
+   * @prop {PIXI.Point} [left]      Where the hill starts on the 2d canvas.
+   * @prop {PIXI.Point} [right]     Where the hill ends on the 2d canvas.
    */
 
   /**
@@ -407,13 +447,20 @@ export class HillDrawingManager {
    */
   static _unadjustedHillDataForRegion(region) {
     const hillData = region.document.getFlag(MODULE_ID, FLAGS.REGION.HILL.CURVE);
-    if ( !hillData || !hillData.length === 8 ) return null;
+    if ( !hillData ) return null;
+    if ( hillData.length !== 12 ) return null;
 
+    // Shape of the curve.
     const start = PIXI.Point.tmp.set(hillData[0], hillData[1]);
     const cp1 = PIXI.Point.tmp.set(hillData[2], hillData[3])
     const cp2 = PIXI.Point.tmp.set(hillData[4], hillData[5])
     const end = PIXI.Point.tmp.set(hillData[6], hillData[7]);
-    return { start, cp1, cp2, end };
+
+    // Orientation of the hill.
+    const left = PIXI.Point.tmp.set(hillData[8], hillData[9]);
+    const right = PIXI.Point.tmp.set(hillData[10], hillData[11]);
+
+    return { start, cp1, cp2, end, left, right };
   }
 
   /**
@@ -422,8 +469,14 @@ export class HillDrawingManager {
    * @param {BézierCurve} curve
    */
   static async saveHillDataForRegion(region, curveData) {
-    const { start, end, cp1, cp2 } = curveData;
-    const curveArray = [start.x, start.y, cp1.x, cp1.y, cp2.x, cp2.y, end.x, end.y];
+    const { start, end, cp1, cp2, left, right } = curveData;
+    const curveArray = [
+      start.x, start.y,
+      cp1.x, cp1.y,
+      cp2.x, cp2.y,
+      end.x, end.y,
+      left.x, left.y,
+      right.x, right.y];
     await region.document.setFlag(MODULE_ID, FLAGS.REGION.HILL.CURVE, curveArray);
   }
 
@@ -611,7 +664,7 @@ export class HillDrawingManager {
    * @returns {number} Z height or 0 if outside the radius of the curve.
    */
   static hillZAtPoint(pt, curve, type = "linear") {
-    const { start, cp1, cp2, end } = curve;
+    const { start, cp1, cp2, end, left, right } = curve;
 
     // Center of the hill.
 
