@@ -182,6 +182,26 @@ Hooks.once("ready", () => {
                 `
         })
 
+        .addEntry({
+            version: "14.0.1",
+            title: "King of the Hill",
+            body: `\
+                This version adds a new control to the region controls that allows the GM to define
+                a Bézier curve for the region. That curve represents a elevated hill shape.
+
+                To enable the hill once you define the curve, go to the TM tab in the region configuration.
+                Select "Hill" as the terrain type. Elevation defines the peak of the hill. Hill Type
+                defines how the curve is applied to the 2d region:
+                1. Linear. All lines parallel to the curve line use the same curve.
+                2. Ridge. The curve line defines the peak elevation in the region. Moving perpendicular
+                   to the ridge line decreases elevation proportionally.
+                3. Symmetrical: The curve line is mirrored in a circle around the center point.
+
+                Note: double-click a curve control point to reset it. Shift-drag a control point
+                to move them in pairs.
+                `
+        })
+
         .build()
         ?.render(true);
 });
