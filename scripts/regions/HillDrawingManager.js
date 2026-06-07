@@ -163,6 +163,7 @@ export class HillDrawingManager {
       handle.on("globalpointermove", this._onDragMove.bind(this));
       handle.on("pointerup", this._onDragEnd.bind(this));
       handle.on("pointerup", this._onDragEnd.bind(this));
+      handle.on("pointerupoutside", this._onDragEnd.bind(this)); // Capture releases outside the handle.
     }
 
     this.#initialized = true;
@@ -186,15 +187,18 @@ export class HillDrawingManager {
 
   // ----- NOTE: User Interaction ----- //
 
+  /** @type {number} */
   static DRAG_ALPHA = 0.5;
 
+  /** @type {number} */
   static HANDLE_ALPHA = 1.0;
 
-  #dragging = false;
+  /** @type {PIXI.Graphics|null} */
+  #activeHandle = null;
 
   /**
    * Keys to move curve controls in pairs.
-   * @typedef {object<string>}
+   * @type {object<string>}
    */
   static HANDLE_PAIR = {
     start: "end",
@@ -224,11 +228,11 @@ export class HillDrawingManager {
    * @param {InteractionEvent} event
    */
   _onDragStart(event) {
-    const handle = event.target;
+    const handle = event.currentTarget;
     if ( !handle.name ) return;
 
     event.stopPropagation();
-    this.#dragging = true;
+    this.#activeHandle = handle;
     handle.alpha = this.constructor.DRAG_ALPHA; // Visual feedback for dragging.
     this._drawBounds();
   }
@@ -257,11 +261,10 @@ export class HillDrawingManager {
    * @param {InteractionEvent} event
    */
   _onDragMove(event) {
-    if ( !this.#dragging ) return;
-    const handle = event.target;
-    if ( !handle.name ) return;
+    if ( !this.#activeHandle ) return;
     event.stopPropagation();
 
+    const handle = this.#activeHandle;
     const handleKey = handle.name;
     const newPosition = handle.parent.toLocal(event.global);
 
@@ -284,12 +287,11 @@ export class HillDrawingManager {
    * @param {InteractionEvent} event
    */
   _onDragEnd(event) {
-    if ( !this.#dragging ) return;
-    const handle = event.target;
-    if ( !handle.name ) return;
+    if ( !this.#activeHandle ) return;
     event.stopPropagation();
 
-    this.#dragging = false;
+    const handle = this.#activeHandle;
+    this.#activeHandle = null;
     handle.alpha = this.constructor.HANDLE_ALPHA;
     this._saveCurveData();
     this.boundsGraphics.clear();
@@ -367,6 +369,7 @@ export class HillDrawingManager {
     draw.curve(start, cp1, cp2, end, { width: 4, color: Draw.COLORS.green, alpha: 1 });
   }
 
+  // ----- NOTE: Curve calculation ----- //
 
   /**
    * Flat baseline curve across a region's x-axis. Passing through center.
@@ -560,6 +563,8 @@ export class HillDrawingManager {
     return this.scaleCurvePerpendicular(curve, scaleFactor);
   }
 
+  // ----- NOTE: Curve polygon ----- //
+
   /**
    * Create a polygon representing the vertical cut of the hill.
    * @param {BézierCurve} curve
@@ -592,6 +597,8 @@ export class HillDrawingManager {
     const points = [curve.start, ...subdivideCurve(curve, tolerance)];
     return new PIXI.Polygon(points);
   }
+
+  // ----- NOTE: Curve elevation ----- //
 
   /**
    * Get the z value for a 2d point based on a Bézier hill profile.
