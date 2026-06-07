@@ -316,7 +316,8 @@ export class TokenElevationHandler {
 
     const addCheckpoint = () => {
       const lastCheckpoint = checkpoints.at(-1);
-      if ( !(last && lastCheckpoint.almostEqual(currPosition)) ) checkpoints.push(lastCheckpoint.roundDecimals(2));
+      if ( !(lastCheckpoint
+          && lastCheckpoint.almostEqual(currPosition)) ) checkpoints.push(currPosition.clone().roundDecimals(2));
     };
 
     const updatePosition = newPosition => currPosition.copyFrom(newPosition);
