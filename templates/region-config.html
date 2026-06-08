@@ -1,4 +1,7 @@
 <section class="tab region-{{tab.id}} flexcol {{tab.cssClass}}" data-tab="terrainmapper" data-group="{{tab.group}}">
+
+  <p class="hint">{{ localize "terrainmapper.region-config.header" }}</p>
+
   <!-- Select type of elevation -->
   <div class="form-group">
     <label for="terrainmapper.shapes">{{ localize "terrainmapper.region-config.algorithm.name" }}</label>
@@ -27,6 +30,7 @@
       <div class="form-fields">
         <input type="number" id="terrainmapperrampfloor" name="flags.terrainmapper.rampFloor" class="terrainmapper" step="1" value={{ source.flags.terrainmapper.rampFloor }}>
       </div>
+      <p class="hint">{{ localize "terrainmapper.region-config.rampFloor.hint" }}</p>
     </div>
 
     <!-- Determine ramp direction -->
