@@ -3,6 +3,7 @@
   "terrainmapper.controls.fill-by-grid.name": "Fill by grid",
   "terrainmapper.controls.fill-by-los.name": "Fill by line-of-sight",
   "terrainmapper.controls.fill-space.name": "Fill space enclosed by walls",
+  "terrainmapper.controls.draw-hill.name": "Terrain Mapper Hill",
 
   "terrainmapper.scene-config.backgroundElevation.name": "Background Elevation",
   "terrainmapper.scene-config.backgroundElevation.hint": "The default elevation for tokens placed on the canvas.",
@@ -10,25 +11,28 @@
   "terrainmapper.scene-config.constrainElevation.name": "Constrain Elevation",
   "terrainmapper.scene-config.constrainElevation.hint": "When enabled, limit vertical token movement based on terrain and movement type.",
 
-  "terrainmapper.region-config.algorithm.name": "Region Elevation Shape",
-  "terrainmapper.region-config.algorithm.hint": "Define the 'ground' elevation for a region. Tokens entering the region will move to the defined ground elevation; tokens leaving the region will 'fall' back to the scene elevation unless flying.'None' is the Foundry default. 'Plateau' uses a single 'highest elevation.' Ramp applies a slope starting at the lowest elevation and moving up to the highest elevation in the given direction.",
+  "terrainmapper.region-config.header": "Define a physical elevated shape for this region, causing tokens to change elevation according to the shape's elevation characteristics.",
+
+  "terrainmapper.region-config.algorithm.name": "Terrain Shape",
+  "terrainmapper.region-config.algorithm.hint": "None: Foundry default; no shape. | Plateau: Single elevation for the region. | Ramp: Move from low to high elevation in single direction | Hill: Curved shape defined by the Hill region control.",
 
   "terrainmapper.region-config.plateauElevation.name": "Highest Elevation",
-  "terrainmapper.region-config.plateauElevation.hint": "Defines the ground level for a plateau or the topmost elevation of a ramp.",
+  "terrainmapper.region-config.plateauElevation.hint": "The terrain shape does not exceed this height.",
 
-  "terrainmapper.region-config.rampFloor.name": "Ramp: Lowest Elevation",
+  "terrainmapper.region-config.hillType.name": "Hill Type",
+  "terrainmapper.region-config.hillType.hint": "Linear: Lines parallel to the orange hill orientation line share the same elevation. | Ridge: Moving perpendicular to the orange hill orientation line causes the token to fall off in elevation proportionally. | Symmetrical: Hill start point is at the orange hill orientation line center; hill end point is at circumference.",
 
-  "terrainmapper.region-config.rampDirection.name": "Ramp: Direction",
+  "terrainmapper.region-config.rampFloor.name": "Lowest Elevation",
+  "terrainmapper.region-config.rampFloor.hint": "Ramp starts at this elevation and moves up.",
+
+  "terrainmapper.region-config.rampDirection.name": "Direction",
   "terrainmapper.region-config.rampDirection.hint": "0º is due south; 90º is due west.",
 
-  "terrainmapper.region-config.rampStepSize.name": "Ramp: Step Size",
-  "terrainmapper.region-config.rampStepSize.hint": "How tall, in grid units, to make each step of the ramp. The number of steps will be automatically determined based on this value. If set to 0, the ramp will approximate a smooth incline.",
+  "terrainmapper.region-config.rampStepSize.name": "Step Size",
+  "terrainmapper.region-config.rampStepSize.hint": "How tall to make each step of the ramp. If set to 0, the ramp will approximate a smooth incline.",
 
-  "terrainmapper.region-config.splitPolygons.name": "Ramp: Separate Polygons",
-  "terrainmapper.region-config.splitPolygons.hint": "When enabled, each non-hole region polygon will be their own ramp, from lowest to highest elevation. When disabled, all non-hole polygons are considered one ramp, defined by their combined bounds.",
-
-  "terrainmapper.region-config.wallRestrictions.name": "Wall Restriction Types",
-  "terrainmapper.region-config.wallRestrictions.hint": "When enabled, the region will act like a wall, blocking the selected type(s) of sources. 'Physical Cover' is meant to allow modules to treat the region like physical cover without actually blocking token movement.",
+  "terrainmapper.region-config.splitPolygons.name": "Separate Polygons",
+  "terrainmapper.region-config.splitPolygons.hint": "When enabled, each shape in this region will have a distinct terrain shape. When disabled, all shapes will comprise one terrain shape.",
 
   "terrainmapper.tile-config.isFloor.name": "Treat as Floor",
   "terrainmapper.tile-config.isFloor.hint": "",
@@ -74,7 +78,12 @@
   "terrainmapper.elevationAlgorithm.labels.oneWay": "One-Way Stairs",
   "terrainmapper.elevationAlgorithm.labels.plateau": "Plateau / Mesa",
   "terrainmapper.elevationAlgorithm.labels.ramp": "Ramp / Steps",
+  "terrainmapper.elevationAlgorithm.labels.hill": "Hill",
   "terrainmapper.elevationAlgorithm.labels.stairs": "Two-Way Stairs",
+
+  "terrainmapper.hillType.labels.linear": "Linear",
+  "terrainmapper.hillType.labels.ridge": "Ridge",
+  "terrainmapper.hillType.labels.symmetrical": "Symmetrical",
 
   "terrainmapper.phrases.terrainLayer": "Terrain Layer",
   "terrainmapper.phrases.terrain": "Terrain",
