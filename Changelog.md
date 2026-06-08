@@ -5,7 +5,7 @@ Added hill terrain type to the configuration.
 Added hill type to permit 3 different types of interpretations for translating the curve to the 2d region surface:
 - linear (along a single direction; parallel lines in the region share the same curve)
 - ridge (curve defines a ridge; hill slopes downward proportionally in directions normal to the ridge)
-- symmetrical (half curve is mirrored in a circle)
+- symmetrical (curve is mirrored in a circle)
 
 ### Other fixes
 Improve walking path algorithm. Remove dependence on ClipperJS, even for underground terrain.
