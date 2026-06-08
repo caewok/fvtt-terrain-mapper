@@ -7,7 +7,7 @@ Added hill type to permit 3 different types of interpretations for translating t
 - ridge (curve defines a ridge; hill slopes downward proportionally in directions normal to the ridge)
 - symmetrical (half curve is mirrored in a circle)
 
-#### Other fixes
+### Other fixes
 Improve walking path algorithm. Remove dependence on ClipperJS, even for underground terrain.
 Region config tab now hides unneeded settings when switching between terrain types.
 Update libGeometry to v0.6.1.
