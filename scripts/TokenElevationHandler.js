@@ -301,8 +301,6 @@ export class TokenElevationHandler {
 
     // Temporary points.
     using currPosition = start2d.clone();
-    using tmp1 = PIXI.Point.tmp;
-    using tmp2 = PIXI.Point.tmp;
 
     const checkpoints = [];
     let currSurface = undefined;

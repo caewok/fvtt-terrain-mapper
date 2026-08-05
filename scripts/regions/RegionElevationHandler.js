@@ -18,7 +18,7 @@ import { gridUnitsToPixels, pixelsToGridUnits, cutaway } from "../geometry/util.
 import { AABB3d } from "../geometry/3d/AABB3d.js";
 import { almostGreaterThan, almostLessThan, almostBetween } from "../geometry/util.js";
 import { HillDrawingManager } from "./HillDrawingManager.js";
-
+import { RegionGeometry } from "../geometry/placeable_geometry/RegionGeometry.js";
 
 /**
  * Single region elevation handler
@@ -26,30 +26,34 @@ import { HillDrawingManager } from "./HillDrawingManager.js";
  * Encapsulated inside Region.prototype.terrainmapper class
  */
 export class RegionElevationHandler {
-  /** @type {Region} */
-  region;
+  /** @type {RegionDocument} */
+  regionDocument;
+
+  /** @type {Region|undefined} */
+  get region() { return this.regionDocument.object; }
 
   /** @type {HillDrawingManager} */
   hillManager;
 
-  constructor(region) {
-    this.region = region;
-    this.hillManager = new HillDrawingManager(region);
+  constructor(regionDocument) {
+    if ( regionDocument ) regionDocument = regionDocument.document; // Allow user to pass a region.
+    this.regionDocument = regionDocument;
+    this.hillManager = new HillDrawingManager(regionDocument);
   }
 
   // ----- NOTE: Getters ----- //
 
   /** @type {ClientShapeData[]} */
-  get shapes() { return this.region.document.shapes; }
+  get shapes() { return this.regionDocument.shapes; }
 
   /** @type {boolean} */
   get isElevated() { return this.isPlateau || this.isRamp || this.isHill; }
 
   /** @type {boolean} */
-  get isPlateau() { return this.region.document.getFlag(MODULE_ID, FLAGS.REGION.TERRAIN.TYPE) === FLAGS.REGION.TERRAIN.CHOICES.PLATEAU };
+  get isPlateau() { return this.regionDocument.getFlag(MODULE_ID, FLAGS.REGION.TERRAIN.TYPE) === FLAGS.REGION.TERRAIN.CHOICES.PLATEAU };
 
   /** @type {boolean} */
-  get isRamp() { return this.region.document.getFlag(MODULE_ID, FLAGS.REGION.TERRAIN.TYPE) === FLAGS.REGION.TERRAIN.CHOICES.RAMP };
+  get isRamp() { return this.regionDocument.getFlag(MODULE_ID, FLAGS.REGION.TERRAIN.TYPE) === FLAGS.REGION.TERRAIN.CHOICES.RAMP };
 
   /** @type {boolean} */
   get isSteps() { return this.isRamp && this.rampStepSize !== 0; }
@@ -69,75 +73,65 @@ export class RegionElevationHandler {
   }
 
   /** @type {boolean} */
-  get isHill() { return this.region.document.getFlag(MODULE_ID, FLAGS.REGION.TERRAIN.TYPE) === FLAGS.REGION.TERRAIN.CHOICES.HILL; }
+  get isHill() { return this.regionDocument.getFlag(MODULE_ID, FLAGS.REGION.TERRAIN.TYPE) === FLAGS.REGION.TERRAIN.CHOICES.HILL; }
 
-  get hillType() { return this.region.document.getFlag(MODULE_ID, FLAGS.REGION.HILL.TYPE) || FLAGS.REGION.HILL.CHOICES.LINEAR; }
-
-  /** @type {number} */
-  get plateauElevation() { return this.region.document.getFlag(MODULE_ID, FLAGS.REGION.PLATEAU_ELEVATION) || 0; }
+  get hillType() { return this.regionDocument.getFlag(MODULE_ID, FLAGS.REGION.HILL.TYPE) || FLAGS.REGION.HILL.CHOICES.LINEAR; }
 
   /** @type {number} */
-  get rampFloor() { return this.region.document.getFlag(MODULE_ID, FLAGS.REGION.RAMP.FLOOR) || 0; }
+  get plateauElevation() { return this.regionDocument.getFlag(MODULE_ID, FLAGS.REGION.PLATEAU_ELEVATION) || 0; }
 
   /** @type {number} */
-  get rampDirection() { return this.region.document.getFlag(MODULE_ID, FLAGS.REGION.RAMP.DIRECTION) || 0; }
+  get rampFloor() { return this.regionDocument.getFlag(MODULE_ID, FLAGS.REGION.RAMP.FLOOR) || 0; }
 
   /** @type {number} */
-  get rampStepSize() { return this.region.document.getFlag(MODULE_ID, FLAGS.REGION.RAMP.STEP_SIZE) || 0; }
+  get rampDirection() { return this.regionDocument.getFlag(MODULE_ID, FLAGS.REGION.RAMP.DIRECTION) || 0; }
+
+  /** @type {number} */
+  get rampStepSize() { return this.regionDocument.getFlag(MODULE_ID, FLAGS.REGION.RAMP.STEP_SIZE) || 0; }
 
   /** @type {boolean} */
-  get splitPolygons() { return this.region.document.getFlag(MODULE_ID, FLAGS.REGION.RAMP.SPLIT_POLYGONS); }
+  get splitPolygons() { return this.regionDocument.getFlag(MODULE_ID, FLAGS.REGION.RAMP.SPLIT_POLYGONS); }
 
   /** @type {FLAGS.REGION.CHOICES} */
   get algorithm() {
-    return this.region.document.getFlag(MODULE_ID, FLAGS.REGION.TERRAIN.TYPE) || FLAGS.REGION.TERRAIN.CHOICES.PLATEAU;
+    return this.regionDocument.getFlag(MODULE_ID, FLAGS.REGION.TERRAIN.TYPE) || FLAGS.REGION.TERRAIN.CHOICES.PLATEAU;
   }
 
   /** @type {PIXI.Polygon} */
-  get nonHolePolygons() { return this.region.document.polygons.filter(poly => poly._isPositive); }
+  get nonHolePolygons() { return this.regionDocument.polygons.filter(poly => poly._isPositive); }
 
-  get holePolygons() { return this.region.document.polygons.filter(poly => !poly._isPositive); }
+  get holePolygons() { return this.regionDocument.polygons.filter(poly => !poly._isPositive); }
 
   /** @type {number} */
   get finitePlateauHeight() {
-    let topZ = gridUnitsToPixels(this.plateauElevation);
-		let bottomZ = this.region.bottomZ;
-		if ( !isFinite(topZ) ) topZ = 1e06;
-		if ( !isFinite(bottomZ) ) bottomZ = -1e06;
+    const topZ = gridUnitsToPixels(this.plateauElevation);
+    const { bottomZ } = RegionGeometry.placeableElevationZ(this.regionDocument);
 		return topZ - bottomZ;
   }
 
   /** @type {number} */
   get finiteRegionHeight() {
-    let { topZ, bottomZ } = this.region;
-		if ( !isFinite(topZ) ) topZ = 1e06;
-		if ( !isFinite(bottomZ) ) bottomZ = -1e06;
+    const { topZ, bottomZ } = RegionGeometry.placeableElevationZ(this.regionDocument);
 		return topZ - bottomZ;
   }
 
   /** @type {number} */
   get finiteRegionBottomE() {
-    const bottomE = this.region.bottomE;
+    const bottomE = this.regionDocument.bottomE;
     return isFinite(bottomE) ? bottomE : pixelsToGridUnits(-1e06);
   }
 
   /** @type {number} */
-  get finiteRegionBottomZ() {
-    const bottomZ = this.region.bottomZ;
-    return isFinite(bottomZ) ? bottomZ : -1e06;
-  }
+  get finiteRegionBottomZ() { return RegionGeometry.placeableElevationZ(this.regionDocument).bottomZ; }
 
   /** @type {number} */
   get finiteRegionTopE() {
-    const topE = this.region.topE;
+    const topE = this.regionDocument.topE;
     return isFinite(topE) ? topE : pixelsToGridUnits(1e06);
   }
 
   /** @type {number} */
-  get finiteRegionTopZ() {
-    const topZ = this.region.topZ;
-    return isFinite(topZ) ? topZ : 1e06;
-  }
+  get finiteRegionTopZ() { return RegionGeometry.placeableElevationZ(this.regionDocument).topZ; }
 
   /** @type {number} */
   get numSteps() {
@@ -173,18 +167,16 @@ export class RegionElevationHandler {
    * @param {PIXI.Polygon[]} polygons
    * @returns {PIXI.Point[]}
    */
-  _calculatePolygonRampPoints(polygons) {
-    const region = this.region;
+  _calculatePolygonRampPoints(polygons, center) {
     const topZ = gridUnitsToPixels(this.plateauElevation);
     const rampFloor = gridUnitsToPixels(this.rampFloor);
 
 		// Calculate the lowest and highest points on the plane.
 		// Non-split plane goes lowest point of intersection --> center --> highest point of intersection
 		// 0º is due south (0, 1), 90º is due west (1, 0)
-		using ctr = PIXI.Point.fromObject(region.center);
 		const rad = Math.toRadians(this.rampDirection);
 		using dir = PIXI.Point.tmp.set(Math.sin(rad), Math.cos(rad));
-		using a = ctr.add(dir);
+		using a = center.add(dir);
 
 		// For simplicity, just intersect the polygons.
 		// TODO: Intersect individual shapes or use sd to intersect them in 2d.
@@ -192,7 +184,7 @@ export class RegionElevationHandler {
 		let firstIx = { t0: Number.POSITIVE_INFINITY };
 		let lastIx = { t0: Number.NEGATIVE_INFINITY };
 		for ( const poly of polygons ) {
-			const ixs = poly.lineIntersections(ctr, a);
+			const ixs = poly.lineIntersections(center, a);
 			ixs.forEach(ix => {
 				if ( ix.t0 < firstIx.t0 ) firstIx = ix;
 				if ( ix.t0 > lastIx.t0 ) lastIx = ix;
@@ -306,12 +298,12 @@ export class RegionElevationHandler {
 
   // Terrain data
   /** @type {boolean} */
-  get hasTerrain() { return [...this.region.document.behaviors].some(b => !b.disabled && b.type === `${MODULE_ID}.setTerrain`); }
+  get hasTerrain() { return [...this.regionDocument.behaviors].some(b => !b.disabled && b.type === `${MODULE_ID}.setTerrain`); }
 
   /** @type {Set<Terrain>} */
   get terrains() {
     const terrains = new Set();
-    for ( const b of this.region.document.behaviors.values() ) {
+    for ( const b of this.regionDocument.behaviors.values() ) {
       if ( b.disabled || b.type !== `${MODULE_ID}.setTerrain` ) continue;
       b.system.terrains.forEach(t => terrains.add(CONFIG[MODULE_ID].Terrain._instances.get(t)));
     }
@@ -374,13 +366,13 @@ export class RegionElevationHandler {
   }
 
   /**
-   * Terrain version of `region.document.testPoint`. Rejects if above or below the terrain.
+   * Terrain version of `regionDocument.testPoint`. Rejects if above or below the terrain.
    * @param {ElevatedPoint} a         Point to test
    * @returns {boolean}
    */
   testPoint(a) {
     if ( !this.pointInBounds(a, ["x", "y"] ) ) return false;
-    if ( !this.isElevated ) return this.region.document.testPoint(a);
+    if ( !this.isElevated ) return this.regionDocument.testPoint(a);
     if ( !this.test2dPoint(a) ) return false;
     const topE = this.elevationUponEntry(a);
     return almostLessThan(a.elevation, topE) && almostGreaterThan(a.elevation, this.region.elevationE.bottom);
@@ -569,7 +561,7 @@ export class RegionElevationHandler {
   allIntersectingSegmentsForLineSegmentV2(a, b, firstOnly = false) {
     // Version using polygons
     const allIxs = [];
-    for ( const polygon of this.region.document.polygons ) {
+    for ( const polygon of this.regionDocument.polygons ) {
       const ixs = polygon.segmentIntersections(a, b, { tangents: false });
       if ( !ixs.length ) continue;
 
@@ -581,8 +573,8 @@ export class RegionElevationHandler {
     // Add start and and of the segment.
     // Avoid duplicates.
     // Don't add if the segment starts in a hole.
-    if ( this.region.document.polygonTree.testPoint(a) && !allIxs[0].t0.almostEqual(0) ) allIxs.unshift({ x: a.x, y: a.y, t0: 0 });
-    if ( this.region.document.polygonTree.testPoint(b) && !allIxs.at(-1).t0.almostEqual(1) ) allIxs.push({ x: b.x, y: b.y, t0: 1 });
+    if ( this.regionDocument.polygonTree.testPoint(a) && !allIxs[0].t0.almostEqual(0) ) allIxs.unshift({ x: a.x, y: a.y, t0: 0 });
+    if ( this.regionDocument.polygonTree.testPoint(b) && !allIxs.at(-1).t0.almostEqual(1) ) allIxs.push({ x: b.x, y: b.y, t0: 1 });
 
     // allIxs.forEach(ix => Draw.point(ix));
     const allSegments = [];
@@ -815,7 +807,7 @@ export class RegionElevationHandler {
     let processedPolygons = [];
     let hasSolids = false;
 
-    for ( const regionPoly of this.region.document.polygons ) {
+    for ( const regionPoly of this.regionDocument.polygons ) {
       const cutaways = regionPoly.cutaway(start, end, opts);
       if ( !cutaways.length ) continue;
 
@@ -999,7 +991,7 @@ export class RegionElevationHandler {
     const result = [];
     let allHoles = true;
     const nonHolePolygons = (this.isRamp && this.splitPolygons) ? this.nonHolePolygons : [];
-    for ( const regionPoly of this.region.document.polygons ) {
+    for ( const regionPoly of this.regionDocument.polygons ) {
       // If this poly is a hole, need the positive polygon for forming the step coordinates.
       let poly = regionPoly;
       if ( !regionPoly.isPositive ) {
@@ -1295,8 +1287,7 @@ export class RegionElevationHandler {
    */
   #cutawayOptionFunctions(usePlateauElevation = true) {
     // Note: in grid units to avoid recalculation later.
-    const topZ = this.finiteRegionTopZ;
-    const bottomZ = this.finiteRegionBottomZ;
+    const { topZ, bottomZ } = RegionGeometry.placeableElevationZ(this.regionDocument);
     const topElevationFn = usePlateauElevation
       ? pt => gridUnitsToPixels(this.elevationUponEntry({ ...pt, elevation: pixelsToGridUnits(pt.z) }))
       : _pt => topZ;
