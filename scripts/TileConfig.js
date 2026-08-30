@@ -33,13 +33,12 @@ function renderTileConfig(app, html, data) {
 
   const myHTML = renderTemplateSync(TEMPLATES.TILE, data);
   if ( !myHTML ) return;
-  const divSet = html.querySelector("div[data-tab='overhead']");
   const newFormGroup = document.createElement("div");
   newFormGroup.classList.add("form-group");
   newFormGroup.innerHTML = myHTML;
 
-  const formGroups = divSet.getElementsByClassName("form-group");
-  formGroups[formGroups.length - 1].appendChild(newFormGroup);
+  const divSet = html.querySelector("div[data-tab='overhead']");
+  divSet.appendChild(newFormGroup);
   app.setPosition(app.position);
 }
 

@@ -35,16 +35,10 @@
   "terrainmapper.region-config.splitPolygons.hint": "When enabled, each shape in this region will have a distinct terrain shape. When disabled, all shapes will comprise one terrain shape.",
 
   "terrainmapper.tile-config.isFloor.name": "Treat as Floor",
-  "terrainmapper.tile-config.isFloor.hint": "",
+  "terrainmapper.tile-config.isFloor.hint": "Use as a 'floor' that tokens can walk on.",
 
-  "terrainmapper.tile-config.trimAlphaBorder.name": "Trim Boundary",
-  "terrainmapper.tile-config.trimAlphaBorder.hint": "Ignore the transparent border of the tile.",
-
-  "terrainmapper.tile-config.testHoles.name": "Test for Holes",
+  "terrainmapper.tile-config.testHoles.name": "Has Physical Holes",
   "terrainmapper.tile-config.testHoles.hint": "Treat larger transparent portions within the tile as holes that tokens may 'fall' through.",
-
-  "terrainmapper.tile-config.alphaThreshold.name": "Transparency Threshold",
-  "terrainmapper.tile-config.alphaThreshold.hint": "Percentage alpha to be transparent. Default: 0.75.",
 
   "terrainmapper.behavior.types.stairs.fields.algorithm.name": "Type",
 
