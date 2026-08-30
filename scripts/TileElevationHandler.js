@@ -2,7 +2,6 @@
 canvas,
 CONFIG,
 PIXI,
-ClipperLib
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 

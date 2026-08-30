@@ -136,3 +136,19 @@ export const CONFIG_BLOCK_IDS = {
   HILL: `${MODULE_ID}-config-hill`,
 };
 
+/**
+ * Checks for libGeometery.
+ * @type {object}
+ */
+export const GEOMETRY_LIB_OPTS = {
+  // What geometries we need to track.
+  placeableGeometries: [
+    "Tile",
+    "Token",
+    "Region",
+    "Wall",
+    "Level",
+  ],
+};
+
+

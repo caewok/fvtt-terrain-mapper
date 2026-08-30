@@ -21,12 +21,15 @@ import { StairsRegionBehaviorType } from "./regions/StairsRegionBehaviorType.js"
 import { ElevatorRegionBehaviorType } from "./regions/ElevatorRegionBehaviorType.js";
 import { StraightLinePath } from "./StraightLinePath.js";
 import { HillDrawingManager} from "./regions/HillDrawingManager.js";
+import { TerrainGeometryManager } from "./GeometricPrimitives/TerrainGeometry.js";
 
 // Elevation
 import { TokenElevationHandler, CutawayHandler } from "./TokenElevationHandler.js";
 
+
 // Load the geometry library.
 import "./geometry/registration.js";
+import { GEOMETRY_LIB_ID } from "./geometry/const.js";
 
 // Self-executing hooks.
 import "./changelog.js";
@@ -120,6 +123,9 @@ action is "update"
  * initialization tasks have begun.
  */
 Hooks.once("init", function() {
+  // Register the RegionTerrain geometry for use in the manager.
+  CONFIG[GEOMETRY_LIB_ID].CONFIG.managerClasses.regions = TerrainGeometryManager;
+
   initializePatching();
   initializeConfig();
   initializeAPI();
@@ -185,22 +191,6 @@ Hooks.on("canvasReady", function(_canvas) {
     setDefaultSceneFlags(); // Async.
     removeDeprecatedRegionBehaviors();
   }
-
-  // Placeable Geometry for collision testing.
-  const geometryTracking = CONFIG.GeometryLib.lib.placeableGeometryTracking;
-  const geometryTypes = [
-    "Tile",
-    "Wall",
-    "Token",
-    "Region",
-  ];
-  for ( const type of geometryTypes ) {
-    const cl = geometryTracking[`${type}GeometryTracker`];
-    cl.registerHooks();
-    cl.registerExistingPlaceables();
-    cl.activate();
-  }
-
 });
 
 function initializeAPI() {

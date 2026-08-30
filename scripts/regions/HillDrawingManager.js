@@ -8,6 +8,7 @@ PIXI,
 "use strict";
 
 import { MODULE_ID, FLAGS } from "../const.js";
+import { GEOMETRY_LIB_ID } from "../geometry/const.js";
 import { Draw } from "../geometry/Draw.js";
 import { MatrixFloat32 } from "../geometry/Matrix.js";
 import { gridUnitsToPixels } from "../geometry/util.js";
@@ -104,8 +105,11 @@ export class HillDrawingManager {
 
   // ----- NOTE: Instance Lifecycle (per region) ----- //
 
-  /** @type {Region} */
-  region;
+  /** @type {RegionDocument} */
+  regionDocument;
+
+  /** @type {Region|undefined} */
+  get region() { return this.regionDocument.object; }
 
   /** @type {PIXI.Container} */
   regionUI = new PIXI.Container();
@@ -119,8 +123,9 @@ export class HillDrawingManager {
   /** @type {PIXI.Graphics|undefined} */
   boundsGraphics;
 
-  constructor(region) {
-    this.region = region;
+  constructor(regionDocument) {
+    if ( regionDocument ) regionDocument = regionDocument.document; // Allow user to pass a region.
+    this.regionDocument = regionDocument;
   }
 
   /**
@@ -180,6 +185,8 @@ export class HillDrawingManager {
     this.regionUI.destroy(true); // True to destroy children.
     this.#initialized = false;
   }
+
+  // ----- NOTE:
 
   // ----- NOTE: User Interaction ----- //
 
@@ -375,7 +382,6 @@ export class HillDrawingManager {
     draw.segment({ a: end, b: cp2 }, { width: 2, color: Draw.COLORS.gray, alpha: 0.5 });
 
     // Draw the "floor" for the curve.
-    const center = this.region.center;
     using baseEnd = PIXI.Point.tmp.set(end.x, start.y);
     draw.segment({ a: start, b: baseEnd },
       { width: 2, color: Draw.COLORS.green, alpha: 0.5, dashLength: 5, gapLength: 2 });
@@ -439,8 +445,10 @@ export class HillDrawingManager {
    * @param {BézierCurve} curve
    * @returns {BézierCurve} Same points, in place.
    */
-  normalizeCurveOrientation(curve) {
-    const center = this.region.center;
+  static normalizeCurveOrientationForRegion(regionD, curve) {
+    const mgr = CONFIG[GEOMETRY_LIB_ID].geometryManager.regions;
+    const aabb = mgr.geomForDocument(regionD).aabb;
+    const center = aabb.center;
     const { left, right } = curve;
     using txMat = MatrixFloat32.translation(-center.x, -center.y);
     txMat.multiplyPoint2d(left, left);
@@ -464,7 +472,7 @@ export class HillDrawingManager {
    * @param {BézierCurve} curve
    * @returns {BézierCurve} Same points, in place.
    */
-  scaleCurveOrientation(curve) {
+  static scaleCurveOrientationForRegion(regionD, curve) {
     const bounds = this.region.bounds;
     const center = this.region.center;
     const { left, right } = curve;
@@ -480,10 +488,11 @@ export class HillDrawingManager {
   /**
    * Scale a curve to this region for use by the UI.
    * Places the curve at 3/4 of the bottom of the region and stretches it to 75% of the base.
+   * @param {RegionDocument} regionD
    * @param {BézierCurve} curve
    * @returns {BézierCurve} Same points, in place.
    */
-  scaleBezier(curve) {
+  static scaleBezierForRegion(regionD, curve) {
     const { start, end, cp1, cp2 } = curve;
 
     // Translate and scale the curve control points.
@@ -528,15 +537,6 @@ export class HillDrawingManager {
     return curve;
   }
 
-  scaledDefaultCurve() {
-    const curve = this.constructor.defaultCurve();
-
-    // Scale curve and orientation for region.
-    this.scaleBezier(curve);
-    this.scaleCurveOrientation(curve);
-    return curve; // Default curve is flat, so don't need to scale the elevation.
-  }
-
   /**
    * @typedef {BézierCurve}
    * @prop {PIXI.Point} start
@@ -550,14 +550,16 @@ export class HillDrawingManager {
    */
 
   /**
-   * Retrieve hill curve data for a region.
-   * @param {Region} region
-   * @returns {BézierCurve}
+   * Retrieve
+
+  /**
+   * Retrieve hill curve data for a region, unscaled.
+   * @param {RegionDocument} regionD
+   * @returns {BézierCurve|null}
    */
-  static _unadjustedHillDataForRegion(region) {
-    const hillData = region.document.getFlag(MODULE_ID, FLAGS.REGION.HILL.CURVE);
-    if ( !hillData ) return null;
-    if ( hillData.length !== 10 ) return null;
+  static _unadjustedHillData(regionD) {
+    const hillData = regionD.getFlag(MODULE_ID, FLAGS.REGION.HILL.CURVE);
+    if ( !hillData || hillData.length !== 10 ) return null;
 
     // Shape of the curve.
     // Curve is relative to the
@@ -574,26 +576,17 @@ export class HillDrawingManager {
   }
 
   /**
-   * Return curve data for a given region, unscaled.
-   * @returns {BézierCurve}
-   */
-  hillData() {
-    const curve = this.constructor._unadjustedHillDataForRegion(this.region);
-    if ( !curve ) return this.defaultCurve();
-    return curve;
-  }
-
-  /**
    * Return curve data for a given region, scaled for the region.
+   * @param {RegionDocument} regionD
    * @returns {BézierCurve}
    */
-  scaledHillData() {
-    const curve = this.constructor._unadjustedHillDataForRegion(this.region);
+  static scaledHillData(regionD) {
+    const curve = this._unadjustedHillData(regionD);
     if ( !curve ) return this.scaledDefaultCurve();
 
     // Scale the curve and orientation to fit the region.
-    this.scaleBezier(curve);
-    this.scaleCurveOrientation(curve);
+    this.scaleBezierForRegion(regionD, curve);
+    this.scaleCurveOrientationForRegion(regionD, curve);
     return curve;
 
     // Determine the intended peak elevation.
@@ -608,10 +601,10 @@ export class HillDrawingManager {
 
   /**
    * Store hill curve data for a region.
-   * @param {Region} region
+   * @param {RegionDocument} regionD
    * @param {BézierCurve} curve
    */
-  static async saveHillDataForRegion(region, curve) {
+  static async saveHillDataForRegion(regionD, curve) {
     if ( curve.start.x !== 0 || curve.start.y !== 0 ) throw Error("saveHillDataForRegion|curve must be normalized");
     const { end, cp1, cp2, left, right } = curve;
     const curveArray = [
@@ -620,7 +613,7 @@ export class HillDrawingManager {
       end.x, end.y,
       left.x, left.y,
       right.x, right.y];
-    await region.document.setFlag(MODULE_ID, FLAGS.REGION.HILL.CURVE, curveArray);
+    await regionD.setFlag(MODULE_ID, FLAGS.REGION.HILL.CURVE, curveArray);
   }
 
   /**
@@ -628,10 +621,10 @@ export class HillDrawingManager {
    * @param {BézierCurve} curve
    */
   async saveScaledHillData(curve) {
-    curve = this.constructor.duplicateCurve(curve);
+    curve = this.constructor.duplicateCurve(this.regionDocument, curve);
     this.constructor.normalizeBezier(curve);
     this.normalizeCurveOrientation(curve);
-    await this.constructor.saveHillDataForRegion(this.region, curve);
+    await this.constructor.saveHillDataForRegion(this.regionDocument, curve);
     Object.values(curve).forEach(pt => pt.release());
   }
 
@@ -793,20 +786,23 @@ export class HillDrawingManager {
 
   /**
    * Get the z value for a 2d point based on a Bézier hill profile.
-   * @param {PIX.Point} pt          Point to test
+   * @param {RegionDocument} regionD
+   * @param {PIXI.Point} pt             Point to test
    * @param {"linear"|"symmetrical"|"ridge"} [type="linear"]
    *   - linear: The hill has a defined linear direction and is the same at parallel lines to start|end.
    *   - symmetrical: Half the hill is rotated around its center point (center of start|end).
    *   - ridge: The hill defines the ridge line, and falls back proportionally on the sides.
-   * @param {BézierCurve} curve     Normalized curve data
+   * @param {BézierCurve} [curve]     Normalized curve data
    * @returns {number} Z height or 0 if outside the radius of the curve.
    */
-  hillZAtPoint(pt, type = "linear", curve) {
-    if ( !curve ) curve = this.hillData();
-    else curve = this.constructor.duplicateCurve(curve);
-    const scaledCurve = this.constructor.duplicateCurve(curve);
-    this.scaleCurveOrientation(scaledCurve);
-    const z = this._hillZAtPoint(pt, type, curve, scaledCurve);
+  static hillZAtPoint(regionD, pt, type = "linear", curve) {
+    if ( !curve ) curve = this.hillData(regionD);
+    else curve = this.duplicateCurve(curve);
+
+    const scaledCurve = this.duplicateCurve(curve);
+    this.scaleCurveOrientationForRegion(regionD, scaledCurve);
+    const topZ = this.plateauElevation(regionD);
+    const z = this._hillZAtPoint(pt, type, scaledCurve, topZ);
     Object.values(curve).forEach(pt => pt.release());
     Object.values(scaledCurve).forEach(pt => pt.release());
     return z;
@@ -816,14 +812,13 @@ export class HillDrawingManager {
    * Same as hillZAtPoint but expects the scaled orientation curve.
    * @param {PIX.Point} pt                    Point to test
    * @param {"linear"|"symmetrical"|"ridge"}  type
-   * @param {BézierCurve} normalizedCurve     Normalized curve data
-   * @param {BézierCurve} scaledCurve         Scaled curve data; only orientation points must be scaled
+   * @param {BézierCurve} normalizedScaledCurve     Normalized and scaled curve data
+   * @param {number} topZ                           Top elevation of the region, in pixel units
    * @returns {number} Z height or 0 if outside the radius of the curve.
    */
 
-  _hillZAtPoint(pt, type, normalizedCurve, scaledCurve) {
-    const { start, cp1, cp2, end } = normalizedCurve;
-    const { left, right } = scaledCurve;
+  static _hillZAtPoint(pt, type, normalizedScaledCurve, topZ) {
+    const { start, cp1, cp2, end, left, right } = normalizedScaledCurve;
 
     // Center of the hill.
     using center = PIXI.Point.tmp;
@@ -912,8 +907,7 @@ export class HillDrawingManager {
     // Distance from the XY point to the start|end base.
     // Because the curve control points are normalized, the base is at y === 0.
     const y = bezierValue(t, start.y, cp1.y, cp2.y, end.y);
-    const elevZ = this.region[MODULE_ID].plateauElevation;
-    return -y * gridUnitsToPixels(elevZ); // Y axis is inverted in Foundry, so multiply by -1.
+    return -y * gridUnitsToPixels(topZ); // Y axis is inverted in Foundry, so multiply by -1.
   }
 }
 
@@ -935,14 +929,6 @@ export function bezierValue(t, start, cp1, cp2, end) {
   const t2 = t * t;
   const t3 = t2 * t;
   return (mt3 * start) + (3 * mt2 * t * cp1) + (3 * mt * t2 * cp2) + (t3 * end);
-}
-
-/**
- * Closest distance to segment
- */
-function closestDistanceToSegment(c, a, b) {
-  const ix = foundry.utils.closestPointToSegment(c, a, b);
-  return PIXI.Point.distanceBetween(ix, c);
 }
 
 /**
