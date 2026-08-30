@@ -12,8 +12,6 @@ import { SceneElevationHandler } from "../regions/RegionElevationHandler.js";
 
 // Geometry
 import { CombinedGeometricPrimitive } from "../geometry/placeable_geometry/GeometricPrimitive.js";
-import { CubePrimitive, CylinderPrimitive } from "../geometry/placeable_geometry/InstancedGeometricPrimitive.js";
-import { ExtrudedPolygonPrimitive } from "../geometry/placeable_geometry/ModelGeometricPrimitive.js";
 import { RegionGeometry } from "../geometry/placeable_geometry/RegionGeometry.js";
 
 // LibGeometry
@@ -23,46 +21,75 @@ import { Matrix } from "../geometry/Matrix.js";
 import { Plane } from "../geometry/3d/Plane.js";
 import { RegionGeometryManager } from "../geometry/placeable_tracking/CanvasGeometryManager.js";
 
+/* Shape options
+
+Plateau shape: Use the base shape.
+
+
+*/
+
+
 export class TerrainGeometry extends RegionGeometry {
 
-  static {
-    // Add TM-specific flags.
-    this.UPDATE_KEYS.properties.add(`flags.${MODULE_ID}.rampDirection`);
-    this.UPDATE_KEYS.properties.add(`flags.${MODULE_ID}.splitPolygons`);
-    this.UPDATE_KEYS.properties.add(`flags.${MODULE_ID}.elevationAlgorithm`);
+  static UPDATE_KEY_MAP = new Map([
+    ...super.UPDATE_KEY_MAP,
+    [`flags.${MODULE_ID}.${FLAGS.REGION.TERRAIN.TYPE}`, "type"], // Triggers rebuild of the shape.
+    [`flags.${MODULE_ID}.${FLAGS.REGION.PLATEAU_ELEVATION}`, "elevation"],
 
-    this.UPDATE_KEYS.elevation.add(`flags.${MODULE_ID}.plateauElevation`);
-    this.UPDATE_KEYS.elevation.add(`flags.${MODULE_ID}.rampFloor`);
-  }
+    // Ramps
+    [`flags.${MODULE_ID}.${FLAGS.REGION.RAMP.FLOOR}`, "elevation"],
+    [`flags.${MODULE_ID}.${FLAGS.REGION.RAMP.DIRECTION}`, "rampDirection"],
+    [`flags.${MODULE_ID}.${FLAGS.REGION.RAMP.STEP_SIZE}`, "steps"],
+    [`flags.${MODULE_ID}.${FLAGS.REGION.RAMP.SPLIT_POLYGONS}`, "terrainPolygons"],
+
+    // Hills
+    [`flags.${MODULE_ID}.${FLAGS.REGION.HILL.CURVE}`, "hill"],
+    [`flags.${MODULE_ID}.${FLAGS.REGION.HILL.TYPE}`, "hill"],
+  ]);
+
 
   /**
    * Construct a primitive shape for a given region shape.
    * @param {number} idx        Index of the region shape in the region.document.shapes array
    * @returns {GeometricPrimitive|null}
    */
-  _buildRegionShape(levelSegmentIdx, shapeIdx) {
+  _buildRegionShape(shapeIdx) {
     const regionD = this.placeableDocument;
 
     if ( !this.constructor.isElevated(regionD)
-      || this.constructor.isPlateau(regionD) ) return super._buildRegionShape(levelSegmentIdx, shapeIdx);
+      || this.constructor.isPlateau(regionD) ) return super._buildRegionShape(shapeIdx);
 
-    const baseTopZ = this.constructor.rampFloor(regionD)
-    const baseShape = super._buildRegionShape(levelSegmentIdx, shapeIdx, baseTopZ);
+    let baseShape;
+    const baseElev = this.elevationZ;
+    if ( (baseElev.topZ - baseElev.bottomZ) ) baseShape = super._buildRegionShape(shapeIdx);
 
+    let topShape = this._buildTerrainShape(shapeIdx);
+    if ( !baseShape ) return topShape;
+
+    // Combine top and bottom shapes.
+    const combinedShape = new CombinedGeometricPrimitive();
+    combinedShape.addShape(baseShape);
+    combinedShape.addShape(topShape);
+    return combinedShape;
+  }
+
+  _buildTerrainShape(shapeIdx) {
+    const baseElev = this.elevationZ;
     // TODO: Handle single and per-polygon ramps, steps, hills.
     //       Let the user define in the shape config.
-    const id = this._levelShapeId(levelSegmentIdx, shapeIdx);
+    const id = this._shapeId(shapeIdx);
     const regionShape = this.regionShapes[shapeIdx];
     const polys = regionShape.polygons;
     let topShape;
-    const opts = this._polygonPrimitiveTransforms(regionShape, levelSegmentIdx);
+    const opts = this._polygonPrimitiveTransforms(regionShape);
+    const regionD = this.placeableDocument;
 
     if ( this.constructor.isRamp(regionD) ) {
       const plane = this.calculateSingleRampPlane();
       topShape = RampPrimitive.fromPolygons(id, polys, plane, opts);
 
     } else if ( this.constructor.isSteps(regionD) ) {
-      const bottomZ = gridUnitsToPixels(this.constructor.rampFloor(regionD));
+      const bottomZ = baseElev.topZ
       const totalStepHeight = gridUnitsToPixels(this.constructor.rampStepSize(regionD));
       const numSteps = this.constructor.numSteps(regionD);
       const stepHeight = totalStepHeight / numSteps;
@@ -92,80 +119,55 @@ export class TerrainGeometry extends RegionGeometry {
 
         // Construct the steps.
         const steps = StepsPrimitive.fromPolygons(id, rotPolys, { bottomZ, stepWidth, stepHeight, ...opts })
+        topShape = steps;
 
       } else {
         const stepWidth = this.aabb.width / numSteps;
         const steps = StepsPrimitive.fromPolygons(id, regionD.polygons, { bottomZ, stepWidth, stepHeight, ...opts })
+        topShape = steps;
       }
 
     } else if ( this.constructor.isHill(regionD) ) {
       const curve = HillDrawingManager.scaledHillData(regionD);
       const opts = {
         type: this.constructor.hillType(regionD),
-        elevationZ: gridUnitsToPixels(this.constructor.rampFloor(regionD)),
+        elevationZ: baseElev.topZ,
       };
       topShape = HillPrimitive.fromPolygons(id, polys, curve, opts)
     }
-
-    const combinedShape = new CombinedGeometricPrimitive();
-    combinedShape.addShape(baseShape);
-    combinedShape.addShape(topShape);
-    return combinedShape;
+    return topShape;
   }
 
-  _buildBaseShape(levelSegmentIdx, shapeIdx) {
-    const regionShape = this.regionShapes[shapeIdx];
-    const id = this._levelShapeId(levelSegmentIdx, shapeIdx);
-    let shape;
-    if ( regionShape.gridBased ) {
-      let zElev = this.elevationZ;
-      zElev.topZ = gridUnitsToPixels(this.constructor.rampFloor(this.placeableDocument));
-
-      const zDims = this.constructor.elevationZForSegment(levelSegmentIdx, zElev.topZ, zElev.bottomZ);
-      shape = ExtrudedPolygonPrimitive.fromPolygons(id, regionShape.polygons, zDims);
-
-    } else switch ( regionShape.type ) {
-      // See shape.constructor.TYPES
-      case "circle":
-      case "ellipse": shape = new CylinderPrimitive(id); break;
-
-      case "line":
-      case "rectangle": shape = new CubePrimitive(id); break;
-
-      case "emanation":
-        // Use the polygon b/c corner radiuses can vary.
-        // base.x, base.y, rotation, base.width (# grid spaces), base.height (# grid spaces), origin
-
-      case "ring": /* eslint-disable-line no-fallthrough */
-         // Use the polygon(s) b/c of the hole.
-        // rotation, x, y, radius as width, origin
-
-      case "polygon": /* eslint-disable-line no-fallthrough */
-        // Obv. use the polygon.
-        // rotation, although not user-set, origin
-
-      case "cone": /* eslint-disable-line no-fallthrough */
-        // Use the polygon b/c no unit cone shape b/c angle varies.
-        // rotation, x, y, radius as width, origin
+  // ----- NOTE: Updating ----- //
 
 
-      case "grid": /* eslint-disable-line no-fallthrough */
-        // Unclear what this is.
+  _updateShape(shape, regionShape, changes) {
+    // The combined shape shares the model matrix between underlying shapes, so it is sufficient to update it.
+    super._updateShape(shape, regionShape, changes);
 
-      case "token": /* eslint-disable-line no-fallthrough */
-        // Unclear what this is.
+    // If no terrain or plateau, we are done.
+    const regionD = this.placeableDocument;
+    if ( !this.constructor.isElevated(regionD)
+        || this.constructor.isPlateau(regionD) ) return;
 
-      default: {  /* eslint-disable-line no-fallthrough */
-        // Pass the center, rotation, and dimensions so a prototype can be created.
-        const opts = this._polygonPrimitiveTransforms(regionShape, levelSegmentIdx);
-        shape = ExtrudedPolygonPrimitive.fromPolygons(id, regionShape.polygons, opts);
-        opts.center.release();
-        opts.dims.release();
-        opts.angles.release();
+    // Ramps, steps, hills can all be rotated. This requires a rebuild of the top shape, because
+    // its relationship to the base shape changes.
+    // If step size changes, requires rebuild.
+    // If hill changes, requires rebuild.
+    const requiresRebuild = this.activeUpdates.has("rampDirection")
+      || (this.activeUpdates.has("steps") && this.constructor.isSteps(regionD))
+      || (this.activeUpdates.has("hill") && this.constructor.isHill(regionD));
+    if ( requiresRebuild ) {
+      const shapeIdx = this.regionShapes.findIndex(regionShape);
+      if ( !~shapeIdx ) {
+        console.error(`${this.constructor.name}#_updateShape|Shape index not found.`);
       }
-    }
-    return shape;
+      const topShape = this._buildTerrainShape(shapeIdx);
 
+      // Replace the top shape.
+      if ( shape instanceof CombinedGeometricPrimitive ) shape.shapes[1] = topShape;
+      else this.shapes[shapeIdx] = topShape;
+    }
   }
 
   // ----- NOTE: Ramps ----- //
@@ -279,7 +281,8 @@ export class TerrainGeometry extends RegionGeometry {
 
 
   /**
-   * Top and bottom elevation of a region.
+   * Top and bottom elevation of the base of the region.
+   * Might be 0 height.
    * @param {Region} region
    * @returns {object}
    * - @prop {number} topZ
@@ -288,7 +291,14 @@ export class TerrainGeometry extends RegionGeometry {
   get elevationZ() {
     const res = super.elevationZ;
     if ( !this.constructor.isElevated(this.placeableDocument) ) return res;
-    res.topZ = gridUnitsToPixels(this.constructor.plateauElevation(this.placeableDocument));
+
+    // If plateau, can simply adjust the region top to the plateau top. Region shape is otherwise unaffected.
+    if ( this.constructor.isPlateau ) res.topZ = gridUnitsToPixels(this.constructor.plateauElevation(this.placeableDocument));
+
+    // Otherwise, return the elevation for the bottom of the region to the base (of the ramp, steps, or hill).
+    // This height may be 0.
+    else res.topZ = gridUnitsToPixels(this.constructor.rampFloor(this.placeableDocument));
+    if ( res.topZ < res.bottomZ ) res.topZ = res.bottomZ;
     return res;
   }
 }
