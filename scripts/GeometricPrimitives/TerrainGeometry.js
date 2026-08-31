@@ -1,4 +1,5 @@
 /* globals
+PIXI,
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
@@ -66,12 +67,42 @@ export class TerrainGeometry extends RegionGeometry {
     let topShape = this._buildTerrainShape(shapeIdx);
     if ( !baseShape ) return topShape;
 
-    // Combine top and bottom shapes.
-    const combinedShape = new CombinedGeometricPrimitive();
+    /*
+    // Combine top and bottom shapes
+    // Zero out the model matrices so that updating can work as with a normal single region shape.
+    const regionShape = this.regionShapes[shapeIdx];
+    const shapeDims = this._shapeDimensions(regionShape);
+
+    // Zero out base
+    const baseCenter = baseShape.modelMatrix.translation.subtract(shapeDims.center);
+    const baseAngles = baseShape.modelMatrix.rotation.subtract(shapeDims.angles);
+    const baseDims = baseShape.modelMatrix.scale.divide(shapeDims.dims);
+    baseShape.modelMatrix.translation = baseCenter;
+    baseShape.modelMatrix.rotation = baseAngles;
+    baseShape.modelMatrix.scale = baseDims;
+
+    // Zero out top shape.
+    const topCenter = topShape.modelMatrix.translation.subtract(shapeDims.center);
+    const topAngles = topShape.modelMatrix.rotation.subtract(shapeDims.angles);
+    const topDims = topShape.modelMatrix.scale.divide(shapeDims.dims);
+    topShape.modelMatrix.translation = baseCenter;
+    topShape.modelMatrix.rotation = baseAngles;
+    topShape.modelMatrix.scale = baseDims;
+
+    // Move the top shape to be on top of the bottom shape.
+    */
+
+
+
+    const id = `${this._shapeId(shapeIdx)}_combined`;
+    const combinedShape = CombinedGeometricPrimitive.create(id);
     combinedShape.addShape(baseShape);
     combinedShape.addShape(topShape);
     return combinedShape;
+
+    // return topShape;
   }
+
 
   _buildTerrainShape(shapeIdx) {
     const baseElev = this.elevationZ;
@@ -81,12 +112,14 @@ export class TerrainGeometry extends RegionGeometry {
     const regionShape = this.regionShapes[shapeIdx];
     const polys = regionShape.polygons;
     let topShape;
-    const opts = this._polygonPrimitiveTransforms(regionShape);
+    const opts = this._shapeDimensions(regionShape);
     const regionD = this.placeableDocument;
 
     if ( this.constructor.isRamp(regionD) ) {
-      const plane = this.calculateSingleRampPlane();
-      topShape = RampPrimitive.fromPolygons(id, polys, plane, opts);
+      opts.plane = this.calculateSingleRampPlane();
+      opts.bottomZ = baseElev.topZ;
+      opts.topZ = gridUnitsToPixels(this.constructor.plateauElevation(this.placeableDocument));
+      topShape = RampPrimitive.fromPolygons(id, polys, opts);
 
     } else if ( this.constructor.isSteps(regionD) ) {
       const bottomZ = baseElev.topZ
@@ -135,6 +168,7 @@ export class TerrainGeometry extends RegionGeometry {
       };
       topShape = HillPrimitive.fromPolygons(id, polys, curve, opts)
     }
+    topShape.initialize();
     return topShape;
   }
 
@@ -150,6 +184,7 @@ export class TerrainGeometry extends RegionGeometry {
     if ( !this.constructor.isElevated(regionD)
         || this.constructor.isPlateau(regionD) ) return;
 
+    /*
     // Ramps, steps, hills can all be rotated. This requires a rebuild of the top shape, because
     // its relationship to the base shape changes.
     // If step size changes, requires rebuild.
@@ -158,7 +193,7 @@ export class TerrainGeometry extends RegionGeometry {
       || (this.activeUpdates.has("steps") && this.constructor.isSteps(regionD))
       || (this.activeUpdates.has("hill") && this.constructor.isHill(regionD));
     if ( requiresRebuild ) {
-      const shapeIdx = this.regionShapes.findIndex(regionShape);
+      const shapeIdx = this.regionShapes.indexOf(regionShape);
       if ( !~shapeIdx ) {
         console.error(`${this.constructor.name}#_updateShape|Shape index not found.`);
       }
@@ -168,6 +203,7 @@ export class TerrainGeometry extends RegionGeometry {
       if ( shape instanceof CombinedGeometricPrimitive ) shape.shapes[1] = topShape;
       else this.shapes[shapeIdx] = topShape;
     }
+    */
   }
 
   // ----- NOTE: Ramps ----- //
@@ -179,7 +215,7 @@ export class TerrainGeometry extends RegionGeometry {
    */
   calculateSingleRampPlane() {
     const polys = this.regionShapes.flatMap(shape => shape.polygons);
-    return this._calculatePolygonRamp(polys);
+    return this._calculateRampPlane(polys);
   }
 
   /**
@@ -188,29 +224,63 @@ export class TerrainGeometry extends RegionGeometry {
    * @returns {Plane[]}
    */
   calculateMultiPolygonRampPlanes() {
-    return this.regionShapes.map(shape => this._calculatePolygonRamp(shape.polygons))
+    return this.regionShapes.map(shape => this._calculateRampPlane(shape.polygons))
   }
-
 
   /**
-   * Calculate the plane of a ramp for a single group of polygons of this region.
+   * Determine the min/max point of the ramp along the center point.
    * @param {PIXI.Polygon[]} polygons
-   * @returns {Plane}
+   * @returns {PIXI.Point[]}
    */
-  _calculatePolygonRamp(polygons) {
-		const [a3d, b3d] = this._calculatePolygonRampPoints(polygons);
+  _calculateRampPlane(polygons) {
+    const topZ = gridUnitsToPixels(this.constructor.plateauElevation(this.placeableDocument));
+    const rampFloor = gridUnitsToPixels(this.constructor.rampFloor(this.placeableDocument));
+    const rampDir = this.constructor.rampDirection(this.placeableDocument);
 
-		// Construct the ramp plane. Normal should face up (toward part to cut away).
-		// Find a perpendicular in 2d to the plane direction.
-		const dir = b3d.subtract(a3d);
-		using perpDir = Point3d.tmp.set(dir.y, -dir.x, 0); // Use y, -x so normal faces up.
-		using c3d = b3d.add(perpDir);
-		const p = Plane.fromPoints(a3d, b3d, c3d);
-		a3d.release();
-		b3d.release();
-		return p;
+    // Calculate the lowest and highest points on the plane.
+		// 0º is due south (0, 1), 90º is due west (1, 0)
+		const rad = Math.normalizeRadians(Math.toRadians(rampDir + 90));
+		using dir = PIXI.Point.tmp.set(Math.sin(rad), Math.cos(rad));
+
+    // Find extreme outer points along the direction vector across all vertices.
+    // Project polygon vertices along the direction vector, avoiding line-intersection overhead.
+    let minProj = Number.POSITIVE_INFINITY;
+    let maxProj = Number.NEGATIVE_INFINITY;
+    let minPoint;
+    let maxPoint;
+    for ( const poly of polygons ) {
+      for ( const pt of poly.iteratePoints() ) {
+        // Scalar projection along the ramp direction vector.
+        const proj = pt.dot(dir);
+        if ( proj < minProj ) {
+          minProj = proj;
+          minPoint = pt;
+        }
+        if ( proj > maxProj ) {
+          maxProj = proj;
+          maxPoint = pt;
+        }
+      }
+    }
+
+    if ( !(minPoint && maxPoint) || minProj === maxProj ) throw new Error("Ramp direction does not span a valid polygon area.");
+
+    // Define 3d low and high points.
+    const low3d = Point3d.tmp.set(minPoint.x, minPoint.y, rampFloor);
+    // const high3d = Point3d.tmp.set(maxPoint.x, maxPoint.y, topZ);
+
+    // Calculate 3d normal vector.
+    const run = maxProj - minProj;
+    const rise = topZ - rampFloor;
+
+    // Normalized 3d normal vector pointing orthogonally "up" from the ramp surface.
+    const len = Math.hypot(rise, run);
+    return new Plane(low3d, {
+      x: (-dir.x * rise) / len,
+      y: (-dir.y * rise) / len,
+      z: run / len,
+    });
   }
-
 
   // ----- NOTE: Static properties for terrains ----- //
 
@@ -293,7 +363,7 @@ export class TerrainGeometry extends RegionGeometry {
     if ( !this.constructor.isElevated(this.placeableDocument) ) return res;
 
     // If plateau, can simply adjust the region top to the plateau top. Region shape is otherwise unaffected.
-    if ( this.constructor.isPlateau ) res.topZ = gridUnitsToPixels(this.constructor.plateauElevation(this.placeableDocument));
+    if ( this.constructor.isPlateau(this.placeableDocument) ) res.topZ = gridUnitsToPixels(this.constructor.plateauElevation(this.placeableDocument));
 
     // Otherwise, return the elevation for the bottom of the region to the base (of the ramp, steps, or hill).
     // This height may be 0.
