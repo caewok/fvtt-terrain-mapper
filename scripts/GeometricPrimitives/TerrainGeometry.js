@@ -67,33 +67,6 @@ export class TerrainGeometry extends RegionGeometry {
     let topShape = this._buildTerrainShape(shapeIdx);
     if ( !baseShape ) return topShape;
 
-    /*
-    // Combine top and bottom shapes
-    // Zero out the model matrices so that updating can work as with a normal single region shape.
-    const regionShape = this.regionShapes[shapeIdx];
-    const shapeDims = this._shapeDimensions(regionShape);
-
-    // Zero out base
-    const baseCenter = baseShape.modelMatrix.translation.subtract(shapeDims.center);
-    const baseAngles = baseShape.modelMatrix.rotation.subtract(shapeDims.angles);
-    const baseDims = baseShape.modelMatrix.scale.divide(shapeDims.dims);
-    baseShape.modelMatrix.translation = baseCenter;
-    baseShape.modelMatrix.rotation = baseAngles;
-    baseShape.modelMatrix.scale = baseDims;
-
-    // Zero out top shape.
-    const topCenter = topShape.modelMatrix.translation.subtract(shapeDims.center);
-    const topAngles = topShape.modelMatrix.rotation.subtract(shapeDims.angles);
-    const topDims = topShape.modelMatrix.scale.divide(shapeDims.dims);
-    topShape.modelMatrix.translation = baseCenter;
-    topShape.modelMatrix.rotation = baseAngles;
-    topShape.modelMatrix.scale = baseDims;
-
-    // Move the top shape to be on top of the bottom shape.
-    */
-
-
-
     const id = `${this._shapeId(shapeIdx)}_combined`;
     const combinedShape = CombinedGeometricPrimitive.create(id);
     combinedShape.addShape(baseShape);
@@ -184,9 +157,8 @@ export class TerrainGeometry extends RegionGeometry {
     if ( !this.constructor.isElevated(regionD)
         || this.constructor.isPlateau(regionD) ) return;
 
-    /*
-    // Ramps, steps, hills can all be rotated. This requires a rebuild of the top shape, because
-    // its relationship to the base shape changes.
+
+    // If ramp direction changes, rebuild the top shape.
     // If step size changes, requires rebuild.
     // If hill changes, requires rebuild.
     const requiresRebuild = this.activeUpdates.has("rampDirection")
@@ -200,10 +172,13 @@ export class TerrainGeometry extends RegionGeometry {
       const topShape = this._buildTerrainShape(shapeIdx);
 
       // Replace the top shape.
-      if ( shape instanceof CombinedGeometricPrimitive ) shape.shapes[1] = topShape;
+      if ( shape instanceof CombinedGeometricPrimitive ) {
+        shape.removeShapeByIndex(1);
+        shape.addShape(topShape);
+      }
       else this.shapes[shapeIdx] = topShape;
     }
-    */
+
   }
 
   // ----- NOTE: Ramps ----- //
