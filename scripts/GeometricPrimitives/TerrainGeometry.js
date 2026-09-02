@@ -24,8 +24,11 @@ import { RegionGeometryManager } from "../geometry/placeable_tracking/CanvasGeom
 
 /* Shape options
 
-Plateau shape: Use the base shape.
-
+None: Use the base shape
+Plateau: Use the base shape.
+Ramp: Base shape + Ramp
+Steps: Base shape + steps
+Hill: Base shape + hill
 
 */
 
@@ -67,13 +70,15 @@ export class TerrainGeometry extends RegionGeometry {
     let topShape = this._buildTerrainShape(shapeIdx);
     if ( !baseShape ) return topShape;
 
+    /*
     const id = `${this._shapeId(shapeIdx)}_combined`;
     const combinedShape = CombinedGeometricPrimitive.create(id);
     combinedShape.addShape(baseShape);
     combinedShape.addShape(topShape);
     return combinedShape;
+    */
 
-    // return topShape;
+    return topShape;
   }
 
 
@@ -88,61 +93,55 @@ export class TerrainGeometry extends RegionGeometry {
     const opts = this._shapeDimensions(regionShape);
     const regionD = this.placeableDocument;
 
-    if ( this.constructor.isRamp(regionD) ) {
+    if ( this.constructor.isSteps(regionD) ) {
+      const bottomZ = baseElev.topZ;
+      const { stepWidth, stepHeight, polygons } = this.#stepDimensions(regionShape);
+      topShape = StepsPrimitive.fromPolygons(id, polygons, { bottomZ, stepWidth, stepHeight, ...opts })
+
+    } else if ( this.constructor.isRamp(regionD) ) {
       opts.plane = this.calculateSingleRampPlane();
       opts.bottomZ = baseElev.topZ;
       opts.topZ = gridUnitsToPixels(this.constructor.plateauElevation(this.placeableDocument));
       topShape = RampPrimitive.fromPolygons(id, polys, opts);
 
-    } else if ( this.constructor.isSteps(regionD) ) {
-      const bottomZ = baseElev.topZ
-      const totalStepHeight = gridUnitsToPixels(this.constructor.rampStepSize(regionD));
-      const numSteps = this.constructor.numSteps(regionD);
-      const stepHeight = totalStepHeight / numSteps;
-
-
-      // const [aPt, bPt] = this._calculatePolygonRampPoints(polys);
-      // const stepWidth = PIXI.Point.distanceBetween(aPt, bPt) / numSteps;
-
-      // Rotate the polygons based on ramp direction.
-      const rampDir = Math.toRadians(this.constructor.rampDirection(regionD));
-      if ( rampDir !== 0 ) {
-        const polygons = regionD.polygons;
-        const center = this.aabb.center;
-        const txMat = Matrix.translation(center, { d3: false });
-        const rotMat = Matrix.rotationZ(-rampDir, { d3: false });
-
-        // Rotate the polygons.
-        const M = txMat.multiply4x4(rotMat);
-        const rotPolys = [];
-        for ( const poly of polygons ) rotPolys.push(poly.transform(M));
-
-        // Find the x bounds of the new rotated polygons.
-        const xs = [];
-        rotPolys.forEach(poly => poly.iteratePoints().forEach(pt => xs.push(pt.x)))
-        const xMinMax = Math.minMax(...xs);
-        const stepWidth = (xMinMax.max - xMinMax.min) / numSteps;
-
-        // Construct the steps.
-        const steps = StepsPrimitive.fromPolygons(id, rotPolys, { bottomZ, stepWidth, stepHeight, ...opts })
-        topShape = steps;
-
-      } else {
-        const stepWidth = this.aabb.width / numSteps;
-        const steps = StepsPrimitive.fromPolygons(id, regionD.polygons, { bottomZ, stepWidth, stepHeight, ...opts })
-        topShape = steps;
-      }
-
     } else if ( this.constructor.isHill(regionD) ) {
-      const curve = HillDrawingManager.scaledHillData(regionD);
-      const opts = {
-        type: this.constructor.hillType(regionD),
-        elevationZ: baseElev.topZ,
-      };
-      topShape = HillPrimitive.fromPolygons(id, polys, curve, opts)
+      opts.curve = HillDrawingManager.scaledHillData(regionD);
+      opts.type = this.constructor.hillType(regionD);
+      opts.elevationZ = baseElev.topZ;
+      opts.mgr = HillDrawingManager.managers.get(regionD.object); // TODO: Fix HillManager to use region documents.
+      topShape = HillPrimitive.fromPolygons(id, polys, opts);
     }
     topShape.initialize();
     return topShape;
+  }
+
+  #stepDimensions(regionShape) {
+    const regionD = this.placeableDocument;
+    const totalStepHeight = gridUnitsToPixels(this.constructor.rampStepSize(regionD));
+    const numSteps = this.constructor.numSteps(regionD);
+    const stepHeight = totalStepHeight / numSteps;
+    const rampDir = Math.toRadians(this.constructor.rampDirection(regionD));
+    let polygons = regionShape.polygons;
+    if ( rampDir !== 0 ) {
+      // Rotate the polygons based on ramp direction.
+      const center = polygons[0].center;
+      const txMat = Matrix.translation(center, { d3: false });
+      const rotMat = Matrix.rotationZ(-rampDir, { d3: false });
+
+      // Rotate the polygons.
+      const M = txMat.multiply4x4(rotMat);
+      polygons = [];
+      for ( const poly of regionD.polygons ) polygons.push(poly.transform(M));
+    }
+
+    // Find the x bounds of the new rotated polygons.
+    const xs = [];
+    polygons.forEach(poly => poly.iteratePoints().forEach(pt => xs.push(pt.x)))
+    const xMinMax = Math.minMax(...xs);
+    const shapeLength = (xMinMax.max - xMinMax.min);
+    const stepWidth = shapeLength / numSteps;
+
+    return { numSteps, stepWidth, stepHeight, polygons };
   }
 
   // ----- NOTE: Updating ----- //
@@ -150,12 +149,11 @@ export class TerrainGeometry extends RegionGeometry {
 
   _updateShape(shape, regionShape, changes) {
     // The combined shape shares the model matrix between underlying shapes, so it is sufficient to update it.
-    super._updateShape(shape, regionShape, changes);
 
     // If no terrain or plateau, we are done.
     const regionD = this.placeableDocument;
     if ( !this.constructor.isElevated(regionD)
-        || this.constructor.isPlateau(regionD) ) return;
+        || this.constructor.isPlateau(regionD) ) return super._updateShape(shape, regionShape, changes);
 
 
     // If ramp direction changes, rebuild the top shape.
@@ -176,9 +174,14 @@ export class TerrainGeometry extends RegionGeometry {
         shape.removeShapeByIndex(1);
         shape.addShape(topShape);
       }
-      else this.shapes[shapeIdx] = topShape;
+      else shape = this.shapes[shapeIdx] = topShape;
+
+      // Ensure the newly rebuilt shape gets its model matrix updated.
+      // Pass undefined for changes param so that it completely updates.
+      changes = undefined;
     }
 
+    super._updateShape(shape, regionShape, changes);
   }
 
   // ----- NOTE: Ramps ----- //
