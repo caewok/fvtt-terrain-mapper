@@ -42,16 +42,6 @@ export class RampPrimitive extends ExtrudedPolygonPrimitive {
   // ----- NOTE: Factory helpers to construct faces ----- //
 
   /**
-   * Helper to create an extruded (along the z-axis) shape from a 2d polygon, with a planar ramp as the top.
-   * @param {string} id           Identifier for this shape.
-   * @param {PIXI.Polygon} poly   Polygon to use.
-   * @param {Plane} plane
-   * @param {object} [opts]
-   * @param {number} [opts.topZ]        Top elevation
-   * @param {number} [opts.bottomZ]     Bottom elevation
-   */
-
-  /**
    * Build an extruded (along the z-axis) shape from a 2d polygon, with a planar ramp as the top.
    * @param {PIXI.Polygon} poly   Polygon to use.
    * @param {Plane} plane
