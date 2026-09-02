@@ -22,6 +22,7 @@ import { PATCHES as PATCHES_Tile } from "./Tile.js";
 import { PATCHES as PATCHES_TileConfig } from "./TileConfig.js";
 import { PATCHES as PATCHES_Scene } from "./Scene.js";
 import { PATCHES as PATCHES_HillDrawingManager } from "./regions/HillDrawingManager.js";
+import { PATCHES as PATCHES_LevelConfig } from "./LevelConfig.js";
 
 export const PATCHES = {
   "foundry.canvas.edges.CanvasEdges": PATCHES_CanvasEdges,
@@ -32,6 +33,7 @@ export const PATCHES = {
   "foundry.applications.sheets.SceneConfig": PATCHES_SceneConfig,
   "foundry.canvas.placeables.Tile": PATCHES_Tile,
   "foundry.applications.sheets.TileConfig": PATCHES_TileConfig,
+  "foundry.applications.sheets.LevelConfig": PATCHES_LevelConfig,
   "foundry.canvas.placeables.Token": PATCHES_Token,
   "foundry.canvas.placeables.Wall": PATCHES_Wall,
   "foundry.documents.Scene": PATCHES_Scene,

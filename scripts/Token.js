@@ -29,38 +29,7 @@ export const PATCHES = {};
 PATCHES.BASIC = {};
 PATCHES.ELEVATION = {};
 
-// ----- NOTE: Hooks ----- //
 
-/**
- * Hook updateToken
- * If disposition changes, change actor's unique effect status icon display.
- * @param {Document} document                       The Document instance being updated
- * @param {object} changed                          Differential data that will be used to update the document
- * @param {Partial<DatabaseUpdateOperation>} options Additional options which modify the update request
- * @param {string} userId                           The ID of the requesting user, always game.user.id
- * @returns {boolean|void}                          Explicitly return false to prevent update of this Document
- */
-function updateToken(tokenD, changed, _options, userId) {
-  const token = tokenD.object;
-  if ( !token ) return;
-  if ( !game.users.get(userId).isGM ) return;
-  if ( !Object.hasOwn(changed, "disposition") ) return;
-  const terrainDocs = CONFIG[MODULE_ID].Terrain._allUniqueEffectDocumentsOnToken(tokenD.object);
-  if ( !terrainDocs.length ) return;
-
-  if ( changed.disposition === CONST.TOKEN_DISPOSITIONS.SECRET ) {
-    terrainDocs.forEach(doc => doc.update({ statuses: []})); // Async
-  } else terrainDocs.forEach(doc => {
-    if ( !doc.getFlag(MODULE_ID, FLAGS.UNIQUE_EFFECT.DISPLAY_ICON) ) return;
-    doc.update({ statuses: [doc.img]}); // Async
-  });
-}
-
-
-
-PATCHES.BASIC.HOOKS = {
-  updateToken,
-};
 
 // ----- NOTE: Wraps ----- //
 

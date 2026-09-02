@@ -11,6 +11,7 @@ import { GEOMETRY_LIB_ID, GEOMETRY_ID } from "./geometry/const.js";
 import { Point3d } from "./geometry/3d/Point3d.js";
 import { Plane } from "./geometry/3d/Plane.js";
 import { gridUnitsToPixels } from "./geometry/util.js";
+import { TileGeometry } from "./geometry/placeable_geometry/TileGeometry.js";
 
 /**
  * Single tile elevation handler
@@ -46,16 +47,15 @@ export class TileElevationHandler {
   }
 
   /** @type {number} */
-  get alphaThreshold() { return this.tile.document.getFlag(MODULE_ID, FLAGS.TILE.ALPHA_THRESHOLD); }
-
-  /** @type {boolean} */
-  get trimBorder() { return this.tile.document.getFlag(MODULE_ID, FLAGS.TILE.TRIM_BORDER); }
+  get alphaThreshold() { return TileGeometry.alphaThreshold(this.tile.document); }
 
   /**
    * Border of the tile that removes the transparent alpha pixels along the edges.
    * @type {PIXI.Rectangle|PIXI.Polygon}
    */
   get alphaBorder() {
+
+
     const geom = this.tile[GEOMETRY_LIB_ID][GEOMETRY_ID];
     return geom.alphaBoundingPolygon.top.toPolygon2d(); // Parallel to XY plane, so can just drop z axis.
   }

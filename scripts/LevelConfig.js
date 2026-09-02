@@ -23,7 +23,7 @@ PATCHES.BASIC = {};
  * Inject html to add controls to the tile configuration.
  * Adds to the Overhead tab.
  */
-function renderTileConfig(app, html, data) {
+function renderLevelConfig(app, html, data) {
   // Add handler on close to store the group actors setting.
 //   const oldHandler = app.options.form.handler;
 //   app.options.form.handler = async (event, form, submitData) => {
@@ -37,11 +37,11 @@ function renderTileConfig(app, html, data) {
   newFormGroup.classList.add("form-group");
   newFormGroup.innerHTML = myHTML;
 
-  const divSet = html.querySelector("div[data-tab='overhead']");
+  const divSet = html.querySelector("section[data-application-part='body']");
   divSet.appendChild(newFormGroup);
   app.setPosition(app.position);
 }
 
-PATCHES.BASIC.HOOKS = { renderTileConfig };
+PATCHES.BASIC.HOOKS = { renderLevelConfig };
 
 

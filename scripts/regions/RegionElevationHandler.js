@@ -149,7 +149,7 @@ export class RegionElevationHandler {
    * @returns {Plane}
    */
   calculateSingleRampPlane() {
-    return this._calculatePolygonRamp(this.region.polygons);
+    return this._calculateRampPlane(this.region.polygons);
   }
 
   /**
@@ -158,64 +158,63 @@ export class RegionElevationHandler {
    * @returns {Plane[]}
    */
   calculateMultiPolygonRampPlanes() {
-    return this.shapes.map(shape => this._calculatePolygonRamp(shape.polygons))
+    return this.shapes.map(shape => this._calculateRampPlane(shape.polygons))
   }
 
   /**
    * Determine the min/max point of the ramp along the center point.
-   * Intersection points of outermost polygon along the polygon center in direction of the region ramp.
    * @param {PIXI.Polygon[]} polygons
    * @returns {PIXI.Point[]}
    */
-  _calculatePolygonRampPoints(polygons, center) {
+  _calculateRampPlane(polygons) {
     const topZ = gridUnitsToPixels(this.plateauElevation);
     const rampFloor = gridUnitsToPixels(this.rampFloor);
 
-		// Calculate the lowest and highest points on the plane.
-		// Non-split plane goes lowest point of intersection --> center --> highest point of intersection
+    // Calculate the lowest and highest points on the plane.
 		// 0º is due south (0, 1), 90º is due west (1, 0)
 		const rad = Math.toRadians(this.rampDirection);
 		using dir = PIXI.Point.tmp.set(Math.sin(rad), Math.cos(rad));
-		using a = center.add(dir);
 
-		// For simplicity, just intersect the polygons.
-		// TODO: Intersect individual shapes or use sd to intersect them in 2d.
-		// First and last intersections are what we need (holes must be internal).
-		let firstIx = { t0: Number.POSITIVE_INFINITY };
-		let lastIx = { t0: Number.NEGATIVE_INFINITY };
-		for ( const poly of polygons ) {
-			const ixs = poly.lineIntersections(center, a);
-			ixs.forEach(ix => {
-				if ( ix.t0 < firstIx.t0 ) firstIx = ix;
-				if ( ix.t0 > lastIx.t0 ) lastIx = ix;
-			});
-		}
-		if ( firstIx === lastIx || !isFinite(firstIx.t0) || !isFinite(lastIx.t0) ) throw Error("Ramp does not have sufficient intersecting points.");
+    // Find extreme outer points along the direction vector across all vertices.
+    // Project polygon vertices along the direction vector, avoiding line-intersection overhead.
+    let minProj = Number.POSITIVE_INFINITY;
+    let maxProj = Number.NEGATIVE_INFINITY;
+    let minPoint;
+    let maxPoint;
+    for ( const poly of polygons ) {
+      for ( const pt of poly.iteratePoints() ) {
+        // Scalar projection along the ramp direction vector.
+        const proj = pt.dot(dir);
+        if ( proj < minProj ) {
+          minProj = proj;
+          minPoint = pt;
+        }
+        if ( proj > maxProj ) {
+          maxProj = proj;
+          maxPoint = pt;
+        }
+      }
+    }
 
-		// Construct 3d points from the intersection at the requisite elevations of the ramp.
-		const a3d = Point3d.tmp.set(firstIx.x, firstIx.y, rampFloor);
-		const b3d = Point3d.tmp.set(lastIx.x, lastIx.y, topZ);
-    return [a3d, b3d];
+    if ( !(minPoint && maxPoint) || minProj === maxProj ) throw new Error("Ramp direction does not span a valid polygon area.");
+
+    // Define 3d low and high points.
+    const low3d = Point3d.tmp.set(minPoint.x, minPoint.y, rampFloor);
+    // const high3d = Point3d.tmp.set(maxPoint.x, maxPoint.y, topZ);
+
+    // Calculate 3d normal vector.
+    const run = maxProj - minProj;
+    const rise = topZ - rampFloor;
+
+    // Normalized 3d normal vector pointing orthogonally "up" from the ramp surface.
+    const len = Math.hypot(rise, run);
+    return new Plane(low3d, {
+      x: (-dir.x * rise) / len,
+      y: (-dir.y * rise) / len,
+      z: run / len,
+    });
   }
 
-  /**
-   * Calculate the plane of a ramp for a single group of polygons of this region.
-   * @param {PIXI.Polygon[]} polygons
-   * @returns {Plane}
-   */
-  _calculatePolygonRamp(polygons) {
-		const [a3d, b3d] = this._calculatePolygonRampPoints(polygons);
-
-		// Construct the ramp plane. Normal should face up (toward part to cut away).
-		// Find a perpendicular in 2d to the plane direction.
-		const dir = b3d.subtract(a3d);
-		using perpDir = Point3d.tmp.set(dir.y, -dir.x, 0); // Use y, -x so normal faces up.
-		using c3d = b3d.add(perpDir);
-		const p = Plane.fromPoints(a3d, b3d, c3d);
-		a3d.release();
-		b3d.release();
-		return p;
-  }
 
   /**
    * Returns the terrain aabb if elevated, and the full region aabb otherwise.
