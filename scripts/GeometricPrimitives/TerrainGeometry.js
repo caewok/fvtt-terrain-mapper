@@ -70,15 +70,15 @@ export class TerrainGeometry extends RegionGeometry {
     let topShape = this._buildTerrainShape(shapeIdx);
     if ( !baseShape ) return topShape;
 
-    /*
+
     const id = `${this._shapeId(shapeIdx)}_combined`;
     const combinedShape = CombinedGeometricPrimitive.create(id);
     combinedShape.addShape(baseShape);
     combinedShape.addShape(topShape);
     return combinedShape;
-    */
 
-    return topShape;
+
+    // return topShape;
   }
 
 
@@ -101,14 +101,14 @@ export class TerrainGeometry extends RegionGeometry {
     } else if ( this.constructor.isRamp(regionD) ) {
       opts.plane = this.calculateSingleRampPlane();
       opts.bottomZ = baseElev.topZ;
-      opts.topZ = gridUnitsToPixels(this.constructor.plateauElevation(this.placeableDocument));
+      opts.topZ = gridUnitsToPixels(this.constructor.terrainTop(this.placeableDocument));
       topShape = RampPrimitive.fromPolygons(id, polys, opts);
 
     } else if ( this.constructor.isHill(regionD) ) {
-      opts.curve = HillDrawingManager.scaledHillData(regionD);
+      opts.bottomZ = baseElev.topZ;
+      opts.topZ = gridUnitsToPixels(this.constructor.terrainTop(this.placeableDocument));
+      opts.curve = HillDrawingManager.hillEvaluationData(regionD);
       opts.type = this.constructor.hillType(regionD);
-      opts.elevationZ = baseElev.topZ;
-      opts.mgr = HillDrawingManager.managers.get(regionD.object); // TODO: Fix HillManager to use region documents.
       topShape = HillPrimitive.fromPolygons(id, polys, opts);
     }
     topShape.initialize();
@@ -211,8 +211,8 @@ export class TerrainGeometry extends RegionGeometry {
    * @returns {PIXI.Point[]}
    */
   _calculateRampPlane(polygons) {
-    const topZ = gridUnitsToPixels(this.constructor.plateauElevation(this.placeableDocument));
-    const rampFloor = gridUnitsToPixels(this.constructor.rampFloor(this.placeableDocument));
+    const topZ = gridUnitsToPixels(this.constructor.terrainTop(this.placeableDocument));
+    const rampFloor = gridUnitsToPixels(this.constructor.terrainBottom(this.placeableDocument));
     const rampDir = this.constructor.rampDirection(this.placeableDocument);
 
     // Calculate the lowest and highest points on the plane.
@@ -287,7 +287,7 @@ export class TerrainGeometry extends RegionGeometry {
       const out = curve.cp1.y > 0 || curve.cp2.y > 0 || curve.end.y > 0;
       Object.values(curve).forEach(pt => pt.release());
       return out;
-    } else if ( SceneElevationHandler.sceneFloor > Math.min(this.rampFloor(regionD), this.plateauElevation(regionD)) ) return true;
+    } else if ( SceneElevationHandler.sceneFloor > Math.min(this.terrainBottom(regionD), this.terrainTop(regionD)) ) return true;
     return false;
   }
 
@@ -297,10 +297,22 @@ export class TerrainGeometry extends RegionGeometry {
   static hillType(regionD) { return regionD.getFlag(MODULE_ID, FLAGS.REGION.HILL.TYPE) || FLAGS.REGION.HILL.CHOICES.LINEAR; }
 
   /** @type {number} */
-  static plateauElevation(regionD) { return regionD.getFlag(MODULE_ID, FLAGS.REGION.PLATEAU_ELEVATION) || 0; }
+  static terrainTop(regionD) { return regionD.getFlag(MODULE_ID, FLAGS.REGION.PLATEAU_ELEVATION) || 0; }
 
   /** @type {number} */
-  static rampFloor(regionD) { return regionD.getFlag(MODULE_ID, FLAGS.REGION.RAMP.FLOOR) || 0; }
+  static plateauElevation(regionD) {
+    console.debug("TerrainGeometry|plateauElevation is now terrainTop.");
+    return this.terrainTop(regionD);
+  }
+
+  /** @type {number} */
+  static terrainBottom(regionD) { return regionD.getFlag(MODULE_ID, FLAGS.REGION.RAMP.FLOOR) || 0; }
+
+  /** @type {number} */
+  static rampFloor(regionD) {
+    console.debug("TerrainGeometry|rampFloor is now terrainBottom.");
+    return this.terrainBottom(regionD);
+  }
 
   /** @type {number} */
   static rampDirection(regionD) { return regionD.getFlag(MODULE_ID, FLAGS.REGION.RAMP.DIRECTION) || 0; }
@@ -318,7 +330,7 @@ export class TerrainGeometry extends RegionGeometry {
 
   /** @type {number} */
   static totalStepHeight(regionD) {
-    return this.plateauElevation(regionD) - this.rampFloor(regionD);
+    return this.terrainTop(regionD) - this.terrainBottom(regionD);
   }
 
   /** @type {number} */
@@ -341,11 +353,11 @@ export class TerrainGeometry extends RegionGeometry {
     if ( !this.constructor.isElevated(this.placeableDocument) ) return res;
 
     // If plateau, can simply adjust the region top to the plateau top. Region shape is otherwise unaffected.
-    if ( this.constructor.isPlateau(this.placeableDocument) ) res.topZ = gridUnitsToPixels(this.constructor.plateauElevation(this.placeableDocument));
+    if ( this.constructor.isPlateau(this.placeableDocument) ) res.topZ = gridUnitsToPixels(this.constructor.terrainTop(this.placeableDocument));
 
     // Otherwise, return the elevation for the bottom of the region to the base (of the ramp, steps, or hill).
     // This height may be 0.
-    else res.topZ = gridUnitsToPixels(this.constructor.rampFloor(this.placeableDocument));
+    else res.topZ = gridUnitsToPixels(this.constructor.terrainBottom(this.placeableDocument));
     if ( res.topZ < res.bottomZ ) res.topZ = res.bottomZ;
     return res;
   }

@@ -8,10 +8,8 @@ PIXI,
 "use strict";
 
 import { MODULE_ID, FLAGS } from "../const.js";
-import { GEOMETRY_LIB_ID } from "../geometry/const.js";
 import { Draw } from "../geometry/Draw.js";
 import { MatrixFloat32 } from "../geometry/Matrix.js";
-import { gridUnitsToPixels } from "../geometry/util.js";
 
 // TODO: Temp Hook region creation and deletion to update.
 export const PATCHES = {};
@@ -111,6 +109,12 @@ export class HillDrawingManager {
   /** @type {Region|undefined} */
   get region() { return this.regionDocument.object; }
 
+  /** @type {number} */
+  static terrainTop(regionD) { return regionD.getFlag(MODULE_ID, FLAGS.REGION.PLATEAU_ELEVATION) || 0; }
+
+  /** @type {number} */
+  static terrainBottom(regionD) { return regionD.getFlag(MODULE_ID, FLAGS.REGION.RAMP.FLOOR) || 0; }
+
   /** @type {PIXI.Container} */
   regionUI = new PIXI.Container();
 
@@ -174,7 +178,7 @@ export class HillDrawingManager {
 
   activateUI() {
     // Update the handle positions based on last saved data.
-    const scaledCurveData = this.#scaledCurveData = this.scaledHillData();
+    const scaledCurveData = this.#scaledCurveData = this.constructor.scaledHillData(this.regionDocument);
     for ( const key of Object.keys(this.handles) ) { this.constructor._updateHandle(this.handles[key], scaledCurveData[key]); }
 
     // Draw the curve.
@@ -185,8 +189,6 @@ export class HillDrawingManager {
     this.regionUI.destroy(true); // True to destroy children.
     this.#initialized = false;
   }
-
-  // ----- NOTE:
 
   // ----- NOTE: User Interaction ----- //
 
@@ -257,7 +259,12 @@ export class HillDrawingManager {
     event.stopPropagation();
 
     // Reset the handle to its default position.
-    const defaultPosition = this.scaledDefaultCurve()[handle.name];
+    const regionD = this.regionDocument;
+    const curve = this.constructor.defaultCurve();
+    this.constructor.scaleBezierForRegion(regionD, curve, curve);
+    this.constructor.scaleCurveOrientationForRegion(regionD, curve, curve);
+
+    const defaultPosition = curve[handle.name];
     handle.x = defaultPosition.x;
     handle.y = defaultPosition.y;
     this._updateCurveData();
@@ -373,7 +380,7 @@ export class HillDrawingManager {
    * Render the Bézier curve and the visual control lines connecting the points.
    */
   _drawCurve() {
-    const { start, cp1, cp2, end, left, right } = this.#scaledCurveData ??= this.curve;
+    const { start, cp1, cp2, end, left, right } = this.#scaledCurveData ??= this.constructor.scaledHillData(this.regionDocument);
     const draw = new Draw(this.curveGraphics);
     draw.clearDrawings();
 
@@ -395,7 +402,31 @@ export class HillDrawingManager {
     draw.curve(start, cp1, cp2, end, { width: 4, color: Draw.COLORS.green, alpha: 1 });
   }
 
-  // ----- NOTE: Curve calculation ----- //
+  // ----- NOTE: Scaling and normalization ----- //
+
+  /**
+   * Convert a world point to the curve model.
+   * @param {PIXI.Point} point
+   * @param {PIXI.Point} origin
+   * @param {PIXI.Point} scale
+   * @returns {PIXI.Point}
+   */
+  static toModel(point, origin, scale, out) {
+    out ??= PIXI.Point.tmp;
+    return point.subtract(origin, out).divide(scale, out);
+  }
+
+  /**
+   * Convert a curve model point to a world point.
+   * @param {PIXI.Point} point
+   * @param {PIXI.Point} origin
+   * @param {PIXI.Point} scale
+   * @returns {PIXI.Point}
+   */
+  static toWorld(point, origin, scale, out) {
+    out ??= PIXI.Point.tmp;
+    return point.multiply(scale, out).add(origin, out);
+  }
 
   /**
    * Duplicate a curve
@@ -409,114 +440,163 @@ export class HillDrawingManager {
   }
 
   /**
-   * Translate a set of Bézier points so the start is at {0, 0} and scales them to fit 0-->1 range.
-   * @param {BézierCurve} curve
-   * @returns {BézierCurve} Same points, in place.
-   */
-  static normalizeBezier(curve) {
-    const { start, end, cp1, cp2 } = curve;
-
-    // Translate.
-    using txMat = MatrixFloat32.translation(-start.x, -start.y);
-    txMat.multiplyPoint2d(start, start);
-    txMat.multiplyPoint2d(end, end);
-    txMat.multiplyPoint2d(cp1, cp1);
-    txMat.multiplyPoint2d(cp2, cp2);
-
-    // Locate the maximum absolute bounds to determine the scale factor.
-    // Avoid division by zero.
-    const maxBounds = Math.max(
-      Math.abs(end.x), Math.abs(end.y),
-      Math.abs(cp1.x), Math.abs(cp1.y),
-      Math.abs(cp2.x), Math.abs(cp2.y),
-    ) || 1;;
-
-    // Scale translated points.
-    const invScale = 1 / maxBounds;
-    end.multiplyScalar(invScale, end);
-    cp1.multiplyScalar(invScale, cp1);
-    cp2.multiplyScalar(invScale, cp2);
-
-    return curve;
-  }
-
-  /**
-   * Translate the curve orientation (left/right) to be a delta of the region center.
-   * @param {BézierCurve} curve
-   * @returns {BézierCurve} Same points, in place.
-   */
-  static normalizeCurveOrientationForRegion(regionD, curve) {
-    const mgr = CONFIG[GEOMETRY_LIB_ID].geometryManager.regions;
-    const aabb = mgr.geomForDocument(regionD).aabb;
-    const center = aabb.center;
-    const { left, right } = curve;
-    using txMat = MatrixFloat32.translation(-center.x, -center.y);
-    txMat.multiplyPoint2d(left, left);
-    txMat.multiplyPoint2d(right, right);
-
-    // Scale to 0 --> 1.
-    const maxBounds = Math.max(
-      Math.abs(left.x), Math.abs(left.y),
-      Math.abs(right.x), Math.abs(right.y),
-    );
-
-    // Scale translated points.
-    const invScale = 1 / maxBounds;
-    left.multiplyScalar(invScale, left);
-    right.multiplyScalar(invScale, right);
-    return curve;
-  }
-
-  /**
-   * Scale the curve orientation for this region.
-   * @param {BézierCurve} curve
-   * @returns {BézierCurve} Same points, in place.
-   */
-  static scaleCurveOrientationForRegion(regionD, curve) {
-    const bounds = this.region.bounds;
-    const center = this.region.center;
-    const { left, right } = curve;
-    const radius = bounds.width * 0.5;
-    using txMat = MatrixFloat32.translation(center.x, center.y);
-    using scaleMat = MatrixFloat32.scale(radius, radius);
-    using M = scaleMat.multiply3x3(txMat);
-    M.multiplyPoint2d(left, left);
-    M.multiplyPoint2d(right, right);
-    return curve;
-  }
-
-  /**
-   * Scale a curve to this region for use by the UI.
-   * Places the curve at 3/4 of the bottom of the region and stretches it to 75% of the base.
+   * The single source of truth for mapping curve/orientation data between "model space"
+   * (what is stored on the region flag, and what elevation math is evaluated against)
+   * and "world/pixel space" (what is drawn and dragged on the canvas).
+   *
+   * Every scale/normalize pair below must derive its origin and scale from here--and
+   * ONLY from here, never from the curve data being transformed. That is what makes
+   * each pair a true inverse of the other, so save -> load is lossless.
+   *
+   * Note that curveScale.x and curveScale.y are numerically equal here, but that is
+   * a UI layout choice, not a requirement: they are always applied as two independent
+   * per-axis factors (never combined into one shared magnitude), which is what keeps
+   * a curve's horizontal extent and its elevation from affecting one another.
    * @param {RegionDocument} regionD
-   * @param {BézierCurve} curve
-   * @returns {BézierCurve} Same points, in place.
+   * @returns {object}
+   * - @prop {PIXI.Point} curveOrigin
+   * - @prop {PIXI.Point} curveScale
+   * - @prop {PIXI.Point} orientationOrigin
+   * - @prop {number} orientationScale
    */
-  static scaleBezierForRegion(regionD, curve) {
-    const { start, end, cp1, cp2 } = curve;
+  static regionReferenceCurveParameters(regionD) {
+    const bounds = regionD.bounds;
+    const center = bounds.center;
 
-    // Translate and scale the curve control points.
-    // Place the curve just under the orientation controls.
-    const bounds = this.region.bounds;
-    const center = this.region.center;
-    const h = Math.max(bounds.height * 0.60, canvas.grid.size * 0.5);
-    using newCenter = PIXI.Point.tmp.set(
-      center.x,
-      bounds.top + h,
-    );
-
-    // Length of the curve line is 50% of the region width, minimum of two grid spaces.
+    // Where the curve-shape editing widget is drawn, and how large--purely a UI
+    // layout choice. It has no bearing on the elevation values the curve represents,
+    // because hillEvaluationData (used for z lookups) never applies curveScale.
     const curveLength = Math.max(bounds.width * 0.5, canvas.grid.size * 2);
-    using txMat = MatrixFloat32.translation(newCenter.x - (curveLength * 0.5), newCenter.y);
-    using scaleMat = MatrixFloat32.scale(curveLength, curveLength);
-    using M = scaleMat.multiply3x3(txMat);
-    M.multiplyPoint2d(start, start);
-    M.multiplyPoint2d(end, end);
-    M.multiplyPoint2d(cp1, cp1);
-    M.multiplyPoint2d(cp2, cp2);
-
-    return curve;
+    const widgetHeight = Math.max(bounds.height * 0.6, canvas.grid.size * 0.5);
+    return {
+      curveOrigin: PIXI.Point.tmp.set(center.x - (curveLength * 0.5), bounds.top + widgetHeight),
+      curveScale: PIXI.Point.tmp.set(curveLength, curveLength),
+    }
   }
+
+  static regionReferenceOrientationParameters(regionD) {
+    const bounds = regionD.bounds;
+    const center = bounds.center;
+
+    // Where the curve-shape editing widget is drawn, and how large--purely a UI
+    // layout choice. It has no bearing on the elevation values the curve represents,
+    // because hillEvaluationData (used for z lookups) never applies curveScale.
+    return {
+      orientationOrigin: PIXI.Point.tmp.copyFrom(center),
+      orientationScale: PIXI.Point.tmp.set(bounds.width * 0.5, bounds.width * 0.5),
+    }
+  }
+
+
+
+  /**
+   * Convert a world/pixel-space curve shape back to model space for storage.
+   * The exact inverse of scaleBezierForRegion. x (ridge position) and y (elevation)
+   * are normalized independently, so a tall peak can no longer compress the curve's
+   * horizontal extent, or vice versa.
+   *
+   * "start" is treated as a movable pivot rather than a stored position: the curve is
+   * normalized relative to wherever start currently sits on screen (not to curveOrigin),
+   * because only the shape relative to start carries meaning--the widget's absolute
+   * position on the canvas does not. That is also why start is always saved as {0, 0}.
+   * @param {RegionDocument} regionD
+   * @param {BézierCurve} curve       start/cp1/cp2/end
+   * @param {BézierCurve} [out]       where to save the result
+   * @returns {BézierCurve}
+   */
+  static normalizeBezier(regionD, curve, out) {
+    const { curveScale } = this.regionReferenceCurveParameters(regionD);
+    const { start, cp1, cp2, end } = curve;
+
+    out ??= {
+      ...curve,
+      start: PIXI.Point.tmp.set(0, 0),
+      cp1: PIXI.Point.tmp.set(0, 0),
+      cp2: PIXI.Point.tmp.set(0, 0),
+      end: PIXI.Point.tmp.set(0, 0),
+    };
+    this.toModel(cp1, start, curveScale, out.cp1);
+    this.toModel(cp2, start, curveScale, out.cp2);
+    this.toModel(end, start, curveScale, out.end);
+    out.start.set(0, 0); // Last in case out === curve.
+    return out;
+  }
+
+  /**
+   * Scale a model-space curve shape to world/pixel space for display on this region.
+   * The exact inverse of normalizeBezier. See regionReferenceCurveParameters for why x and y
+   * are scaled independently.
+   * @param {RegionDocument} regionD
+   * @param {BézierCurve} curve      start/cp1/cp2/end
+   * @param {BézierCurve} [out]       where to save the result
+   * @returns {BézierCurve}
+   */
+  static scaleBezierForRegion(regionD, curve, out) {
+    const { curveOrigin, curveScale } = this.regionReferenceCurveParameters(regionD);
+    const { cp1, cp2, end } = curve;
+    out ??= {
+      ...curve,
+      start: PIXI.Point.tmp,
+      cp1: PIXI.Point.tmp,
+      cp2: PIXI.Point.tmp,
+      end: PIXI.Point.tmp,
+    };
+    this.toWorld(cp1, curveOrigin, curveScale, out.cp1);
+    this.toWorld(cp2, curveOrigin, curveScale, out.cp2);
+    this.toWorld(end, curveOrigin, curveScale, out.end);
+    out.start.copyFrom(curveOrigin);
+    return out;
+
+
+  }
+
+  /**
+   * Convert world/pixel-space orientation points (left/right) back to model space
+   * (a fraction of the region's radius from its center) for storage. The exact
+   * inverse of scaleCurveOrientationForRegion--uses the same origin/scale, never
+   * a scale derived from left/right themselves, so a short orientation line no
+   * longer gets stretched back out to the region's full radius on save.
+   * @param {RegionDocument} regionD
+   * @param {BézierCurve} curve      left/right
+   * @param {BézierCurve} [out]       where to save the result
+   * @returns {BézierCurve}
+   */
+  static normalizeCurveOrientationForRegion(regionD, curve, out) {
+    const { orientationOrigin, orientationScale } = this.regionReferenceOrientationParameters(regionD);
+    const { left, right } = curve;
+    out ??= {
+      ...curve,
+      left: PIXI.Point.tmp,
+      right: PIXI.Point.tmp,
+    };
+    this.toModel(left, orientationOrigin, orientationScale, out.left);
+    this.toModel(right, orientationOrigin, orientationScale, out.right);
+    return out;
+  }
+
+  /**
+   * Scale model-space orientation points (left/right) to world/pixel space for this
+   * region. The exact inverse of normalizeCurveOrientationForRegion.
+   * @param {RegionDocument} regionD
+   * @param {BézierCurve} curve      left/right modified
+   * @param {BézierCurve} [out]       where to save the result
+   * @returns {BézierCurve}
+   */
+  static scaleCurveOrientationForRegion(regionD, curve, out) {
+    const { orientationOrigin, orientationScale } = this.regionReferenceOrientationParameters(regionD);
+    const { left, right } = curve;
+    out ??= {
+      ...curve,
+      left: PIXI.Point.tmp,
+      right: PIXI.Point.tmp,
+    };
+    this.toWorld(left, orientationOrigin, orientationScale, out.left);
+    this.toWorld(right, orientationOrigin, orientationScale, out.right);
+    return out;
+  }
+
+
+  // ----- NOTE: Curve calculation ----- //
 
   /**
    * Flat baseline curve.
@@ -547,13 +627,17 @@ export class HillDrawingManager {
    * Optional orientation:
    * @prop {PIXI.Point} [left]      Where the hill starts on the 2d canvas.
    * @prop {PIXI.Point} [right]     Where the hill ends on the 2d canvas.
+   *
+   * Points are always entirely in one space or the other--never mixed--except for
+   * the object returned by hillEvaluationData; see that method for why.
+   *   - Model space (as stored on the region flag): start is always {0, 0}; cp1/cp2/end
+   *     are relative to start, in units of the curve's own width (not tied to region
+   *     size). left/right are a fraction of the region's radius from its center.
+   *   - World/pixel space (as drawn and dragged on the canvas): ordinary scene coordinates.
    */
 
   /**
-   * Retrieve
-
-  /**
-   * Retrieve hill curve data for a region, unscaled.
+   * Retrieve hill curve data for a region, in model space (as stored on the flag).
    * @param {RegionDocument} regionD
    * @returns {BézierCurve|null}
    */
@@ -576,36 +660,48 @@ export class HillDrawingManager {
   }
 
   /**
-   * Return curve data for a given region, scaled for the region.
+   * Return curve data for a given region, fully in world/pixel space, for drawing
+   * and dragging the interactive UI handles. Do NOT use this for elevation lookups--
+   * see hillEvaluationData--because its y values have been resized to fit the on-screen
+   * widget and no longer represent a clean elevation fraction.
    * @param {RegionDocument} regionD
    * @returns {BézierCurve}
    */
   static scaledHillData(regionD) {
-    const curve = this._unadjustedHillData(regionD);
-    if ( !curve ) return this.scaledDefaultCurve();
+    const curve = this._unadjustedHillData(regionD) ?? this.defaultCurve();
 
     // Scale the curve and orientation to fit the region.
-    this.scaleBezierForRegion(regionD, curve);
-    this.scaleCurveOrientationForRegion(regionD, curve);
+    this.scaleBezierForRegion(regionD, curve, curve);
+    this.scaleCurveOrientationForRegion(regionD, curve, curve);
     return curve;
-
-    // Determine the intended peak elevation.
-    // const tm = region[MODULE_ID];
-    // const elevationE = tm.plateauElevation ?? tm.finiteRegionTopE;
-    // const elevationZ = gridUnitsToPixels(elevationE);
-
-    // Scale the curve accordingly.
-    // return this.scaleCurveElevation(curve, elevationZ);
   }
 
+  /**
+   * Return curve data for a given region, suitable for evaluating a hill's z-height
+   * at a canvas point (see hillZAtPoint). This is a deliberate mix of spaces:
+   *   - left/right are scaled to world/pixel space, because they are compared
+   *     geometrically against canvas points.
+   *   - start/cp1/cp2/end are left in model space, because their y values are
+   *     elevation *fractions*--unrelated to region size--and are only ever
+   *     multiplied by the region's plateau elevation at evaluation time. Scaling
+   *     them here would make elevation depend on the region's on-screen width,
+   *     which is exactly the bug this split is meant to avoid.
+   * @param {RegionDocument} regionD
+   * @returns {BézierCurve}
+   */
+  static hillEvaluationData(regionD) {
+    const curve = this._unadjustedHillData(regionD) ?? this.defaultCurve();
+    this.scaleCurveOrientationForRegion(regionD, curve, curve);
+    return curve;
+  }
 
   /**
-   * Store hill curve data for a region.
+   * Store hill curve data for a region. Expects a model-space curve (see typedef).
    * @param {RegionDocument} regionD
    * @param {BézierCurve} curve
    */
   static async saveHillDataForRegion(regionD, curve) {
-    if ( curve.start.x !== 0 || curve.start.y !== 0 ) throw Error("saveHillDataForRegion|curve must be normalized");
+    if ( curve.start.x !== 0 || curve.start.y !== 0 ) throw Error("saveHillDataForRegion|curve must be normalized (start at the model origin).");
     const { end, cp1, cp2, left, right } = curve;
     const curveArray = [
       cp1.x, cp1.y,
@@ -621,9 +717,9 @@ export class HillDrawingManager {
    * @param {BézierCurve} curve
    */
   async saveScaledHillData(curve) {
-    curve = this.constructor.duplicateCurve(this.regionDocument, curve);
-    this.constructor.normalizeBezier(curve);
-    this.normalizeCurveOrientation(curve);
+    curve = this.constructor.duplicateCurve(curve);
+    this.constructor.normalizeBezier(this.regionDocument, curve, curve);
+    this.constructor.normalizeCurveOrientationForRegion(this.regionDocument, curve, curve);
     await this.constructor.saveHillDataForRegion(this.regionDocument, curve);
     Object.values(curve).forEach(pt => pt.release());
   }
@@ -633,19 +729,23 @@ export class HillDrawingManager {
    * Translate the Bézier hill data so that it is along the x origin, where the
    * y values represent elevation.
    * @param {BézierCurve} curve
-   * @returns {BézierCurve} The curve, modified in place.
+   * @param {BézierCurve} [out]
+   * @returns {BézierCurve} The curve
    */
-  static translateCurveToOrigin(curve) {
+  static translateCurveToOrigin(curve, out) {
+    out ??= this.constructor.duplicateCurve(curve);
+
     using delta = curve.end.subtract(curve.start);
     const angle = Math.atan2(delta.y, delta.x);
-    using txMat = MatrixFloat32.translation(-curve.start.x, -curve.start.y);
-    using rotMat = MatrixFloat32.rotationZ(angle, false);
+    using negStart = curve.start.multiplyScalar(-1);
+    using txMat = MatrixFloat32.translation(negStart, { d3: false });
+    using rotMat = MatrixFloat32.rotationZ(angle, { d3: false });
     using M = rotMat.multiply3x3(txMat);
-    M.multiplyPoint2d(curve.start, curve.start);
-    M.multiplyPoint2d(curve.end, curve.end);
-    M.multiplyPoint2d(curve.cp1, curve.cp1);
-    M.multiplyPoint2d(curve.cp2, curve.cp2);
-    return curve;
+    M.multiplyPoint2d(curve.start, out.start);
+    M.multiplyPoint2d(curve.end, out.end);
+    M.multiplyPoint2d(curve.cp1, out.cp1);
+    M.multiplyPoint2d(curve.cp2, out.cp2);
+    return out;
   }
 
   /**
@@ -707,17 +807,20 @@ export class HillDrawingManager {
   /**
    * Scales control points perpendicularly away or toward the baseline.
    * Leaves start and end points untouched.
-   * @param {BézierCurve} curve         Scaled in place.
+   * @param {BézierCurve} curve
    * @param {number} [scaleFactor=1]
+   * @param {BézierCurve} [out]
+   * @returns {BézierCurve}
    */
-  static scaleCurvePerpendicular(curve, scaleFactor = 1) {
+  static scaleCurvePerpendicular(curve, { scaleFactor = 1, out } = {}) {
+    out ??= this.constructor.duplicateCurve(curve);
     const { start, cp1, cp2, end } = curve;
     using delta = end.subtract(start);
     const len2 = delta.magnitudeSquared()
     if ( len2.almostEqual(0) ) return curve;
 
     using tmp = PIXI.Point.tmp;
-    const scalePoint = p => {
+    const scalePoint = (p, out) => {
       // Project point onto the baseline vector to locate baseline anchor point.
       using deltaP = p.subtract(start);
       const u = deltaP.dot(delta) / len2;
@@ -725,26 +828,29 @@ export class HillDrawingManager {
 
       // Adjust distance from the baseline anchor by scale factor.
       using deltaProj = p.subtract(proj);
-      proj.add(deltaProj.multiplyScalar(scaleFactor, tmp), p);
+      proj.add(deltaProj.multiplyScalar(scaleFactor, tmp), out);
     }
 
-    scalePoint(cp1);
-    scalePoint(cp2);
-    return curve;
+    scalePoint(cp1, out.cp1);
+    scalePoint(cp2, out.cp2);
+    return out;
   }
 
   /**
    * Scale a curve to a target height.
-   * @param {BézierCurve} curve         Scaled in place.
+   * @param {BézierCurve} curve
    * @param {number} [targetHeight=1]
+   * @param {BézierCurve} [out]
+   * @returns {BézierCurve}
    */
-  static scaleCurveElevation(curve, targetHeight = 1) {
+  static scaleCurveElevation(curve, { targetHeight = 1, out } = {}) {
+    out ??= this.constructor.duplicateCurve(curve);
     const maxH = Math.abs(this.curveHeight(curve));
-    if ( maxH.almostEqual(0) ) return curve;
+    if ( maxH.almostEqual(0) ) return out;
 
     // Compute positive scaling factor based on absolute peak.
     const scaleFactor = targetHeight / maxH;
-    return this.scaleCurvePerpendicular(curve, scaleFactor);
+    return this.scaleCurvePerpendicular(curve, { scaleFactor, out });
   }
 
   // ----- NOTE: Curve polygon ----- //
@@ -792,33 +898,33 @@ export class HillDrawingManager {
    *   - linear: The hill has a defined linear direction and is the same at parallel lines to start|end.
    *   - symmetrical: Half the hill is rotated around its center point (center of start|end).
    *   - ridge: The hill defines the ridge line, and falls back proportionally on the sides.
-   * @param {BézierCurve} [curve]     Normalized curve data
+   * @param {BézierCurve} [curve]     Curve data as returned by hillEvaluationData
+   *   (left/right in world/pixel space, start/cp1/cp2/end in model space). Do NOT
+   *   pass the result of scaledHillData here--its shape has been resized to fit
+   *   the on-screen editing widget and no longer represents a clean elevation fraction.
    * @returns {number} Z height or 0 if outside the radius of the curve.
    */
   static hillZAtPoint(regionD, pt, type = "linear", curve) {
-    if ( !curve ) curve = this.hillData(regionD);
-    else curve = this.duplicateCurve(curve);
+    if ( !curve ) curve = this.scaledHillData(regionD);
+    const percent = this._hillPercentHeightAtPoint(pt, type, curve);
 
-    const scaledCurve = this.duplicateCurve(curve);
-    this.scaleCurveOrientationForRegion(regionD, scaledCurve);
-    const topZ = this.plateauElevation(regionD);
-    const z = this._hillZAtPoint(pt, type, scaledCurve, topZ);
-    Object.values(curve).forEach(pt => pt.release());
-    Object.values(scaledCurve).forEach(pt => pt.release());
-    return z;
+    // Take the hill height percentage and scale to the region terrain.
+    const zBottom = this.terrainBottom(regionD);
+    const zHeight = this.terrainTop(regionD) - zBottom;
+    return zBottom + (zHeight * percent);
   }
 
   /**
    * Same as hillZAtPoint but expects the scaled orientation curve.
    * @param {PIX.Point} pt                    Point to test
    * @param {"linear"|"symmetrical"|"ridge"}  type
-   * @param {BézierCurve} normalizedScaledCurve     Normalized and scaled curve data
-   * @param {number} topZ                           Top elevation of the region, in pixel units
-   * @returns {number} Z height or 0 if outside the radius of the curve.
+   * @param {BézierCurve} evaluationCurve     As returned by hillEvaluationData: left/right
+   *   in world/pixel space, start/cp1/cp2/end in model space (elevation fractions).
+   * @returns {number} Percentage height, or 0 if outside the curve.
    */
 
-  static _hillZAtPoint(pt, type, normalizedScaledCurve, topZ) {
-    const { start, cp1, cp2, end, left, right } = normalizedScaledCurve;
+  static _hillPercentHeightAtPoint(pt, type, evaluationCurve) {
+    const { start, cp1, cp2, end, left, right } = evaluationCurve;
 
     // Center of the hill.
     using center = PIXI.Point.tmp;
@@ -907,7 +1013,7 @@ export class HillDrawingManager {
     // Distance from the XY point to the start|end base.
     // Because the curve control points are normalized, the base is at y === 0.
     const y = bezierValue(t, start.y, cp1.y, cp2.y, end.y);
-    return -y * gridUnitsToPixels(topZ); // Y axis is inverted in Foundry, so multiply by -1.
+    return -y; // Y axis is inverted in Foundry, so multiply by -1.
   }
 }
 
@@ -923,6 +1029,7 @@ export class HillDrawingManager {
  * @returns {number}
  */
 export function bezierValue(t, start, cp1, cp2, end) {
+  t = Math.clamp(t, 0, 1);
   const mt = 1 - t;
   const mt2 = mt * mt;
   const mt3 = mt2 * mt;

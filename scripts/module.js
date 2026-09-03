@@ -293,6 +293,13 @@ function initializeConfig() {
      * @type {number}
      */
     polygonCurveTolerance: 1.0,
+
+    /**
+     * Spacing of the points that comprise the mesh vertices for things like hills.
+     * Larger spacing means fewer points and better performance, sacrificing resolution.
+     * @type {number} Percentage of canvas.grid.size
+     */
+    meshSpacing: 0.5,
   };
 }
 
