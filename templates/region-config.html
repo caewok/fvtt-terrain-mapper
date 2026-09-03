@@ -58,6 +58,16 @@
   </div>
 
   <div class="form-group terrainmapper" style="display:none;" id="terrainmapper-config-hill">
+    <!-- Determine minimum elevation -->
+    <div class="form-group">
+      <label>{{ localize "terrainmapper.region-config.rampFloor.name" }}</label>
+      <div class="form-fields">
+        <input type="number" id="terrainmapperrampfloor" name="flags.terrainmapper.rampFloor" class="terrainmapper" step="1" value={{ source.flags.terrainmapper.rampFloor }}>
+      </div>
+      <p class="hint">{{ localize "terrainmapper.region-config.rampFloor.hint" }}</p>
+    </div>
+
+    <!-- Determine hill type -->
     <div class="form-group">
       <label for="terrainmapper.hillType">{{ localize "terrainmapper.region-config.hillType.name" }}</label>
       <div class="form-fields">
