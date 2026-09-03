@@ -5,7 +5,7 @@ Hooks,
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { MODULE_ID, FLAGS, TEMPLATES, FA_ICONS, CONFIG_BLOCK_IDS } from "../const.js";
+import { MODULE_ID, FLAGS, DEFAULT_FLAGS, TEMPLATES, FA_ICONS } from "../const.js";
 
 // Patches for the RegionConfig class
 export const PATCHES = {};
@@ -46,16 +46,12 @@ function activateListeners(app, html) {
  * When first displaying the Terrain Mapper tab, show the blocks corresponding to the selected terrain type.
  */
 function initializeSubmenu(app, html) {
-  const alg = app._preview?.flags?.[MODULE_ID]?.[FLAGS.REGION.TERRAIN.TYPE];
+  const alg = app._preview?.flags?.[MODULE_ID]?.[FLAGS.REGION.TERRAIN.TYPE] || DEFAULT_FLAGS[FLAGS.REGION.TERRAIN.TYPE];
   if ( !alg ) return;
 
   const elems = html.getElementsByClassName(`form-group ${MODULE_ID}`);
-  const [key, _value] = Object.entries(FLAGS.REGION.TERRAIN.CHOICES).find(([_key, value]) => value === alg);
-  const id = CONFIG_BLOCK_IDS[key];
-  if ( !id ) return;
-
   for ( const elem of elems ) {
-    if ( elem.id === id ) elem.style.display = "block";
+    if ( elem.dataset[alg] ) elem.style.display = "block";
   }
 }
 
@@ -64,11 +60,8 @@ function initializeSubmenu(app, html) {
  */
 function terrainAlgorithmChanged(event) {
   const alg = event.target.value;
-  for ( const [key, id] of Object.entries(CONFIG_BLOCK_IDS) ) {
-    const elem = document.getElementById(id);
-    elem.style.display = alg === FLAGS.REGION.TERRAIN.CHOICES[key]
-      ? "block" : "none";
-  }
+  const elems = document.getElementsByClassName(`form-group ${MODULE_ID}`);
+  for ( const elem of elems ) elem.style.display = elem.dataset[alg] ? "block" : "none";
 }
 
 PATCHES.REGIONS.HOOKS = { renderRegionConfig };
@@ -108,6 +101,11 @@ async function _prepareContext(wrapper, options) {
 async function _preparePartContext(wrapper, partId, context, options) {
   context = await wrapper(partId, context, options);
   if ( partId !== MODULE_ID ) return context;
+
+  // Set default flags
+  const flags = context.document.flags[MODULE_ID] ??= {};
+  for ( const [key, value] of Object.entries(DEFAULT_FLAGS.REGION) ) flags[key] ??= value;
+
 
   // See https://ptb.discord.com/channels/170995199584108546/722559135371231352/1262802116628451359
   // Needed to set region-{{tab.id}} in the html for region-config

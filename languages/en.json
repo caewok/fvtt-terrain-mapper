@@ -23,7 +23,7 @@
   "terrainmapper.region-config.hillType.hint": "Linear: Lines parallel to the orange hill orientation line share the same elevation. | Ridge: Moving perpendicular to the orange hill orientation line causes the token to fall off in elevation proportionally. | Symmetrical: Hill start point is at the orange hill orientation line center; hill end point is at circumference.",
 
   "terrainmapper.region-config.rampFloor.name": "Lowest Elevation",
-  "terrainmapper.region-config.rampFloor.hint": "Ramp starts at this elevation and moves up.",
+  "terrainmapper.region-config.rampFloor.hint": "Base of the Ramp/Step/Hill.",
 
   "terrainmapper.region-config.rampDirection.name": "Direction",
   "terrainmapper.region-config.rampDirection.hint": "0º is due south; 90º is due west.",

@@ -7,7 +7,7 @@ PIXI,
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { MODULE_ID, FLAGS } from "../const.js";
+import { MODULE_ID, FLAGS, DEFAULT_FLAGS } from "../const.js";
 import { Draw } from "../geometry/Draw.js";
 import { MatrixFloat32 } from "../geometry/Matrix.js";
 
@@ -110,10 +110,10 @@ export class HillDrawingManager {
   get region() { return this.regionDocument.object; }
 
   /** @type {number} */
-  static terrainTop(regionD) { return regionD.getFlag(MODULE_ID, FLAGS.REGION.PLATEAU_ELEVATION) || 0; }
+  static terrainTop(regionD) { return regionD.getFlag(MODULE_ID, FLAGS.REGION.PLATEAU_ELEVATION) || DEFAULT_FLAGS[FLAGS.REGION.PLATEAU_ELEVATION]; }
 
   /** @type {number} */
-  static terrainBottom(regionD) { return regionD.getFlag(MODULE_ID, FLAGS.REGION.RAMP.FLOOR) || 0; }
+  static terrainBottom(regionD) { return regionD.getFlag(MODULE_ID, FLAGS.REGION.RAMP.FLOOR) || DEFAULT_FLAGS[FLAGS.REGION.RAMP.FLOOR]; }
 
   /** @type {PIXI.Container} */
   regionUI = new PIXI.Container();
@@ -602,19 +602,8 @@ export class HillDrawingManager {
    * Flat baseline curve.
    */
   static defaultCurve() {
-    // Curve points.
-    const start = PIXI.Point.tmp.set(0, 0);
-    const end = PIXI.Point.tmp.set(1, 0);
-    const cp1 = PIXI.Point.tmp.set(0.25, 0);
-    const cp2 = PIXI.Point.tmp.set(0.75, 0);
-
-    // Orientation points, relative to a center.
-    // Placed at the region bounds along the x axis.
-    const left = PIXI.Point.tmp.set(-1, 0);
-    const right = PIXI.Point.tmp.set(1, 0);
-
-    const curve = { start, end, cp1, cp2, left, right };
-    return curve;
+    const arr = DEFAULT_FLAGS.REGION[FLAGS.REGION.HILL.CURVE];
+    return this._hillCurveFromArray(arr);
   }
 
   /**
@@ -644,9 +633,16 @@ export class HillDrawingManager {
   static _unadjustedHillData(regionD) {
     const hillData = regionD.getFlag(MODULE_ID, FLAGS.REGION.HILL.CURVE);
     if ( !hillData || hillData.length !== 10 ) return null;
+    return this._hillCurveFromArray(hillData);
+  }
 
+  /**
+   * Construct hill curve data object from an array.
+   * @param {number[10]} arr
+   * @returns {BézierCurve}
+   */
+  static _hillCurveFromArray(arr) {
     // Shape of the curve.
-    // Curve is relative to the
     const start = PIXI.Point.tmp.set(0, 0);
     const cp1 = PIXI.Point.tmp.set(hillData[0], hillData[1])
     const cp2 = PIXI.Point.tmp.set(hillData[2], hillData[3])

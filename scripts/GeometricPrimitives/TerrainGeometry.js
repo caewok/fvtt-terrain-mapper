@@ -4,7 +4,7 @@ PIXI,
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { MODULE_ID, FLAGS } from "../const.js";
+import { MODULE_ID, FLAGS, DEFAULT_FLAGS } from "../const.js";
 import { StepsPrimitive } from "./Steps.js";
 import { RampPrimitive } from "./Ramp.js";
 import { HillPrimitive } from "./Hill.js";
@@ -294,10 +294,10 @@ export class TerrainGeometry extends RegionGeometry {
   /** @type {boolean} */
   static isHill(regionD) { return regionD.getFlag(MODULE_ID, FLAGS.REGION.TERRAIN.TYPE) === FLAGS.REGION.TERRAIN.CHOICES.HILL; }
 
-  static hillType(regionD) { return regionD.getFlag(MODULE_ID, FLAGS.REGION.HILL.TYPE) || FLAGS.REGION.HILL.CHOICES.LINEAR; }
+  static hillType(regionD) { return regionD.getFlag(MODULE_ID, FLAGS.REGION.HILL.TYPE) || DEFAULT_FLAGS[FLAGS.REGION.HILL.TYPE]; }
 
   /** @type {number} */
-  static terrainTop(regionD) { return regionD.getFlag(MODULE_ID, FLAGS.REGION.PLATEAU_ELEVATION) || 0; }
+  static terrainTop(regionD) { return regionD.getFlag(MODULE_ID, FLAGS.REGION.PLATEAU_ELEVATION) || DEFAULT_FLAGS[FLAGS.REGION.PLATEAU_ELEVATION]; }
 
   /** @type {number} */
   static plateauElevation(regionD) {
@@ -306,7 +306,7 @@ export class TerrainGeometry extends RegionGeometry {
   }
 
   /** @type {number} */
-  static terrainBottom(regionD) { return regionD.getFlag(MODULE_ID, FLAGS.REGION.RAMP.FLOOR) || 0; }
+  static terrainBottom(regionD) { return regionD.getFlag(MODULE_ID, FLAGS.REGION.RAMP.FLOOR) || DEFAULT_FLAGS[FLAGS.REGION.RAMP.FLOOR]; }
 
   /** @type {number} */
   static rampFloor(regionD) {
@@ -315,13 +315,13 @@ export class TerrainGeometry extends RegionGeometry {
   }
 
   /** @type {number} */
-  static rampDirection(regionD) { return regionD.getFlag(MODULE_ID, FLAGS.REGION.RAMP.DIRECTION) || 0; }
+  static rampDirection(regionD) { return regionD.getFlag(MODULE_ID, FLAGS.REGION.RAMP.DIRECTION) || DEFAULT_FLAGS[FLAGS.REGION.RAMP.DIRECTION]; }
 
   /** @type {number} */
-  static rampStepSize(regionD) { return regionD.getFlag(MODULE_ID, FLAGS.REGION.RAMP.STEP_SIZE) || 0; }
+  static rampStepSize(regionD) { return regionD.getFlag(MODULE_ID, FLAGS.REGION.RAMP.STEP_SIZE) || DEFAULT_FLAGS[FLAGS.REGION.RAMP.STEP_SIZE]; }
 
   /** @type {boolean} */
-  static splitPolygons(regionD) { return regionD.getFlag(MODULE_ID, FLAGS.REGION.RAMP.SPLIT_POLYGONS); }
+  static splitPolygons(regionD) { return regionD.getFlag(MODULE_ID, FLAGS.REGION.RAMP.SPLIT_POLYGONS) || DEFAULT_FLAGS[FLAGS.REGION.RAMP.SPLIT_POLYGONS]; }
 
   /** @type {FLAGS.REGION.CHOICES} */
   static algorithm(regionD) {
