@@ -129,7 +129,7 @@ export class TerrainGeometry extends RegionGeometry {
       const rotMat = Matrix.rotationZ(-rampDir, { d3: false });
 
       // Rotate the polygons.
-      const M = txMat.multiply4x4(rotMat);
+      const M = txMat.multiply3x3(rotMat);
       polygons = [];
       for ( const poly of regionD.polygons ) polygons.push(poly.transform(M));
     }
