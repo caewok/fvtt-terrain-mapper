@@ -644,13 +644,13 @@ export class HillDrawingManager {
   static _hillCurveFromArray(arr) {
     // Shape of the curve.
     const start = PIXI.Point.tmp.set(0, 0);
-    const cp1 = PIXI.Point.tmp.set(hillData[0], hillData[1])
-    const cp2 = PIXI.Point.tmp.set(hillData[2], hillData[3])
-    const end = PIXI.Point.tmp.set(hillData[4], hillData[5]);
+    const cp1 = PIXI.Point.tmp.set(arr[0], arr[1])
+    const cp2 = PIXI.Point.tmp.set(arr[2], arr[3])
+    const end = PIXI.Point.tmp.set(arr[4], arr[5]);
 
     // Orientation of the hill.
-    const left = PIXI.Point.tmp.set(hillData[6], hillData[7]);
-    const right = PIXI.Point.tmp.set(hillData[8], hillData[9]);
+    const left = PIXI.Point.tmp.set(arr[6], arr[7]);
+    const right = PIXI.Point.tmp.set(arr[8], arr[9]);
 
     return { start, cp1, cp2, end, left, right };
   }
