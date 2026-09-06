@@ -110,10 +110,10 @@ export class HillDrawingManager {
   get region() { return this.regionDocument.object; }
 
   /** @type {number} */
-  static terrainTop(regionD) { return regionD.getFlag(MODULE_ID, FLAGS.REGION.PLATEAU_ELEVATION) || DEFAULT_FLAGS[FLAGS.REGION.PLATEAU_ELEVATION]; }
+  static terrainTop(regionD) { return regionD.getFlag(MODULE_ID, FLAGS.REGION.PLATEAU_ELEVATION) || DEFAULT_FLAGS.REGION[FLAGS.REGION.PLATEAU_ELEVATION]; }
 
   /** @type {number} */
-  static terrainBottom(regionD) { return regionD.getFlag(MODULE_ID, FLAGS.REGION.RAMP.FLOOR) || DEFAULT_FLAGS[FLAGS.REGION.RAMP.FLOOR]; }
+  static terrainBottom(regionD) { return regionD.getFlag(MODULE_ID, FLAGS.REGION.RAMP.FLOOR) || DEFAULT_FLAGS.REGION[FLAGS.REGION.RAMP.FLOOR]; }
 
   /** @type {PIXI.Container} */
   regionUI = new PIXI.Container();
@@ -685,9 +685,9 @@ export class HillDrawingManager {
    * @param {RegionDocument} regionD
    * @returns {BézierCurve}
    */
-  static hillEvaluationData(regionD) {
+  static hillEvaluationData(regionD, boundsShape = regionD) {
     const curve = this._unadjustedHillData(regionD) ?? this.defaultCurve();
-    this.scaleCurveOrientationForRegion(regionD, curve, curve);
+    this.scaleCurveOrientationForRegion(boundsShape, curve, curve);
     return curve;
   }
 
@@ -745,10 +745,14 @@ export class HillDrawingManager {
   }
 
   /**
-   * Find the maximum height of a cubic Bézier curve relative to its baseline.
+   * Find the maximum and minimum height of a cubic Bézier curve relative to its baseline.
    * May return a negative height.
+   * @param {BézierCurve} curve
+   * @returns {object}
+   * - @prop {number} min
+   * - @prop {number} max
    */
-  static curveHeight(curve) {
+  static curveMinMaxHeight(curve) {
     const { start, cp1, cp2, end } = curve;
     using deltaStartEnd = end.subtract(start);
     const len2 = deltaStartEnd.magnitudeSquared();
@@ -786,18 +790,15 @@ export class HillDrawingManager {
       }
     }
 
-    // Evaluate critical points to find the peak.
-    let maxH = 0;
-    let maxAbsH = 0;
-    for ( const t of tValues ) {
+    // Evaluate critical points to find the minimum and maximum.
+    const n = tValues.length
+    const hValues = Array(n);
+    for ( let i = 0; i < n; i += 1 ) {
+      const t = tValues[i];
       const mt = 1 - t;
-      const hVal = (3 * mt * mt * t * h1) + (3 * mt * t * t * h2);
-      if ( Math.abs(hVal) > maxAbsH ) {
-        maxAbsH = Math.abs(hVal);
-        maxH = hVal;
-      }
+      hValues[i] =  (3 * mt * mt * t * h1) + (3 * mt * t * t * h2);
     }
-    return maxH;
+    return Math.minMax(...hValues);
   }
 
   /**
@@ -841,7 +842,8 @@ export class HillDrawingManager {
    */
   static scaleCurveElevation(curve, { targetHeight = 1, out } = {}) {
     out ??= this.constructor.duplicateCurve(curve);
-    const maxH = Math.abs(this.curveHeight(curve));
+    const { min, max } = this.curveMinMaxHeight(curve);
+    const maxH = Math.max(Math.abs(min), Math.abs(max));
     if ( maxH.almostEqual(0) ) return out;
 
     // Compute positive scaling factor based on absolute peak.
