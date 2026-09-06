@@ -253,7 +253,7 @@ export class HillPrimitive extends ExtrudedPolygonPrimitive {
    * Outward means from an outside viewer, the face is counter-clockwise.
    * @returns {boolean} True if all faces point outward.
    */
-  validateFacesOutward() {
+  facesOutward() {
     // The bottom of the hill should always face down.
     const faces = this.faces;
     const ctr = faces[0].centroid.clone();

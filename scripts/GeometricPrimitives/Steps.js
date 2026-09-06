@@ -251,7 +251,7 @@ export class StepsPrimitive extends ExtrudedPolygonPrimitive {
    * Outward means from an outside viewer, the face is counter-clockwise.
    * @returns {boolean} True if all faces point outward.
    */
-  validateFacesOutward() {
+  facesOutward() {
     const faces = this.faces;
     if ( !faces || faces.length < 3 ) return false;
 
