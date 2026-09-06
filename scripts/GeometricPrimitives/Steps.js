@@ -61,14 +61,16 @@ export class StepsPrimitive extends ExtrudedPolygonPrimitive {
    * Starts with vertical plank, followed by horizontal plank
    * @param {PIXI.Polygon[]} polys
    * @param {object} opts
-   * - @prop {number} [plankWidth=1]
-   * - @prop {number} [plankHeight=1]
-   * - @prop {number} [bottomZ=0]
+   * - @prop {number} [stepWidth=1]     Width of each step
+   * - @prop {number} [stepHeight=1]    Height of each step
+   * - @prop {number} [bottomZ=0]       The base elevation of the steps
+   * - @prop {Planks} [planks]          Output from verticalPlanks method
+   * - @prop {Matrix} [mInv]            Transform matrix to rotate steps back to world space
    * @returns {Polygon3d[]} Polygons3d, Quad3d.
    */
-  static createSteps(polys, { stepHeight = 1, stepWidth = 1, bottomZ = 0 } = {}) {
+  static createSteps(polys, { stepHeight = 1, stepWidth = 1, bottomZ = 0, planks, Minv } = {}) {
     const floorZ = bottomZ;
-    const planks = this.verticalPlanks(polys, stepWidth);
+    planks ??= this.verticalPlanks(polys, stepWidth);
     const out = [];
 
     // Build the bottom.
@@ -185,6 +187,9 @@ export class StepsPrimitive extends ExtrudedPolygonPrimitive {
         }
       }
     }
+
+    // Transform final 3d geometry back to original world orientation if necessary.
+    if ( Minv ) out.forEach(poly => poly.transform(Minv, poly));
     return out;
   }
 
@@ -196,6 +201,7 @@ export class StepsPrimitive extends ExtrudedPolygonPrimitive {
    * @typedef {object} Plank
    * @prop {number} x               The x value of the plank start
    * @prop {PIXI.Polygon[]} plank   PIXI.Polygons representing the plank
+   */
 
   /**
    * Create vertical polygon planks for an array of 2d polygons.
