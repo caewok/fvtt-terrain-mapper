@@ -46,7 +46,7 @@ function activateListeners(app, html) {
  * When first displaying the Terrain Mapper tab, show the blocks corresponding to the selected terrain type.
  */
 function initializeSubmenu(app, html) {
-  const alg = app._preview?.flags?.[MODULE_ID]?.[FLAGS.REGION.TERRAIN.TYPE] || DEFAULT_FLAGS[FLAGS.REGION.TERRAIN.TYPE];
+  const alg = app._preview?.flags?.[MODULE_ID]?.[FLAGS.REGION.TERRAIN.TYPE] || DEFAULT_FLAGS.REGION[FLAGS.REGION.TERRAIN.TYPE];
   if ( !alg ) return;
 
   const elems = html.getElementsByClassName(`form-group ${MODULE_ID}`);
