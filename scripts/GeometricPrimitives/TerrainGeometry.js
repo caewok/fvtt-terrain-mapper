@@ -104,6 +104,7 @@ export class TerrainGeometry extends RegionGeometry {
    * @returns {GeometricPrimitive|null}
    */
   _buildEntireRegionShapes() {
+    console.debug(`TerrainGeometry|_buildEntireRegionShapes ${this.placeableDocument.name} (${this.placeableId})`);
     const { hasBaseShape, hasTerrainShape } = this;
     let baseShape;
     let terrainShape;
@@ -121,6 +122,7 @@ export class TerrainGeometry extends RegionGeometry {
    * @returns {GeometricPrimitive|null}
    */
   _buildRegionShape(shapeIdx) {
+    console.debug(`TerrainGeometry|_buildRegionShape ${shapeIdx} ${this.placeableDocument.name} (${this.placeableId})`);
     const { hasBaseShape, hasTerrainShape } = this;
     let baseShape;
     let terrainShape;
@@ -158,7 +160,10 @@ export class TerrainGeometry extends RegionGeometry {
    * @param {number} shapeIdx
    * @returns {GeometricPrimitive|null} Null if there should not be a base shape for this region shape.
    */
-  _buildBaseShape(shapeIdx) { return super._buildRegionShape(shapeIdx); }
+  _buildBaseShape(shapeIdx) {
+    console.debug(`TerrainGeometry|_buildBaseShape ${shapeIdx} ${this.placeableDocument.name} (${this.placeableId})`);
+    return super._buildRegionShape(shapeIdx);
+  }
 
   /**
    * The terrain shape, if any.
@@ -168,6 +173,7 @@ export class TerrainGeometry extends RegionGeometry {
    * @returns {GeometricPrimitive|null} Null if there should not be a terrain shape for this region shape.
    */
   _buildTerrainShape(shapeIdx) {
+    console.debug(`TerrainGeometry|_buildTerrainShape ${shapeIdx} ${this.placeableDocument.name} (${this.placeableId})`);
     // TODO: Handle single and per-polygon ramps, steps, hills.
     //       Let the user define in the shape config.
     const id = this._shapeId(shapeIdx);
@@ -289,6 +295,7 @@ export class TerrainGeometry extends RegionGeometry {
   }
 
   _updateShape(shapeIdx, changes) {
+    console.debug(`TerrainGeometry|_updateShape ${shapeIdx} ${this.placeableDocument.name} (${this.placeableId})`);
     const shape = this.shapes[shapeIdx];
     const regionShape = this.regionShapes[shapeIdx];
 
