@@ -253,27 +253,23 @@ export class HillPrimitive extends ExtrudedPolygonPrimitive {
    * Outward means from an outside viewer, the face is counter-clockwise.
    * @returns {boolean} True if all faces point outward.
    */
-    /**
-   * Test whether all faces of this shape face outward as expected.
-   * Outward means from an outside viewer, the face is counter-clockwise.
-   * @returns {boolean} True if all faces point outward.
-   */
   validateFacesOutward() {
     // The bottom of the hill should always face down.
-    const ctr = this.faces[0].centroid.clone();
+    const faces = this.faces;
+    const ctr = faces[0].centroid.clone();
     ctr.z -= 1;
-    if ( !this.faces[0].isFacing(ctr) ) return false;
+    if ( !faces[0].isFacing(ctr) ) return false;
 
     // Hill sides face away from the center point.
     ctr.z += 2;
-    const sides = this.faces.filter(face => face.constructor._geoLibType === "Quad3d")
+    const sides = faces.filter(face => face.constructor._geoLibType === "Quad3d")
     for ( const side of sides ) {
       if ( side.isFacing(ctr) ) return false;
     }
 
     // Top of hill (slopes) never face fully away from the center, above the top elevation.
     ctr.z = this.aabb.max.z + 100;
-    const tops = this.faces.filter(face => face.constructor._geoLibType === "Triangle3d")
+    const tops = faces.filter(face => face.constructor._geoLibType === "Triangle3d")
     for ( const top of tops ) {
       if ( !top.isFacing(ctr) ) return false;
     }
