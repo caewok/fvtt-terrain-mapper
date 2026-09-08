@@ -238,11 +238,25 @@ export class TerrainGeometry extends RegionGeometry {
    * @param {Set<string>} changeKeys   Change key set
    * @returns {boolean}
    */
-  rebuildNeeded(shape, regionShape, changes) {
+  _mustRebuild(regionShape, changes) {
+    const { hasBaseShape, hasTerrainShape } = this;
+    if ( hasTerrainShape && hasBaseShape ) return false;
+    if ( hasTerrainShape ) return this.terrainRebuildNeeded();
+    if ( hasBaseShape ) return super._mustRebuild(regionShape, changes);
+    return false;
+  }
+
+  /**
+   * For a given shape index and change set, does this shape need to be rebuilt entirely?
+   * @param {number} shapeIdx
+   * @param {Set<string>} changes
+   * @returns {boolean}
+   */
+  _shapeClassMatchesRegionShape(shape, regionShape) {
     const { hasBaseShape, hasTerrainShape } = this;
     if ( hasBaseShape && hasTerrainShape ) return !(shape instanceof CombinedTerrainPrimitive);
-    if ( hasBaseShape ) return super.rebuildNeeded(shape, regionShape, changes);
-    if ( hasTerrainShape ) return !(shape instanceof this.terrainShapeClass);
+    else if ( hasBaseShape ) return super._shapeClassMatchesRegionShape(shape, regionShape);
+    else if ( hasTerrainShape ) return  !(shape instanceof this.terrainShapeClass);
   }
 
   /**
@@ -261,7 +275,7 @@ export class TerrainGeometry extends RegionGeometry {
     return super.rebuildNeeded(baseShape, regionShape, changes);
   }
 
-  terrainRebuildNeeded(shape) {
+  terrainRebuildNeeded() {
     const hasTerrainShape = this.hasTerrainShape;
     if ( !hasTerrainShape ) return false;
 
@@ -271,14 +285,11 @@ export class TerrainGeometry extends RegionGeometry {
       || this.activeUpdates.has("rampDirection")
       || (this.activeUpdates.has("steps") && this.constructor.isSteps(regionD))
       || (this.activeUpdates.has("hill") && this.constructor.isHill(regionD)) ) return true;
-
-    // Check the class of the terrain shape.
-    let terrainShape = hasTerrainShape ? shape.shapes[0] : shape;
-    return  !(terrainShape instanceof this.terrainShapeClass);
+    return false;
   }
 
-  _updateShape(shapeIdx, changes) {
-    console.debug(`TerrainGeometry|_updateShape ${shapeIdx} ${this.placeableDocument.name} (${this.placeableId})`);
+  _updateShapeDimensions(shapeIdx, changes) {
+    console.debug(`TerrainGeometry|_updateShapeDimensions ${shapeIdx} ${this.placeableDocument.name} (${this.placeableId})`);
     const shape = this.shapes[shapeIdx];
     const regionShape = this.regionShapes[shapeIdx];
 
@@ -287,7 +298,7 @@ export class TerrainGeometry extends RegionGeometry {
       if ( this.terrainRebuildNeeded(shape, regionShape, changes) ) shape.replaceShape(super._buildTerrainShape(shapeIdx), 1);
     }
 
-    super._updateShape(shapeIdx, changes);
+    super._updateShapeDimensions(shapeIdx, changes);
   }
 
 
