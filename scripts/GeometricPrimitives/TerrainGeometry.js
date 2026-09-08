@@ -100,23 +100,6 @@ export class TerrainGeometry extends RegionGeometry {
   }
 
   /**
-   * Construct a primitive shape using the polygons for the entire region.
-   * @returns {GeometricPrimitive|null}
-   */
-  _buildEntireRegionShapes() {
-    console.debug(`TerrainGeometry|_buildEntireRegionShapes ${this.placeableDocument.name} (${this.placeableId})`);
-    const { hasBaseShape, hasTerrainShape } = this;
-    let baseShape;
-    let terrainShape;
-    if ( hasBaseShape ) baseShape = super._buildEntireRegionShapes();
-    if ( hasTerrainShape ) terrainShape = this._buildTerrainShapeFromPolygons(0, this.regionPolygons);
-    if ( baseShape && terrainShape ) return CombinedTerrainPrimitive.create(baseShape, terrainShape);
-    else if ( baseShape ) return baseShape;
-    else if ( terrainShape ) return terrainShape;
-    return null;
-  }
-
-  /**
    * Construct a primitive shape for a given region shape.
    * @param {number} idx        Index of the region shape in the region.document.shapes array
    * @returns {GeometricPrimitive|null}
@@ -126,7 +109,7 @@ export class TerrainGeometry extends RegionGeometry {
     const { hasBaseShape, hasTerrainShape } = this;
     let baseShape;
     let terrainShape;
-    if ( hasBaseShape ) baseShape = super._buildEntireRegionShapes();
+    if ( hasBaseShape ) baseShape = super._buildRegionShape(shapeIdx);
     if ( hasTerrainShape ) terrainShape = this._buildTerrainShapeFromPolygons(shapeIdx, this.regionPolygons);
     if ( baseShape && terrainShape ) return CombinedTerrainPrimitive.create(baseShape, terrainShape);
     else if ( baseShape ) return baseShape;
@@ -149,7 +132,7 @@ export class TerrainGeometry extends RegionGeometry {
 
     // If the user sets the top and bottom equal, no top terrain.
     const baseElev = this.elevationZ;
-    const topElev = this.plateauElevation(regionD);
+    const topElev = this.constructor.plateauElevation(regionD);
     const zHeight = topElev - baseElev.topZ;
     return !almostLessThan(zHeight, 0);
   }
