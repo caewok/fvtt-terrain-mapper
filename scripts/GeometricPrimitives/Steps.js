@@ -5,7 +5,7 @@ PIXI,
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { ExtrudedPolygonPrimitive } from "../geometry/placeable_geometry/ModelGeometricPrimitive.js";
+import { ExtrudedPolygonPrimitiveWithHoles } from "../geometry/placeable_geometry/ModelGeometricPrimitive.js";
 import { GEOMETRY_LIB_ID } from "../geometry/const.js";
 import { AABB2d } from "../geometry/AABB.js";
 import { Point3d } from "../geometry/3d/Point3d.js";
@@ -15,7 +15,7 @@ import { Polygons3d, Quad3d } from "../geometry/3d/Polygon3d.js";
  * Steps. Closely related to ramps.
  * Use the model primitive b/c as number of steps change, so does the shape.
  */
-export class StepsPrimitive extends ExtrudedPolygonPrimitive {
+export class StepsPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
 
   /**
    * Build an extruded steps shape (top face is steps) from a 2d polygon.

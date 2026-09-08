@@ -8,7 +8,7 @@ PIXI,
 
 import { MODULE_ID } from "../const.js";
 import { HillDrawingManager } from "../regions/HillDrawingManager.js";
-import { ExtrudedPolygonPrimitive } from "../geometry/placeable_geometry/ModelGeometricPrimitive.js";
+import { ExtrudedPolygonPrimitiveWithHoles } from "../geometry/placeable_geometry/ModelGeometricPrimitive.js";
 import { Point3d } from "../geometry/3d/Point3d.js";
 import { Polygons3d, Triangle3d, Quad3d } from "../geometry/3d/Polygon3d.js";
 import { Delaunay } from "../geometry/d3-delaunay.js";
@@ -17,7 +17,7 @@ import { Delaunay } from "../geometry/d3-delaunay.js";
  * Steps. Closely related to ramps.
  * Use the model primitive b/c as number of steps change, so does the shape.
  */
-export class HillPrimitive extends ExtrudedPolygonPrimitive {
+export class HillPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
 
   /**
    * Build an extruded steps shape (top face is steps) from a 2d polygon.

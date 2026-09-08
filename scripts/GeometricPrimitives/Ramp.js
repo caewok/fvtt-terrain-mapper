@@ -4,15 +4,14 @@
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { ExtrudedPolygonPrimitive } from "../geometry/placeable_geometry/ModelGeometricPrimitive.js";
-import { Point3d } from "../geometry/3d/Point3d.js";
+import { ExtrudedPolygonPrimitiveWithHoles } from "../geometry/placeable_geometry/ModelGeometricPrimitive.js";
 import { Polygon3d, Polygons3d } from "../geometry/3d/Polygon3d.js";
 
 /**
  * Ramp.
  * Use the model primitive b/c the base of the ramp is 1+ polygons, which can change.
  */
-export class RampPrimitive extends ExtrudedPolygonPrimitive {
+export class RampPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
 
   /**
    * Build an extruded ramp shape (top moving up in z-axis) from a 2d polygon.
@@ -87,7 +86,6 @@ export class RampPrimitive extends ExtrudedPolygonPrimitive {
  */
 function rampFromPlane(poly3d, plane) {
   // Project each point of the polygon onto the plane.
-  const top = new Polygons3d();
   for ( const pt of poly3d.iteratePoints() ) pt.z = plane.getZ(pt.x, pt.y);
 
   // Adjust the plane to exactly match.
