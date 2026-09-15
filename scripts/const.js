@@ -127,13 +127,31 @@ export const DEFAULT_FLAGS = {
   SCENE: {
     [FLAGS.SCENE.BACKGROUND_ELEVATION]: 0,
     [FLAGS.SCENE.CONSTRAIN_ELEVATION]: true,
-  }
-};
+  },
 
-// Ids for the submenu blocks for configuring region terrain shapes.
-export const CONFIG_BLOCK_IDS = {
-  RAMP: `${MODULE_ID}-config-ramp`,
-  HILL: `${MODULE_ID}-config-hill`,
+  REGION: {
+    [FLAGS.REGION.TERRAIN.TYPE]: FLAGS.REGION.TERRAIN.CHOICES.NONE,
+
+    [FLAGS.REGION.PLATEAU_ELEVATION]: 0,
+
+    [FLAGS.REGION.RAMP.FLOOR]: 0,
+    [FLAGS.REGION.RAMP.DIRECTION]: 0,
+    [FLAGS.REGION.RAMP.STEP_SIZE]: 0,
+    [FLAGS.REGION.RAMP.SPLIT_POLYGONS]: false,
+
+    [FLAGS.REGION.HILL.TYPE]: FLAGS.REGION.HILL.CHOICES.LINEAR,
+    [FLAGS.REGION.HILL.CURVE]: [
+      // Curve points
+    //0.00, 0,      // start, which is always 0,0 when normalized.
+      0.25, 0,      // cp1
+      0.75, 0,      // cp2
+      1.00, 0,      // end
+
+      // Orientation points, relative to a center. Placed at region bounds along x axis.
+      -1, 0,        // left
+       1, 0         // right
+    ],
+  },
 };
 
 /**

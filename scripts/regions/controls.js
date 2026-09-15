@@ -163,7 +163,10 @@ class WallDisplay {
    */
   render() {
     for ( const edge of canvas.edges.values() ) {
-      if ( edge.type === "wall" ) this._drawWall(edge.object);
+      if ( edge.type === "wall" ) {
+        const wallD = edge.object;
+        if ( wallD.levels.has(canvas.level.id) ) this._drawWall(wallD.object);
+      }
       else if ( edge.type === "innerBounds" ) this._drawEdgeSegment(edge);
     }
   }

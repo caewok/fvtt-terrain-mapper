@@ -1470,9 +1470,10 @@ function rotatePolygon(poly, rotation = 0, centroid) {
   centroid ??= poly.center;
 
   // Translate to 0,0, rotate, translate back based on centroid.
-  const rot = Matrix.rotationZ(rotation, false);
-  const trans = Matrix.translation(-centroid.x, -centroid.y);
-  const revTrans = Matrix.translation(centroid.x, centroid.y);
+  using negCenter = centroid.multiplyScalar(-1);
+  const rot = Matrix.rotationZ(rotation, { d3: false });
+  const trans = Matrix.translation(negCenter, { d3: false });
+  const revTrans = Matrix.translation(centroid, { d3: false });
   const M = trans.multiply3x3(rot).multiply3x3(revTrans);
 
   // Multiply by the points of the polygon.

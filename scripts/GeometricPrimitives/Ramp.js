@@ -4,15 +4,14 @@
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { ExtrudedPolygonPrimitive } from "../geometry/placeable_geometry/ModelGeometricPrimitive.js";
-import { Point3d } from "../geometry/3d/Point3d.js";
+import { ExtrudedPolygonPrimitiveWithHoles } from "../geometry/placeable_geometry/ModelGeometricPrimitive.js";
 import { Polygon3d, Polygons3d } from "../geometry/3d/Polygon3d.js";
 
 /**
  * Ramp.
  * Use the model primitive b/c the base of the ramp is 1+ polygons, which can change.
  */
-export class RampPrimitive extends ExtrudedPolygonPrimitive {
+export class RampPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
 
   /**
    * Build an extruded ramp shape (top moving up in z-axis) from a 2d polygon.
@@ -74,6 +73,32 @@ export class RampPrimitive extends ExtrudedPolygonPrimitive {
     return [top, bottom, ...top.buildTopSides(bottomZ)];
   }
 
+  /**
+   * Build an extruded (along the z-axis) shape from a 3d polygon base, with a planar ramp as the top.
+   * The base elevation represents the bottom of the ramp.
+   * Base normal should typically face down.
+   * @param {Polygon3d|Polygons3d} base          Base 3d polygon to use
+   * @param {Plane} plane             The plane representing the ramp at the top
+   * @param {number} topZ             The top elevation (highest ramp point)
+   */
+  static fromBasePolygon3d(id, base, { plane, ...opts } = {})  {
+    // Confirm base orientation is facing down.
+    using ctr = base.centroid.clone();
+    ctr.z += 1;
+    if ( base.isFacing(ctr) ) base.reverseOrientation();
+
+    const top = base.clone();
+    top.reverseOrientation();
+
+    // Re-project the top onto the plane.
+    rampFromPlane(top, plane);
+
+    const bottomZ = base.polygons ? base.polygons[0].points[0].z : base.points[0].z;
+    const faces = [top, base, ...top.buildTopSides(bottomZ)];
+    const protoFaces = this.canvasToPrototypeFaces(faces, opts);
+    return new this(id, protoFaces);
+  }
+
 }
 
 /**
@@ -81,17 +106,23 @@ export class RampPrimitive extends ExtrudedPolygonPrimitive {
  * shape from a 3d polygon.
  * The bottom of the ramp will be the lowest intersection point.
  * (A horizontal plane will create a plateau or hole, although ExtrudedPolygonPrimitive would be simpler.)
- * @param {Polygon3d} poly3d
+ * @param {Polygon3d|Polygons3d} poly3d
  * @param {Plane} plane
  * @returns The poly3d, modified in place.
  */
 function rampFromPlane(poly3d, plane) {
   // Project each point of the polygon onto the plane.
-  const top = new Polygons3d();
-  for ( const pt of poly3d.iteratePoints() ) pt.z = plane.getZ(pt.x, pt.y);
+  if ( poly3d instanceof Polygons3d ){
+    for ( const poly of poly3d.polyons ) {
+       for ( const pt of poly.iteratePoints() ) pt.z = plane.getZ(pt.x, pt.y);
+    }
+  } else {
+    for ( const pt of poly3d.iteratePoints() ) pt.z = plane.getZ(pt.x, pt.y);
+  }
 
   // Adjust the plane to exactly match.
   poly3d.plane.normal.copyFrom(plane.normal);
 
   return poly3d;
 }
+
