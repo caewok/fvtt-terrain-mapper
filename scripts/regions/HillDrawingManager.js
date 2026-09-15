@@ -688,6 +688,10 @@ export class HillDrawingManager {
   static hillEvaluationData(regionD, boundsShape = regionD) {
     const curve = this._unadjustedHillData(regionD) ?? this.defaultCurve();
     this.scaleCurveOrientationForRegion(boundsShape, curve, curve);
+
+    // Cache the max height to avoid recalculating it on every point evaluation.
+    const { min, max } = this.curveMinMaxHeight(curve);
+    curve.maxHeight = Math.max(Math.abs(min), Math.abs(max));
     return curve;
   }
 
@@ -706,6 +710,15 @@ export class HillDrawingManager {
       left.x, left.y,
       right.x, right.y];
     await regionD.setFlag(MODULE_ID, FLAGS.REGION.HILL.CURVE, curveArray);
+  }
+
+  /**
+   * Reset the hill data for a region to a flat hill.
+   * @param {RegionDocument} regionD
+   */
+  static async resetHillDataForRegion(regionD) {
+    const curve = this.defaultCurve();
+    return this.saveHillDataForRegion(regionD, curve);
   }
 
   /**
@@ -903,7 +916,7 @@ export class HillDrawingManager {
    * @returns {number} Z height or 0 if outside the radius of the curve.
    */
   static hillZAtPoint(regionD, pt, type = "linear", curve) {
-    if ( !curve ) curve = this.scaledHillData(regionD);
+    if ( !curve ) curve = this.hillEvaluationData(regionD);
     const percent = this._hillPercentHeightAtPoint(pt, type, curve);
 
     // Take the hill height percentage and scale to the region terrain.
@@ -922,7 +935,11 @@ export class HillDrawingManager {
    */
 
   static _hillPercentHeightAtPoint(pt, type, evaluationCurve) {
-    const { start, cp1, cp2, end, left, right } = evaluationCurve;
+    const { start, cp1, cp2, end, left, right, maxHeight } = evaluationCurve;
+
+    // Normalize against the curve's true mathematical peak so the highest peak === 1.
+    const maxH = maxHeight ?? 1;
+    if ( maxH === 0 ) return 0;
 
     // Center of the hill.
     using center = PIXI.Point.tmp;
@@ -1011,7 +1028,7 @@ export class HillDrawingManager {
     // Distance from the XY point to the start|end base.
     // Because the curve control points are normalized, the base is at y === 0.
     const y = bezierValue(t, start.y, cp1.y, cp2.y, end.y);
-    return -y; // Y axis is inverted in Foundry, so multiply by -1.
+    return -y / maxH; // Y axis is inverted in Foundry, so multiply by -1.
   }
 }
 

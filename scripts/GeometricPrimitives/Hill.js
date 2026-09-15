@@ -10,8 +10,9 @@ import { MODULE_ID } from "../const.js";
 import { HillDrawingManager } from "../regions/HillDrawingManager.js";
 import { ExtrudedPolygonPrimitiveWithHoles } from "../geometry/placeable_geometry/ModelGeometricPrimitive.js";
 import { Point3d } from "../geometry/3d/Point3d.js";
-import { Polygons3d, Triangle3d, Quad3d } from "../geometry/3d/Polygon3d.js";
+import { Polygon3d, Triangle3d, Quad3d } from "../geometry/3d/Polygon3d.js";
 import { Delaunay } from "../geometry/d3-delaunay.js";
+import { roundDecimals, cleanPolygonPoints } from "../geometry/util.js";
 
 /**
  * Steps. Closely related to ramps.
@@ -55,7 +56,11 @@ export class HillPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
    * @returns {Polygon3d[]} Array of top, bottom, and 3+ sides.
    */
   static _facesFromPolygon(poly, opts) {
-    return this.extrudeHillShape([poly], opts);
+    // Polygon3d base.
+    const bottom = Polygon3d.fromPolygon(poly, opts.bottomZ);
+    bottom.reverseOrientation();
+
+    return [bottom, ...this.extrudeHillShape([poly], opts)];
   }
 
 
@@ -75,96 +80,160 @@ export class HillPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
   /**
    * Extrude a curved shape from an array of polygons, representing a hill.
    * @param {PIXI.Polygon[]} polys        2d polygons to use for the base
-   * @param {BézierCurve} curve           Normalized, scaled curve data
-   * @param {number} [elevationZ=0]
+   * @param {object} opts
+   * @param {BézierCurve} opts.curve           Normalized, scaled curve data
+   * @param {number} opts.topZ                 Maximum height of the hill; used to scale the curve
+   * @param {number} opts.groundZ              "Ground elevation" for the hill; where the curve = 0;
+   * @param {number} opts.floorZ               How far down the sides should reach to hit the base
    * @param {"linear"|"symmetrical"|"ridge"} [type="linear"]
    * @returns {(Polygon3d|Triangle3d|Quad3d)[]} Triangles forming the hillside plus a Polygon3d base and Quad3d sides.
    */
-  static extrudeHillShape(polys, { curve, bottomZ, topZ, type = "linear" } = {}) {
-    // Polygon3d base.
-    const bottom = Polygons3d.fromPolygons(polys, bottomZ);
-    bottom.reverseOrientation();
-    const out = [bottom];
-
+  static extrudeHillShape(polys, { curve, topZ, groundZ, floorZ, type = "linear" } = {}) {
     // Build the triangulation.
     const lattice = this.hillLattice(polys, curve);
-    out.push(...this.triangulateHillLattice(lattice, curve, topZ, bottomZ, type));
+    const topMesh = this.triangulateHillLattice(lattice, polys, curve, topZ, groundZ, type);
 
     // Build the sides.
-    out.push(...this._buildSides(bottom, curve, topZ, bottomZ, type));
+    const sides = this._buildSidesFromLattice(topMesh, floorZ);
 
-    return out;
+    return [...topMesh, ...sides];
   }
 
   /**
-   * Extrude the perimeter edges of a base polygon up to the top Bézier mesh using quads.
-   * Skips where the mesh edge matches the base elevation.
-   * @param {Polygon3d} bottom      The bottom shape
-   * @param {BézierCurve} curve           Normalized, scaled curve data
-   * @param {number} [elevationZ=0]
-   * @param {"linear"|"symmetrical"|"ridge"} [type="linear"]
-   * @returns {Quad3d[]} Array of quads, if any.
+   * Build an extruded (along the z-axis) shape from a 3d polygon base, with a triangulated hill mesh as the top.
+   * The base elevation represents the bottom of the hill.
+   * Base normal should typically face down.
+   * @param {string} id                           Id of the shape to create
+   * @param {Polygon3d|Polygons3d} base           Base 3d polygon to use; sides will stretch down to this.
+   * @param {object} opts
+   * @param {number} opts.topZ                    Maximum height of the hill; used to scale the curve
+   * @param {number} opts.groundZ                 "ground elevation" for the hill; where the curve = 0;
+   *   Curve may dip below this point; used to scale the curve
+   * @param {BézierCurve} curve                   Curve data from HillDrawingManager.hillEvaluationData
+   * @param {"linear"|"symmetrical"|"ridge"} [type="linear"]   How to evaluate the curve ridgeline when getting elevation
+   * @param {object} ...opts                      Shape dimensions passed to canvasToPrototypeFaces
+   * @returns {HillPrimitive}
    */
-  static _buildSides(bottom, curve, topZ, bottomZ, type = "linear") {
-    const zHeight = topZ - bottomZ;
+  static fromBasePolygon3d(id, base, { topZ, groundZ, curve, type = "linear", ...opts } = {}) {
+    // Confirm base orientation is facing down.
+    using ctr = base.centroid.clone();
+    ctr.z += 1;
+    if ( base.isFacing(ctr) ) base.reverseOrientation();
+
+    const floorZ = base.polygons ? base.polygons[0].points[0].z : base.points[0].z;
+    const polys = base.polygons ? base.toPolygon2d() : [base.toPolygon2d()];
+    const hillShape = this.extrudeHillShape(polys, { curve, topZ, groundZ, floorZ, type });
+    const faces = [base, ...hillShape];
+    const protoFaces = this.canvasToPrototypeFaces(faces, opts);
+    return new this(id, protoFaces);
+  }
+
+  /**
+   * Extracts boundary edges from the triangulated top mesh to build sealed side walls.
+   * Skips where the mesh edge matches the base elevation.
+   * @param {Triangle3d[]} topTriangles    The culled hill mesh triangles
+   * @param {number} bottomZ              Base elevation for the quads
+   * @returns {(Quad3d|Triangle3d)[]} Array of side wall quads or occasionally triangles.
+   */
+  static _buildSidesFromLattice(topTriangles, bottomZ) {
+    const edgeCounts = new Map();
+    const edgeData = new Map();
+
+    // Hash coordinates to fixed precision to avoid floating-point mismatch when matching eges.
+    const hashPt = pt => `${roundDecimals(pt.x, 4)},${roundDecimals(pt.y,4)}`;
+    const hashEdge = (a, b) => {
+      const h1 = hashPt(a);
+      const h2 = hashPt(b);
+
+      // Sort keys alphanumerically to create a non-directional, unordered hash edge.
+      return h1 < h2 ? `${h1}|${h2}` : `${h2}|${h1}`;
+    }
+
+    // Tally edge occurrences across all triangles.
+    for ( const tri of topTriangles ) {
+      for ( const edge of tri.iterateEdges() ) {
+        const key = hashEdge(edge.a, edge.b);
+        edgeCounts.set(key, (edgeCounts.get(key) || 0) + 1); // Increment the edge count.
+        if ( !edgeData.has(key) ) edgeData.set(key, edge); // For outward-facing winding later.
+      }
+    }
+
+    // Build quads exclusively for unmatched boundary edges.
+    // Because a Delaunay triangulation creates a continuous mesh where internal edges
+    // are shared by exactly two triangles, you can extract the boundaries using a
+    // standard half-edge counting algorithm. Any edge that belongs to only one triangle
+    // is guaranteed to be a boundary—either the outer perimeter or the rim of an inner hole.
     const sideQuads = [];
-    for ( const basePoly of bottom.polygons ) {
-      const ctr = basePoly.centroid;
-      for ( const edge of basePoly.iterateEdges({ close: true }) ) {
-        const { a: bottomA, b: bottomB } = edge;
+    for ( const [key, count] of edgeCounts.entries() ) {
+      if ( count === 1 ) {
+        const edge = edgeData.get(key);
 
-        // Determine the top elevation for both vertices along the hill curve mesh.
-        const percentA = HillDrawingManager._hillPercentHeightAtPoint(bottomA, type, curve);
-        const percentB = HillDrawingManager._hillPercentHeightAtPoint(bottomB, type, curve);
+        // Skip wall-building if the segment sits entirely flat on the base elevation.
+        if ( edge.a.z.almostEqual(bottomZ) && edge.b.z.almostEqual(bottomZ) ) continue;
 
-        const zA = bottomZ + (percentA * zHeight);
-        const zB = bottomZ + (percentB * zHeight);
+        // Build bottom points.
+        const bottomA = edge.a.clone();
+        const bottomB = edge.b.clone();
+        bottomA.z = bottomZ;
+        bottomB.z = bottomZ;
 
-        // Skip the quad if both top points are at the base elevation.
-        if ( zA.almostEqual(bottomZ) && zB.almostEqual(bottomZ) ) continue;
-
-        // Construct 4 points for the Quad3d wall segment.
-        const topA = Point3d.tmp.set(bottomA.x, bottomA.y, zA);
-        const topB = Point3d.tmp.set(bottomB.x, bottomB.y, zB);
-        const quad = Quad3d.from4Points(topB, topA, bottomA, bottomB);
-
-        // Ensure the normal faces outward.
-        if ( quad.isFacing(ctr) ^ basePoly.isHole ) quad.reverseOrientation();
-        sideQuads.push(quad);
+        // Construct Quad3d using outward-facing CCW winding:
+        // TL (p1), TR (p2), BR (bottom p2), BL (bottom p1)
+        const pts = cleanPolygonPoints([edge.b, edge.a, bottomA, bottomB]);
+        let side;
+        switch ( pts.length ) {
+          case 3: side = Triangle3d.from3Points(...pts); console.debug("HillPrimitive|Changed side to triangle."); break;
+          case 4: side = Quad3d.from4Points(...pts); break;
+          default: continue;
+        }
+        sideQuads.push(side);
       }
     }
     return sideQuads;
   }
 
   /**
-   * Triangulate the points and adjust to elevation for the hill.
+   * Triangulate the points, cull holes/concavities by centroid, and adjust to elevation for the hill.
    * @param {PIXI.Point[]} ptsLattice
    * @param {BézierCurve} curve           Normalized, scaled curve data
    * @param {"linear"|"symmetrical"|"ridge"} [type="linear"]
    * @returns {Triangle3d[]}
    */
-  static triangulateHillLattice(ptsLattice, curve, topZ, bottomZ, type) {
+  static triangulateHillLattice(ptsLattice, polys, curve, topZ, bottomZ, type) {
     // Pass an accessor function b/c the points lattice is an array of objects, not array tuples ([x, y]).
     const delaunay = Delaunay.from(ptsLattice, pt => pt.x, pt => pt.y);
     const triangles = delaunay.triangles; // Array of indices pointing to our original array.
-    const n = triangles.length;
-    const numTriangles = n / 3;
 
     // Construct the final triangles
+    const n = triangles.length;
+
+    // Create a Triangle3d from each Delaunay triangle, culling holes or concave exteriors.
     const zHeight = topZ - bottomZ;
     using a = Point3d.tmp;
     using b = Point3d.tmp;
     using c = Point3d.tmp;
-    const tris = Array(numTriangles);
-    let j = 0;
+    using ctr2d = PIXI.Point.tmp;
+    const ONE_THIRD = 1/3;
+    const tris = [];
+    let minPercent = Number.POSITIVE_INFINITY;
+    let maxPercent = Number.NEGATIVE_INFINITY;
+
     for ( let i = 0; i < n; ) {
       const a2d = ptsLattice[triangles[i++]];
       const b2d = ptsLattice[triangles[i++]];
       const c2d = ptsLattice[triangles[i++]];
 
+      // Cull triangles spanning across holes or concave exterior bounds.
+      // a2d + b2d + c2d / 3 estimates the triangle center.
+      a2d.add(b2d, ctr2d).add(c2d, ctr2d).multiplyScalar(ONE_THIRD, ctr2d);
+      if ( !polygonsContainPoint(polys, ctr2d) ) continue;
+
       const percentA = HillDrawingManager._hillPercentHeightAtPoint(a2d, type, curve);
       const percentB = HillDrawingManager._hillPercentHeightAtPoint(b2d, type, curve);
       const percentC = HillDrawingManager._hillPercentHeightAtPoint(c2d, type, curve);
+
+      minPercent = Math.min(minPercent, percentA, percentB, percentC);
+      maxPercent = Math.max(maxPercent, percentA, percentB, percentC);
 
       const zA = bottomZ + (percentA * zHeight);
       const zB = bottomZ + (percentB * zHeight);
@@ -174,11 +243,16 @@ export class HillPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
       b.set(b2d.x, b2d.y, zB);
       c.set(c2d.x, c2d.y, zC);
 
-      // a-b-c tends to build the triangles facing down. Reverse to face up, but check to be sure.
-      const tri = Triangle3d.from3Points(c, b, a);
-      if ( tri.plane.z < 0 ) tri.reverseOrientation();
-      tris[j++] = tri;
+      // Confirm orientation.
+      const tri = Triangle3d.from3Points(a, b, c);
+      if ( tri.plane.normal.z < 0 ) {
+        tri.reverseOrientation(); // TODO: Does this ever occur?
+        console.debug(`HillLattice|Flipped lattice triangle ${i} orientation`);
+      }
+      tris.push(tri);
     }
+    console.debug(`HillLattice| percent hill: ${minPercent} – ${maxPercent}`);
+
     return tris;
   }
 
@@ -195,26 +269,22 @@ export class HillPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
     const spacing = (CONFIG[MODULE_ID].meshSpacing || 0.5) * canvas.grid.size;
     const opts = { spacing, startAtEdge: false };
 
-    const contains = pt => {
-      let count = 0;
-      for ( const poly of polys ) {
-        const mult = poly.isPositive ? 1 : -1;
-        count += (poly.contains(pt.x, pt.y) * mult);
-      }
-      return count > 0;
-    }
-
     // Add corners, edges, inner lattice.
     const ptsLattice = [];
     using dir = PIXI.Point.tmp;
     using tmp = PIXI.Point.tmp;
+
+    // Generate the lattice for both polygons and holes, in turn.
     polys.forEach(poly => {
-      if ( !poly.isPositive ) return; // Skip holes.
+      // Only generate the inner lattice for positive space.
+      if ( poly.isPositive ) {
+        const innerLattice = poly.pointsLattice(opts).filter(pt => polygonsContainPoint(polys, pt));
+        ptsLattice.push(...innerLattice);
+      }
 
-      // Inner lattice.
-      const innerLattice = poly.pointsLattice(opts).filter(pt => contains(pt));
-      ptsLattice.push(...innerLattice);
 
+      // Add corners and edges for all polygons.
+      // This forces the delaunay mesh to stitch cleanly to the hole rims.
       // Corners.
       ptsLattice.push(...poly.iteratePoints())
 
@@ -225,57 +295,62 @@ export class HillPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
         // Use the same spacing.
         b.subtract(a, dir).normalize(dir);
 
-        // Add until nearly reaching the other end.
+        // Add until nearly reaching the other end. (Already added the corner points above.)
         const dist = PIXI.Point.distanceBetween(a, b) - (spacing * 0.5); // Don't run right up to corner
         for ( let d = spacing; d < dist; d += spacing ) ptsLattice.push(a.add(dir.multiplyScalar(d, tmp)));
       }
     });
 
     // Add linear points along the primary curve line, testing for containment.
-    if ( contains(curve.left) ) ptsLattice.push(curve.left);
-    if ( contains(curve.right) ) ptsLattice.push(curve.right);
+    if ( polygonsContainPoint(polys, curve.left) ) ptsLattice.push(curve.left);
+    if ( polygonsContainPoint(polys, curve.right) ) ptsLattice.push(curve.right);
 
     curve.right.subtract(curve.left, dir).normalize(dir);
     const dist = PIXI.Point.distanceBetween(curve.left, curve.right);
     for ( let d = spacing; d < dist; d += spacing ) {
       const pt = curve.left.add(dir.multiplyScalar(d, tmp));
-      if ( contains(pt) ) ptsLattice.push(pt);
+      if ( polygonsContainPoint(polys, pt) ) ptsLattice.push(pt);
     }
 
     return ptsLattice;
   }
 
+   // ----- NOTE: Debug ----- //
 
-  // ----- NOTE: Debug ----- //
+  _testFacesOutward(faces) {
+    if ( !faces || faces.length < 3 ) return false;
 
-  /**
-   * Test whether all faces of this shape face outward as expected.
-   * Outward means from an outside viewer, the face is counter-clockwise.
-   * @returns {boolean} True if all faces point outward.
-   */
-  facesOutward() {
-    // The bottom of the hill should always face down.
-    const faces = this.faces;
-    const ctr = faces[0].centroid.clone();
-    ctr.z -= 1;
-    if ( !faces[0].isFacing(ctr) ) return false;
+    // For hills, the first face is the bottom.
+    // Then the top is represented by the triangle mesh.
+    // Then the sides are represented by the quads.
 
-    // Hill sides face away from the center point.
-    ctr.z += 2;
-    const sides = faces.filter(face => face.constructor._geoLibType === "Quad3d")
-    for ( const side of sides ) {
-      if ( side.isFacing(ctr) ) return false;
-    }
+    // Test bottom using a point just above it.
+    const bottom = faces[0];
+    const testPt = bottom.centroid.clone();
+    testPt.z += 0.1; // Only move up slightly so this works for prototype faces.
+    if ( bottom.isFacing(testPt) ^ bottom.isHole ) return false;
 
-    // Top of hill (slopes) never face fully away from the center, above the top elevation.
-    ctr.z = this.aabb.max.z + 100;
-    const tops = faces.filter(face => face.constructor._geoLibType === "Triangle3d")
-    for ( const top of tops ) {
-      if ( !top.isFacing(ctr) ) return false;
+    // Test top and sides using shoelace.
+    for ( let i = 1, n = faces.length; i < n; i += 1 ) {
+      const face = faces[i];
+      if ( !this.constructor.testFaceOrientation(face, faces) ) return false;
     }
     return true;
   }
 }
 
-
+/**
+ * Helper to test if multiple 2d polygons, some of which may be holes, contain a point.
+ * @param {PIXI.Polygons[]} polys
+ * @param {PIXI.Point} pt
+ * @returns {boolean}
+ */
+function polygonsContainPoint(polys, pt) {
+  let count = 0;
+  for ( const poly of polys ) {
+    const mult = poly.isPositive ? 1 : -1;
+    count += (poly.contains(pt.x, pt.y) * mult);
+  }
+  return count > 0;
+}
 

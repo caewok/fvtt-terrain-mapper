@@ -141,8 +141,16 @@ export const DEFAULT_FLAGS = {
 
     [FLAGS.REGION.HILL.TYPE]: FLAGS.REGION.HILL.CHOICES.LINEAR,
     [FLAGS.REGION.HILL.CURVE]: [
-      0, 0, 1, 0, 0.25, 0, 0.75,  // Curve points.
-      -1, 0, 1, 0], // Orientation points, relative to a center. Placed at region bounds along x axis.
+      // Curve points
+    //0.00, 0,      // start, which is always 0,0 when normalized.
+      0.25, 0,      // cp1
+      0.75, 0,      // cp2
+      1.00, 0,      // end
+
+      // Orientation points, relative to a center. Placed at region bounds along x axis.
+      -1, 0,        // left
+       1, 0         // right
+    ],
   },
 };
 

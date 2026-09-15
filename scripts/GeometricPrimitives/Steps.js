@@ -53,7 +53,26 @@ export class StepsPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
    * @returns {Polygon3d[]} Array of top, bottom, and 3+ sides.
    */
   static _facesFromPolygon(poly, opts) {
-    return this.createSteps([poly], opts);
+    return this.createStepsFromPolygons2d([poly], opts);
+  }
+
+  static fromBasePolygon3d(id, base, { stepHeight = 1, stepWidth = 1, planks, ...opts } = {}) {
+    // Confirm base orientation is facing down.
+    using ctr = base.centroid.clone();
+    ctr.z += 1;
+    if ( base.isFacing(ctr) ) base.reverseOrientation();
+
+    // Extract the base 2d polygons (presumes a flat base, so simply drop z).
+    const polys = base.polygons ? base.toPolygon2d() : [base.toPolygon2d()];
+
+    // Build the steps
+    const bottomZ = base.polygons ? base.polygons[0].points[0].z : base.points[0].z;
+    const steps = this.createSteps(polys, { stepHeight, stepWidth, bottomZ, planks })
+
+    // Transform to prototype shape using provided model.
+    const faces = [base, ...steps];
+    const protoFaces = this.canvasToPrototypeFaces(faces, opts);
+    return new this(id, protoFaces);
   }
 
   /**
@@ -65,90 +84,57 @@ export class StepsPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
    * - @prop {number} [stepHeight=1]    Height of each step
    * - @prop {number} [bottomZ=0]       The base elevation of the steps
    * - @prop {Planks} [planks]          Output from verticalPlanks method
-   * - @prop {Matrix} [mInv]            Transform matrix to rotate steps back to world space
    * @returns {Polygon3d[]} Polygons3d, Quad3d.
    */
-  static createSteps(polys, { stepHeight = 1, stepWidth = 1, bottomZ = 0, planks, Minv } = {}) {
-    const floorZ = bottomZ;
-    planks ??= this.verticalPlanks(polys, stepWidth);
-    const out = [];
-
+  static createStepsFromPolygons2d(polys, { stepHeight = 1, stepWidth = 1, bottomZ = 0, planks } = {}) {
     // Build the bottom.
     const bottom3d = Polygons3d.fromPolygons(polys, bottomZ);
     bottom3d.reverseOrientation(); // Face bottom down.
-    out.push(bottom3d);
+
+    // Build the steps.
+    const steps = this.createSteps(polys, { stepHeight, stepWidth, bottomZ, planks });
+
+    return [bottom3d, ...steps];
+  }
+
+  /**
+   * Create steps running along the y axis.
+   * Starts with vertical plank, followed by horizontal plank
+   * @param {PIXI.Polygon[]} polys
+   * @param {object} opts
+   * - @prop {number} [stepWidth=1]     Width of each step
+   * - @prop {number} [stepHeight=1]    Height of each step
+   * - @prop {number} [bottomZ=0]       The base elevation of the steps
+   * - @prop {Planks} [planks]          Output from verticalPlanks method
+   * @returns {(Polygon3d|Quad3d)[]}
+   */
+  static createSteps(polys, { stepHeight = 1, stepWidth = 1, bottomZ = 0, planks } = {}) {
+    planks ??= this.verticalPlanks(polys, stepWidth);
+    const out = [];
+    const floorZ = bottomZ; // Save the starting bottom to extend back later.
 
     // From west side, steps rise up.
     // Start with a vertical, followed by horizontal.
-    using a = Point3d.tmp;
-    using b = Point3d.tmp;
-    using c = Point3d.tmp;
-    using d = Point3d.tmp;
-
     // Build the step planks. Horizontal Polygons3d and vertical Quad3d.
+
     for ( const { x, plank } of planks ) {
       for ( const poly of plank ) {
+        const isHole = !poly.isPositive;
+
         // For testing—confirm orientation.
         const ctr = poly.center;
         const ctr3d = Point3d.tmp.set(ctr.x, ctr.y, bottomZ + (stepHeight * 0.5));
 
         // Vertical
         // Determine the minimum and maximum y along the west edge of the plank.
-        let minX = Number.POSITIVE_INFINITY;
-        let minY = Number.POSITIVE_INFINITY;
-        let maxY = Number.NEGATIVE_INFINITY;
-        for ( const pt of poly.iteratePoints() ) {
-          // If the point is on the current minimum X boundary.
-          if ( pt.x.almostEqual(minX) ) {
-            minY = Math.min(pt.y, minY);
-            maxY = Math.max(pt.y, maxY);
-          }
-
-          // If a new minimum X is found (beyond floating point tolerance)
-          else if ( pt.x < minX ) {
-            minX = pt.x;
-            minY = pt.y;
-            maxY = pt.y;
-          }
-        }
-
-        if ( !(isFinite(minX) && isFinite(minY) && isFinite(maxY)) ) console.error("GeometricPrimitive#createSteps|No finite x or y found for plank", { x, poly });
-
-        // Skip drawing a vertical quad if the western edge is just a single point.
-        // (minY === maxY) rather than a vertical flat edge.
-        if ( !minY.almostEqual(maxY) ) {
-          // Vertical quad facing west, using actual minX.
-          const verticalQuad = Quad3d.from4Points(
-            a.set(minX, minY, bottomZ + stepHeight),  // TL, looking east
-            b.set(minX, minY, bottomZ), // BL
-            c.set(minX, maxY, bottomZ), // BR
-            d.set(minX, maxY, bottomZ + stepHeight), // TR
-          )
-
-          // Testing: Confirm orientation
-          if ( verticalQuad.isFacing(ctr3d) ) console.warn("Steps#createSteps|Vertical quad facing wrong way.");
-
-          out.push(verticalQuad);
+        if ( !isHole ) {
+          const verticalRiser = this.#buildVerticalRiser(poly, stepHeight, bottomZ, x, ctr3d);
+          if ( verticalRiser ) out.push(verticalRiser);
         }
 
         // Sides
         // Quad straight at the edges of the plank.
-        // Edges are segments that do not share the same x value.
-        for ( const edge of poly.iterateEdges() ) {
-          const { a: edgeA, b: edgeB } = edge;
-          if ( edgeA.x.almostEqual(edgeB.x) ) continue;
-          const sideQuad = Quad3d.from4Points(
-            a.set(edgeA.x, edgeA.y, bottomZ + stepHeight),  // TL or TR
-            b.set(edgeB.x, edgeB.y, bottomZ + stepHeight),  // TR or TL
-            c.set(edgeB.x, edgeB.y, floorZ),                // BR or BL
-            d.set(edgeA.x, edgeA.y, floorZ),                // BL or BR
-          )
-
-          // Testing: Confirm orientation
-          if ( sideQuad.isFacing(ctr3d) ) console.warn("Steps#createSteps|Side quad facing wrong way.");
-
-          out.push(sideQuad);
-        }
+        out.push(...this.#buildStepSides(poly, bottomZ, floorZ, stepHeight, ctr3d));
       }
 
       // Move up to the top of the vertical step.
@@ -164,32 +150,113 @@ export class StepsPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
     // Examine the last plank to locate the top and bottom of the final quad.
     const { x, plank } = planks.at(-1);
     for ( const poly of plank ) {
+      const isHole = !poly.isPositive;
+      if ( isHole ) continue;
+
       // For testing—confirm orientation.
       const ctr = poly.center;
       const ctr3d = Point3d.tmp.set(ctr.x, ctr.y, bottomZ + (stepHeight * 0.5));
+      out.push(...this.#buildBackFace(poly, bottomZ, floorZ, x, ctr3d));
+    }
 
-      for ( const edge of poly.iterateEdges() ) {
-        const { a: edgeA, b: edgeB } = edge;
-        if ( edgeA.x.almostEqual(edgeB.x) && edgeA.x > x ) {
-          const backQuad = Quad3d.from4Points(
-            a.set(edgeA.x, edgeA.y, bottomZ), // Top of the final step.
-            b.set(edgeB.x, edgeB.y, bottomZ), // Top of the final step.
-            c.set(edgeB.x, edgeB.y, floorZ),  // Extend to the floor.
-            d.set(edgeA.x, edgeA.y, floorZ),  // Extend to the floor.
-          )
+    return out;
+  }
 
-          if ( edgeA.y > edgeB.y ) backQuad.reverseOrientation();
+  /**
+   * Build a vertical riser (west-facing step)
+   * @param {PIXI.Polygon} poly     The plank polygon that defines this riser
+   * @param {Point3d} ctr3d         Center, for testing orientation
+   * @returns {Quad3d|null} The vertical riser, or null if the y distance is too small.
+   */
+  static #buildVerticalRiser(poly, stepHeight, bottomZ, x, ctr3d) {
+    // Determine the minimum and maximum y along the west edge of the plank.
+    let minX = Number.POSITIVE_INFINITY;
+    let minY = Number.POSITIVE_INFINITY;
+    let maxY = Number.NEGATIVE_INFINITY;
+    for ( const pt of poly.iteratePoints() ) {
+      // If the point is on the current minimum X boundary.
+      if ( pt.x.almostEqual(minX) ) {
+        minY = Math.min(pt.y, minY);
+        maxY = Math.max(pt.y, maxY);
+      }
 
-          // Testing: Confirm orientation
-          if ( backQuad.isFacing(ctr3d) ) console.warn("Steps#createSteps|Back quad facing wrong way.");
-
-          out.push(backQuad);
-        }
+      // If a new minimum X is found (beyond floating point tolerance)
+      else if ( pt.x < minX ) {
+        minX = pt.x;
+        minY = pt.y;
+        maxY = pt.y;
       }
     }
 
-    // Transform final 3d geometry back to original world orientation if necessary.
-    if ( Minv ) out.forEach(poly => poly.transform(Minv, poly));
+    if ( !(isFinite(minX) && isFinite(minY) && isFinite(maxY)) ) console.error("GeometricPrimitive#createSteps|No finite x or y found for plank", { x, poly });
+
+    if ( !minY.almostEqual(maxY) ) {
+      const verticalQuad = Quad3d.from4Points(
+        { x: minX, y: minY, z: bottomZ + stepHeight },
+        { x: minX, y: minY, z: bottomZ },
+        { x: minX, y: maxY, z: bottomZ },
+        { x: minX, y: maxY, z: bottomZ + stepHeight },
+      );
+      if ( verticalQuad.isFacing(ctr3d) ) console.warn("Steps#createSteps|Vertical quad facing wrong way.");
+      return verticalQuad;
+    }
+    return null;
+  }
+
+  /**
+   * Build the sides of a step.
+   * @param {PIXI.Polygon} poly     The plank polygon that defines this step
+   * @param {Point3d} ctr3d         Center, for testing orientation
+   * @returns {Quad3d[]|null} The sides of the step
+   */
+  static #buildStepSides(poly, bottomZ, floorZ, stepHeight, ctr3d) {
+    // Quad straight at the edges of the plank.
+    // Edges are segments that do not share the same x value.
+    const out = [];
+    for ( const edge of poly.iterateEdges() ) {
+      const { a, b } = edge;
+      if ( a.x.almostEqual(b.x) ) continue;
+      const sideQuad = Quad3d.from4Points(
+        { x: a.x, y: a.y, z: bottomZ + stepHeight },  // TL or TR
+        { x: b.x, y: b.y, z: bottomZ + stepHeight },  // TR or TL
+        { x: b.x, y: b.y, z: floorZ },                // BR or BL
+        { x: a.x, y: a.y, z: floorZ },                // BL or BR
+      )
+
+      // Testing: Confirm orientation
+      if ( sideQuad.isFacing(ctr3d) ) console.warn("Steps#createSteps|Side quad facing wrong way.");
+
+      out.push(sideQuad);
+    }
+    return out;
+  }
+
+  /**
+   * Build the back face of the step
+   * @param {PIXI.Polygon} poly     The plank polygon that defines the last step
+   * @param {Point3d} ctr3d         Center, for testing orientation
+   * @returns {Quad3d[]|null} The back polygons that make up the step
+   */
+  static #buildBackFace(poly, bottomZ, floorZ, x, ctr3d) {
+    const out = [];
+    for ( const edge of poly.iterateEdges() ) {
+      const { a, b } = edge;
+      if ( a.x.almostEqual(b.x) && a.x > x ) {
+        const backQuad = Quad3d.from4Points(
+          { x: a.x, y: a.y, z: bottomZ }, // Top of the final step.
+          { x: b.x, y: b.y, z: bottomZ }, // Top of the final step.
+          { x: b.x, y: b.y, z: floorZ },  // Extend to the floor.
+          { x: a.x, y: a.y, z: floorZ },  // Extend to the floor.
+        )
+
+        if ( a.y > b.y ) backQuad.reverseOrientation();
+
+        // Testing: Confirm orientation
+        if ( backQuad.isFacing(ctr3d) ) console.warn("Steps#createSteps|Back quad facing wrong way.");
+
+        out.push(backQuad);
+      }
+    }
     return out;
   }
 
@@ -242,47 +309,5 @@ export class StepsPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
       path[3].X += clipperXShift;  // BL
     }
     return planks;
-  }
-
-  // ----- NOTE: Debug ----- //
-
-  /**
-   * Test whether all faces of this shape face outward as expected.
-   * Outward means from an outside viewer, the face is counter-clockwise.
-   * @returns {boolean} True if all faces point outward.
-   */
-  facesOutward() {
-    const faces = this.faces;
-    if ( !faces || faces.length < 3 ) return false;
-
-    // For steps, must use raycasting algorithm.
-    // Start at face's center, offset slightly toward the plane's inverse normal vector.
-    // Cast a ray in an arbitrary direction (e.g. +x).
-    // If start is inside, a ray will cross the boundary an odd number of times.
-    using rayDir = Point3d.tmp.set(1, 0, 0);
-    using offset = Point3d.tmp;
-    using startPoint = Point3d.tmp;
-    const EPSILON = 1e-04; // Offset to avoid self-intersection.
-    const isEven = n => (n & 1) === 0;
-    for ( const face of faces ) {
-      const centroid = face.centroid;
-      const normal = face.plane.normal;
-      normal.multiplyScalar(EPSILON, offset);
-
-      // Offset the origin point slightly inward along the inverse normal vector.
-      // If face normal is facing outward, moving in by -normal puts the point inside the mesh.
-      centroid.subtract(offset, startPoint);
-
-      // Count how many other faces this ray intersects.
-      let intersectionCount = 0;
-      for ( let otherFace of faces ) {
-        if ( face === otherFace ) continue; // Skip testing against self.
-        if ( face.intersectionT(startPoint, rayDir, { holesBlock: true }) !== null ) intersectionCount++;
-      }
-
-      // If start point was inside the mesh, the ray must intersect an odd number of faces.
-      if ( isEven(intersectionCount) )  return false; // Faces inward.
-    }
-    return true;
   }
 }
