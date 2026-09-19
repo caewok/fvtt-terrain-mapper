@@ -162,7 +162,14 @@ export class TerrainGeometry extends RegionGeometry {
          terrainShape = HillPrimitive.fromBasePolygon3d(id, terrainBase, opts);
       }
 
-      if ( this.hasBaseShape ) return CombinedTerrainPrimitive.create(id, baseShape, terrainShape);
+      if ( this.hasBaseShape ) {
+        // Drop the top of the base shape and bottom of the terrain shape.
+        // Top of the base shape should be first, as should the bottom of the terrain shape.
+        // If this becomes problematic, could search by plane.normal for z === -1 and z === 1.
+        baseShape.prototypeFaces.shift();
+        terrainShape.prototypeFaces.shift(); // Terrain shapes have bottom at 0, followed by complex top.
+        return CombinedTerrainPrimitive.create(id, baseShape, terrainShape);
+      }
       else return terrainShape;
 
       } catch ( err ) { console.error(err); } // Fall to the base shape option.
