@@ -315,28 +315,6 @@ export class HillPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
     return ptsLattice;
   }
 
-   // ----- NOTE: Debug ----- //
-
-  _testFacesOutward(faces) {
-    if ( !faces || faces.length < 3 ) return false;
-
-    // For hills, the first face is the bottom.
-    // Then the top is represented by the triangle mesh.
-    // Then the sides are represented by the quads.
-
-    // Test bottom using a point just above it.
-    const bottom = faces[0];
-    const testPt = bottom.centroid.clone();
-    testPt.z += 0.1; // Only move up slightly so this works for prototype faces.
-    if ( bottom.isFacing(testPt) ^ bottom.isHole ) return false;
-
-    // Test top and sides using shoelace.
-    for ( let i = 1, n = faces.length; i < n; i += 1 ) {
-      const face = faces[i];
-      if ( !this.constructor.testFaceOrientation(face, faces) ) return false;
-    }
-    return true;
-  }
 }
 
 /**
