@@ -70,7 +70,7 @@ export class RampPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
     // Re-project the top onto the plane.
     rampFromPlane(top, plane);
 
-    return [top, bottom, ...top.buildTopSides(bottomZ)];
+    return [bottom, top, ...top.buildTopSides(bottomZ)]; // Match steps and hill, which have bottom followed by complex top.
   }
 
   /**
@@ -93,12 +93,27 @@ export class RampPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
     // Re-project the top onto the plane.
     rampFromPlane(top, plane);
 
-    const bottomZ = base.polygons ? base.polygons[0].points[0].z : base.points[0].z;
-    const faces = [top, base, ...top.buildTopSides(bottomZ)];
+    // Clean up the top values.
+    if ( top.polygons ) top.polygons.forEach(poly => poly.points.forEach(pt => pt.roundDecimals(4)));
+    else top.points.forEach(pt => pt.roundDecimals(4));
+
+    const EPSILON = 1e-04; // Larger epsilon because these side will eventually be transformed to a smaller prototype.
+    const bottomZ = opts.bottomZ;
+    const faces = [base, top, ...top.buildTopSides(bottomZ, epsilon)];
     const protoFaces = this.canvasToPrototypeFaces(faces, opts);
     return new this(id, protoFaces);
   }
 
+  _testFacesOutward(faces) {
+    if ( !faces || faces.length < 3 ) return false;
+
+    // Test each face against the centroid.
+    const centroid = this.constructor.calculateCentroid(faces);
+    for ( const face of faces ) {
+      if ( face.isFacing(centroid) ) return false;
+    }
+    return true;
+  }
 }
 
 /**
@@ -113,7 +128,7 @@ export class RampPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
 function rampFromPlane(poly3d, plane) {
   // Project each point of the polygon onto the plane.
   if ( poly3d instanceof Polygons3d ){
-    for ( const poly of poly3d.polyons ) {
+    for ( const poly of poly3d.polygons ) {
        for ( const pt of poly.iteratePoints() ) pt.z = plane.getZ(pt.x, pt.y);
     }
   } else {
@@ -122,6 +137,7 @@ function rampFromPlane(poly3d, plane) {
 
   // Adjust the plane to exactly match.
   poly3d.plane.normal.copyFrom(plane.normal);
+  poly3d.clearCache();
 
   return poly3d;
 }
