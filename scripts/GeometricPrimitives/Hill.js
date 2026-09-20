@@ -90,12 +90,17 @@ export class HillPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
    */
   static extrudeHillShape(polys, { curve, topZ, groundZ, floorZ, type = "linear" } = {}) {
     // Build the triangulation.
+    const EPSILON = 1e-04; // Larger epsilon because these side will eventually be transformed to a smaller prototype.
     const lattice = this.hillLattice(polys, curve);
-    const topMesh = this.triangulateHillLattice(lattice, polys, curve, topZ, groundZ, type);
+    const topMesh = this
+      .triangulateHillLattice(lattice, polys, curve, topZ, groundZ, type)
+      .filter(tri => {
+        tri.points = cleanPolygonPoints(tri.points, EPSILON);
+        return tri.points.length === 3;
+      });
 
     // Build the sides.
     const sides = this._buildSidesFromLattice(topMesh, floorZ);
-
     return [...topMesh, ...sides];
   }
 
@@ -164,6 +169,7 @@ export class HillPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
     // standard half-edge counting algorithm. Any edge that belongs to only one triangle
     // is guaranteed to be a boundary—either the outer perimeter or the rim of an inner hole.
     const sideQuads = [];
+    const EPSILON = 1e-04; // Larger epsilon because these side will eventually be transformed to a smaller prototype.
     for ( const [key, count] of edgeCounts.entries() ) {
       if ( count === 1 ) {
         const edge = edgeData.get(key);
@@ -179,7 +185,7 @@ export class HillPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
 
         // Construct Quad3d using outward-facing CCW winding:
         // TL (p1), TR (p2), BR (bottom p2), BL (bottom p1)
-        const pts = cleanPolygonPoints([edge.b, edge.a, bottomA, bottomB]);
+        const pts = cleanPolygonPoints([edge.b, edge.a, bottomA, bottomB], EPSILON);
         let side;
         switch ( pts.length ) {
           case 3: side = Triangle3d.from3Points(...pts); console.debug("HillPrimitive|Changed side to triangle."); break;
