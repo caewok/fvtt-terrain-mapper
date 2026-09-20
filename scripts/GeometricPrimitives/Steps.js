@@ -8,7 +8,6 @@ PIXI,
 import { ExtrudedPolygonPrimitiveWithHoles } from "../geometry/placeable_geometry/ModelGeometricPrimitive.js";
 import { GEOMETRY_LIB_ID } from "../geometry/const.js";
 import { AABB2d } from "../geometry/AABB.js";
-import { Point3d } from "../geometry/3d/Point3d.js";
 import { Polygons3d, Quad3d } from "../geometry/3d/Polygon3d.js";
 
 /**
@@ -67,7 +66,8 @@ export class StepsPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
 
     // Build the steps
     const bottomZ = base.polygons ? base.polygons[0].points[0].z : base.points[0].z;
-    const steps = this.createSteps(polys, { stepHeight, stepWidth, bottomZ, planks })
+    planks ??= this.verticalPlanks(polys, stepWidth);
+    const steps = this.createSteps(polys, planks, { stepHeight, stepWidth, bottomZ })
 
     // Transform to prototype shape using provided model.
     const faces = [base, ...steps];
@@ -92,172 +92,136 @@ export class StepsPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
     bottom3d.reverseOrientation(); // Face bottom down.
 
     // Build the steps.
-    const steps = this.createSteps(polys, { stepHeight, stepWidth, bottomZ, planks });
+    planks ??= this.verticalPlanks(polys, stepWidth);
+    const steps = this.createSteps(polys, planks, { stepHeight, stepWidth, bottomZ });
 
     return [bottom3d, ...steps];
   }
 
   /**
    * Create steps running along the y axis.
-   * Starts with vertical plank, followed by horizontal plank
-   * @param {PIXI.Polygon[]} polys
+   * Starts with vertical plank, followed by horizontal plank.
+   *
+   * Every plank-strip edge is classified as it's built:
+   *   - Hole edges are always exposed straight down to the floor.
+   *   - Non-vertical (non-x-const) edges are always the shape's true boundary
+   *     (Clipper's strip-clipping never introduces new non-vertical edges), so they
+   *     are always exposed straight down to the floor -- these are the "outer edges."
+   *   - Vertical (x-const) edges are tested against the ORIGINAL, unsliced polygon
+   *     set on both sides. If material genuinely continues on both sides, the edge is
+   *     purely an artifact of slicing the shape into planks -- a short riser is built
+   *     instead, connecting this step down to the next lower one.
+   *     If material exists on at most one side, it's a true boundary (a notch, or the
+   *     west/east end of the shape) and gets the full-height treatment instead.
+   * All the resulting wall pieces are combined at the end via
+   * Polygons3d.combineCoplanar, so a run of same-plane pieces (e.g. a flat stretch of
+   * outer wall spanning several planks) becomes a single object rather than many
+   * small quads.
+   * @param {PIXI.Polygon[]} polys    The ORIGINAL, unsliced 2d polygons for this base
+   *                                  (holes should have `.isHole` set, or use
+   *                                  clockwise/negative winding).
+   * @param {Planks} planks           Output from verticalPlanks(polys, stepWidth).
    * @param {object} opts
    * - @prop {number} [stepWidth=1]     Width of each step
    * - @prop {number} [stepHeight=1]    Height of each step
    * - @prop {number} [bottomZ=0]       The base elevation of the steps
-   * - @prop {Planks} [planks]          Output from verticalPlanks method
-   * @returns {(Polygon3d|Quad3d)[]}
+   * @returns {(Polygon3d|Polygons3d)[]}
    */
-  static createSteps(polys, { stepHeight = 1, stepWidth = 1, bottomZ = 0, planks } = {}) {
-    planks ??= this.verticalPlanks(polys, stepWidth);
+  static createSteps(polys, planks, { stepHeight = 1, stepWidth = 1, bottomZ = 0 } = {}) {
     const out = [];
-    const floorZ = bottomZ; // Save the starting bottom to extend back later.
+    const wallPieces = [];
+    const floorZ = bottomZ;
 
-    // From west side, steps rise up.
-    // Start with a vertical, followed by horizontal.
-    // Build the step planks. Horizontal Polygons3d and vertical Quad3d.
+    // Small nudge, scaled to the step width, used to test for material just off
+    // either side of a vertical edge without landing exactly on the boundary.
+    const NUDGE = stepWidth / 1000;
 
-    for ( const { x, plank } of planks ) {
+    for ( const { x: stripMinX, plank } of planks ) {
+      const stepTop = bottomZ + stepHeight; // Top of this row's tread.
+
       for ( const poly of plank ) {
         const isHole = !poly.isPositive;
 
-        // For testing—confirm orientation.
-        const ctr = poly.center;
-        const ctr3d = Point3d.tmp.set(ctr.x, ctr.y, bottomZ + (stepHeight * 0.5));
+        for ( const edge of poly.iterateEdges() ) {
+          const { a, b } = edge;
 
-        // Vertical
-        // Determine the minimum and maximum y along the west edge of the plank.
-        if ( !isHole ) {
-          const verticalRiser = this.#buildVerticalRiser(poly, stepHeight, bottomZ, x, ctr3d);
-          if ( verticalRiser ) out.push(verticalRiser);
+          if ( isHole ) {
+            // Every hole edge is exposed to the floor for this row.
+            wallPieces.push(this.#buildWallQuad(a, b, floorZ, stepTop));
+            continue;
+          }
+
+          if ( !a.x.almostEqual(b.x) ) {
+            // Outer edges go to the floor (full height).
+            // (Clipper only introduces new edges along the strip's vertical sides.)
+            wallPieces.push(this.#buildWallQuad(a, b, floorZ, stepTop));
+            continue;
+          }
+
+          // Vertical (x-const) edge: May be an outer edge (full height) or slicing artifact (step height).
+          const edgeX = a.x;
+          const midY = (a.y + b.y) * 0.5;
+          const hasWest = this.#pointInPolys(polys, edgeX - NUDGE, midY);
+          const hasEast = this.#pointInPolys(polys, edgeX + NUDGE, midY);
+          if ( hasWest && hasEast ) {
+            // Riser, not a full wall. Build only once, from the plank's own west edge so it is
+            // not duplicated by the neighboring (lower, west) plank's east edge.
+            if ( edgeX.almostEqual(stripMinX) ) wallPieces.push(this.#buildWallQuad(a, b, bottomZ, stepTop));
+            // Else this is the current plank's east edge. The next plank to the
+            // east will build this same riser from its own west-edge pass, using
+            // its own (higher) bottomZ/stepTop -- skip here to avoid a duplicate.
+
+          // True outer bounds using full height. Notch, or west/east end of the shape.
+          } else wallPieces.push(this.#buildWallQuad(a, b, floorZ, stepTop))
         }
-
-        // Sides
-        // Quad straight at the edges of the plank.
-        out.push(...this.#buildStepSides(poly, bottomZ, floorZ, stepHeight, ctr3d));
       }
 
-      // Move up to the top of the vertical step.
+      // Move up one step.
       bottomZ += stepHeight;
 
-      // Back
-      // The plank polygons are all at the same elevation.
-      const poly3d = Polygons3d.fromPolygons(plank, bottomZ);
-      out.push(poly3d);
+      // Tread: the horizontal cap at the top of this step/plank row.
+      // Polygons3d.fromPolygons derives isHole per-piece from orientation, so any
+      // hole passing through this row is correctly left open in the tread.
+      if ( plank.length ) out.push(Polygons3d.fromPolygons(plank, bottomZ));
     }
 
-    // Build the back face.
-    // Examine the last plank to locate the top and bottom of the final quad.
-    const { x, plank } = planks.at(-1);
-    for ( const poly of plank ) {
-      const isHole = !poly.isPositive;
-      if ( isHole ) continue;
-
-      // For testing—confirm orientation.
-      const ctr = poly.center;
-      const ctr3d = Point3d.tmp.set(ctr.x, ctr.y, bottomZ + (stepHeight * 0.5));
-      out.push(...this.#buildBackFace(poly, bottomZ, floorZ, x, ctr3d));
-    }
-
+    // Weld same-plane wall pieces into as few objects as possible.
+    out.push(...Polygons3d.combineCoplanar(wallPieces));
     return out;
   }
 
   /**
-   * Build a vertical riser (west-facing step)
-   * @param {PIXI.Polygon} poly     The plank polygon that defines this riser
-   * @param {Point3d} ctr3d         Center, for testing orientation
-   * @returns {Quad3d|null} The vertical riser, or null if the y distance is too small.
+   * Build a single vertical wall quad along a 2d edge, from zBottom to zTop.
+   * @param {PIXI.Point} a
+   * @param {PIXI.Point} b
+   * @param {number} zBottom
+   * @param {number} zTop
+   * @returns {Quad3d}
    */
-  static #buildVerticalRiser(poly, stepHeight, bottomZ, x, ctr3d) {
-    // Determine the minimum and maximum y along the west edge of the plank.
-    let minX = Number.POSITIVE_INFINITY;
-    let minY = Number.POSITIVE_INFINITY;
-    let maxY = Number.NEGATIVE_INFINITY;
-    for ( const pt of poly.iteratePoints() ) {
-      // If the point is on the current minimum X boundary.
-      if ( pt.x.almostEqual(minX) ) {
-        minY = Math.min(pt.y, minY);
-        maxY = Math.max(pt.y, maxY);
-      }
-
-      // If a new minimum X is found (beyond floating point tolerance)
-      else if ( pt.x < minX ) {
-        minX = pt.x;
-        minY = pt.y;
-        maxY = pt.y;
-      }
-    }
-
-    if ( !(isFinite(minX) && isFinite(minY) && isFinite(maxY)) ) console.error("GeometricPrimitive#createSteps|No finite x or y found for plank", { x, poly });
-
-    if ( !minY.almostEqual(maxY) ) {
-      const verticalQuad = Quad3d.from4Points(
-        { x: minX, y: minY, z: bottomZ + stepHeight },
-        { x: minX, y: minY, z: bottomZ },
-        { x: minX, y: maxY, z: bottomZ },
-        { x: minX, y: maxY, z: bottomZ + stepHeight },
-      );
-      if ( verticalQuad.isFacing(ctr3d) ) console.warn("Steps#createSteps|Vertical quad facing wrong way.");
-      return verticalQuad;
-    }
-    return null;
+  static #buildWallQuad(a, b, zBottom, zTop) {
+    return Quad3d.from4Points(
+      { x: a.x, y: a.y, z: zTop },
+      { x: b.x, y: b.y, z: zTop },
+      { x: b.x, y: b.y, z: zBottom },
+      { x: a.x, y: a.y, z: zBottom },
+    );
   }
 
   /**
-   * Build the sides of a step.
-   * @param {PIXI.Polygon} poly     The plank polygon that defines this step
-   * @param {Point3d} ctr3d         Center, for testing orientation
-   * @returns {Quad3d[]|null} The sides of the step
+   * Hole-aware point-in-shape test against a flat array of 2d polygons.
+   * Mirrors the winding-count approach used by Polygons3d#interiorPoint.
+   * @param {PIXI.Polygon[]} polys
+   * @param {number} x
+   * @param {number} y
+   * @returns {boolean}
    */
-  static #buildStepSides(poly, bottomZ, floorZ, stepHeight, ctr3d) {
-    // Quad straight at the edges of the plank.
-    // Edges are segments that do not share the same x value.
-    const out = [];
-    for ( const edge of poly.iterateEdges() ) {
-      const { a, b } = edge;
-      if ( a.x.almostEqual(b.x) ) continue;
-      const sideQuad = Quad3d.from4Points(
-        { x: a.x, y: a.y, z: bottomZ + stepHeight },  // TL or TR
-        { x: b.x, y: b.y, z: bottomZ + stepHeight },  // TR or TL
-        { x: b.x, y: b.y, z: floorZ },                // BR or BL
-        { x: a.x, y: a.y, z: floorZ },                // BL or BR
-      )
-
-      // Testing: Confirm orientation
-      if ( sideQuad.isFacing(ctr3d) ) console.warn("Steps#createSteps|Side quad facing wrong way.");
-
-      out.push(sideQuad);
+  static #pointInPolys(polys, x, y) {
+    let count = 0;
+    for ( const poly of polys ) {
+      const isHole = poly.isHole ?? !poly.isPositive;
+      if ( poly.contains(x, y) ) count += isHole ? -1 : 1;
     }
-    return out;
-  }
-
-  /**
-   * Build the back face of the step
-   * @param {PIXI.Polygon} poly     The plank polygon that defines the last step
-   * @param {Point3d} ctr3d         Center, for testing orientation
-   * @returns {Quad3d[]|null} The back polygons that make up the step
-   */
-  static #buildBackFace(poly, bottomZ, floorZ, x, ctr3d) {
-    const out = [];
-    for ( const edge of poly.iterateEdges() ) {
-      const { a, b } = edge;
-      if ( a.x.almostEqual(b.x) && a.x > x ) {
-        const backQuad = Quad3d.from4Points(
-          { x: a.x, y: a.y, z: bottomZ }, // Top of the final step.
-          { x: b.x, y: b.y, z: bottomZ }, // Top of the final step.
-          { x: b.x, y: b.y, z: floorZ },  // Extend to the floor.
-          { x: a.x, y: a.y, z: floorZ },  // Extend to the floor.
-        )
-
-        if ( a.y > b.y ) backQuad.reverseOrientation();
-
-        // Testing: Confirm orientation
-        if ( backQuad.isFacing(ctr3d) ) console.warn("Steps#createSteps|Back quad facing wrong way.");
-
-        out.push(backQuad);
-      }
-    }
-    return out;
+    return count > 0;
   }
 
   /**
