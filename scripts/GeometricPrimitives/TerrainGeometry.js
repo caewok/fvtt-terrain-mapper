@@ -113,7 +113,7 @@ export class TerrainGeometry extends RegionGeometry {
    */
   _instantiateShape(regionShape, holeShapes, id) {
     const baseShape = super._instantiateShape(regionShape, holeShapes, id);
-    if ( baseShape instanceof EmptyGeometricPrimitive ) return baseShape;
+    if ( !baseShape.faces.length ) return baseShape; // Skip empty shapes.
 
     if ( this.hasTerrainShape ) {
       try {
