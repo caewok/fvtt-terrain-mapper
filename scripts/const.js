@@ -110,6 +110,7 @@ export const FA_ICONS = {
   STAIRS: "fa-solid fa-stairs",                 // https://fontawesome.com/icons/stairs
   ELEVATOR: "fa-solid fa-elevator",             // https://fontawesome.com/icons/elevator
   DRAW_HILL: "fa-solid fa-mountain",            // https://fontawesome.com/icons/mountain
+  TERRAIN: "fa-solid fa-mountain",              // https://fontawesome.com/icons/mountain
 };
 
 export const ICONS = {

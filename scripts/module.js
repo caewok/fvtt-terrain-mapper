@@ -17,6 +17,10 @@ import { PATCHER, initializePatching } from "./patching.js";
 import { WallTracerEdge, WallTracerVertex, WallTracer, SCENE_GRAPH } from "./WallTracer.js";
 
 // Regions
+import { PlateauTerrainRegionBehaviorType } from "./regions/PlateauRegionBehaviorType.js";
+import { HillTerrainRegionBehaviorType } from "./regions/HillRegionBehaviorType.js";
+import { StepsTerrainRegionBehaviorType } from "./regions/StepsRegionBehaviorType.js";
+import { RampTerrainRegionBehaviorType } from "./regions/RampRegionBehaviorType.js";
 import { StairsRegionBehaviorType } from "./regions/StairsRegionBehaviorType.js";
 import { ElevatorRegionBehaviorType } from "./regions/ElevatorRegionBehaviorType.js";
 import { StraightLinePath } from "./StraightLinePath.js";
@@ -134,12 +138,21 @@ Hooks.once("init", function() {
   Object.assign(CONFIG.RegionBehavior.dataModels, {
     [`${MODULE_ID}.setElevation`]: StairsRegionBehaviorType,
     [`${MODULE_ID}.elevator`]: ElevatorRegionBehaviorType,
+    [`${MODULE_ID}.plateauTerrain`]: PlateauTerrainRegionBehaviorType,
+    [`${MODULE_ID}.rampTerrain`]: RampTerrainRegionBehaviorType,
+    [`${MODULE_ID}.stepsTerrain`]: StepsTerrainRegionBehaviorType,
+    [`${MODULE_ID}.hillTerrain`]: HillTerrainRegionBehaviorType,
   });
 
   //   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.addTerrain`] = FA_ICONS.MODULE;
   //   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.removeTerrain`] = FA_ICONS.MODULE;
   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.setElevation`] = FA_ICONS.STAIRS;
   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.elevator`] = FA_ICONS.ELEVATOR;
+  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.plateauTerrain`] = FA_ICONS.TERRAIN;
+  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.rampTerrain`] = FA_ICONS.TERRAIN;
+  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.stepsTerrain`] = FA_ICONS.TERRAIN;
+  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.hillTerrain`] = FA_ICONS.TERRAIN;
+
 
   // Must go at end?
   foundry.applications.handlebars.loadTemplates(Object.values(TEMPLATES)).then(_value => log("Templates loaded."));

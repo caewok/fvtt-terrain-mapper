@@ -67,6 +67,10 @@
 
   "TYPES.RegionBehavior.terrainmapper.setElevation": "Stairs",
   "TYPES.RegionBehavior.terrainmapper.elevator": "Elevator",
+  "TYPES.RegionBehavior.terrainmapper.plateauTerrain": "Terrain: Plateau",
+  "TYPES.RegionBehavior.terrainmapper.rampTerrain": "Terrain: Ramp",
+  "TYPES.RegionBehavior.terrainmapper.stepsTerrain": "Terrain: Steps",
+  "TYPES.RegionBehavior.terrainmapper.hillTerrain": "Terrain: Hill",
 
   "terrainmapper.elevationAlgorithm.labels.none": "None",
   "terrainmapper.elevationAlgorithm.labels.oneWay": "One-Way Stairs",
