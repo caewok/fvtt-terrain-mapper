@@ -99,7 +99,7 @@ export class RampPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
 
     const EPSILON = 1e-04; // Larger epsilon because these side will eventually be transformed to a smaller prototype.
     const bottomZ = opts.bottomZ;
-    const faces = [base, top, ...top.buildTopSides(bottomZ, epsilon)];
+    const faces = [base, top, ...top.buildTopSides(bottomZ, EPSILON)];
     const protoFaces = this.canvasToPrototypeFaces(faces, opts);
     return new this(id, protoFaces);
   }
