@@ -12,7 +12,6 @@ export const MODULE_ID = "terrainmapper";
 export const TEMPLATES = {
   SCENE: `modules/${MODULE_ID}/templates/scene-config.html`,
   SETTINGS: `modules/${MODULE_ID}/templates/settings-menu-tab-partial.html`,
-  REGION: `modules/${MODULE_ID}/templates/region-config.html`,
   TILE: `modules/${MODULE_ID}/templates/tile-config.html`,
 };
 

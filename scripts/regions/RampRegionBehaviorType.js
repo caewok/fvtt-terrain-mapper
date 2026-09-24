@@ -32,6 +32,12 @@ export class RampTerrainRegionBehaviorType extends foundry.data.regionBehaviors.
         max: 359,
         step: 1,
       }),
+
+      dialog: new foundry.data.fields.BooleanField({
+        label: `${MODULE_ID}.behavior.types.stairs.fields.dialog.name`,
+        hint: `${MODULE_ID}.behavior.types.stairs.fields.dialog.hint`,
+        initial: false
+      }),
     };
   }
 

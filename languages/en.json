@@ -95,5 +95,7 @@
   "terrainmapper.phrases.elevator-choice": "Choose a floor",
   "terrainmapper.phrases.top": "Top",
   "terrainmapper.phrases.bottom": "Bottom",
-  "terrainmapper.phrases.resetOnExit": "Return to the ground elevation?"
+  "terrainmapper.phrases.resetOnExit": "Return to the ground elevation?",
+  "terrainmapper.phrases.terrain-up": "Climb up this terrain?",
+  "terrainmapper.phrases.terrain-down": "Move down to this terrain?"
 }

@@ -31,6 +31,12 @@ export class HillTerrainRegionBehaviorType extends foundry.data.regionBehaviors.
         initial: "linear",
         choices: ["linear", "ridge", "symmetrical"],
       }),
+
+      dialog: new foundry.data.fields.BooleanField({
+        label: `${MODULE_ID}.behavior.types.stairs.fields.dialog.name`,
+        hint: `${MODULE_ID}.behavior.types.stairs.fields.dialog.hint`,
+        initial: false
+      }),
     };
   }
 

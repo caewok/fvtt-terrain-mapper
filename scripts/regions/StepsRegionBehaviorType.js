@@ -40,6 +40,12 @@ export class StepsTerrainRegionBehaviorType extends foundry.data.regionBehaviors
         min: 1,
         step: 1,
       }),
+
+      dialog: new foundry.data.fields.BooleanField({
+        label: `${MODULE_ID}.behavior.types.stairs.fields.dialog.name`,
+        hint: `${MODULE_ID}.behavior.types.stairs.fields.dialog.hint`,
+        initial: false
+      }),
     };
   }
 
