@@ -55,7 +55,23 @@ Enter -> MoveIn -> MoveWithin
 Token within, moves above region via elevation change
 MoveWithin -> Exit -> MoveOut  (No animation!)
 
+Things about these events that the design below depends on (all verified in foundry.mjs):
+
+1. Movement is split into segments at region boundaries. Events fire after each segment, with the token
+   already at the end of that segment (`movement.passed.waypoints.at(-1)`) and the rest of the path in
+   `movement.pending.waypoints`.
+
+2. MOVE_WITHIN is *also* sent at the position where a token leaves the region
+   (see TokenDocument.#onUpdateHandleMoveWithinRegionEvents). At that moment `token.regions` no longer
+   contains the region, so MOVE_WITHIN and MOVE_OUT both fire for the same segment.
+
+3. `token.move()` starts a brand new, unchained movement, which stops the paused one.
+   It does not "modify" the paused movement; the new path must contain everything still to be walked.
+
+4. The event handlers are not awaited by the movement workflow. The movement only stays put if
+   `pauseMovement()` is called synchronously, before the first `await`.
 */
+
 
 /**
  * @typedef RegionPathWaypoint extends RegionMovementWaypoint
@@ -77,14 +93,22 @@ MoveWithin -> Exit -> MoveOut  (No animation!)
 // TokenProcessedMovementWaypoint: https://foundryvtt.com/api/interfaces/foundry.documents.types.TokenProcessedMovementWaypoint.html
 
 /**
- * Region behavior to set token to specific top/bottom elevation.
- * @property {number} elevation       The elevation at which to set the token
- * @property {number} floor           The elevation at which to reset the token when leaving the region
- *                                    Defaults to scene elevation
- * @property {number} rampStepHeight  The vertical size, in grid units, of ramp elevation increments
- * @property {number} rampDirection   The direction of incline for the ramp, in degrees
- * @property {boolean} reset          When enabled, elevation will be reset to floor on exit
- * @property {FLAGS.REGION.TERRAIN.CHOICES} algorithm       How elevation change should be handled. plateau, ramp, stairs
+ * Region behavior that makes a region act as plateau terrain for walking tokens.
+ * - Entering (moving in): the token climbs to the top of the region.
+ * - Moving within: the token stays at the top of the region.
+ * - Leaving (moving out): the token drops to the ground (base elevation of its level).
+ * Flying and burrowing tokens are exempt (see CONFIG[MODULE_ID].terrain*Actions).
+ *
+ * The three events all funnel into one handler. That handler:
+ *   1. Synchronously decides whether the remaining path needs any change (pure function of the event data).
+ *      If not, it does nothing at all, so it never pauses movement unnecessarily.
+ *   2. If a change is needed, pauses the movement (synchronously) using a keyed pause.
+ *   3. Waits for the animation, then re-validates that the world still looks the way it did at (1).
+ *   4. Issues exactly one `move()` with the fully corrected remaining path.
+ *   5. If it did not replace the paused movement for any reason, resumes it.
+ *
+ * @property {boolean} dialog   Ask before changing elevation when entering/leaving. When enabled,
+ *                              MOVE_WITHIN no longer corrects elevation on its own.
  */
 export class PlateauTerrainRegionBehaviorType extends foundry.data.regionBehaviors.RegionBehaviorType {
   static defineSchema() {
@@ -99,224 +123,255 @@ export class PlateauTerrainRegionBehaviorType extends foundry.data.regionBehavio
 
   /** @override */
   static events = {
-    [CONST.REGION_EVENTS.TOKEN_MOVE_IN]: this.#onTokenMoveIn,
-    [CONST.REGION_EVENTS.TOKEN_MOVE_OUT]: this.#onTokenMoveOut,
-    [CONST.REGION_EVENTS.TOKEN_MOVE_WITHIN]: this.#onTokenMoveWithin,
-    [CONST.REGION_EVENTS.TOKEN_ENTER]: this.#onTokenEnter,
-    [CONST.REGION_EVENTS.TOKEN_EXIT]: this.#onTokenExit,
-    [CONST.REGION_EVENTS.TOKEN_ANIMATE_IN]: this.#onTokenAnimateIn,
-    [CONST.REGION_EVENTS.TOKEN_ANIMATE_OUT]: this.#onTokenAnimateOut,
+    [CONST.REGION_EVENTS.TOKEN_MOVE_IN]: this.#onTokenMove,
+    [CONST.REGION_EVENTS.TOKEN_MOVE_OUT]: this.#onTokenMove,
+    [CONST.REGION_EVENTS.TOKEN_MOVE_WITHIN]: this.#onTokenMove,
   };
 
+  /**
+   * Loop breaker. Maps the id of a movement (the id of the first movement of a chain) to the set of
+   * corrections already issued for that lineage. A correction is identified by the event, the position and
+   * elevation it started from, and the elevation it wanted. If the same correction is requested twice in one
+   * lineage, the corrections are not converging (e.g., the token keeps getting snapped back across the region
+   * boundary, or a wall/surface blocks the vertical move) and we stop instead of looping forever.
+   * @type {Map<string, Set<string>>}
+   */
+  static #lineages = new Map();
 
   /**
+   * Cap on how many corrective vertical waypoints are generated for a single climb or drop.
+   * @type {number}
+   */
+  static MAX_VERTICAL_STEPS = 50;
+
+  /**
+   * Movement action used for the corrective vertical waypoints.
+   */
+  static VERTICAL_ACTION = "climb";
+
+  // ----- NOTE: Event handling ----- //
+
+
+
+
+
+  /**
+   * Handle TOKEN_MOVE_IN, TOKEN_MOVE_OUT, and TOKEN_MOVE_WITHIN
    * @type {RegionEvent} event
    *   - @prop {object} data        Data related to the event
    *     - @prop {Token} token      Token triggering the event
    *   - @prop {string} name        Name of the event type (e.g., "tokenEnter")
    *   - @prop {RegionDocument}     Region for the event
    *   - @prop {User} user          User that triggered the event
+   * @this {PlateauTerrainRegionBehaviorType}
    */
-  static async #onTokenMoveIn(event) {
-    const data = event.data;
-    console.debug(`Token ${data.token.name} moving into ${event.region.name}!`);
-    if ( event.user !== game.user ) return;
-    const tokenD = data.token;
-
-    // Determine if the projected token movement is below the plateau.
-    if ( !this.#movementInRequiresElevationChange(data.movement, tokenD) ) return;
+  static async #onTokenMove(event) {
+    if ( !event.user.isSelf ) return;
+    const { token: tokenD, movement } = event.data;
+    if ( !movement ) return;
+    console.debug(`Token ${event.data.token.name} ${event.name} of ${event.region.name}!`);
 
     // ----- No async operations before this! -----
-    const resumeMovement = tokenD.pauseMovement();
+    // The movement workflow does not wait for this handler. It continues the movement on
+    // the next tick unless the movement is already paused.
+    const plan = this.#planCorrection(event.name, tokenD, movement);
+    if ( !plan ) return;
 
-    // Await movement animation
-    // When the browser tab is/becomes hidden, don't wait for the movement animation and
-    // proceed immediately. Otherwise wait for the movement animation to complete.
-    if ( tokenD.rendered ) await tokenD.object?.movementAnimationPromise;
-
-    /*
-    if ( tokenD.rendered && tokenD.object.movementAnimationPromise ) {
-      await game.raceWithWindowHidden(tokenD.object.movementAnimationPromise);
-    }
-    */
-    // tokenD.stopMovement();
-
-    if ( this.dialog ) {
-      const content = game.i18n.localize(targetElevation > tokenD.elevation ? `${MODULE_ID}.phrases.terrain-up` : `${MODULE_ID}.phrases.terrain-down`);
-      const changeElevation = await foundry.applications.api.DialogV2.confirm({ content, rejectClose: false, modal: true });
-      if ( !changeElevation ) return resumeMovement?.();
+    const lineages = PlateauTerrainRegionBehaviorType.#lineages;
+    const rootId = movement.chain.at(0) ?? movement.id;
+    const seen = lineages.get(rootId) ?? new Set();
+    if ( seen.has(plan.signature) ) {
+      console.warn(`${MODULE_ID}|Plateau correction for ${tokenD.name} was already attempted from this state; not retrying.`, plan.signature);
+      return;
     }
 
-    // See Prompt to change the level of the Token if it moves into the Region. in foundry.js
-    const movement = data.movement;
-    const targetElevation = this.topElevation;
-    const newWaypoints = this.#insertElevatedMove(movement, targetElevation, tokenD);
-    console.debug(`MovingIn|Moving Token ${data.token.name} to ${targetElevation}.`);
+    // Keyed pause, like the core Teleport behavior. Several behaviors can pause the same movement, and the
+    // movement resumes only when every key is resumed. The key must be unique per behavior.
+    const key = this.parent.uuid;
+    const paused = tokenD.pauseMovement(key) !== null;
 
-    await tokenD.move(newWaypoints, {
-      ...movement.updateOptions,
-      constrainOptions: movement.constrainOptions,
-      autoRotate: movement.autoRotate,
-      showRuler: movement.showRuler,
-      split: false,
-    });
-  }
+    try {
+      // Wait for the animation of the segment that just finished. When the browser tab is hidden,
+      // the animation is not awaited.
+      if ( tokenD.rendered && tokenD.object?.movementAnimationPromise ) {
+        await game.raceWithWindowHidden(tokenD.object.movementAnimationPromise);
+      }
 
-  /**
-   * @type {RegionEvent} event
-   *   - @prop {object} data        Data related to the event
-   *     - @prop {Token} token      Token triggering the event
-   *   - @prop {string} name        Name of the event type (e.g., "tokenEnter")
-   *   - @prop {RegionDocument}     Region for the event
-   *   - @prop {User} user          User that triggered the event
-   */
-  static async #onTokenMoveWithin(event) {
-    if ( event.user !== game.user ) return;
-    const data = event.data;
-    const tokenD = data.token;
-    console.debug(`Token ${data.token.name} moving within ${event.region.name}!`);
+      // Optionally ask (enter/exit only).
+      if ( this.dialog && plan.confirm ) {
+        const content = game.i18n.localize(plan.target > plan.start.elevation
+          ? `${MODULE_ID}.phrases.terrain-up` : `${MODULE_ID}.phrases.terrain-down`);
+        const change = await foundry.applications.api.DialogV2.confirm({ content, rejectClose: false, modal: true });
+        if ( !change ) return;
+      }
 
-    // Determine if the projected token movement is below the plateau.
-    if ( !this.#movementWithInRequiresElevationChange(data.movement, tokenD) ) return;
+      // Nothing computed before the awaits can be trusted. Check again.
+      if ( !this.#isCurrent(event.name, tokenD, movement, paused) ) return;
 
-    // ----- No async operations before this! -----
-    tokenD.pauseMovement();
+      // Issue the one correction. A fresh id lets the follow-up events be traced to this lineage.
+      const id = foundry.utils.randomID();
+      seen.add(plan.signature);
+      lineages.delete(rootId);
+      lineages.set(id, seen);
+      if ( lineages.size > 100 ) lineages.delete(lineages.keys().next().value);
 
-    // Await movement animation
-    // When the browser tab is/becomes hidden, don't wait for the movement animation and
-    // proceed immediately. Otherwise wait for the movement animation to complete.
-   if ( tokenD.rendered ) await tokenD.object?.movementAnimationPromise;
-
-    /*
-    if ( tokenD.rendered && tokenD.object.movementAnimationPromise ) {
-      await game.raceWithWindowHidden(tokenD.object.movementAnimationPromise);
+      console.debug(`${MODULE_ID}|${event.name}: moving ${tokenD.name} from elevation ${plan.start.elevation} to ${plan.target}.`);
+      // `updateOptions` is on token.movement (TokenMovementData), not on the event's movement operation.
+      const { animate, animation, pan } = tokenD.movement.updateOptions ?? {};
+      await tokenD.move(plan.waypoints, {
+        id,
+        split: false,
+        method: movement.method,
+        animate,
+        animation,
+        pan,
+        autoRotate: movement.autoRotate,
+        showRuler: movement.showRuler,
+        constrainOptions: movement.constrainOptions,
+        terrainOptions: movement.terrainOptions,
+        measureOptions: movement.measureOptions
+      });
+    } catch ( err ) {
+      console.error(err);
+    } finally {
+      // If the paused movement was not replaced, do not leave the token frozen.
+      const current = tokenD.movement;
+      if ( paused && (current.id === movement.id) && (current.state === "paused") ) {
+        tokenD.resumeMovement(movement.id, key);
+      }
     }
-    */
-
-    // Insert vertical move.
-    const movement = data.movement;
-    const targetElevation = this.topElevation;
-    const newWaypoints = this.#insertElevatedMove(movement, targetElevation, tokenD);
-    console.debug(`MovingWithin|Moving Token ${data.token.name} to ${targetElevation}.`);
-
-    await tokenD.move(newWaypoints, {
-      ...movement.updateOptions,
-      constrainOptions: movement.constrainOptions,
-      autoRotate: movement.autoRotate,
-      showRuler: movement.showRuler,
-    });
   }
 
   /**
-   * @type {RegionEvent} event
-   *   - @prop {object} data        Data related to the event
-   *     - @prop {Token} token      Token triggering the event
-   *   - @prop {string} name        Name of the event type (e.g., "tokenEnter")
-   *   - @prop {RegionDocument}     Region for the event
-   *   - @prop {User} user          User that triggered the event
+   * Is the token, after any awaits, still in the situation the event described?
+   * @param {string} eventName
+   * @param {TokenDocument} tokenD
+   * @param {TokenMovementOperation} movement
+   * @param {boolean} paused          Did we pause the movement?
+   * @returns {boolean}
    */
-  static async #onTokenMoveOut(event) {
-     if ( event.user !== game.user ) return;
-    const data = event.data;
-    const tokenD = data.token;
-    console.debug(`Token ${data.token.name} moving out of ${event.region.name}!`);
-
-    // Determine if the projected token movement is below the plateau.
-    if ( !this.#movementOutRequiresElevationChange(data.movement, tokenD) ) return;
-
-    // ----- No async operations before this! -----
-    tokenD.pauseMovement();
-
-    // Await movement animation
-    // When the browser tab is/becomes hidden, don't wait for the movement animation and
-    // proceed immediately. Otherwise wait for the movement animation to complete.
-
-
-    if ( tokenD.rendered ) await tokenD.object?.movementAnimationPromise;
-
-    /*
-    if ( tokenD.rendered && tokenD.object.movementAnimationPromise ) {
-      await game.raceWithWindowHidden(tokenD.object.movementAnimationPromise);
-    }
-    */
-    // tokenD.stopMovement();
-
-    /*
-    if ( this.dialog ) {
-      const content = game.i18n.localize(targetElevation > tokenD.elevation ? `${MODULE_ID}.phrases.terrain-up` : `${MODULE_ID}.phrases.terrain-down`);
-      const changeElevation = await foundry.applications.api.DialogV2.confirm({ content, rejectClose: false, modal: true });
-      if ( !changeElevation ) return resumeMovement?.();
-    }
-    */
-
-    // See Prompt to change the level of the Token if it moves into the Region. in foundry.js
-    const movement = data.movement;
-    const targetElevation = canvas.level.elevation.bottom;
-    const newWaypoints = this.#insertElevatedMove(movement, targetElevation, tokenD, false);
-    console.debug(`MovingOut|Moving Token ${data.token.name} to ${targetElevation}.`);
-
-    await tokenD.move(newWaypoints, {
-      ...movement.updateOptions,
-      constrainOptions: movement.constrainOptions,
-      autoRotate: movement.autoRotate,
-      showRuler: movement.showRuler,
-      split: false,
-    });
-  }
-  /**
-   * @type {RegionEvent} event
-   *   - @prop {object} data        Data related to the event
-   *     - @prop {Token} token      Token triggering the event
-   *   - @prop {string} name        Name of the event type (e.g., "tokenEnter")
-   *   - @prop {RegionDocument}     Region for the event
-   *   - @prop {User} user          User that triggered the event
-   */
-  static async #onTokenEnter(event) {
-    console.debug(`onTokenEnter: ${event.data.token.name}`);
+  #isCurrent(eventName, tokenD, movement, paused) {
+    const current = tokenD.movement;
+    if ( current.id !== movement.id ) return false; // Another movement replaced this one.
+    if ( paused && (current.state !== "paused") ) return false; // Stopped while we waited (e.g., user cancelled).
+    return tokenD.regions.has(this.region) === PlateauTerrainRegionBehaviorType.#expectInside(eventName);
   }
 
   /**
-   * @type {RegionEvent} event
-   *   - @prop {object} data        Data related to the event
-   *     - @prop {Token} token      Token triggering the event
-   *   - @prop {string} name        Name of the event type (e.g., "tokenEnter")
-   *   - @prop {RegionDocument}     Region for the event
-   *   - @prop {User} user          User that triggered the event
+   * Should the token be inside the region when this event is handled?
+   * MOVE_IN and MOVE_WITHIN: inside. MOVE_OUT: outside.
+   * @param {string} eventName
+   * @returns {boolean}
    */
-  static async #onTokenExit(event) {
-    console.debug(`onTokenExit: ${event.data.token.name}`);
-  }
+  static #expectInside(eventName) { return eventName !== CONST.REGION_EVENTS.TOKEN_MOVE_OUT; }
 
-  /**
-   * @type {RegionEvent} event
-   *   - @prop {object} data        Data related to the event
-   *     - @prop {Token} token      Token triggering the event
-   *   - @prop {string} name        Name of the event type (e.g., "tokenEnter")
-   *   - @prop {RegionDocument}     Region for the event
-   *   - @prop {User} user          User that triggered the event
-   */
-  static async #onTokenAnimateIn(event) {
-    console.debug(`onTokenAnimateIn: ${event.data.token.name}`);
-  }
-
-  /**
-   * @type {RegionEvent} event
-   *   - @prop {object} data        Data related to the event
-   *     - @prop {Token} token      Token triggering the event
-   *   - @prop {string} name        Name of the event type (e.g., "tokenEnter")
-   *   - @prop {RegionDocument}     Region for the event
-   *   - @prop {User} user          User that triggered the event
-   */
-  static async #onTokenAnimateOut(event) {
-    console.debug(`onTokenAnimateOut: ${event.data.token.name}`);
-  }
+  //  ----- NOTE: Elevation ----- //
 
   /** @type {number<grid units>} */
   get topElevation() {
-    let elevation = this.region.elevation.top;
-    if ( !this.region.elevation.topInclusive ) elevation -= 1;
-    return elevation;
+    const { top, topInclusive } = this.region.elevation;
+    return topInclusive ? top : top - 1;
   }
+
+  /**
+   * The ground elevation of the level the token is on.
+   * Uses the token's level, not the level being viewed, and `base`, which stays finite for unbounded levels.
+   * @param {TokenDocument} tokenD
+   * @param {string} [levelId]
+   * @returns {number<grid units>}
+   */
+  static groundElevation(tokenD, levelId) {
+    const level = tokenD.parent?.levels?.get(levelId ?? tokenD.level);
+    return level?.elevation.base ?? 0;
+  }
+
+  /**
+   * Would a waypoint have to change elevation to be consistent with the target elevation?
+   * Flying may be above the target and burrowing below it. Anything that is not walking is left alone.
+   * @param {{action: string, elevation: number}} waypoint
+   * @param {number} target
+   * @returns {boolean}
+   */
+  #needsAdjustment({ action, elevation }, target) {
+    if ( elevation.almostEqual(target) ) return false;
+    const { terrainWalkActions, terrainFlightActions, terrainBurrowActions } = CONFIG[MODULE_ID];
+    if ( elevation < target && terrainBurrowActions.has(action) ) return false;
+    if ( elevation > target && terrainFlightActions.has(action) ) return false;
+    return terrainWalkActions.has(action);
+  }
+
+  // ----- NOTE: Planning ----- //
+
+  /**
+   * Compute the corrected remaining path, or null if no correction is needed.
+   * This is a pure, synchronous function of the event data. Because it returns null when the path is already
+   * consistent, it is idempotent: handling the events of a corrected movement does nothing.
+   *
+   * The rule is simple: while the token is on one side of the boundary, every remaining walking waypoint is
+   * at that side's elevation.
+   *   - Inside (MOVE_IN, MOVE_WITHIN): plateau elevation.
+   *   - Outside (MOVE_OUT): ground elevation.
+   * The token then reaches the next boundary at a constant elevation. That boundary produces the next event,
+   * which flips the rest of the path. No path segment ever slopes across a boundary.
+   *
+   * @param {string} eventName
+   * @param {TokenDocument} tokenD
+   * @param {TokenMovementOperation} movement
+   * @returns {{waypoints: object[], start: object, target: number, signature: string, confirm: boolean}|null}
+   */
+  #planCorrection(eventName, tokenD, movement) {
+    const region = this.region;
+    if ( !region ) return null;
+
+    // Our corrective move cannot replay undo/paste, and those are not walking anyway.
+    if ( (movement.method === "undo") || (movement.method === "paste") ) return null;
+
+    // Stale event: another movement has already replaced this one.
+    if ( tokenD.movement.id !== movement.id ) return null;
+
+    // MOVE_WITHIN also fires at the exit position, when the token is no longer in the region.
+    // MOVE_OUT owns that case. Without this check both handlers would fire and fight each other.
+    const E = CONST.REGION_EVENTS;
+    if ( tokenD.regions.has(region) !== PlateauTerrainRegionBehaviorType.#expectInside(eventName) ) return null;
+
+    // With the dialog enabled the user decides; do not silently override that on every step.
+    if ( this.dialog && (eventName === E.TOKEN_MOVE_WITHIN) ) return null;
+
+    const start = movement.passed.waypoints.at(-1);
+    if ( !start ) return null;
+    const movingIn = PlateauTerrainRegionBehaviorType.#expectInside(eventName);
+    const target = movingIn ? this.topElevation : this.constructor.groundElevation(tokenD, start.level);
+    if ( !Number.isFinite(target) ) return null; // E.g., region with no top.
+
+    const waypoints = [];
+    let changed = false;
+
+    // The token's current position.
+    if ( this.#needsAdjustment(start, target) ) {
+      changed = true;
+      waypoints.push(...PlateauTerrainRegionBehaviorType.verticalMoves(start, target, tokenD.parent?.grid?.distance));
+    }
+
+    // The rest of the path. Skip intermediate waypoints; Foundry regenerates them.
+    for ( const waypoint of movement.pending.waypoints ) {
+      if ( waypoint.intermediate ) continue;
+      if ( this.#needsAdjustment(waypoint, target) ) {
+        changed = true;
+        waypoints.push({ ...waypoint, elevation: target });
+      } else waypoints.push({ ...waypoint });
+    }
+    if ( !changed ) return null;
+
+    return {
+      waypoints,
+      start,
+      target,
+      signature: [eventName, start.x, start.y, start.elevation, target].join("|"),
+      confirm: eventName !== E.TOKEN_MOVE_WITHIN
+    };
+  }
+
+  // ----- NOTE: Waypoint helpers ----- //
 
   /**
    * Create a new waypoint with a set elevation representing a vertical climb.
@@ -324,205 +379,31 @@ export class PlateauTerrainRegionBehaviorType extends foundry.data.regionBehavio
    * @returns {TokenMovementWaypoint} Keeps excess values, changing only as necessary.
    */
   static newElevationFromWaypoint(waypoint, elevation) {
-    return { ...waypoint, elevation, action: "climb", explicit: true, intermediate: false, checkpoint: false, snapped: false };
+    const { x, y, width, height, depth, shape, level } = waypoint;
+    return { x, y, elevation, width, height, depth, shape, level,
+      action: this.VERTICAL_ACTION, snapped: false, explicit: true, checkpoint: false };
   }
 
   /**
-   * Is the proposed token movement consistent with the plateau elevation?
-   * Accounts for the type of movement and the elevation.
-   * @param {RegionMovement} movement        The movement passed from a ReginEvent (data.movement) object
-   *   - @prop {RegionWaypoint} destination
-   *   - @prop {object} pending
-   *     - @prop {RegionWaypoint[]} pending.waypoints
-   * @param {TokenDocument} tokenD           	The token doing the movement
-   * @returns {boolean}
-   */
-  #movementInRequiresElevationChange(movement, tokenD) {
-    // Every waypoint that is within the region should be at the target elevation unless
-    // the movement type allows otherwise.
-    // Flying: can be above. (Probably shouldn't happen for a plateau. Might happen for ramps, hills.)
-    // Burrowing: can be below.
-
-    const targetElevation = this.topElevation;
-    const waypoints = [movement.destination, ...movement.pending.waypoints];
-    const { terrainWalkActions, terrainFlightActions, terrainBurrowActions } = CONFIG[MODULE_ID];
-    for ( const waypoint of waypoints ) {
-      // If near the target elevation, we are fine.
-      if ( waypoint.elevation.almostEqual(targetElevation) ) continue;
-
-      // If below elevation and burrowing, we are fine.
-      if ( waypoint.elevation < targetElevation && terrainBurrowActions.has(waypoint.action) ) continue;
-
-      // If above elevation and flying, we are fine.
-      if ( waypoint.elevation > targetElevation && terrainFlightActions.has(waypoint.action) ) continue;
-
-      // If doing any sort of walking, we need to be at elevation. Anything else, we skip.
-      if ( !terrainWalkActions.has(waypoint.action) ) continue;
-
-      // Is this waypoint within the region?
-      const ctr = tokenD.getCenterPoint(waypoint); // The returned point keeps the elevation.
-      if ( !this.region.testPoint(ctr) ) continue;
-
-      // "Walking" or equivalent and need to move ("climb") up.
-      return true;
-    }
-    return false;
-  }
-
-  #movementWithInRequiresElevationChange(movement, tokenD) {
-    // Last waypoint in the region should be at elevation unless
-    // the movement type allows otherwise.
-    // Flying: can be above. (Probably shouldn't happen for a plateau. Might happen for ramps, hills.)
-    // Burrowing: can be below.
-
-    const targetElevation = this.topElevation;
-    const waypoints = [(movement.passed.waypoints.at(-1) || movement.destination), ...movement.pending.waypoints];
-    const { terrainWalkActions, terrainFlightActions, terrainBurrowActions } = CONFIG[MODULE_ID];
-    for ( const waypoint of waypoints.reverse() ) {
-      // If not within region, skip.
-      const ctr = tokenD.getCenterPoint(waypoint); // The returned point keeps the elevation.
-      if ( !this.region.testPoint(ctr) ) continue;
-
-      // If near the target elevation, we are fine.
-      if ( waypoint.elevation.almostEqual(targetElevation) ) return false;
-
-      // If below elevation and burrowing, we are fine.
-      if ( waypoint.elevation < targetElevation && terrainBurrowActions.has(waypoint.action) ) return false;
-
-      // If above elevation and flying, we are fine.
-      if ( waypoint.elevation > targetElevation && terrainFlightActions.has(waypoint.action) ) return false;
-
-      // If doing any sort of walking, we need to be at elevation. Anything else, we skip.
-      if ( !terrainWalkActions.has(waypoint.action) ) return false;
-
-      return true;
-
-    }
-    return true;
-  }
-
-  /**
-   * Is the proposed token movement consistent with the plateau elevation?
-   * Accounts for the type of movement and the elevation.
-   * @param {RegionMovement} movement        The movement passed from a RegionEvent (data.movement) object
-   *   - @prop {RegionWaypoint} destination
-   *   - @prop {object} pending
-   *     - @prop {RegionWaypoint[]} pending.waypoints
-   * @param {TokenDocument} tokenD           	The token doing the movement
-   * @returns {boolean}
-   */
-  #movementOutRequiresElevationChange(movement, tokenD) {
-    // Every waypoint that is outside the region should be at the scene ground elevation unless
-    // the movement type allows otherwise.
-    // Flying: can be above. (Probably shouldn't happen for a plateau. Might happen for ramps, hills.)
-    // Burrowing: can be below.
-
-    const targetElevation = canvas.level.elevation.bottom;
-    const waypoints = [movement.destination, ...movement.pending.waypoints];
-    const { terrainWalkActions, terrainFlightActions, terrainBurrowActions } = CONFIG[MODULE_ID];
-    for ( const waypoint of waypoints ) {
-      // If near the target elevation, we are fine.
-      if ( waypoint.elevation.almostEqual(targetElevation) ) continue;
-
-      // If below elevation and burrowing, we are fine.
-      if ( waypoint.elevation < targetElevation && terrainBurrowActions.has(waypoint.action) ) continue;
-
-      // If above elevation and flying, we are fine.
-      if ( waypoint.elevation > targetElevation && terrainFlightActions.has(waypoint.action) ) continue;
-
-      // If doing any sort of walking, we need to be at elevation. Anything else, we skip.
-      if ( !terrainWalkActions.has(waypoint.action) ) continue;
-
-      // Is this waypoint within the region?
-      const ctr = tokenD.getCenterPoint(waypoint); // The returned point keeps the elevation.
-      if ( this.region.testPoint(ctr) ) continue;
-
-      // "Walking" or equivalent and need to move ("climb") up.
-      return true;
-    }
-    return false;
-  }
-
-  /**
-   * For a given movement in or within, add elevated movement
-   * @param {TokenMovementData} movement
-   * @param {number} targetElevation          The plateau elevation to use
+   * Vertical move in place from the waypoint's elevation to the target.
+   * Uses several small steps instead of one long vertical segment.
+   * Avoids FoundryVTT bug causing snapping of the intermediate positions on long straight-up moves.
+   * @param {TokenProcessedMovementWaypoint} waypoint
+   * @param {number} target
+   * @param {number} [stepSize=1]      Normally the grid distance
    * @returns {TokenMovementWaypoint[]}
    */
-  #insertElevatedMove(movement, targetElevation, tokenD, moveIn = true) {
-    // const waypoint = this.nearestXYSnapPoint(movement.destination, movement.pending.waypoints.at(0), tokenD);
-    // See https://foundryvtt.com/api/interfaces/foundry.documents.types.TokenMovementWaypoint.html
-    /*
-    interface TokenMovementWaypoint {
-        action: string;
-        checkpoint: boolean;
-        depth: number;
-        elevation: number;
-        explicit: boolean;
-        height: number;
-        level: string;
-        shape: TokenShapeType;
-        snapped: boolean;
-        width: number;
-        x: number;
-        y: number;
+  static verticalMoves(waypoint, target, stepSize = 1) {
+    const delta = target - waypoint.elevation;
+    const direction = Math.sign(delta);
+    if ( !direction ) return [];
+    const step = Math.max(stepSize > 0 ? stepSize : 1, Math.abs(delta) / this.MAX_VERTICAL_STEPS);
+    const moves = [];
+    for ( let e = waypoint.elevation + (direction * step); ((target - e) * direction) > 1e-6; e += (direction * step) ) {
+      moves.push(this.newElevationFromWaypoint(waypoint, e));
     }
-    */
-
-    // Insert vertical move.
-    const dest = { ...(movement.passed.waypoints.at(-1) || movement.destination) };
-    const newWaypoints = [dest];
-
-    // Current bug in FoundryVTT causes the points to snap when elevating straight up more than 1 grid square.
-    // Can avoid by incrementing elevation more slowly.
-    if ( targetElevation.strictlyGreaterThan(dest.elevation) ) {
-      for ( let e = dest.elevation + canvas.grid.distance; e < targetElevation; e += canvas.grid.distance ) {
-        newWaypoints.push(this.constructor.newElevationFromWaypoint(dest, e));
-      }
-    } else if ( targetElevation.strictlyLessThan(dest.elevation) ) {
-      for ( let e = dest.elevation - canvas.grid.distance; e > targetElevation; e -= canvas.grid.distance ) {
-        newWaypoints.push(this.constructor.newElevationFromWaypoint(dest, e));
-      }
-    }
-
-    // Insert the final move to the target elevation.
-    const elevatedDest = this.constructor.newElevationFromWaypoint(dest, targetElevation);
-    const adjustedWaypoints = movement.pending.waypoints
-            .filter(w => !w.intermediate)
-            .map(w => {
-              const newW = { ...w };
-              const ctr = tokenD.getCenterPoint(w);
-              if ( moveIn ^ !this.region.testPoint(ctr) ) newW.elevation = targetElevation;
-              return newW;
-            });
-    newWaypoints.push(elevatedDest, ...adjustedWaypoints);
-    return newWaypoints;
-  }
-
-
-  /**
-   * Nearest snap point along a path that is still within the region.
-   * Attempts first the current point, then moves along the line toward the next point.
-   * If next point is close enough, it will try that. If all fails, returns the current point.
-   * @param {Point} currPoint
-   * @param {Point} nextPoint
-   * @param {TokenDocument} tokenD         Token for which the snapping would apply
-   */
-  nearestXYSnapPoint(currPoint, nextPoint, tokenD) {
-    currPoint = ElevatedPoint.fromObject(currPoint);
-    let snap = tokenD.getSnappedPosition(currPoint);
-    if ( snap.x.almostEqual(currPoint.x) && snap.y.almostEqual(currPoint.y) ) return currPoint;
-    snap.elevation = currPoint.elevation;
-    if ( this.region.testPoint(snap) ) return snap;
-    if ( !nextPoint ) return currPoint;
-
-    nextPoint = ElevatedPoint.fromObject(nextPoint);
-    const other = PIXI.Point.distanceSquaredBetween(currPoint, nextPoint) < canvas.grid.size ** 2
-      ? nextPoint : currPoint.towardsPoint(nextPoint, canvas.grid.size);
-    snap = tokenD.getSnappedPosition(other);
-    snap.elevation = other.elevation;
-    if ( this.region.testPoint(snap) ) return snap;
-    return currPoint;
+    moves.push(this.newElevationFromWaypoint(waypoint, target));
+    return moves;
   }
 }
 
