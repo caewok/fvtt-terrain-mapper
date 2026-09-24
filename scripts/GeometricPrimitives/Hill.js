@@ -20,6 +20,12 @@ import { roundDecimals, cleanPolygonPoints } from "../geometry/util.js";
  */
 export class HillPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
 
+  /** @type {enum<string>} */
+  hillType = "linear";
+
+  /** @type {BézierCurve} */
+  curve = HillDrawingManager.defaultCurve();
+
   /**
    * Build an extruded steps shape (top face is steps) from a 2d polygon.
    * @param {string} id           Identifier for this shape.
@@ -130,7 +136,10 @@ export class HillPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
     const hillShape = this.extrudeHillShape(polys, { curve, topZ, groundZ, floorZ, type });
     const faces = [base, ...hillShape];
     const protoFaces = this.canvasToPrototypeFaces(faces, opts);
-    return new this(id, protoFaces);
+    const out = new this(id, protoFaces);
+    out.type = type;
+    out.curve = curve;
+    return out;
   }
 
   /**
@@ -321,6 +330,38 @@ export class HillPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
     return ptsLattice;
   }
 
+  // ----- NOTE: Elevation testing ----- //
+
+
+  get baseFace() { return this.faces[0]; }
+
+  /**
+   * Elevation at a canvas location.
+   * @param {PIXI.Point} canvasLoc
+   * @returns {number|null} Z-value in pixel units or null if not within the ramp.
+   */
+  elevationAtCanvasLocation(canvasLoc, { topZ, bottomZ, testContainment = true } = {}) {
+    if ( testContainment ) {
+      const poly = this.baseFace.toPolygon2d();
+      if ( !poly.contains(canvasLoc.x, canvasLoc.y) ) return null;
+    }
+
+    const percent = HillDrawingManager._hillPercentHeightAtPoint(canvasLoc, this.hillType, this.curve);
+
+    // Estimate top and bottom from the faces if not provided.
+    bottomZ ??= this.baseFace.plane.point.z;
+    if ( typeof topZ === "undefined" ) {
+      topZ = Number.NEGATIVE_INFINITY;
+      this.faces.slice(0).forEach(f => {
+        for ( const poly of f.polygons || [f] ) {
+          Math.max(topZ, poly.points.map(pt => pt.z));
+        }
+      });
+    }
+
+    const zHeight = topZ - bottomZ
+    return bottomZ + (zHeight * percent);
+  }
 }
 
 /**

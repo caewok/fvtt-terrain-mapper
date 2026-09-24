@@ -354,6 +354,68 @@ export class TerrainGeometry extends RegionGeometry {
     });
   }
 
+  // ----- NOTE: Elevation testing ----- //
+
+  /**
+   * Elevation at a canvas location for a hill.
+   * @param {PIXI.Point} canvasLoc
+   * @param {boolean} [testContainment=true]
+   * @returns {number|null} Z-value in pixel units or null if not within the ramp.
+   */
+  hillZAtPoint(canvasLoc, testContainment = true) {
+    const regionD = this.placeableDocument;
+    const elevs = this.elevationZ;
+    return this.shapes[0].elevationAtCanvasLocation(canvasLoc, { ...elevs, testContainment });
+  }
+
+  /**
+   * Elevation at a canvas location for a ramp.
+   * @param {PIXI.Point} canvasLoc
+   * @returns {number|null} Z-value in pixel units or null if not within the ramp.
+   */
+  rampZAtPoint(canvasLoc, testContainment = true) {
+    return this.shapes[0].elevationAtCanvasLocation(canvasLoc, testContainment);
+  }
+
+  /**
+   * Elevation at a canvas location for a plateau.
+   * @param {PIXI.Point} canvasLoc
+   * @returns {number|null} Z-value in pixel units or null if not within the ramp.
+   */
+  plateauZAtPoint(canvasLoc, testContainment = true) {
+    if ( testContainment ) {
+      const baseFace = this.shapes[0].faces[0];
+      const poly = baseFace.toPolygon2d();
+      if ( !poly.contains(canvasLoc.x, canvasLoc.y) ) return null;
+    }
+    return this.elevationZ.topZ;
+  }
+
+  /**
+   * Elevation at a canvas location for a plateau.
+   * @param {PIXI.Point} canvasLoc
+   * @returns {number|null} Z-value in pixel units or null if not within the ramp.
+   */
+  stepsZAtPoint(canvasLoc, testContainment = true) {
+    return this.shapes[0].elevationAtCanvasLocation(canvasLoc, testContainment);
+  }
+
+  /**
+   * Elevation at a canvas location.
+   * @param {PIXI.Point} canvasLoc
+   * @returns {number|null} Z-value in pixel units or null if not within the ramp.
+   */
+  elevationAtCanvasLocation(canvasLoc, testContainment = true) {
+    const TERRAIN_TYPES = this.constructor.TERRAIN_TYPES;
+    const regionD = this.placeableDocument;
+    switch ( this.constructor.terrainType(regionD) ) {
+      case TERRAIN_TYPE.NONE: return null;
+      case TERRAIN_TYPE.PLATEAU: return this.plateauZAtPoint(canvasLoc, testContainment);
+      case TERRAIN_TYPE.RAMP: return this.rampZAtPoint(canvasLoc, testContainment);
+      case TERRAIN_TYPE.STEPS: return this.stepsZAtPoint(canvasLoc, testContainment);
+      case TERRAIN_TYPE.HILL: return this.hillZAtPoint(canvasLoc, testContainment);
+    }
+  }
 
   // ----- NOTE: Static properties for terrains ----- //
 
@@ -416,6 +478,15 @@ export class TerrainGeometry extends RegionGeometry {
     return regionD.behaviors.some(b => !b.disabled && b.type === hillType);
   }
 
+  /** @type {string} */
+  static hillType(regionD) {
+    const hillType = this.TERRAIN_TYPES.HILL;
+    for ( const b of regionD.behaviors ) {
+      if ( b.disabled || b.type !== hillType ) continue;
+      return b.system.type || "linear";
+    }
+  }
+
   /** @type {boolean} */
   static isBelowGround(regionD) {
     if ( this.isHill(regionD) ) return this.hillHasNegativeElevation(regionD);
@@ -462,6 +533,8 @@ export class TerrainGeometry extends RegionGeometry {
   }
 
   static hillData(regionD) { return regionD.getFlag(MODULE_ID, FLAGS.REGION.HILL.CURVE) || DEFAULT_FLAGS.REGION[FLAGS.REGION.HILL.CURVE] }
+
+
 
   /** @type {number} */
   static rampDirection(regionD) {

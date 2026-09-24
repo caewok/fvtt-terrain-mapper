@@ -274,4 +274,39 @@ export class StepsPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
     }
     return planks;
   }
+
+  // ----- NOTE: Elevation testing ------ //
+
+  get baseFace() { return this.faces[0]; }
+
+  /**
+   * Elevation at a canvas location.
+   * @param {PIXI.Point} canvasLoc
+   * @returns {number|null} Z-value in pixel units or null if not within the ramp.
+   */
+  elevationAtCanvasLocation(canvasLoc, testContainment = true) {
+    if ( testContainment && !this.baseFace.containsProjectedXY(canvasLoc) ) return null;
+
+    // Test only the horizontal planes.
+    using rayOrigin = Point3d.tmp.set(0, 0, 1e06);
+    using rayDirection = Point3d.tmp.set(0, 0, -1);
+
+    for ( const f of this.faces.slice(0) ) {
+      // Skip faces not parallel to the XY plane (step sides).
+      if ( !(f.plane.normal.x.almostEqual(0) && f.plane.normal.y.almostEqual(0)) ) continue;
+      for ( const poly of f.polygons || [f] ) {
+        using pt = poly.interiorPoint();
+        rayOrigin.x = pt.x;
+        rayOrigin.y = pt.y;
+        const t = poly.intersectionT(rayOrigin, rayDirection);
+        if ( t === null ) continue;
+
+        // Once we find a step intersection, we are done.
+        using ix = rayOrigin.add(rayDirectio.multiplyScalar(t, ix), ix);
+        return ix.z;
+      }
+    }
+    return null;
+  }
+
 }

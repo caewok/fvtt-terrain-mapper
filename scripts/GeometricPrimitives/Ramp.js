@@ -114,6 +114,26 @@ export class RampPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
     }
     return true;
   }
+
+  // ----- NOTE: Elevation testing ------ //
+
+  get rampFace() { return this.faces[1]; }
+
+  get baseFace() { return this.faces[0]; }
+
+  /**
+   * Elevation at a canvas location.
+   * @param {PIXI.Point} canvasLoc
+   * @returns {number|null} Z-value in pixel units or null if not within the ramp.
+   */
+  elevationAtCanvasLocation(canvasLoc, testContainment = true) {
+    if ( testContainment ) {
+      const poly = this.baseFace.toPolygon2d();
+      if ( !poly.contains(canvasLoc.x, canvasLoc.y) ) return null;
+    }
+    return this.rampFace.plane.getZ(canvasLoc.x, canvasLoc.y);
+  }
+
 }
 
 /**
