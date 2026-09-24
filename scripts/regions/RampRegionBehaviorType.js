@@ -1,11 +1,15 @@
 /* globals
+CONFIG,
 CONST,
 foundry,
+game,
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
 import { MODULE_ID } from "../const.js";
+import { GEOMETRY_LIB_ID } from "../geometry/const.js";
+import { pixelsToGridUnits } from "../geometry/util.js";
 
 export const PATCHES = {};
 PATCHES.REGIONS = {};
@@ -80,7 +84,7 @@ export class RampTerrainRegionBehaviorType extends foundry.data.regionBehaviors.
    *   - @prop {string} name        Name of the event type (e.g., "tokenEnter")
    *   - @prop {RegionDocument}     Region for the event
    *   - @prop {User} user          User that triggered the event
-   * @this {PlateauTerrainRegionBehaviorType}
+   * @this {RampTerrainRegionBehaviorType}
    */
   static async #onTokenMove(event) {
     if ( !event.user.isSelf ) return;
@@ -94,11 +98,11 @@ export class RampTerrainRegionBehaviorType extends foundry.data.regionBehaviors.
     const plan = this.#planCorrection(event.name, tokenD, movement);
     if ( !plan ) return;
 
-    const lineages = PlateauTerrainRegionBehaviorType.#lineages;
+    const lineages = RampTerrainRegionBehaviorType.#lineages;
     const rootId = movement.chain.at(0) ?? movement.id;
     const seen = lineages.get(rootId) ?? new Set();
     if ( seen.has(plan.signature) ) {
-      console.warn(`${MODULE_ID}|Plateau correction for ${tokenD.name} was already attempted from this state; not retrying.`, plan.signature);
+      console.warn(`${MODULE_ID}|Ramp correction for ${tokenD.name} was already attempted from this state; not retrying.`, plan.signature);
       return;
     }
 
@@ -106,6 +110,8 @@ export class RampTerrainRegionBehaviorType extends foundry.data.regionBehaviors.
     // movement resumes only when every key is resumed. The key must be unique per behavior.
     const key = this.parent.uuid;
     const paused = tokenD.pauseMovement(key) !== null;
+
+    if ( event.name === "tokenMoveWithin" ) { tokenD.stopMovement(); return; }
 
     try {
       // Wait for the animation of the segment that just finished. When the browser tab is hidden,
@@ -171,7 +177,7 @@ export class RampTerrainRegionBehaviorType extends foundry.data.regionBehaviors.
     const current = tokenD.movement;
     if ( current.id !== movement.id ) return false; // Another movement replaced this one.
     if ( paused && (current.state !== "paused") ) return false; // Stopped while we waited (e.g., user cancelled).
-    return tokenD.regions.has(this.region) === PlateauTerrainRegionBehaviorType.#expectInside(eventName);
+    return tokenD.regions.has(this.region) === RampTerrainRegionBehaviorType.#expectInside(eventName);
   }
 
   /**
@@ -184,10 +190,37 @@ export class RampTerrainRegionBehaviorType extends foundry.data.regionBehaviors.
 
   //  ----- NOTE: Elevation ----- //
 
-  /** @type {number<grid units>} */
-  get topElevation() {
-    const { top, topInclusive } = this.region.elevation;
-    return topInclusive ? top : top - 1;
+  /**
+   * The range of integer elevations at which a token is still inside the region.
+   * A token at exactly an exclusive `top` is outside the region, so a ramp that rounds up to `top` would
+   * push the token out of the region (MOVE_OUT), drop it, and re-enter it.
+   * @returns {{min: number, max: number}}  In grid units. May be infinite.
+   */
+  get walkableRange() {
+    const { bottom, top, topInclusive } = this.region.elevation;
+    return {
+      min: Math.ceil(bottom ?? -Infinity),
+      max: topInclusive ? Math.floor(top ?? Infinity) : Math.ceil(top ?? Infinity) - 1
+    };
+  }
+
+  /**
+   * Ramp elevation under a waypoint, rounded to the nearest integer grid unit and kept inside the region's
+   * elevation range.
+   * The ramp plane is evaluated without testing containment, so that
+   *   - a waypoint on the boundary (e.g., the entry checkpoint) is not mistaken for "off the ramp", and
+   *   - waypoints just beyond the ramp continue along the same plane, so the token exits the region on the
+   *     slope instead of on a line that tilts toward the ground.
+   * @param {TokenDocument} tokenD
+   * @param {TokenMovementWaypoint} waypoint
+   * @returns {number|null}   Grid units or null if the ramp elevation cannot be determined.
+   */
+  #rampElevationAt(tokenD, waypoint) {
+    const ctr = tokenD.getCenterPoint(waypoint);
+    const zPixels = this.elevationAtCanvasLocation(ctr, false);
+    if ( !Number.isFinite(zPixels) ) return null;
+    const { min, max } = this.walkableRange;
+    return Math.min(max, Math.max(min, Math.round(pixelsToGridUnits(zPixels))));
   }
 
   /**
@@ -217,6 +250,17 @@ export class RampTerrainRegionBehaviorType extends foundry.data.regionBehaviors.
     return terrainWalkActions.has(action);
   }
 
+  get geom() { return CONFIG[GEOMETRY_LIB_ID].geometryManager.regions.geomForDocument(this.region); }
+
+  /**
+   * Elevation at a canvas location for a plateau.
+   * @param {PIXI.Point} canvasLoc
+   * @returns {number|null} Z-value in pixel units or null if not within the ramp.
+   */
+  elevationAtCanvasLocation(canvasLoc) {
+    return this.geom.rampZAtPoint(canvasLoc, true); // TODO: Always don't test containment?
+  }
+
   // ----- NOTE: Planning ----- //
 
   /**
@@ -224,12 +268,13 @@ export class RampTerrainRegionBehaviorType extends foundry.data.regionBehaviors.
    * This is a pure, synchronous function of the event data. Because it returns null when the path is already
    * consistent, it is idempotent: handling the events of a corrected movement does nothing.
    *
-   * The rule is simple: while the token is on one side of the boundary, every remaining walking waypoint is
-   * at that side's elevation.
-   *   - Inside (MOVE_IN, MOVE_WITHIN): plateau elevation.
+   * Every remaining walking waypoint gets the elevation appropriate for *its own* location:
+   *   - Inside (MOVE_IN, MOVE_WITHIN): the ramp elevation at that waypoint.
    *   - Outside (MOVE_OUT): ground elevation.
-   * The token then reaches the next boundary at a constant elevation. That boundary produces the next event,
-   * which flips the rest of the path. No path segment ever slopes across a boundary.
+   * The ramp is a plane, so Foundry's straight-line interpolation between two waypoints that are both on the
+   * plane stays on the plane. The token's elevation therefore changes in proportion to distance moved,
+   * exactly like `token.move({x: x + 500, elevation: elevation + 10})`.
+   * Only the token's current position needs a vertical move (catching up to the ramp on entry).
    *
    * @param {string} eventName
    * @param {TokenDocument} tokenD
@@ -249,16 +294,26 @@ export class RampTerrainRegionBehaviorType extends foundry.data.regionBehaviors.
     // MOVE_WITHIN also fires at the exit position, when the token is no longer in the region.
     // MOVE_OUT owns that case. Without this check both handlers would fire and fight each other.
     const E = CONST.REGION_EVENTS;
-    if ( tokenD.regions.has(region) !== PlateauTerrainRegionBehaviorType.#expectInside(eventName) ) return null;
+    const movingIn = RampTerrainRegionBehaviorType.#expectInside(eventName);
+    if ( tokenD.regions.has(region) !== movingIn ) return null;
 
     // With the dialog enabled the user decides; do not silently override that on every step.
     if ( this.dialog && (eventName === E.TOKEN_MOVE_WITHIN) ) return null;
 
     const start = movement.passed.waypoints.at(-1);
     if ( !start ) return null;
-    const movingIn = PlateauTerrainRegionBehaviorType.#expectInside(eventName);
-    const target = movingIn ? this.topElevation : this.constructor.groundElevation(tokenD, start.level);
-    if ( !Number.isFinite(target) ) return null; // E.g., region with no top.
+
+    // The elevation a walking token should have at a given waypoint, or null if it cannot be determined.
+    const targetAt = waypoint => {
+     const z = movingIn
+       ? this.#rampElevationAt(tokenD, waypoint)
+         : RampTerrainRegionBehaviorType.groundElevation(tokenD, waypoint.level);
+      return Number.isFinite(z) ? z : null;
+    }
+
+    // The token's current position (e.g., catching up to the incline upon entering).
+    const target = targetAt(start);
+    if ( target === null ) return null;
 
     const waypoints = [];
     let changed = false;
@@ -266,15 +321,16 @@ export class RampTerrainRegionBehaviorType extends foundry.data.regionBehaviors.
     // The token's current position.
     if ( this.#needsAdjustment(start, target) ) {
       changed = true;
-      waypoints.push(...PlateauTerrainRegionBehaviorType.verticalMoves(start, target, tokenD.parent?.grid?.distance));
+      waypoints.push(...RampTerrainRegionBehaviorType.verticalMoves(start, target, tokenD.parent?.grid?.distance));
     }
 
     // The rest of the path. Skip intermediate waypoints; Foundry regenerates them.
     for ( const waypoint of movement.pending.waypoints ) {
       if ( waypoint.intermediate ) continue;
-      if ( this.#needsAdjustment(waypoint, target) ) {
+      const waypointTarget = targetAt(waypoint); // Each waypoint has its own target.
+      if ( waypointTarget !== null && this.#needsAdjustment(waypoint, waypointTarget) ) {
         changed = true;
-        waypoints.push({ ...waypoint, elevation: target });
+        waypoints.push({ ...waypoint, elevation: waypointTarget });
       } else waypoints.push({ ...waypoint });
     }
     if ( !changed ) return null;
@@ -323,3 +379,20 @@ export class RampTerrainRegionBehaviorType extends foundry.data.regionBehaviors.
     return moves;
   }
 }
+
+/*
+
+tokenD = _token.document
+
+
+
+waypoints = [
+  { x: tokenD.x + 500, y: tokenD.y, elevation: 10 },
+]
+
+tokenD.getCompleteMovementPath(waypoints)
+
+await tokenD.move(waypoints)
+
+
+*/

@@ -1,16 +1,13 @@
 /* globals
-canvas,
 CONFIG,
 CONST,
 foundry,
 game,
-PIXI,
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
 import { MODULE_ID } from "../const.js";
-import { ElevatedPoint } from "../geometry/3d/ElevatedPoint.js";
 
 export const PATCHES = {};
 PATCHES.REGIONS = {};
@@ -332,14 +329,15 @@ export class PlateauTerrainRegionBehaviorType extends foundry.data.regionBehavio
     // MOVE_WITHIN also fires at the exit position, when the token is no longer in the region.
     // MOVE_OUT owns that case. Without this check both handlers would fire and fight each other.
     const E = CONST.REGION_EVENTS;
-    if ( tokenD.regions.has(region) !== PlateauTerrainRegionBehaviorType.#expectInside(eventName) ) return null;
+    const movingIn = PlateauTerrainRegionBehaviorType.#expectInside(eventName);
+    if ( tokenD.regions.has(region) !== movingIn ) return null;
 
     // With the dialog enabled the user decides; do not silently override that on every step.
     if ( this.dialog && (eventName === E.TOKEN_MOVE_WITHIN) ) return null;
 
     const start = movement.passed.waypoints.at(-1);
     if ( !start ) return null;
-    const movingIn = PlateauTerrainRegionBehaviorType.#expectInside(eventName);
+
     const target = movingIn ? this.topElevation : this.constructor.groundElevation(tokenD, start.level);
     if ( !Number.isFinite(target) ) return null; // E.g., region with no top.
 
