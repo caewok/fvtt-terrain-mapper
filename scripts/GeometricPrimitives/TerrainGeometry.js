@@ -125,20 +125,21 @@ export class TerrainGeometry extends RegionGeometry {
    */
   _instantiateShape(regionShape, holeShapes, id) {
     const regionD = this.placeableDocument;
+    const TERRAIN_TYPES = this.constructor.TERRAIN_TYPES;
     const terrainType = this.constructor.terrainType(regionD);
-    if ( terrainType === "none"
-      || terrainType === `${MODULE_ID}.plateauTerrain` ) return super._instantiateShape(regionShape, holeShapes, id);
+    if ( terrainType === TERRAIN_TYPES.NONE
+      || terrainType === TERRAIN_TYPES.PLATEAU ) return super._instantiateShape(regionShape, holeShapes, id);
 
     const terrainBase = this._basePolygon3dForRegionShape(regionShape, holeShapes);
     if ( !terrainBase ) return super._instantiateShape(regionShape, holeShapes, id);
 
     let opts = this._shapeDimensions(regionShape);
     switch ( terrainType ) {
-      case `${MODULE_ID}.rampTerrain`: {
+      case TERRAIN_TYPES.RAMP: {
         opts = { ...opts, ...this.#rampParameters };
         return RampPrimitive.fromBasePolygon3d(id, terrainBase, opts);
       }
-      case `${MODULE_ID}.stepsTerrain`: {
+      case TERRAIN_TYPES.STEPS: {
         // So the steps are facing the correct way, rotate the base shape so steps run along the x axis from low to high.
         let rotTerrainBase = terrainBase;
         if ( this.#stepParameters.rampDir ) {
@@ -152,7 +153,7 @@ export class TerrainGeometry extends RegionGeometry {
         opts = { ...opts, ...this.#stepParameters };
         return StepsPrimitive.fromBasePolygon3d(id, rotTerrainBase, opts);
       }
-      case `${MODULE_ID}.hillTerrain`: {
+      case TERRAIN_TYPES.HILL: {
         opts = { ...opts, ...this.#hillParameters };
         opts.groundZ = this.constructor.hillGroundElevation(regionD);
         return HillPrimitive.fromBasePolygon3d(id, terrainBase, opts);
@@ -192,10 +193,11 @@ export class TerrainGeometry extends RegionGeometry {
   createShapes() {
     const regionD = this.placeableDocument;
     if ( this.regionShapes.length !== 0 ) {
+      const TERRAIN_TYPES = this.constructor.TERRAIN_TYPES;
       switch ( this.constructor.terrainType(regionD) ) {
-        case `${MODULE_ID}.stepsTerrain`: this._updateStepsData(); break;
-        case `${MODULE_ID}.rampTerrain`: this._updateRampData(); break;
-        case `${MODULE_ID}.hillTerrain`: this._updateHillData(); break;
+        case TERRAIN_TYPES.STEPS: this._updateStepsData(); break;
+        case TERRAIN_TYPES.RAMP: this._updateRampData(); break;
+        case TERRAIN_TYPES.HILL: this._updateHillData(); break;
       }
     }
     return super.createShapes();
@@ -273,19 +275,20 @@ export class TerrainGeometry extends RegionGeometry {
 
     const regionD = this.placeableDocument;
     const parts = [baseSignature];
+    const TERRAIN_TYPES = this.constructor.TERRAIN_TYPES
     switch ( this.constructor.terrainType(regionD) ) {
-      case "none":
-      case `${MODULE_ID}.plateauTerrain`: return baseSignature;
+      case TERRAIN_TYPES.NONE:
+      case TERRAIN_TYPES.PLATEAU: return baseSignature;
 
       // Append properties that structurally alter the terrain geometry.
-      case `${MODULE_ID}.rampTerrain`:
+      case TERRAIN_TYPES.RAMP:
         parts.push(`rampDir:${this.constructor.rampDirection(regionD)}`);
         break;
-      case `${MODULE_ID}.stepsTerrain`:
+      case TERRAIN_TYPES.STEPS:
         parts.push(`rampDir:${this.constructor.rampDirection(regionD)}`);
         parts.push(`stepSize:${this.constructor.stepSize(regionD)}`);
         break;
-      case `${MODULE_ID}.hillTerrain`:
+      case TERRAIN_TYPES.HILL:
         parts.push(`rampDir:${this.constructor.rampDirection(regionD)}`);
         parts.push(`hillType:${this.constructor.hillType(regionD)}`);
         parts.push(`hillCurve:${this.constructor.hillData(regionD).join(",")}`);
@@ -351,57 +354,66 @@ export class TerrainGeometry extends RegionGeometry {
     });
   }
 
+
   // ----- NOTE: Static properties for terrains ----- //
+
+  /** @type {enum<string>} */
+  static TERRAIN_TYPES = {
+    NONE: "none",
+    PLATEAU: `${MODULE_ID}.plateauTerrain`,
+    RAMP: `${MODULE_ID}.rampTerrain`,
+    STEPS:`${MODULE_ID}.stepsTerrain`,
+    HILL: `${MODULE_ID}.hillTerrain`,
+  };
+
+  /** @type {Set<TERRAIN_TYPES>} */
+  static ELEVATED_TYPES = new Set([
+      this.TERRAIN_TYPES.PLATEAU,
+      this.TERRAIN_TYPES.RAMP,
+      this.TERRAIN_TYPES.STEPS,
+      this.TERRAIN_TYPES.HILL,
+    ]);
 
   /**
    * @param {RegionDocument} regionD
    * @returns {boolean}
    */
   static isElevated(regionD) {
-    const elevatedTypes = new Set([
-      `${MODULE_ID}.plateauTerrain`,
-      `${MODULE_ID}.rampTerrain`,
-      `${MODULE_ID}.stepsTerrain`,
-      `${MODULE_ID}.hillTerrain`,
-    ]);
-    return regionD.behaviors.some(b => elevatedTypes.has(b.type))
+    const ELEVATED_TYPES = this.ELEVATED_TYPES;
+    return regionD.behaviors.some(b => !b.disabled && ELEVATED_TYPES.has(b.type))
   }
 
   /** @type {enum<string>} */
   static terrainType(regionD) {
-    const elevatedTypes = new Set([
-      `${MODULE_ID}.plateauTerrain`,
-      `${MODULE_ID}.rampTerrain`,
-      `${MODULE_ID}.stepsTerrain`,
-      `${MODULE_ID}.hillTerrain`,
-    ]);
+    const ELEVATED_TYPES = this.ELEVATED_TYPES;
     for ( const b of regionD.behaviors ) {
-      if ( elevatedTypes.has(b.type) ) return b.type;
+      if ( b.disabled ) continue;
+      if ( ELEVATED_TYPES.has(b.type) ) return b.type;
     }
     return "none";
   }
 
   /** @type {boolean} */
   static isPlateau(regionD) {
-    const plateauType = `${MODULE_ID}.plateauTerrain`;
-    return regionD.behaviors.some(b => b.type === plateauType);
+    const plateauType = this.TERRAIN_TYPES.PLATEAU;
+    return regionD.behaviors.some(b => !b.disabled && b.type === plateauType);
   };
 
   static isRamp(regionD) {
-    const rampType = `${MODULE_ID}.rampTerrain`;
-    return regionD.behaviors.some(b => b.type === rampType);
+    const rampType = this.TERRAIN_TYPES.RAMP;
+    return regionD.behaviors.some(b => !b.disabled && b.type === rampType);
   }
 
   /** @type {boolean} */
   static isSteps(regionD) {
-    const stepsType = `${MODULE_ID}.stepsTerrain`;
-    return regionD.behaviors.some(b => b.type === stepsType);
+    const stepsType = this.TERRAIN_TYPES.STEPS;
+    return regionD.behaviors.some(b => !b.disabled && b.type === stepsType);
   }
 
   /** @type {boolean} */
   static isHill(regionD) {
-    const hillType = `${MODULE_ID}.hillTerrain`;
-    return regionD.behaviors.some(b => b.type === hillType);
+    const hillType = this.TERRAIN_TYPES.HILL;
+    return regionD.behaviors.some(b => !b.disabled && b.type === hillType);
   }
 
   /** @type {boolean} */
@@ -453,8 +465,8 @@ export class TerrainGeometry extends RegionGeometry {
 
   /** @type {number} */
   static rampDirection(regionD) {
-    const rampType = `${MODULE_ID}.rampTerrain`;
-    const stepsType = `${MODULE_ID}.stepsTerrain`;
+    const rampType = this.TERRAIN_TYPES.RAMP;
+    const stepsType = this.TERRAIN_TYPES.STEPS;
     const rampB = regionD.behaviors.find(b => !b.disabled && (b.type === rampType || b.type === stepsType));
     if ( !rampB ) return 0;
     return rampB.system.direction;
@@ -462,8 +474,8 @@ export class TerrainGeometry extends RegionGeometry {
 
   /** @type {number} */
   static stepSize(regionD) {
-    const rampType = `${MODULE_ID}.rampTerrain`;
-    const rampB = regionD.behaviors.find(b => b.type === rampType);
+    const rampType = this.TERRAIN_TYPES.RAMP;
+    const rampB = regionD.behaviors.find(b => !b.disabled && b.type === rampType);
     if ( !rampB ) return 0;
     return gridUnitsToPixels(rampB.system.stepSize);
   }
