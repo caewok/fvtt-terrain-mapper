@@ -17,7 +17,6 @@ import { PATCHES as PATCHES_StairsRegionBehaviorType } from "./regions/StairsReg
 import { PATCHES as PATCHES_ElevatorRegionBehaviorType } from "./regions/ElevatorRegionBehaviorType.js";
 import { PATCHES as PATCHES_ModuleSettingsAbstract } from "./ModuleSettingsAbstract.js";
 import { PATCHES as PATCHES_Region } from "./regions/Region.js";
-import { PATCHES as PATCHES_RegionConfig } from "./regions/RegionConfig.js";
 import { PATCHES as PATCHES_Tile } from "./Tile.js";
 import { PATCHES as PATCHES_TileConfig } from "./TileConfig.js";
 import { PATCHES as PATCHES_Scene } from "./Scene.js";
@@ -28,13 +27,12 @@ export const PATCHES = {
   "foundry.canvas.edges.CanvasEdges": PATCHES_CanvasEdges,
   "foundry.helpers.ClientSettings": PATCHES_ModuleSettingsAbstract,
   "foundry.canvas.placeables.Region": PATCHES_Region,
-  "foundry.applications.sheets.RegionConfig": PATCHES_RegionConfig,
   "foundry.canvas.layers.RegionLayer": PATCHES_RegionLayer,
   "foundry.applications.sheets.SceneConfig": PATCHES_SceneConfig,
   "foundry.canvas.placeables.Tile": PATCHES_Tile,
   "foundry.applications.sheets.TileConfig": PATCHES_TileConfig,
   "foundry.applications.sheets.LevelConfig": PATCHES_LevelConfig,
-  "foundry.canvas.placeables.Token": PATCHES_Token,
+  //"foundry.canvas.placeables.Token": PATCHES_Token,
   "foundry.canvas.placeables.Wall": PATCHES_Wall,
   "foundry.documents.Scene": PATCHES_Scene,
 
