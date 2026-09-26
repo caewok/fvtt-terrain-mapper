@@ -6,6 +6,7 @@
 
 import { ExtrudedPolygonPrimitiveWithHoles } from "../geometry/placeable_geometry/ModelGeometricPrimitive.js";
 import { Polygon3d, Polygons3d } from "../geometry/3d/Polygon3d.js";
+import { HillPrimitive } from "./Hill.js";
 
 /**
  * Ramp.
@@ -126,7 +127,7 @@ export class RampPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
    * @param {PIXI.Point} canvasLoc
    * @returns {number|null} Z-value in pixel units or null if not within the ramp.
    */
-  elevationAtCanvasLocation(canvasLoc, testContainment = true) {
+  elevationAtCanvasLocation(canvasLoc, { testContainment = true } = {}) {
     if ( testContainment ) {
       const poly = this.baseFace.toPolygon2d();
       if ( !poly.contains(canvasLoc.x, canvasLoc.y) ) return null;
@@ -134,6 +135,27 @@ export class RampPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
     return this.rampFace.plane.getZ(canvasLoc.x, canvasLoc.y);
   }
 
+  get bottomZ() { return this.baseFace.plane.point.z; }
+
+  get topZ() {
+    let topZ = Number.NEGATIVE_INFINITY;
+    this.faces.slice(0).forEach(f => {
+      for ( const poly of f.polygons || [f] ) {
+        topZ = Math.max(topZ, poly.points.map(pt => pt.z));
+      }
+    });
+    return topZ;
+  }
+
+  /**
+   * Slice this 3d shape with a vertical plane, returning 2d cross-section(s).
+   * @param {PIXI.Point} start     Starting point of the slice on the XY plane
+   * @param {PIXI.Point} end        Ending point of the slice on the XY plane
+   * @returns {CutawayPolygon[]}
+   */
+  verticalSlice(start, end) {
+    return HillPrimitive.prototype.verticalSlice.call(this, start, end);
+  }
 }
 
 /**
@@ -149,15 +171,15 @@ function rampFromPlane(poly3d, plane) {
   // Project each point of the polygon onto the plane.
   if ( poly3d instanceof Polygons3d ){
     for ( const poly of poly3d.polygons ) {
-       for ( const pt of poly.iteratePoints() ) pt.z = plane.getZ(pt.x, pt.y);
+       for ( const pt of poly.points) pt.z = plane.getZ(pt.x, pt.y);
     }
   } else {
-    for ( const pt of poly3d.iteratePoints() ) pt.z = plane.getZ(pt.x, pt.y);
+    for ( const pt of poly3d.points ) pt.z = plane.getZ(pt.x, pt.y);
   }
+  poly3d.clearCache();
 
   // Adjust the plane to exactly match.
-  poly3d.plane.normal.copyFrom(plane.normal);
-  poly3d.clearCache();
+  poly3d.plane = plane;
 
   return poly3d;
 }
