@@ -12,7 +12,7 @@ import { ExtrudedPolygonPrimitiveWithHoles } from "../geometry/placeable_geometr
 import { Point3d } from "../geometry/3d/Point3d.js";
 import { Polygon3d, Triangle3d, Quad3d } from "../geometry/3d/Polygon3d.js";
 import { Delaunay } from "../geometry/d3-delaunay.js";
-import { roundDecimals, cleanPolygonPoints } from "../geometry/util.js";
+import { roundDecimals, cleanPolygonPoints, calculateEvenlySpacedValues } from "../geometry/util.js";
 
 /**
  * Steps. Closely related to ramps.
@@ -335,6 +335,19 @@ export class HillPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
 
   get baseFace() { return this.faces[0]; }
 
+  get bottomZ() { return this.baseFace.plane.point.z; }
+
+  get topZ() {
+    let topZ = Number.NEGATIVE_INFINITY;
+    this.faces.slice(1).forEach(f => {
+      for ( const poly of f.polygons || [f] ) {
+        topZ = Math.max(topZ, ...poly.points.map(pt => pt.z));
+      }
+    });
+    return topZ;
+  }
+
+
   /**
    * Elevation at a canvas location.
    * @param {PIXI.Point} canvasLoc
@@ -349,19 +362,79 @@ export class HillPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
     const percent = HillDrawingManager._hillPercentHeightAtPoint(canvasLoc, this.hillType, this.curve);
 
     // Estimate top and bottom from the faces if not provided.
-    bottomZ ??= this.baseFace.plane.point.z;
-    if ( typeof topZ === "undefined" ) {
-      topZ = Number.NEGATIVE_INFINITY;
-      this.faces.slice(0).forEach(f => {
-        for ( const poly of f.polygons || [f] ) {
-          Math.max(topZ, poly.points.map(pt => pt.z));
-        }
-      });
-    }
-
+    bottomZ ??= this.bottomZ;
+    topZ ??= this.topZ;
     const zHeight = topZ - bottomZ
     return bottomZ + (zHeight * percent);
   }
+
+
+  // ----- NOTE: Vertical slice ----- //
+
+  /**
+   * Slice this 3d shape with a vertical plane, returning 2d cross-section(s) as CutawayPolygons.
+   * Correctly handles shapes with holes (internal cavities, Polygons3d hole faces, etc.).
+   * @param {PIXI.Point|Point3d} start     Starting point of the slice on the XY plane
+   * @param {PIXI.Point|Point3d} end       Ending point of the slice on the XY plane
+   * @returns {CutawayPolygon[]} Array of CutawayPolygon cross-sections (solids and holes)
+   */
+  verticalSlice(start, end, { topZ, hillSampleSpacing = CONFIG[MODULE_ID].hillSampleSpacing } = {}) {
+    // The base signifies the holes.
+    // Build the cutaways with a mock topZ.
+    const bottomZ = this.bottomZ;
+    const mockTopZ = bottomZ + 100;
+    const cutaways = super.verticalSlice(start, end, { topZ: mockTopZ, bottomZ });
+
+    // Can sample evenly across the hill to get the top elevations.
+    // This is smoother than relying on the polygon mesh.
+    const opts = { topZ: topZ ?? this.topZ, bottomZ, testContainment: false };
+    const spacer = canvas.grid.size * hillSampleSpacing;
+    using a3d = Point3d.tmp;
+    using b3d = Point3d.tmp;
+    using dir = Point3d.tmp;
+    using newPt3d = Point3d.tmp;
+    using newPt = PIXI.Point.tmp;
+    for ( const cutaway of cutaways ) {
+      // Locate the top edge of the quad.
+      let i = 0;
+      let a;
+      let b;
+      for ( const edge of cutaway.iterateEdges() ) {
+        a = edge.a;
+        b = edge.b;
+        if ( a.y === mockTopZ && b.y === mockTopZ ) break;
+        i += 4; // edge.a.x, a.y, b.x, b.y
+      }
+      if ( !a ) break; // Should not happen.
+
+      // Convert to canvas.
+      cutaway._from2d(a, a3d);
+      cutaway._from2d(b, b3d);
+
+      // Insert new points along the a|b line.
+      b3d.subtract(a3d, dir).normalize(dir);
+      const dist = Point3d.distanceBetween(a3d, b3d);
+      const ts = [0, ...calculateEvenlySpacedValues(0, dist, spacer), dist];
+      let j = 0;
+      const newPtsArr = new Array(ts.length * 2);
+      for ( const t of ts ) {
+        a3d.add(dir.multiplyScalar(t, newPt3d), newPt3d);
+        newPt3d.z = this.elevationAtCanvasLocation(newPt3d, opts);
+        cutaway._to2d(newPt3d, newPt);
+        newPtsArr[j++] = newPt.x;
+        newPtsArr[j++] = newPt.y;
+      }
+
+      // Remove the existing a/b.
+      cutaway.points.splice(i, 4);
+
+      // Put the new points back in the cutaway
+      cutaway.points.splice(i, 0, ...newPtsArr);
+
+    }
+    return cutaways;
+  }
+
 }
 
 /**

@@ -8,7 +8,9 @@ PIXI,
 import { ExtrudedPolygonPrimitiveWithHoles } from "../geometry/placeable_geometry/ModelGeometricPrimitive.js";
 import { GEOMETRY_LIB_ID } from "../geometry/const.js";
 import { AABB2d } from "../geometry/AABB.js";
-import { Polygons3d, Quad3d } from "../geometry/3d/Polygon3d.js";
+import { Polygon3d, Polygons3d, Quad3d } from "../geometry/3d/Polygon3d.js";
+import { Point3d } from "../geometry/3d/Point3d.js";
+import { CutawayPolygon } from "../geometry/CutawayPolygon.js";
 
 /**
  * Steps. Closely related to ramps.
@@ -182,7 +184,9 @@ export class StepsPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
       // Tread: the horizontal cap at the top of this step/plank row.
       // Polygons3d.fromPolygons derives isHole per-piece from orientation, so any
       // hole passing through this row is correctly left open in the tread.
-      if ( plank.length ) out.push(Polygons3d.fromPolygons(plank, bottomZ));
+      if ( plank.length ) out.push(plank.length > 1
+        ? Polygons3d.fromPIXIShapes(plank, { z: bottomZ })
+          : Polygon3d.fromPIXIShape(plank[0], { z: bottomZ }));
     }
 
     // Weld same-plane wall pieces into as few objects as possible.
@@ -279,34 +283,93 @@ export class StepsPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
 
   get baseFace() { return this.faces[0]; }
 
+  get bottomZ() { return this.baseFace.plane.point.z; }
+
+  get topZ() {
+    let topZ = Number.NEGATIVE_INFINITY;
+    this.faces.slice(1).forEach(f => {
+      for ( const poly of f.polygons || [f] ) {
+        topZ = Math.max(topZ, ...poly.points.map(pt => pt.z));
+      }
+    });
+    return topZ;
+  }
+
+
   /**
    * Elevation at a canvas location.
    * @param {PIXI.Point} canvasLoc
    * @returns {number|null} Z-value in pixel units or null if not within the ramp.
    */
-  elevationAtCanvasLocation(canvasLoc, testContainment = true) {
+  elevationAtCanvasLocation(canvasLoc, { testContainment = true } = {}) {
     if ( testContainment && !this.baseFace.containsProjectedXY(canvasLoc) ) return null;
 
     // Test only the horizontal planes.
-    using rayOrigin = Point3d.tmp.set(0, 0, 1e06);
+    using rayOrigin = Point3d.tmp.set(canvasLoc.x, canvasLoc.y, 1e06);
     using rayDirection = Point3d.tmp.set(0, 0, -1);
+    using ix = Point3d.tmp;
 
-    for ( const f of this.faces.slice(0) ) {
+    for ( const f of this.faces.slice(1) ) {
       // Skip faces not parallel to the XY plane (step sides).
-      if ( !(f.plane.normal.x.almostEqual(0) && f.plane.normal.y.almostEqual(0)) ) continue;
+      const normal = f.plane.normal;
+      if ( !(normal.x.almostEqual(0) && normal.y.almostEqual(0)) ) continue;
       for ( const poly of f.polygons || [f] ) {
-        using pt = poly.interiorPoint();
-        rayOrigin.x = pt.x;
-        rayOrigin.y = pt.y;
         const t = poly.intersectionT(rayOrigin, rayDirection);
         if ( t === null ) continue;
 
         // Once we find a step intersection, we are done.
-        using ix = rayOrigin.add(rayDirectio.multiplyScalar(t, ix), ix);
+        rayOrigin.add(rayDirection.multiplyScalar(t, ix), ix);
         return ix.z;
       }
     }
     return null;
+  }
+
+  // ----- NOTE: Vertical slice ----- //
+
+  /**
+   * Slice this 3d shape with a vertical plane, returning 2d cross-section(s) as CutawayPolygons.
+   * Correctly handles shapes with holes (internal cavities, Polygons3d hole faces, etc.).
+   * @param {PIXI.Point|Point3d} start     Starting point of the slice on the XY plane
+   * @param {PIXI.Point|Point3d} end       Ending point of the slice on the XY plane
+   * @returns {CutawayPolygon[]} Array of CutawayPolygon cross-sections (solids and holes)
+   */
+  verticalSlice(start, end) {
+    // Each step is represented by a flat top and flat bottom. We know the bottom already.
+    const bottomZ = this.bottomZ;
+
+    // For each flat top, get its cutaway.
+    const opts = {
+      topElevationFn: null,
+      bottomElevationFn: () => bottomZ,
+    }
+    const cutaways = [];
+    for ( const f of this.faces.slice(1) ) {
+      // Skip faces not parallel to the XY plane (step sides).
+      const normal = f.plane.normal;
+      if ( !(normal.x.almostEqual(0) && normal.y.almostEqual(0)) ) continue;
+
+      // Determine the height at this step.
+      const topZ = f.points[0].z;
+      opts.topElevationFn = () => topZ;
+
+      // Construct the cutaways.
+      // Because the top face is parallel to the XY plane, we can just drop the z axis.
+      for ( const poly of f.polygons || [f] ) {
+         const cutaway = poly.toPolygon2d().cutaway(start, end, opts);
+         cutaways.push(...cutaway);
+      }
+    }
+    if ( !cutaways.length ) return [];
+
+    // Use Clipper to union the cutaways. Holes go straight through, leaving 1+ solid polygons.
+    const paths = CONFIG[GEOMETRY_LIB_ID].CONFIG.ClipperPaths.fromPolygons(cutaways);
+    const out = paths
+      .union()
+      .clean()
+      .toPolygons();
+
+    return out.map(poly => CutawayPolygon.fromPolygon(poly, start, end));
   }
 
 }

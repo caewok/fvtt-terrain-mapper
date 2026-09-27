@@ -6,7 +6,7 @@
 
 import { ExtrudedPolygonPrimitiveWithHoles } from "../geometry/placeable_geometry/ModelGeometricPrimitive.js";
 import { Polygon3d, Polygons3d } from "../geometry/3d/Polygon3d.js";
-import { HillPrimitive } from "./Hill.js";
+import { Point3d } from "../geometry/3d/Point3d.js";
 
 /**
  * Ramp.
@@ -139,9 +139,9 @@ export class RampPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
 
   get topZ() {
     let topZ = Number.NEGATIVE_INFINITY;
-    this.faces.slice(0).forEach(f => {
+    this.faces.slice(1).forEach(f => {
       for ( const poly of f.polygons || [f] ) {
-        topZ = Math.max(topZ, poly.points.map(pt => pt.z));
+        topZ = Math.max(topZ, ...poly.points.map(pt => pt.z));
       }
     });
     return topZ;
@@ -154,7 +154,25 @@ export class RampPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
    * @returns {CutawayPolygon[]}
    */
   verticalSlice(start, end) {
-    return HillPrimitive.prototype.verticalSlice.call(this, start, end);
+    // Build the cutaways with a mock topZ.
+    const bottomZ = this.bottomZ;
+    const topZ = bottomZ + 100;
+    const cutaways = super.verticalSlice(start, end, { topZ, bottomZ });
+
+    // Determine the actual ramp elevation for each cutaway top point.
+    using canvasLoc = Point3d.tmp;
+    const opts = { topZ: this.topZ, bottomZ, testContainment: false };
+    for ( const cutaway of cutaways ) {
+      for ( let i = 1, n = cutaway.points.length; i < n; i += 2 ) {
+        const y = cutaway.points[i];
+        if ( y !== topZ ) continue;
+        const x = cutaway.points[i - 1];
+        cutaway._from2d({ x, y }, canvasLoc);
+        cutaway.points[i] = this.elevationAtCanvasLocation(canvasLoc, opts);
+      }
+    }
+
+    return cutaways;
   }
 }
 
