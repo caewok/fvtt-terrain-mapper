@@ -335,6 +335,9 @@ export class StepsPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
    * @returns {CutawayPolygon[]} Array of CutawayPolygon cross-sections (solids and holes)
    */
   verticalSlice(start, end) {
+    if ( start.almostEqual(end) ) return [];
+    if ( !this.aabb.overlapsSegment(start, end) ) return [];
+
     // Each step is represented by a flat top and flat bottom. We know the bottom already.
     const bottomZ = this.bottomZ;
 

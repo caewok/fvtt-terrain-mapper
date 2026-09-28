@@ -354,11 +354,7 @@ export class HillPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
    * @returns {number|null} Z-value in pixel units or null if not within the ramp.
    */
   elevationAtCanvasLocation(canvasLoc, { topZ, bottomZ, testContainment = true } = {}) {
-    if ( testContainment ) {
-      const poly = this.baseFace.toPolygon2d();
-      if ( !poly.contains(canvasLoc.x, canvasLoc.y) ) return null;
-    }
-
+    if ( testContainment && !this.baseFace.containsProjectedXY(canvasLoc) ) return null;
     const percent = HillDrawingManager._hillPercentHeightAtPoint(canvasLoc, this.hillType, this.curve);
 
     // Estimate top and bottom from the faces if not provided.

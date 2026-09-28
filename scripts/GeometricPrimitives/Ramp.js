@@ -128,10 +128,7 @@ export class RampPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
    * @returns {number|null} Z-value in pixel units or null if not within the ramp.
    */
   elevationAtCanvasLocation(canvasLoc, { testContainment = true } = {}) {
-    if ( testContainment ) {
-      const poly = this.baseFace.toPolygon2d();
-      if ( !poly.contains(canvasLoc.x, canvasLoc.y) ) return null;
-    }
+    if ( testContainment && !this.baseFace.containsProjectedXY(canvasLoc) ) return null;
     return this.rampFace.plane.getZ(canvasLoc.x, canvasLoc.y);
   }
 
