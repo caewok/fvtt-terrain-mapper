@@ -205,7 +205,7 @@ export class TerrainGeometry extends RegionGeometry {
 
   #stepDimensions(polygons) {
     const regionD = this.placeableDocument;
-    const totalStepHeight = this.constructor.zHeight(regionD) || 1;
+    const totalStepHeight = this.constructor.totalStepHeight(regionD) || 1;
     const numSteps = this.constructor.numSteps(regionD) || 1;
     const stepHeight = totalStepHeight / numSteps;
     const rampDir = Math.toRadians(this.constructor.rampDirection(regionD));
@@ -362,10 +362,10 @@ export class TerrainGeometry extends RegionGeometry {
    * @param {boolean} [testContainment=true]
    * @returns {number|null} Z-value in pixel units or null if not within the ramp.
    */
-  hillZAtPoint(canvasLoc, testContainment = true) {
-    const regionD = this.placeableDocument;
+  hillZAtPoint(canvasLoc, { testContainment = true } = {}) {
     const elevs = this.elevationZ;
-    return this.shapes[0].elevationAtCanvasLocation(canvasLoc, { ...elevs, testContainment });
+    const zs = this.shapes.map(s => s.elevationAtCanvasLocation(canvasLoc, { ...elevs, testContainment }));
+    return Math.max(...zs);
   }
 
   /**
@@ -373,8 +373,9 @@ export class TerrainGeometry extends RegionGeometry {
    * @param {PIXI.Point} canvasLoc
    * @returns {number|null} Z-value in pixel units or null if not within the ramp.
    */
-  rampZAtPoint(canvasLoc, testContainment = true) {
-    return this.shapes[0].elevationAtCanvasLocation(canvasLoc, testContainment);
+  rampZAtPoint(canvasLoc, { testContainment = true } = {}) {
+    const zs = this.shapes.map(s => s.elevationAtCanvasLocation(canvasLoc, { testContainment }));
+    return Math.max(...zs);
   }
 
   /**
@@ -382,12 +383,8 @@ export class TerrainGeometry extends RegionGeometry {
    * @param {PIXI.Point} canvasLoc
    * @returns {number|null} Z-value in pixel units or null if not within the ramp.
    */
-  plateauZAtPoint(canvasLoc, testContainment = true) {
-    if ( testContainment ) {
-      const baseFace = this.shapes[0].faces[0];
-      const poly = baseFace.toPolygon2d();
-      if ( !poly.contains(canvasLoc.x, canvasLoc.y) ) return null;
-    }
+  plateauZAtPoint(canvasLoc, { testContainment = true } = {}) {
+    if ( testContainment && !this.shapes.some(s => s.containsProjectedXY(canvasLoc)) ) return null;
     return this.elevationZ.topZ;
   }
 
@@ -396,8 +393,9 @@ export class TerrainGeometry extends RegionGeometry {
    * @param {PIXI.Point} canvasLoc
    * @returns {number|null} Z-value in pixel units or null if not within the ramp.
    */
-  stepsZAtPoint(canvasLoc, testContainment = true) {
-    return this.shapes[0].elevationAtCanvasLocation(canvasLoc, testContainment);
+  stepsZAtPoint(canvasLoc, { testContainment = true } = {}) {
+    const zs = this.shapes.map(s => s.elevationAtCanvasLocation(canvasLoc, { testContainment }));
+    return Math.max(...zs);
   }
 
   /**
@@ -405,15 +403,15 @@ export class TerrainGeometry extends RegionGeometry {
    * @param {PIXI.Point} canvasLoc
    * @returns {number|null} Z-value in pixel units or null if not within the ramp.
    */
-  elevationAtCanvasLocation(canvasLoc, testContainment = true) {
+  elevationAtCanvasLocation(canvasLoc, { testContainment = true } = {}) {
     const TERRAIN_TYPES = this.constructor.TERRAIN_TYPES;
     const regionD = this.placeableDocument;
     switch ( this.constructor.terrainType(regionD) ) {
-      case TERRAIN_TYPE.NONE: return null;
-      case TERRAIN_TYPE.PLATEAU: return this.plateauZAtPoint(canvasLoc, testContainment);
-      case TERRAIN_TYPE.RAMP: return this.rampZAtPoint(canvasLoc, testContainment);
-      case TERRAIN_TYPE.STEPS: return this.stepsZAtPoint(canvasLoc, testContainment);
-      case TERRAIN_TYPE.HILL: return this.hillZAtPoint(canvasLoc, testContainment);
+      case TERRAIN_TYPES.NONE: return null;
+      case TERRAIN_TYPES.PLATEAU: return this.plateauZAtPoint(canvasLoc, { testContainment });
+      case TERRAIN_TYPES.RAMP: return this.rampZAtPoint(canvasLoc, { testContainment });
+      case TERRAIN_TYPES.STEPS: return this.stepsZAtPoint(canvasLoc, { testContainment });
+      case TERRAIN_TYPES.HILL: return this.hillZAtPoint(canvasLoc, { testContainment });
     }
   }
 
@@ -490,7 +488,8 @@ export class TerrainGeometry extends RegionGeometry {
   /** @type {boolean} */
   static isBelowGround(regionD) {
     if ( this.isHill(regionD) ) return this.hillHasNegativeElevation(regionD);
-    else if ( SceneElevationHandler.sceneFloor > Math.min(this.terrainBottom(regionD), this.terrainTop(regionD)) ) return true;
+    const elev = this.elevationZ;
+    if ( SceneElevationHandler.sceneFloor > elev.topZ ) return true;
     return false;
   }
 
@@ -499,7 +498,7 @@ export class TerrainGeometry extends RegionGeometry {
    * @type {boolean}
    */
   static hillHasNegativeElevation(regionD) {
-    const curve = HillDrawingManager._unadjustedHillData(regionD);
+    const curve = HillDrawingManager._unadjustedHillData(regionD) || HillDrawingManager.defaultCurve();
     const out = curve.cp1.y > 0 || curve.cp2.y > 0 || curve.end.y > 0;
     Object.values(curve).forEach(pt => pt.release());
     return out;
@@ -528,13 +527,11 @@ export class TerrainGeometry extends RegionGeometry {
 
   /** @type {object{ min:{number}, max:{number} }} */
   static hillMinMaxElevation(regionD) {
-    const curve = HillDrawingManager._unadjustedHillData(regionD);
+    const curve = HillDrawingManager._unadjustedHillData(regionD) || HillDrawingManager.defaultCurve();
     return HillDrawingManager.curveMinMaxHeight(curve);
   }
 
   static hillData(regionD) { return regionD.getFlag(MODULE_ID, FLAGS.REGION.HILL.CURVE) || DEFAULT_FLAGS.REGION[FLAGS.REGION.HILL.CURVE] }
-
-
 
   /** @type {number} */
   static rampDirection(regionD) {
@@ -547,20 +544,18 @@ export class TerrainGeometry extends RegionGeometry {
 
   /** @type {number} */
   static stepSize(regionD) {
-    const rampType = this.TERRAIN_TYPES.RAMP;
-    const rampB = regionD.behaviors.find(b => !b.disabled && b.type === rampType);
-    if ( !rampB ) return 0;
-    return gridUnitsToPixels(rampB.system.stepSize);
+    const stepsType = this.TERRAIN_TYPES.STEPS;
+    const stepsB = regionD.behaviors.find(b => !b.disabled && b.type === stepsType);
+    if ( !stepsB ) return 1;
+    return gridUnitsToPixels(stepsB.system.stepSize);
   }
 
   /** @type {number} */
-  static totalStepHeight(regionD) {
-    return this.terrainTop(regionD) - this.terrainBottom(regionD);
-  }
+  static totalStepHeight = RegionGeometry.zHeight;
 
   /** @type {number} */
   static numSteps(regionD) {
-    if ( !this.isSteps(regionD) ) return 0;
+    if ( !this.isSteps(regionD) ) return 1;
     return Math.ceil(this.zHeight(regionD) / this.stepSize(regionD));
   }
 }
