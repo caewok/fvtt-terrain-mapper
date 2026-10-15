@@ -1,4 +1,6 @@
 /* globals
+foundry,
+Hooks,
 PIXI,
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
@@ -10,13 +12,14 @@ import { RampPrimitive } from "./Ramp.js";
 import { HillPrimitive } from "./Hill.js";
 import { HillDrawingManager } from "../regions/HillDrawingManager.js";
 import { SceneElevationHandler } from "../regions/RegionElevationHandler.js";
+import { fastFlag } from "../util.js";
 
 // Geometry
 import { RegionGeometry } from "../geometry/placeable_geometry/RegionGeometry.js";
 import { EmptyGeometricPrimitive } from "../geometry/placeable_geometry/EmptyGeometricPrimitive.js";
 
 // LibGeometry
-import { Polygon3d, Polygons3d } from "../geometry/3d/Polygon3d.js";
+import { Polygons3d } from "../geometry/3d/Polygon3d.js";
 import { Point3d } from "../geometry/3d/Point3d.js";
 import { gridUnitsToPixels } from "../geometry/util.js";
 import { Matrix } from "../geometry/Matrix.js";
@@ -39,17 +42,38 @@ export class TerrainGeometry extends RegionGeometry {
 
   static UPDATE_KEY_MAP = new Map([
     ...super.UPDATE_KEY_MAP,
-    [`flags.${MODULE_ID}.${FLAGS.REGION.TERRAIN.TYPE}`, "terrainType"], // Triggers rebuild of the shape.
-    [`flags.${MODULE_ID}.${FLAGS.REGION.PLATEAU_ELEVATION}`, "plateauElevation"],
+    [`${MODULE_ID}.plateauTerrain.create`, "terrainType"],
+    [`${MODULE_ID}.plateauTerrain.delete`, "terrainType"],
+
+    [`${MODULE_ID}.rampTerrain.create`, "terrainType"],
+    [`${MODULE_ID}.rampTerrain.delete`, "terrainType"],
+
+    [`${MODULE_ID}.stepsTerrain.create`, "terrainType"],
+    [`${MODULE_ID}.stepsTerrain.delete`, "terrainType"],
+
+    [`${MODULE_ID}.hillTerrain.create`, "terrainType"],
+    [`${MODULE_ID}.hillTerrain.delete`, "terrainType"],
+
+    // [`flags.${MODULE_ID}.${FLAGS.REGION.TERRAIN.TYPE}`, "terrainType"], // Triggers rebuild of the shape.
+    // [`flags.${MODULE_ID}.${FLAGS.REGION.PLATEAU_ELEVATION}`, "plateauElevation"],
 
     // Ramps
-    [`flags.${MODULE_ID}.${FLAGS.REGION.RAMP.FLOOR}`, "terrainBottom"],
-    [`flags.${MODULE_ID}.${FLAGS.REGION.RAMP.DIRECTION}`, "rampDirection"],
-    [`flags.${MODULE_ID}.${FLAGS.REGION.RAMP.STEP_SIZE}`, "steps"],
+    [`${MODULE_ID}.rampTerrain.system.direction`, "rampDirection"],
+
+    // [`flags.${MODULE_ID}.${FLAGS.REGION.RAMP.FLOOR}`, "terrainBottom"],
+    // [`flags.${MODULE_ID}.${FLAGS.REGION.RAMP.DIRECTION}`, "rampDirection"],
+
+    // Steps
+    [`${MODULE_ID}.stepsTerrain.system.direction`, "rampDirection"],
+    [`${MODULE_ID}.stepsTerrain.system.stepSize`, "steps"],
+
+    // [`flags.${MODULE_ID}.${FLAGS.REGION.RAMP.STEP_SIZE}`, "steps"],
 
     // Hills
-    [`flags.${MODULE_ID}.${FLAGS.REGION.HILL.CURVE}`, "hill"],
-    [`flags.${MODULE_ID}.${FLAGS.REGION.HILL.TYPE}`, "hill"],
+    [`${MODULE_ID}.hillTerrain.system.type`, "hill"],
+
+    // [`flags.${MODULE_ID}.${FLAGS.REGION.HILL.CURVE}`, "hill"],
+    // [`flags.${MODULE_ID}.${FLAGS.REGION.HILL.TYPE}`, "hill"],
   ]);
 
 
@@ -70,80 +94,32 @@ export class TerrainGeometry extends RegionGeometry {
     return (terrainElev.topZ - terrainElev.bottomZ).strictlyGreaterThan(0); // height > 0.
   }
 
-  /**
-   * Determine the base polygon for the given region shape.
-   * Used to construct the terrain shape.
-   * @param {RegionShape} regionShape
-   * @param {RegionShape[]} holeShapes
-   * @returns {Polygon3d|null} The shape, in canvas coordinates, or null if no valid shape.
-   */
-  _basePolygon3dForRegionShape(regionShape, holeShapes) {
-    if ( regionShape.hole || regionShape.isEmpty ) return null;
+  _createBaseShape(i) {
+    // Terrains cannot be holes because holes in regions cut all the way through.
+    // If the region is not a terrain or the shape is a hole, use the original base shape.
+    const baseShape = super._createBaseShape(i);
+    const regionShape = this.regionShapes[i];
+    if ( regionShape.hole || !this.hasTerrainShape ) return baseShape;
 
-    const bottomZ = this.elevationZ.bottomZ;
-    let res = { solids: [], holes: [ ]};
+    // Get the solid base(s) and build a terrain for each.
+    let terrainBases = baseShape.bottomFaces();
+    if ( terrainBases.length > 1 ) terrainBases = Polygons3d.from3dPolygons(terrainBases);
 
-    // 1. Wall Restricted.
-    if ( this.isWallRestricted
-      && this.constructor.shapeIsWallRestricted(regionShape, this.placeableDocument) ) {
-      res = this._wallRestrictedPolygonsForRegionShape(regionShape, holeShapes);
-    }
-
-    // 2. Grid constrained
-    else if ( this.constructor.shapeIsGridConstrained(regionShape) ) {
-      res = this._gridConstrainedPolygonsForRegionShape(regionShape, holeShapes);
-    }
-
-    // 3. Otherwise contains holes. Use base PIXI geometric shapes where possible.
-    else if ( holeShapes.length ) {
-      res = this._polygonsWithHolesForRegionShape(regionShape, holeShapes);
-    }
-
-    // 4. Base primitive types. See shape.constructor.TYPES
-    else {
-      const polys = this._shapeToPIXI(regionShape);
-      res.solids.push(polys[0]);
-      if ( polys[1] ) res.holes.push(polys[1]); // For rings.
-    }
-
-    if ( !res.solids.length ) return null;
-    if ( res.holes.length || res.solids.length > 1 ) {
-      const holes = new Set();
-      const polys = [...res.solids, ...res.holes];
-      for ( let i = res.solids.length, n = polys.length; i < n; i += 1 ) holes.add(i);
-      return Polygons3d.fromPIXIShapes(polys, { z: bottomZ, holes });
-    }
-    else return Polygon3d.fromPIXIShape(res.solids[0], { z: bottomZ });
-  }
-
-  /**
-   * Instantiate the correct primitive shape based on constraints and type.
-   * @param {RegionShape} regionShape
-   * @param {RegionShape[]} holeShapes
-   * @param {string} id
-   * @returns {GeometricPrimitive}
-   */
-  _instantiateShape(regionShape, holeShapes, id) {
     const regionD = this.placeableDocument;
+    const id = this._shapeId(i);
+
     const TERRAIN_TYPES = this.constructor.TERRAIN_TYPES;
-    const terrainType = this.constructor.terrainType(regionD);
-    if ( terrainType === TERRAIN_TYPES.NONE
-      || terrainType === TERRAIN_TYPES.PLATEAU ) return super._instantiateShape(regionShape, holeShapes, id);
-
-    const terrainBase = this._basePolygon3dForRegionShape(regionShape, holeShapes);
-    if ( !terrainBase ) return super._instantiateShape(regionShape, holeShapes, id);
-
     let opts = this._shapeDimensions(regionShape);
-    switch ( terrainType ) {
+    switch ( this.constructor.terrainType(regionD) ) {
       case TERRAIN_TYPES.RAMP: {
         opts = { ...opts, ...this.#rampParameters };
-        return RampPrimitive.fromBasePolygon3d(id, terrainBase, opts);
+        return RampPrimitive.fromBasePolygon3d(id, terrainBases, opts);
       }
       case TERRAIN_TYPES.STEPS: {
         // So the steps are facing the correct way, rotate the base shape so steps run along the x axis from low to high.
-        let rotTerrainBase = terrainBase;
+        let rotTerrainBase = terrainBases;
         if ( this.#stepParameters.rampDir ) {
-          rotTerrainBase = terrainBase.transform(this.#stepParameters.M);
+          rotTerrainBase = terrainBases.transform(this.#stepParameters.M);
 
           // Modify the rotation to account for the temporary rotation when building the prototype faces in StepsPrimitive.
           opts.angles.z -= this.#stepParameters.rampDir;
@@ -156,12 +132,13 @@ export class TerrainGeometry extends RegionGeometry {
       case TERRAIN_TYPES.HILL: {
         opts = { ...opts, ...this.#hillParameters };
         opts.groundZ = this.constructor.hillGroundElevation(regionD);
-        return HillPrimitive.fromBasePolygon3d(id, terrainBase, opts);
+        return HillPrimitive.fromBasePolygon3d(id, terrainBases, opts);
       }
-
       default: return new EmptyGeometricPrimitive(id);
     }
   }
+
+
 
   // Cache terrain data that is based on the entire region shape.
   #rampParameters = { plane: null };
@@ -191,6 +168,11 @@ export class TerrainGeometry extends RegionGeometry {
   }
 
   createShapes() {
+    this._updateTerrainData();
+    return super.createShapes();
+  }
+
+  _updateTerrainData() {
     const regionD = this.placeableDocument;
     if ( this.regionShapes.length !== 0 ) {
       const TERRAIN_TYPES = this.constructor.TERRAIN_TYPES;
@@ -200,7 +182,6 @@ export class TerrainGeometry extends RegionGeometry {
         case TERRAIN_TYPES.HILL: this._updateHillData(); break;
       }
     }
-    return super.createShapes();
   }
 
   #stepDimensions(polygons) {
@@ -236,6 +217,8 @@ export class TerrainGeometry extends RegionGeometry {
 
   // ----- NOTE: Updating ----- //
 
+
+
   _update() {
     // Terrain type updated: rebuild terrain shape.
     // Ramp floor updated: rebuild terrain + base if ramp/steps/hill
@@ -245,10 +228,12 @@ export class TerrainGeometry extends RegionGeometry {
     // Plateau elevation updated: rebuild terrain + base if ramp/steps/hill; adjust dimensions if plateau
 
     // Update cached terrain-specific data.
-    if ( this.activeUpdates.has("hill") ) this._updateHillData();
-    if ( this.activeUpdates.has("rampDirection") ) { this._updateRampData(); this._updateStepsData(); }
-    else if ( this.activeUpdates.has("steps") ) this._updateStepsData();
-
+    /*
+    const terrainDataUpdateNeeded = this.activeUpdates.has("terrainType")
+      || this.activeUpdates.has("hill")
+      || this.activeUpdates.has("rampDirection")
+      || this.activeUpdates.has("steps");
+    if ( terrainDataUpdateNeeded ) this._updateTerrainData();
 
     // Evaluate if terrain parameter changes necessitate a full rebuild.
     const regionD = this.placeableDocument;
@@ -257,7 +242,7 @@ export class TerrainGeometry extends RegionGeometry {
       || (this.activeUpdates.has("steps") && this.constructor.isSteps(regionD))
       || (this.activeUpdates.has('hill') && this.constructor.isHill(regionD));
     if ( needsRebuild ) this.activeUpdates.add("shapes"); // Force RegionGeometry to trigger _updateShapes().
-
+    */
     super._update();
   }
 
@@ -269,8 +254,8 @@ export class TerrainGeometry extends RegionGeometry {
    * @param {RegionShape[]} holes
    * @returns {string}
    */
-  _getStructuralSignature(regionShape, holes = []) {
-    const baseSignature = super._getStructuralSignature(regionShape, holes);
+  _getStructuralSignature(regionShape) {
+    const baseSignature = super._getStructuralSignature(regionShape);
     if ( baseSignature === "empty" ) return baseSignature;
 
     const regionD = this.placeableDocument;
@@ -531,7 +516,7 @@ export class TerrainGeometry extends RegionGeometry {
     return HillDrawingManager.curveMinMaxHeight(curve);
   }
 
-  static hillData(regionD) { return regionD.getFlag(MODULE_ID, FLAGS.REGION.HILL.CURVE) || DEFAULT_FLAGS.REGION[FLAGS.REGION.HILL.CURVE] }
+  static hillData(regionD) { return fastFlag(regionD, FLAGS.REGION.HILL.CURVE) || DEFAULT_FLAGS.REGION[FLAGS.REGION.HILL.CURVE] }
 
   /** @type {number} */
   static rampDirection(regionD) {
@@ -563,4 +548,29 @@ export class TerrainGeometry extends RegionGeometry {
 export class TerrainGeometryManager extends RegionGeometryManager {
   /** @type {PlaceableGeometry} */
   static geometryClass = TerrainGeometry;
+
+  registerHooks() {
+    if ( !super.registerHooks() ) return;
+
+    // Register hooks for changes in region behavior.
+    Hooks.on("createRegionBehavior", (regionBehavior, options, _userId) => {
+      const updateKeys = Object.keys(foundry.utils.flattenObject(regionBehavior.system)).map(key => `${regionBehavior.type}.${key}`);
+      updateKeys.push(`${regionBehavior.type}.create`);
+      this.update(regionBehavior.region, new Set(updateKeys), options);
+    });
+
+    Hooks.on("updateRegionBehavior", (regionBehavior, changed, options, _userId) => {
+      // Flatten the change object to handle nested keys, like flags.
+      // Get only the specific system keys that have changes, and combine with type to create a unique key.
+      const updateKeys = Object.keys(foundry.utils.flattenObject(changed.system || {})).map(key => `${regionBehavior.type}.${key}`);
+      this.update(regionBehavior.region, new Set(updateKeys), options);
+    });
+
+    Hooks.on("deleteRegionBehavior", (regionBehavior, _options, _userId) => {
+      const updateKeys = Object.keys(foundry.utils.flattenObject(regionBehavior.system)).map(key => `${regionBehavior.type}.${key}`);
+      updateKeys.push(`${regionBehavior.type}.delete`);
+      this.delete(regionBehavior);
+    });
+
+  }
 }

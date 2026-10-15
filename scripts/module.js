@@ -28,7 +28,7 @@ import { HillDrawingManager} from "./regions/HillDrawingManager.js";
 import { TerrainGeometryManager } from "./GeometricPrimitives/TerrainGeometry.js";
 
 // Elevation
-import { TokenElevationHandler, CutawayHandler } from "./TokenElevationHandler.js";
+import { TokenElevationHandler } from "./TokenElevationHandler.js";
 
 
 // Load the geometry library.
@@ -161,6 +161,7 @@ Hooks.once("init", function() {
 /**
  * If quench is present, register tests.
  */
+/*
 Hooks.on("quenchReady", async (quench) => {
   try {
     const { registerTests } = await import(`/modules/${MODULE_ID}/scripts/tests/index.js`);
@@ -169,6 +170,7 @@ Hooks.on("quenchReady", async (quench) => {
     console.error("Failed to load Quench tests:", err);
   }
 });
+*/
 
 /**
  * A hook event that fires when Foundry has finished initializing but
@@ -217,7 +219,6 @@ function initializeAPI() {
     regionElevationAtPoint,
     StraightLinePath,
     TokenElevationHandler,
-    CutawayHandler,
     HillDrawingManager,
 
     /**
@@ -310,9 +311,16 @@ function initializeConfig() {
     /**
      * Spacing of the points that comprise the mesh vertices for things like hills.
      * Larger spacing means fewer points and better performance, sacrificing resolution.
+     * For hills, this primarily affects the resolution when testing sight or cover.
      * @type {number} Percentage of canvas.grid.size
      */
     meshSpacing: 0.5,
+
+    /**
+     * Spacing of the hill samples when determining the elevation of a token moving on a hill.
+     * @type {number} Percentage of canvas.grid.size
+     */
+    hillSampleSpacing: 0.2,
   };
 }
 

@@ -34,7 +34,7 @@ export class TileElevationHandler {
   /** @type {boolean} */
   get isElevated() {
     // No point in treating tile as elevated if it is on the scene floor.
-    return this.tile.document.getFlag(MODULE_ID, FLAGS.TILE.IS_FLOOR)
+    return this.tile.document.getFlag(MODULE_ID, FLAGS.TILE_ALPHA_SHAPE) !== FLAGS.TILE_ALPHA_SHAPE_OPTIONS.IGNORE
         && this.tile.elevationE !== canvas.scene[MODULE_ID].sceneFloor;
   }
 

@@ -5,7 +5,6 @@ game
 "use strict";
 
 import { Patcher } from "./Patcher.js";
-import { MODULES_ACTIVE } from "./const.js";
 
 import { PATCHES as PATCHES_Token } from "./Token.js";
 import { PATCHES as PATCHES_Wall } from "./Wall.js";
@@ -32,7 +31,8 @@ export const PATCHES = {
   "foundry.canvas.placeables.Tile": PATCHES_Tile,
   "foundry.applications.sheets.TileConfig": PATCHES_TileConfig,
   "foundry.applications.sheets.LevelConfig": PATCHES_LevelConfig,
-  //"foundry.canvas.placeables.Token": PATCHES_Token,
+  // "foundry.documents.TokenDocument": PATCHES_TokenDocument,
+  "foundry.canvas.placeables.Token": PATCHES_Token,
   "foundry.canvas.placeables.Wall": PATCHES_Wall,
   "foundry.documents.Scene": PATCHES_Scene,
 

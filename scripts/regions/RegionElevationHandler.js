@@ -14,11 +14,12 @@ import { Plane } from "../geometry/3d/Plane.js";
 import { ElevatedPoint } from "../geometry/3d/ElevatedPoint.js";
 import { Matrix } from "../geometry/Matrix.js";
 import { TokenElevationHandler } from "../TokenElevationHandler.js";
-import { gridUnitsToPixels, pixelsToGridUnits, cutaway } from "../geometry/util.js";
+import { gridUnitsToPixels, pixelsToGridUnits } from "../geometry/util.js";
 import { AABB3d } from "../geometry/3d/AABB3d.js";
 import { almostGreaterThan, almostLessThan, almostBetween } from "../geometry/util.js";
 import { HillDrawingManager } from "./HillDrawingManager.js";
 import { RegionGeometry } from "../geometry/placeable_geometry/RegionGeometry.js";
+import { CutawayPolygon } from "../geometry/CutawayPolygon.js";
 
 /**
  * Single region elevation handler
@@ -731,7 +732,7 @@ export class RegionElevationHandler {
       const start = vertices.shift();
       vertices.reverse();
       vertices.unshift(start);
-      return vertices.map(v => cutaway.from2d(v, a, b));
+      return vertices.map(v => CutawayPolygon.from2d(v, a, b));
     });
   }
 

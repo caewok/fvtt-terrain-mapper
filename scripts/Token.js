@@ -1,8 +1,6 @@
 /* globals
 canvas,
 CONFIG,
-CONST,
-game,
 PIXI,
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
@@ -22,8 +20,8 @@ Hook token movement to add/remove terrain effects and pause tokens dependent on 
 
 import { MODULE_ID, FLAGS } from "./const.js";
 import { log } from "./util.js";
-import { TokenElevationHandler } from "./TokenElevationHandler.js";
 import { ElevatedPoint } from "./geometry/3d/ElevatedPoint.js";
+import { TokenElevationHandler } from "./TokenElevationHandler.js";
 
 export const PATCHES = {};
 PATCHES.BASIC = {};
@@ -108,15 +106,6 @@ function createTerrainMovementPath(wrapped, waypoints, options) {
     const b = _centerWaypoint(next, this);
     tm._initialize(a, b);
 
-    // If no regions or tiles, just allow the movement to continue as is.
-    // Somewhat avoids issue where cannot change elevation when on the canvas, which can be unexpected.
-    // Avoids having to explicitly set constrain movement to false in a scene.
-    if ( !(tm.regions.length || (tm.tiles.length) )  ) {
-      newWaypoints.push(next);
-      start = next;
-      continue;
-    }
-
     const path = tm.constructPath(a, b, { flying, burrowing, walking, initialize: false });
     path.forEach(pt => _uncenterPathPointInPlace(pt, this));
 
@@ -185,6 +174,7 @@ function _uncenterPathPointInPlace(pathPt, token) {
 }
 
 
+
 PATCHES.BASIC.WRAPS = {
   createTerrainMovementPath,
   };
@@ -227,11 +217,9 @@ PATCHES.BASIC.METHODS = {
   getTopLeft
 };
 
-// ----- NOTE: Helper functions ----- //
 
 
-
-// ----- NOTE: Getters ----- //
+// ------ NOTE: Getters ------ //
 
 /**
  * New getter: Token#terrainmapper

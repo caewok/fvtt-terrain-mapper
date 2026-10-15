@@ -1,22 +1,15 @@
 <fieldset>
   <legend>{{ localize "terrainmapper.name" }}</legend>
 
-    <!-- Treat tile as a "floor." Checkbox. -->
-    <div class="form-group" id="terrainmapper-tileconfig-isFloor">
-      <label>{{ localize "terrainmapper.tile-config.isFloor.name" }} </label>
+    <!-- Select tile shape -->
+    <div class="form-group" id="terrainmapper-tile-config-tileAlphaShape">
+      <label>{{ localize "terrainmapper.tile-config.tileAlphaShape.name" }} </label>
       <div class="form-fields">
-        <input type="checkbox" name="flags.terrainmapper.isFloor" {{ checked document.flags.terrainmapper.isFloor }}>
+        <select id="tileAlphaShape" name="flags.terrainmapper.tileAlphaShape" class="tokenvisibility">
+          {{ selectOptions terrainmapper.tileAlphaShapeOptions selected=terrainmapper.selectedTileAlphaShape localize=true }}
+        </select>
       </div>
-      <p class="hint">{{ localize "terrainmapper.tile-config.isFloor.hint" }}</p>
-    </div>
-
-    <!-- Treat transparent pixels as holes -->
-    <div class="form-group" id="terrainmapper-tileconfig-testHoles">
-      <label>{{ localize "terrainmapper.tile-config.testHoles.name" }} </label>
-      <div class="form-fields">
-        <input type="checkbox" name="flags.terrainmapper.testHoles" {{ checked document.flags.terrainmapper.testHoles }}>
-      </div>
-      <p class="hint">{{ localize "terrainmapper.tile-config.testHoles.hint" }}</p>
+      <p class="hint">{{ localize "terrainmapper.tile-config.tileAlphaShape.hint" }}</p>
     </div>
 
   </legend>

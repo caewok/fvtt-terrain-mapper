@@ -5,7 +5,7 @@ PIXI,
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { ExtrudedPolygonPrimitiveWithHoles } from "../geometry/placeable_geometry/ModelGeometricPrimitive.js";
+import { ExtrudedPolygonPrimitive } from "../geometry/placeable_geometry/ModelGeometricPrimitive.js";
 import { GEOMETRY_LIB_ID } from "../geometry/const.js";
 import { AABB2d } from "../geometry/AABB.js";
 import { Polygon3d, Polygons3d, Quad3d } from "../geometry/3d/Polygon3d.js";
@@ -16,7 +16,7 @@ import { CutawayPolygon } from "../geometry/CutawayPolygon.js";
  * Steps. Closely related to ramps.
  * Use the model primitive b/c as number of steps change, so does the shape.
  */
-export class StepsPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
+export class StepsPrimitive extends ExtrudedPolygonPrimitive {
 
   /**
    * Build an extruded steps shape (top face is steps) from a 2d polygon.
@@ -45,6 +45,25 @@ export class StepsPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
   // static fromPolygons(id, polys, { stepWidth = 1, stepHeight = 1, topZ, bottomZ }) // Uses the parent class.
 
 
+  #numTopFaces = 1;
+
+  /** @type {Polygon3d[]} */
+  get topFaces() { return this.faces.slice(1, 1 + this.#numTopFaces); }
+
+  /** @type {Polygon3d[]} */
+  get sideFaces() { return this.faces.slice(1 + this.#numTopFaces);}
+
+  /**
+   * Vertices for the prototype's side walls only.
+   * By default, every prototype face after the bottom (0) and top (1) faces.
+   * Therefore assumes an extruded shape, which may require subclasses to override.
+   * @type {VertexObject}
+   */
+  get sidesVO() {
+    return (this._sidesVO ??= this.constructor.generateVerticesForFaces(this.prototypeFaces.slice(1 + this.#numTopFaces)));
+  }
+
+
   /**
    * Helper to create a 3d extruded shape from a polygon, with a top and bottom polygon
    * shapes and vertical sides.
@@ -71,8 +90,14 @@ export class StepsPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
     planks ??= this.verticalPlanks(polys, stepWidth);
     const steps = this.createSteps(polys, planks, { stepHeight, stepWidth, bottomZ })
 
+    // Organize the sides, which are always vertical.
+    const tops = [];
+    const sides = [];
+    steps.forEach(step => step.plane.z.almostEqual(0) ? sides.push(step) : tops.push(step));
+    this.#numTopFaces = tops.length;
+
     // Transform to prototype shape using provided model.
-    const faces = [base, ...steps];
+    const faces = [base, ...tops, ...sides];
     const protoFaces = this.canvasToPrototypeFaces(faces, opts);
     return new this(id, protoFaces);
   }
@@ -185,8 +210,8 @@ export class StepsPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
       // Polygons3d.fromPolygons derives isHole per-piece from orientation, so any
       // hole passing through this row is correctly left open in the tread.
       if ( plank.length ) out.push(plank.length > 1
-        ? Polygons3d.fromPIXIShapes(plank, { z: bottomZ })
-          : Polygon3d.fromPIXIShape(plank[0], { z: bottomZ }));
+        ? Polygons3d.fromPIXIShapes(plank, { elevationZ: bottomZ })
+          : Polygon3d.fromPIXIShape(plank[0], { elevationZ: bottomZ }));
     }
 
     // Weld same-plane wall pieces into as few objects as possible.
@@ -363,7 +388,7 @@ export class StepsPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
          cutaways.push(...cutaway);
       }
     }
-    if ( !cutaways.length ) return [];
+    if ( cutaways.length < 2 ) return cutaways;
 
     // Use Clipper to union the cutaways. Holes go straight through, leaving 1+ solid polygons.
     const paths = CONFIG[GEOMETRY_LIB_ID].CONFIG.ClipperPaths.fromPolygons(cutaways);

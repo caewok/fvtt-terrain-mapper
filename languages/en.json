@@ -34,12 +34,6 @@
   "terrainmapper.region-config.splitPolygons.name": "Mirror Terrain across Polygons",
   "terrainmapper.region-config.splitPolygons.hint": "When enabled, the steps/ramps/hills are repeated for each shape. When disabled, all shapes will be pieces of one hill/ramp/steps.",
 
-  "terrainmapper.tile-config.isFloor.name": "Treat as Floor",
-  "terrainmapper.tile-config.isFloor.hint": "Use as a 'floor' that tokens can walk on.",
-
-  "terrainmapper.tile-config.testHoles.name": "Has Physical Holes",
-  "terrainmapper.tile-config.testHoles.hint": "Treat larger transparent portions within the tile as holes that tokens may 'fall' through.",
-
   "terrainmapper.behavior.types.stairs.fields.algorithm.name": "Type",
 
   "terrainmapper.behavior.types.stairs.fields.elevation.name": "Stairs Top",
@@ -82,6 +76,16 @@
   "terrainmapper.hillType.labels.linear": "Linear",
   "terrainmapper.hillType.labels.ridge": "Ridge",
   "terrainmapper.hillType.labels.symmetrical": "Symmetrical",
+
+  "terrainmapper.tile-config.tileAlphaShape.name": "Tile Physical Shape",
+  "terrainmapper.tile-config.tileAlphaShape.hint": "Should the tile be treated as a floor? Should alpha (transparent) portions be considered holes?",
+  "terrainmapper.tile-config.options.full": "Full Rectangle",
+  "terrainmapper.tile-config.options.boundingBox": "Alpha Bounding Rectangle",
+  "terrainmapper.tile-config.options.boundingPolygon": "Alpha Bounding Polygon",
+  "terrainmapper.tile-config.options.polygons": "Polygon with Holes",
+  "terrainmapper.tile-config.options.calculated": "Calculated",
+  "terrainmapper.tile-config.options.ignore": "Not a Floor",
+
 
   "terrainmapper.phrases.terrainLayer": "Terrain Layer",
   "terrainmapper.phrases.terrain": "Terrain",

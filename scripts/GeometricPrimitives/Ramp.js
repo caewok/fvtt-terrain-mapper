@@ -4,7 +4,7 @@
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { ExtrudedPolygonPrimitiveWithHoles } from "../geometry/placeable_geometry/ModelGeometricPrimitive.js";
+import { ExtrudedPolygonPrimitive } from "../geometry/placeable_geometry/ModelGeometricPrimitive.js";
 import { Polygon3d, Polygons3d } from "../geometry/3d/Polygon3d.js";
 import { Point3d } from "../geometry/3d/Point3d.js";
 
@@ -12,7 +12,7 @@ import { Point3d } from "../geometry/3d/Point3d.js";
  * Ramp.
  * Use the model primitive b/c the base of the ramp is 1+ polygons, which can change.
  */
-export class RampPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
+export class RampPrimitive extends ExtrudedPolygonPrimitive {
 
   /**
    * Build an extruded ramp shape (top moving up in z-axis) from a 2d polygon.
@@ -50,7 +50,7 @@ export class RampPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
    * @returns {Polygon3d[]} Array of top, bottom, and 3+ sides
    */
   static _facesFromPolygon(poly, { plane, topZ, bottomZ } = {}) {
-    const top = Polygon3d.fromPolygon(poly, topZ);
+    const top = Polygon3d.fromPolygon(poly, { elevationZ: topZ });
     return this._facesFromPolygon3d(top, plane, bottomZ);
   }
 
@@ -105,17 +105,6 @@ export class RampPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
     return new this(id, protoFaces);
   }
 
-  _testFacesOutward(faces) {
-    if ( !faces || faces.length < 3 ) return false;
-
-    // Test each face against the centroid.
-    const centroid = this.constructor.calculateCentroid(faces);
-    for ( const face of faces ) {
-      if ( face.isFacing(centroid) ) return false;
-    }
-    return true;
-  }
-
   // ----- NOTE: Elevation testing ------ //
 
   get rampFace() { return this.faces[1]; }
@@ -130,18 +119,6 @@ export class RampPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
   elevationAtCanvasLocation(canvasLoc, { testContainment = true } = {}) {
     if ( testContainment && !this.baseFace.containsProjectedXY(canvasLoc) ) return null;
     return this.rampFace.plane.getZ(canvasLoc.x, canvasLoc.y);
-  }
-
-  get bottomZ() { return this.baseFace.plane.point.z; }
-
-  get topZ() {
-    let topZ = Number.NEGATIVE_INFINITY;
-    this.faces.slice(1).forEach(f => {
-      for ( const poly of f.polygons || [f] ) {
-        topZ = Math.max(topZ, ...poly.points.map(pt => pt.z));
-      }
-    });
-    return topZ;
   }
 
   /**

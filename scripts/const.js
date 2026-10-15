@@ -1,5 +1,4 @@
 /* globals
-foundry,
 game,
 Hooks
 */
@@ -29,8 +28,24 @@ Hooks.once("init", function() {
   MODULES_ACTIVE.LEVELS = game.modules.get("levels")?.active;
 });
 
+/** @type {enum<string>} */
+export const TILE_THRESHOLD_SHAPE_OPTIONS = {
+  RECTANGLE: "full", // Fastest, but only trims rectangular transparent border without considering holes or irregular shapes.
+  ALPHA_TRIANGLES: "triangles", // In testing, this seems very slow.
+  ALPHA_POLYGONS: "polygons", // Much faster than triangles.
+  ALPHA_BOUNDING_BOX: "boundingRect",   // Just the outer alpha box.
+  ALPHA_BOUNDING_POLYGON: "boundingPolygon", // The outer alpha polygon.
+};
+
 // Flags set on various documents.
 export const FLAGS = {
+
+  TILE_ALPHA_SHAPE: "tileAlphaShape",
+  TILE_ALPHA_SHAPE_OPTIONS: {
+    ...TILE_THRESHOLD_SHAPE_OPTIONS,
+    CALCULATED: "calculated",
+    IGNORE: "ignore",
+  },
 
   // Scene
   SCENE: {
@@ -78,13 +93,6 @@ export const FLAGS = {
     },
   },
 
-  TILE: {
-    IS_FLOOR: "isFloor",
-    TRIM_BORDER: "trimAlphaBorder",
-    TEST_HOLES: "testHoles",
-    ALPHA_THRESHOLD: "alphaThreshold"
-  },
-
   // StairsRegionBehavior
   STAIRS_BEHAVIOR: {
     CHOICES: {
@@ -118,10 +126,7 @@ export const ICONS = {
 
 export const DEFAULT_FLAGS = {
   TILE: {
-    [FLAGS.TILE.IS_FLOOR]: false,
-    [FLAGS.TILE.TRIM_BORDER]: true,
-    [FLAGS.TILE.TEST_HOLES]: false,
-    [FLAGS.TILE.ALPHA_THRESHOLD]: 0.75
+    [FLAGS.TILE_ALPHA_SHAPE]: "calculated",
   },
 
   SCENE: {

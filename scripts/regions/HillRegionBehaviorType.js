@@ -29,7 +29,7 @@ export class HillTerrainRegionBehaviorType extends foundry.data.regionBehaviors.
         hint: `${MODULE_ID}.region-config.hillType.hint`,
         required: true,
         initial: "linear",
-        choices: ["linear", "ridge", "symmetrical"],
+        choices: FLAGS.REGION.HILL.LABELS,
       }),
 
       dialog: new foundry.data.fields.BooleanField({

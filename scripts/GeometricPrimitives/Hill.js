@@ -8,7 +8,7 @@ PIXI,
 
 import { MODULE_ID } from "../const.js";
 import { HillDrawingManager } from "../regions/HillDrawingManager.js";
-import { ExtrudedPolygonPrimitiveWithHoles } from "../geometry/placeable_geometry/ModelGeometricPrimitive.js";
+import { ExtrudedPolygonPrimitive } from "../geometry/placeable_geometry/ModelGeometricPrimitive.js";
 import { Point3d } from "../geometry/3d/Point3d.js";
 import { Polygon3d, Triangle3d, Quad3d } from "../geometry/3d/Polygon3d.js";
 import { Delaunay } from "../geometry/d3-delaunay.js";
@@ -18,13 +18,31 @@ import { roundDecimals, cleanPolygonPoints, calculateEvenlySpacedValues } from "
  * Steps. Closely related to ramps.
  * Use the model primitive b/c as number of steps change, so does the shape.
  */
-export class HillPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
+export class HillPrimitive extends ExtrudedPolygonPrimitive {
 
   /** @type {enum<string>} */
   hillType = "linear";
 
   /** @type {BézierCurve} */
   curve = HillDrawingManager.defaultCurve();
+
+  #numTopFaces = 1;
+
+  /** @type {Polygon3d[]} */
+  get topFaces() { return this.faces.slice(1, 1 + this.#numTopFaces); }
+
+  /** @type {Polygon3d[]} */
+  get sideFaces() { return this.faces.slice(1 + this.#numTopFaces);}
+
+  /**
+   * Vertices for the prototype's side walls only.
+   * By default, every prototype face after the bottom (0) and top (1) faces.
+   * Therefore assumes an extruded shape, which may require subclasses to override.
+   * @type {VertexObject}
+   */
+  get sidesVO() {
+    return (this._sidesVO ??= this.constructor.generateVerticesForFaces(this.prototypeFaces.slice(1 + this.#numTopFaces)));
+  }
 
   /**
    * Build an extruded steps shape (top face is steps) from a 2d polygon.
@@ -63,10 +81,12 @@ export class HillPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
    */
   static _facesFromPolygon(poly, opts) {
     // Polygon3d base.
-    const bottom = Polygon3d.fromPolygon(poly, opts.bottomZ);
+    const bottom = Polygon3d.fromPolygon(poly, { elevationZ: opts.bottomZ });
     bottom.reverseOrientation();
+    const { topMesh, sides} = this.extrudeHillShape([poly], opts);
+    this.#numTopFaces = topMesh.length;
 
-    return [bottom, ...this.extrudeHillShape([poly], opts)];
+    return [bottom, ...topMesh, ...sides];
   }
 
 
@@ -107,7 +127,7 @@ export class HillPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
 
     // Build the sides.
     const sides = this._buildSidesFromLattice(topMesh, floorZ);
-    return [...topMesh, ...sides];
+    return { topMesh, sides };
   }
 
   /**
@@ -133,8 +153,10 @@ export class HillPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
 
     const floorZ = base.polygons ? base.polygons[0].points[0].z : base.points[0].z;
     const polys = base.polygons ? base.toPolygon2d() : [base.toPolygon2d()];
-    const hillShape = this.extrudeHillShape(polys, { curve, topZ, groundZ, floorZ, type });
-    const faces = [base, ...hillShape];
+    const { topMesh, sides} = this.extrudeHillShape(polys, { curve, topZ, groundZ, floorZ, type });
+
+    this.#numTopFaces = topMesh.length;
+    const faces = [base, ...topMesh, ...sides];
     const protoFaces = this.canvasToPrototypeFaces(faces, opts);
     const out = new this(id, protoFaces);
     out.type = type;
