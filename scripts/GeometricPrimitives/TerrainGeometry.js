@@ -235,7 +235,7 @@ export class TerrainGeometry extends RegionGeometry {
     // Plateau elevation updated: rebuild terrain + base if ramp/steps/hill; adjust dimensions if plateau
 
     // Update cached terrain-specific data.
-    /*
+
     const terrainDataUpdateNeeded = this.activeUpdates.has("terrainType")
       || this.activeUpdates.has("hill")
       || this.activeUpdates.has("rampDirection")
@@ -249,7 +249,7 @@ export class TerrainGeometry extends RegionGeometry {
       || (this.activeUpdates.has("steps") && this.constructor.isSteps(regionD))
       || (this.activeUpdates.has('hill') && this.constructor.isHill(regionD));
     if ( needsRebuild ) this.activeUpdates.add("shapes"); // Force RegionGeometry to trigger _updateShapes().
-    */
+
     super._update();
   }
 
@@ -561,9 +561,7 @@ export class TerrainGeometryManager extends RegionGeometryManager {
 
     // Register hooks for changes in region behavior.
     Hooks.on("createRegionBehavior", (regionBehavior, options, _userId) => {
-      const updateKeys = Object.keys(foundry.utils.flattenObject(regionBehavior.system)).map(key => `${regionBehavior.type}.${key}`);
-      updateKeys.push(`${regionBehavior.type}.create`);
-      this.update(regionBehavior.region, new Set(updateKeys), options);
+      this.update(regionBehavior.region, new Set([`${regionBehavior.type}.create`]), options);
     });
 
     Hooks.on("updateRegionBehavior", (regionBehavior, changed, options, _userId) => {
@@ -573,10 +571,8 @@ export class TerrainGeometryManager extends RegionGeometryManager {
       this.update(regionBehavior.region, new Set(updateKeys), options);
     });
 
-    Hooks.on("deleteRegionBehavior", (regionBehavior, _options, _userId) => {
-      const updateKeys = Object.keys(foundry.utils.flattenObject(regionBehavior.system)).map(key => `${regionBehavior.type}.${key}`);
-      updateKeys.push(`${regionBehavior.type}.delete`);
-      this.delete(regionBehavior);
+    Hooks.on("deleteRegionBehavior", (regionBehavior, options, _userId) => {
+      this.update(regionBehavior.region, new Set([`${regionBehavior.type}.delete`]), options);
     });
 
   }
