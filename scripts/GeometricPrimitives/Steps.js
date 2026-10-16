@@ -44,14 +44,21 @@ export class StepsPrimitive extends ExtrudedPolygonPrimitive {
    */
   // static fromPolygons(id, polys, { stepWidth = 1, stepHeight = 1, topZ, bottomZ }) // Uses the parent class.
 
+  constructor(id, prototypeFaces) {
+    super(id, prototypeFaces);
 
-  #numTopFaces = 1;
+    // 1 base, ... tops, ... sides
+    this._numTopFaces = this.prototypeFaces.findIndex(face => face.plane.normal.z.almostEqual(0)) - 1;
+
+  }
+
+  _numTopFaces = 1;
 
   /** @type {Polygon3d[]} */
-  get topFaces() { return this.faces.slice(1, 1 + this.#numTopFaces); }
+  get topFaces() { return this.faces.slice(1, 1 + this._numTopFaces); }
 
   /** @type {Polygon3d[]} */
-  get sideFaces() { return this.faces.slice(1 + this.#numTopFaces);}
+  get sideFaces() { return this.faces.slice(1 + this._numTopFaces);}
 
   /**
    * Vertices for the prototype's side walls only.
@@ -60,7 +67,7 @@ export class StepsPrimitive extends ExtrudedPolygonPrimitive {
    * @type {VertexObject}
    */
   get sidesVO() {
-    return (this._sidesVO ??= this.constructor.generateVerticesForFaces(this.prototypeFaces.slice(1 + this.#numTopFaces)));
+    return (this._sidesVO ??= this.constructor.generateVerticesForFaces(this.prototypeFaces.slice(1 + this._numTopFaces)));
   }
 
 
@@ -94,7 +101,7 @@ export class StepsPrimitive extends ExtrudedPolygonPrimitive {
     const tops = [];
     const sides = [];
     steps.forEach(step => step.plane.normal.z.almostEqual(0) ? sides.push(step) : tops.push(step));
-    this.#numTopFaces = tops.length;
+
 
     // Transform to prototype shape using provided model.
     const faces = [base, ...tops, ...sides];

@@ -20,19 +20,26 @@ import { roundDecimals, cleanPolygonPoints, calculateEvenlySpacedValues } from "
  */
 export class HillPrimitive extends ExtrudedPolygonPrimitive {
 
+   constructor(id, prototypeFaces) {
+    super(id, prototypeFaces);
+
+    // 1 base, ... tops, ... sides
+    this._numTopFaces = this.prototypeFaces.findIndex(face => face.plane.normal.z.almostEqual(0)) - 1;
+  }
+
   /** @type {enum<string>} */
   hillType = "linear";
 
   /** @type {BézierCurve} */
   curve = HillDrawingManager.defaultCurve();
 
-  #numTopFaces = 1;
+  _numTopFaces = 1;
 
   /** @type {Polygon3d[]} */
-  get topFaces() { return this.faces.slice(1, 1 + this.#numTopFaces); }
+  get topFaces() { return this.faces.slice(1, 1 + this._numTopFaces); }
 
   /** @type {Polygon3d[]} */
-  get sideFaces() { return this.faces.slice(1 + this.#numTopFaces);}
+  get sideFaces() { return this.faces.slice(1 + this._numTopFaces);}
 
   /**
    * Vertices for the prototype's side walls only.
@@ -41,7 +48,7 @@ export class HillPrimitive extends ExtrudedPolygonPrimitive {
    * @type {VertexObject}
    */
   get sidesVO() {
-    return (this._sidesVO ??= this.constructor.generateVerticesForFaces(this.prototypeFaces.slice(1 + this.#numTopFaces)));
+    return (this._sidesVO ??= this.constructor.generateVerticesForFaces(this.prototypeFaces.slice(1 + this._numTopFaces)));
   }
 
   /**
@@ -84,8 +91,6 @@ export class HillPrimitive extends ExtrudedPolygonPrimitive {
     const bottom = Polygon3d.fromPolygon(poly, { elevationZ: opts.bottomZ });
     bottom.reverseOrientation();
     const { topMesh, sides} = this.extrudeHillShape([poly], opts);
-    this.#numTopFaces = topMesh.length;
-
     return [bottom, ...topMesh, ...sides];
   }
 
@@ -155,7 +160,6 @@ export class HillPrimitive extends ExtrudedPolygonPrimitive {
     const polys = base.polygons ? base.toPolygon2d() : [base.toPolygon2d()];
     const { topMesh, sides} = this.extrudeHillShape(polys, { curve, topZ, groundZ, floorZ, type });
 
-    this.#numTopFaces = topMesh.length;
     const faces = [base, ...topMesh, ...sides];
     const protoFaces = this.canvasToPrototypeFaces(faces, opts);
     const out = new this(id, protoFaces);
