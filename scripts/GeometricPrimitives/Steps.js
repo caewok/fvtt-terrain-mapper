@@ -368,7 +368,7 @@ export class StepsPrimitive extends ExtrudedPolygonPrimitive {
    */
   verticalSlice(start, end) {
     if ( start.almostEqual(end) ) return [];
-    if ( !this.aabb.overlapsSegment(start, end) ) return [];
+    if ( !this.aabb.overlapsSegment(start, end, ["x", "y"]) ) return [];
 
     // Each step is represented by a flat top and flat bottom. We know the bottom already.
     const bottomZ = this.bottomZ;

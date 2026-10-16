@@ -406,6 +406,7 @@ export class HillPrimitive extends ExtrudedPolygonPrimitive {
     const bottomZ = this.bottomZ;
     const mockTopZ = bottomZ + 100;
     const cutaways = super.verticalSlice(start, end, { topZ: mockTopZ, bottomZ });
+    if ( !cutaways.length ) return cutaways;
 
     // Can sample evenly across the hill to get the top elevations.
     // This is smoother than relying on the polygon mesh.
