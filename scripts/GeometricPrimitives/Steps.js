@@ -93,7 +93,7 @@ export class StepsPrimitive extends ExtrudedPolygonPrimitive {
     // Organize the sides, which are always vertical.
     const tops = [];
     const sides = [];
-    steps.forEach(step => step.plane.z.almostEqual(0) ? sides.push(step) : tops.push(step));
+    steps.forEach(step => step.plane.normal.z.almostEqual(0) ? sides.push(step) : tops.push(step));
     this.#numTopFaces = tops.length;
 
     // Transform to prototype shape using provided model.
