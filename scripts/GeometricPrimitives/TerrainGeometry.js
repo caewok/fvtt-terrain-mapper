@@ -89,11 +89,16 @@ export class TerrainGeometry extends RegionGeometry {
     if ( !this.constructor.isElevated(regionD)
       || this.constructor.isPlateau(regionD) ) return false;
 
-    // If the user sets the top and bottom equal, no top terrain.
-    const terrainElev = this.terrainElevationZ;
+    // If the user sets the top and bottom equal, no terrain.
+    const terrainElev = this.elevationZ;
     return (terrainElev.topZ - terrainElev.bottomZ).strictlyGreaterThan(0); // height > 0.
   }
 
+  /**
+   * Create a geometric primitive representing the region shape at the given index.
+   * @param {number} i      Index of the region shape in region.document.shapes
+   * @returns {GeometricPrimitive}
+   */
   _createBaseShape(i) {
     // Terrains cannot be holes because holes in regions cut all the way through.
     // If the region is not a terrain or the shape is a hole, use the original base shape.
@@ -101,9 +106,13 @@ export class TerrainGeometry extends RegionGeometry {
     const regionShape = this.regionShapes[i];
     if ( regionShape.hole || !this.hasTerrainShape ) return baseShape;
 
+    // Update the dimensions of the base shape in order to estimate the prototype terrain shape.
+    this.baseShapes[i] = baseShape;
+    this._updateShapeDimensions(i);
+
     // Get the solid base(s) and build a terrain for each.
-    let terrainBases = baseShape.bottomFaces();
-    if ( terrainBases.length > 1 ) terrainBases = Polygons3d.from3dPolygons(terrainBases);
+    let terrainBases = baseShape.bottomFaces;
+    terrainBases = terrainBases.length > 1 ? Polygons3d.from3dPolygons(terrainBases) : terrainBases[0];
 
     const regionD = this.placeableDocument;
     const id = this._shapeId(i);
@@ -137,8 +146,6 @@ export class TerrainGeometry extends RegionGeometry {
       default: return new EmptyGeometricPrimitive(id);
     }
   }
-
-
 
   // Cache terrain data that is based on the entire region shape.
   #rampParameters = { plane: null };
