@@ -79,9 +79,12 @@ function createTerrainMovementPath(wrapped, waypoints, options) {
   log(`createTerrainMovementPath|Initial Waypoints: ${waypoints.length} waypoints: ${ElevatedPoint.fromObject(waypoints[0])} --> ${ElevatedPoint.fromObject(waypoints.at(-1))}`);
   if ( CONFIG[MODULE_ID].debug ) console.table(waypoints);
 
-  // Check if this is a basic elevation change. Allow, disallow, allow with elevation change.
+  // Check if this is a basic elevation change.
   waypoints = waypoints.filter((pt, idx) => idx === 0 || (!pt.intermediate && (pt.explicit || pt.checkpoint)));
   const tm = this[MODULE_ID];
+
+
+  if ( waypoints.length >= 2 && PIXI.Point.distanceBetween(waypoints.at(-2), waypoints.at(-1)) > 500 ) log(`Longer waypoint path.`);
 
   // Testing
   // if ( waypoints.length > 2 ) console.log("Waypoints", waypoints);

@@ -232,6 +232,9 @@ export class TokenElevationHandler {
     b.roundDecimals(1);
     if ( a.equals(b) ) return [a];
 
+    // If no cutaways, allow free movement.
+    if ( !this.cutaways.length ) return [a, b];
+
     flying ??= this.flying;
     burrowing ??= this.burrowing;
     walking ??= this.walking;
@@ -304,6 +307,10 @@ export class TokenElevationHandler {
   verticalOnlyMove(a, desiredElevation, { flying, burrowing, walking, initialize = true } = {}) {
     a.roundDecimals(1);
     if ( a.z === desiredElevation ) return [a];
+
+    // If no cutaways at this location, allow free movement.
+    if ( !this._supportingFloorEdge(a, this.cutaways) ) return [a, ElevatedPoint.tmp.set(a.x, a.y, desiredElevation)];
+
     flying ??= this.flying;
     burrowing ??= this.burrowing;
     walking ??= this.walking
@@ -413,9 +420,12 @@ export class TokenElevationHandler {
 
     start2d.roundDecimals(1);
     end2d.roundDecimals(1);
-    using tmpPt = PIXI.Point.tmp;
-
     const terrain = this.cutaways;
+
+    // If no terrain, pass through the segment unmodified.
+    if ( !terrain.length ) return [start2d, end2d];
+
+    using tmpPt = PIXI.Point.tmp;
     const floor = this.floor;
     const checkpoints = [];
     const addCheckpoint = curr => {
@@ -424,15 +434,14 @@ export class TokenElevationHandler {
       checkpoints.push(curr.clone());
     };
 
-    // If no terrain, pass through the segment unmodified.
-    if ( !terrain.length ) return [start2d, end2d];
+
 
     // Restrict work to the terrain actually overlapping this segment, based on x-span.
     let tMin = Number.POSITIVE_INFINITY;
     let tMax = Number.NEGATIVE_INFINITY;
     const relevant = [];
     for ( const handler of terrain ) {
-      if ( !handler.aabb.overlapsSegment(start2d, end2d) ) continue; // Not on this segment.
+      if ( !handler.aabb.overlapsSegment(start2d, end2d, ["x"]) ) continue; // Not on this segment.
       relevant.push(handler);
       tMin = Math.min(tMin, handler.aabb.min.x);
       tMax = Math.max(tMax, handler.aabb.max.x);
@@ -454,15 +463,19 @@ export class TokenElevationHandler {
     const breakpoints = [...breakpointSet].sort((a, b) => a - b); // Sort low to high.
 
     // Leave input line untouched up to where terrain begins.
-    if ( tMin.strictlyLessThan(start2d.x) ) addCheckpoint(start2d);
+    addCheckpoint(start2d);
+
 
     // Entry elevation at tMin is whatever the input line would be there.
     // Test tMin itself against the terrain just like every other breakpoint,
     // so that a region that floats above is correctly excluded.
     using delta = end2d.subtract(start2d);
+    if ( mode === "walking" ) delta.y = start2d.y; // Move in flat line when walking.
     let z = delta.x.almostEqual(0) ? start2d.y
       : start2d.y + (delta.y * ((tMin - start2d.x) / delta.x));
 
+    // Add the point of entry.
+    addCheckpoint(tmpPt.set(tMin, z))
 
     // Loop through the breakpoints to find the highest valid elevation for each.
     for ( let i = 0, n = breakpoints.length; i < n; i += 1 ) {
@@ -493,7 +506,10 @@ export class TokenElevationHandler {
     }
 
     // Trailing straight segment: Input line, untouched, from where terrain ends to actual endpoint.
-    if ( tMax < end2d.x ) addCheckpoint(end2d);
+    if ( tMax < end2d.x ) {
+      const finalZ = mode === "walking" ? floor : z;
+      addCheckpoint(tmpPt.set(end2d.x, finalZ));
+    }
 
     // Avoid Token##preUpdateMovement treating a single-point path as unconstrained and continuing past it.
     if ( checkpoints.length === 1 ) return [checkpoints[0], checkpoints[0].clone()];
@@ -510,7 +526,7 @@ export class TokenElevationHandler {
     const b2d = this.to2d(b);
     let path2d = [];
     try {
-      path2d = this._constructWalkingPath(a2d, b2d);
+      path2d = this._constructWalkingPath(a2d, b2d, "burrowing");
       this.#verifyPath2d(path2d)
 
     } catch ( err ) {
@@ -674,7 +690,7 @@ export class TokenElevationHandler {
     const b2d = this.to2d(b);
     let path2d = [];
     try {
-      path2d = this._constructWalkingPath(a2d, b2d);
+      path2d = this._constructWalkingPath(a2d, b2d, "flying");
       this.#verifyPath2d(path2d);
 
     } catch ( err ) {
@@ -898,7 +914,7 @@ export class TokenElevationHandler {
    * Find the next supporting edge at or below this point.
    * If no support, moves directly up to the nearest support.
    * @param {PIXI.Point} pt2d
-   * @returns {object}
+   * @returns {object|null}
    * - @prop {CutawayHandler} cutaway
    * - @prop {Edge2d} edge
    * - @prop {PIXI.Point} ix
@@ -924,7 +940,7 @@ export class TokenElevationHandler {
          }
       }
     }
-    if ( !(aboveIx || belowIx) ) throw Error(`_supportingFloorEdge failed to locate edge for ${this.start} -> ${this.end}`);
+    if ( !(aboveIx || belowIx) ) return null;
     if ( !belowIx || (aboveIx && aboveIx.ix.y.almostEqual(pt2d.y, tolerance)) ) return aboveIx;
     return belowIx;
   }
