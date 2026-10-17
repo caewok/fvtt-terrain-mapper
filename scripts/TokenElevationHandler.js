@@ -434,8 +434,6 @@ export class TokenElevationHandler {
       checkpoints.push(curr.clone());
     };
 
-
-
     // Restrict work to the terrain actually overlapping this segment, based on x-span.
     let tMin = Number.POSITIVE_INFINITY;
     let tMax = Number.NEGATIVE_INFINITY;
@@ -460,21 +458,20 @@ export class TokenElevationHandler {
         if ( x.between(tMin, tMax) ) breakpointSet.add(x);
       }
     }
-    const breakpoints = [...breakpointSet].sort((a, b) => a - b); // Sort low to high.
+    const breakpoints = [...breakpointSet]
+      .filter(x => x <= end2d.x) // Ignore breakpoints after the endpoint.
+      .sort((a, b) => a - b); // Sort low to high.
 
     // Leave input line untouched up to where terrain begins.
     addCheckpoint(start2d);
 
-
+    // Add the point of entry.
     // Entry elevation at tMin is whatever the input line would be there.
     // Test tMin itself against the terrain just like every other breakpoint,
     // so that a region that floats above is correctly excluded.
     using delta = end2d.subtract(start2d);
-    if ( mode === "walking" ) delta.y = start2d.y; // Move in flat line when walking.
-    let z = delta.x.almostEqual(0) ? start2d.y
-      : start2d.y + (delta.y * ((tMin - start2d.x) / delta.x));
-
-    // Add the point of entry.
+    let z = (mode === "walking" || delta.x.almostEqual(0)) ? start2d.y // Move in flat line when walking.
+      : start2d.y + (delta.y * ((tMin - start2d.x) / delta.x)); // Locate z along start|end segment.
     addCheckpoint(tmpPt.set(tMin, z))
 
     // Loop through the breakpoints to find the highest valid elevation for each.
@@ -729,7 +726,10 @@ export class TokenElevationHandler {
     if ( pathEnd.almostEqual(b2d) ) return path2d;
 
     // Prevents elevation falling back to initial elevation when elevation at destination is higher than initial elevation
-    if ( pathEnd.x.almostEqual(b2d.x) && pathEnd.y > b2d.y ) return path2d;
+    if ( pathEnd.x.almostEqual(b2d.x) ) {
+      if ( pathEnd.y > b2d.y ) b2d.y = pathEnd.y;
+      if ( pathEnd.almostEqual(b2d) ) return path2d;
+    }
 
     // Could we get there simply by flying without hitting anything?
     if ( this.#foundFlyingShortcut(pathEnd, b2d) ) {
@@ -1225,7 +1225,7 @@ export class CutawayHandler {
         }
         case VERTICAL.RIGHT: { // Treat as outside the cutaway. No change to floor.
           out.edge = VERTICAL.RIGHT;
-          if ( !pt2d.yalmostLessThan(b.y) ) break; // Have not gotten to the point yet.
+          if ( !pt2d.y.almostLessThan(b.y) ) break; // Have not gotten to the point yet.
           if ( out.location ) return out; // Found the floor and reached an outside segment.
           if ( i ) out.location = LOCS.ABOVE;
           break;
