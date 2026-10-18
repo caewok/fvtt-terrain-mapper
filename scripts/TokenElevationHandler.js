@@ -185,11 +185,14 @@ export class TokenElevationHandler {
   }
 
   _initialize(start, end, levelId = canvas.level.id) {
-    // this._setStartAndEnd(start, end);
     this.start.copyFrom(start);
     this.end.copyFrom(end);
+    this._setStartAndEnd(start, end);
+
+    /*
     this.start.roundDecimals(1);
     this.end.roundDecimals(1);
+    */
 
     this.levelId = levelId;
     this.cutaways.length = 0;
@@ -480,7 +483,7 @@ export class TokenElevationHandler {
       const x = breakpoints[i];
 
       // Highest top wins.
-      let bestTop = this.#topAt(x, z, relevant);
+      const bestTop = this.#topAt(x, z, relevant);
       if ( bestTop === null ) {
         // No terrain covers x. Leaving terrain (or still in a gap between regions).
         z = mode === "burrowing" ? Math.min(z, floor)
@@ -489,14 +492,10 @@ export class TokenElevationHandler {
         addCheckpoint(tmpPt.set(x, z));
       } else {
         // Check if terrain exists just before x.
-        let bestTopBefore = null;
-        const testBefore = x - epsilon;
-        if ( testBefore >= tMin ) bestTopBefore = this.#topAt(testBefore, z, relevant);
+        const bestTopBefore = this.#topAt(x - epsilon, z, relevant);
 
         // Check if terrain exists just after x.
-        let bestTopAfter = null;
-        const testAfter = x + epsilon;
-        if ( testAfter <= tMax ) bestTopAfter = this.#topAt(testAfter, z, relevant);
+        const bestTopAfter = this.#topAt(x + epsilon, z, relevant);
 
         // If entering terrain from a gap/floor while walking, hold floor level first.
         if ( bestTopBefore === null && mode === "walking" && z < bestTop ) addCheckpoint(tmpPt.set(x, z)); // z is currently floor.
@@ -506,7 +505,7 @@ export class TokenElevationHandler {
         } else z = bestTop; // Ride the slope exactly if walking or burrowing.
         addCheckpoint(tmpPt.set(x, z));
 
-        // If existing terrain into a gap/floor while walking, drop down immediately at x.
+        // If existing terrain into a gap/floor while walking, drop down immediately at x unless the terrain continues beyond.
         if ( bestTopAfter === null && mode === "walking" ) {
           z = floor;
           addCheckpoint(tmpPt.set(x, z));
