@@ -111,11 +111,43 @@ export class PlateauTerrainRegionBehaviorType extends foundry.data.regionBehavio
   static defineSchema() {
     return {
       dialog: new foundry.data.fields.BooleanField({
-        label: `${MODULE_ID}.behavior.types.stairs.fields.dialog.name`,
-        hint: `${MODULE_ID}.behavior.types.stairs.fields.dialog.hint`,
+        label: `${MODULE_ID}.region-config.terrain.dialog.name`,
+        hint: `${MODULE_ID}.region-config.terrain.dialog.hint`,
         initial: false
       }),
     };
+  }
+
+  /** @override */
+  static events = {
+    [CONST.REGION_EVENTS.TOKEN_MOVE_IN]: this.#onTokenMoveIn,
+  };
+
+
+  /**
+   * @type {RegionEvent} event
+   *   - @prop {object} data        Data related to the event
+   *     - @prop {Token} token      Token triggering the event
+   *   - @prop {string} name        Name of the event type (e.g., "tokenEnter")
+   *   - @prop {RegionDocument}     Region for the event
+   *   - @prop {User} user          User that triggered the event
+   */
+  static async #onTokenMoveIn(event) {
+    log(`onTokenMoveIn: ${event.data.token.name}`);
+    if ( !this.dialog ) return;
+    if ( event.user !== game.user ) return;
+    const tokenD = event.data.token;
+
+    // Pause movement while we await the user dialog.
+    const resumeMovement = tokenD.pauseMovement();
+
+    // Await movement animation
+    if ( tokenD.rendered ) await tokenD.object?.movementAnimationPromise;
+
+    const content = game.i18n.localize(`${MODULE_ID}.phrases.terrain-onto`);
+    const moveOntoTerrain = await foundry.applications.api.DialogV2.confirm({ content, rejectClose: false, modal: true });
+    if ( moveOntoTerrain ) return resumeMovement ? resumeMovement() : undefined;
+    tokenD.stopMovement();
   }
 }
 

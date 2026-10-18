@@ -1,11 +1,13 @@
 /* globals
 CONST,
 foundry,
+game,
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
 import { MODULE_ID, FLAGS } from "../const.js";
+import { log } from "../util.js";
 
 export const PATCHES = {};
 PATCHES.REGIONS = {};
@@ -33,8 +35,8 @@ export class HillTerrainRegionBehaviorType extends foundry.data.regionBehaviors.
       }),
 
       dialog: new foundry.data.fields.BooleanField({
-        label: `${MODULE_ID}.behavior.types.stairs.fields.dialog.name`,
-        hint: `${MODULE_ID}.behavior.types.stairs.fields.dialog.hint`,
+        label: `${MODULE_ID}.region-config.terrain.dialog.name`,
+        hint: `${MODULE_ID}.region-config.terrain.dialog.hint`,
         initial: false
       }),
     };
@@ -43,12 +45,6 @@ export class HillTerrainRegionBehaviorType extends foundry.data.regionBehaviors.
   /** @override */
   static events = {
     [CONST.REGION_EVENTS.TOKEN_MOVE_IN]: this.#onTokenMoveIn,
-    [CONST.REGION_EVENTS.TOKEN_MOVE_OUT]: this.#onTokenMoveOut,
-    [CONST.REGION_EVENTS.TOKEN_MOVE_WITHIN]: this.#onTokenMoveWithin,
-    [CONST.REGION_EVENTS.TOKEN_ENTER]: this.#onTokenEnter,
-    [CONST.REGION_EVENTS.TOKEN_EXIT]: this.#onTokenExit,
-    [CONST.REGION_EVENTS.TOKEN_ANIMATE_IN]: this.#onTokenAnimateIn,
-    [CONST.REGION_EVENTS.TOKEN_ANIMATE_OUT]: this.#onTokenAnimateOut,
   };
 
 
@@ -61,78 +57,20 @@ export class HillTerrainRegionBehaviorType extends foundry.data.regionBehaviors.
    *   - @prop {User} user          User that triggered the event
    */
   static async #onTokenMoveIn(event) {
-    console.debug(`onTokenMoveIn: ${event.data.token.name}`);
-  }
+    log(`onTokenMoveIn: ${event.data.token.name}`);
+    if ( !this.dialog ) return;
+    if ( event.user !== game.user ) return;
+    const tokenD = event.data.token;
 
-  /**
-   * @type {RegionEvent} event
-   *   - @prop {object} data        Data related to the event
-   *     - @prop {Token} token      Token triggering the event
-   *   - @prop {string} name        Name of the event type (e.g., "tokenEnter")
-   *   - @prop {RegionDocument}     Region for the event
-   *   - @prop {User} user          User that triggered the event
-   */
-  static async #onTokenMoveOut(event) {
-    console.debug(`onTokenMoveOut: ${event.data.token.name}`);
-  }
+    // Pause movement while we await the user dialog.
+    const resumeMovement = tokenD.pauseMovement();
 
-  /**
-   * @type {RegionEvent} event
-   *   - @prop {object} data        Data related to the event
-   *     - @prop {Token} token      Token triggering the event
-   *   - @prop {string} name        Name of the event type (e.g., "tokenEnter")
-   *   - @prop {RegionDocument}     Region for the event
-   *   - @prop {User} user          User that triggered the event
-   */
-  static async #onTokenMoveWithin(event) {
-    console.debug(`onTokenMoveWithin: ${event.data.token.name}`);
-  }
+    // Await movement animation
+    if ( tokenD.rendered ) await tokenD.object?.movementAnimationPromise;
 
-  /**
-   * @type {RegionEvent} event
-   *   - @prop {object} data        Data related to the event
-   *     - @prop {Token} token      Token triggering the event
-   *   - @prop {string} name        Name of the event type (e.g., "tokenEnter")
-   *   - @prop {RegionDocument}     Region for the event
-   *   - @prop {User} user          User that triggered the event
-   */
-  static async #onTokenEnter(event) {
-    console.debug(`onTokenEnter: ${event.data.token.name}`);
-  }
-
-  /**
-   * @type {RegionEvent} event
-   *   - @prop {object} data        Data related to the event
-   *     - @prop {Token} token      Token triggering the event
-   *   - @prop {string} name        Name of the event type (e.g., "tokenEnter")
-   *   - @prop {RegionDocument}     Region for the event
-   *   - @prop {User} user          User that triggered the event
-   */
-  static async #onTokenExit(event) {
-    console.debug(`onTokenExit: ${event.data.token.name}`);
-  }
-
-  /**
-   * @type {RegionEvent} event
-   *   - @prop {object} data        Data related to the event
-   *     - @prop {Token} token      Token triggering the event
-   *   - @prop {string} name        Name of the event type (e.g., "tokenEnter")
-   *   - @prop {RegionDocument}     Region for the event
-   *   - @prop {User} user          User that triggered the event
-   */
-  static async #onTokenAnimateIn(event) {
-    console.debug(`onTokenAnimateIn: ${event.data.token.name}`);
-  }
-
-  /**
-   * @type {RegionEvent} event
-   *   - @prop {object} data        Data related to the event
-   *     - @prop {Token} token      Token triggering the event
-   *   - @prop {string} name        Name of the event type (e.g., "tokenEnter")
-   *   - @prop {RegionDocument}     Region for the event
-   *   - @prop {User} user          User that triggered the event
-   */
-  static async #onTokenAnimateOut(event) {
-    console.debug(`onTokenAnimateOut: ${event.data.token.name}`);
+    const content = game.i18n.localize(`${MODULE_ID}.phrases.terrain-onto`);
+    const moveOntoTerrain = await foundry.applications.api.DialogV2.confirm({ content, rejectClose: false, modal: true });
+    if ( moveOntoTerrain ) return resumeMovement ? resumeMovement() : undefined;
+    tokenD.stopMovement();
   }
 }
