@@ -8,17 +8,48 @@ PIXI,
 
 import { MODULE_ID } from "../const.js";
 import { HillDrawingManager } from "../regions/HillDrawingManager.js";
-import { ExtrudedPolygonPrimitiveWithHoles } from "../geometry/placeable_geometry/ModelGeometricPrimitive.js";
+import { ExtrudedPolygonPrimitive } from "../geometry/placeable_geometry/ModelGeometricPrimitive.js";
 import { Point3d } from "../geometry/3d/Point3d.js";
 import { Polygon3d, Triangle3d, Quad3d } from "../geometry/3d/Polygon3d.js";
 import { Delaunay } from "../geometry/d3-delaunay.js";
-import { roundDecimals, cleanPolygonPoints } from "../geometry/util.js";
+import { roundDecimals, cleanPolygonPoints, calculateEvenlySpacedValues } from "../geometry/util.js";
 
 /**
  * Steps. Closely related to ramps.
  * Use the model primitive b/c as number of steps change, so does the shape.
  */
-export class HillPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
+export class HillPrimitive extends ExtrudedPolygonPrimitive {
+
+   constructor(id, prototypeFaces) {
+    super(id, prototypeFaces);
+
+    // 1 base, ... tops, ... sides
+    this._numTopFaces = this.prototypeFaces.findIndex(face => face.plane.normal.z.almostEqual(0)) - 1;
+  }
+
+  /** @type {enum<string>} */
+  hillType = "linear";
+
+  /** @type {BézierCurve} */
+  curve = HillDrawingManager.defaultCurve();
+
+  _numTopFaces = 1;
+
+  /** @type {Polygon3d[]} */
+  get topFaces() { return this.faces.slice(1, 1 + this._numTopFaces); }
+
+  /** @type {Polygon3d[]} */
+  get sideFaces() { return this.faces.slice(1 + this._numTopFaces);}
+
+  /**
+   * Vertices for the prototype's side walls only.
+   * By default, every prototype face after the bottom (0) and top (1) faces.
+   * Therefore assumes an extruded shape, which may require subclasses to override.
+   * @type {VertexObject}
+   */
+  get sidesVO() {
+    return (this._sidesVO ??= this.constructor.generateVerticesForFaces(this.prototypeFaces.slice(1 + this._numTopFaces)));
+  }
 
   /**
    * Build an extruded steps shape (top face is steps) from a 2d polygon.
@@ -57,10 +88,10 @@ export class HillPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
    */
   static _facesFromPolygon(poly, opts) {
     // Polygon3d base.
-    const bottom = Polygon3d.fromPolygon(poly, opts.bottomZ);
+    const bottom = Polygon3d.fromPolygon(poly, { elevationZ: opts.bottomZ });
     bottom.reverseOrientation();
-
-    return [bottom, ...this.extrudeHillShape([poly], opts)];
+    const { topMesh, sides} = this.extrudeHillShape([poly], opts);
+    return [bottom, ...topMesh, ...sides];
   }
 
 
@@ -101,7 +132,7 @@ export class HillPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
 
     // Build the sides.
     const sides = this._buildSidesFromLattice(topMesh, floorZ);
-    return [...topMesh, ...sides];
+    return { topMesh, sides };
   }
 
   /**
@@ -127,10 +158,14 @@ export class HillPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
 
     const floorZ = base.polygons ? base.polygons[0].points[0].z : base.points[0].z;
     const polys = base.polygons ? base.toPolygon2d() : [base.toPolygon2d()];
-    const hillShape = this.extrudeHillShape(polys, { curve, topZ, groundZ, floorZ, type });
-    const faces = [base, ...hillShape];
+    const { topMesh, sides} = this.extrudeHillShape(polys, { curve, topZ, groundZ, floorZ, type });
+
+    const faces = [base, ...topMesh, ...sides];
     const protoFaces = this.canvasToPrototypeFaces(faces, opts);
-    return new this(id, protoFaces);
+    const out = new this(id, protoFaces);
+    out.type = type;
+    out.curve = curve;
+    return out;
   }
 
   /**
@@ -319,6 +354,118 @@ export class HillPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
     }
 
     return ptsLattice;
+  }
+
+  // ----- NOTE: Elevation testing ----- //
+
+
+  get baseFace() { return this.faces[0]; }
+
+  get bottomZ() { return this.baseFace.plane.point.z; }
+
+  get topZ() {
+    let topZ = Number.NEGATIVE_INFINITY;
+    this.faces.slice(1).forEach(f => {
+      for ( const poly of f.polygons || [f] ) {
+        topZ = Math.max(topZ, ...poly.points.map(pt => pt.z));
+      }
+    });
+    return topZ;
+  }
+
+
+  /**
+   * Elevation at a canvas location.
+   * @param {PIXI.Point} canvasLoc
+   * @returns {number|null} Z-value in pixel units or null if not within the ramp.
+   */
+  elevationAtCanvasLocation(canvasLoc, { topZ, bottomZ, testContainment = true } = {}) {
+    if ( testContainment && !this.baseFace.containsProjectedXY(canvasLoc) ) return null;
+    const percent = HillDrawingManager._hillPercentHeightAtPoint(canvasLoc, this.hillType, this.curve);
+
+    // Estimate top and bottom from the faces if not provided.
+    bottomZ ??= this.bottomZ;
+    topZ ??= this.topZ;
+    const zHeight = topZ - bottomZ
+    return bottomZ + (zHeight * percent);
+  }
+
+
+  // ----- NOTE: Vertical slice ----- //
+
+  /**
+   * Slice this 3d shape with a vertical plane, returning 2d cross-section(s) as CutawayPolygons.
+   * Correctly handles shapes with holes (internal cavities, Polygons3d hole faces, etc.).
+   * @param {PIXI.Point|Point3d} start     Starting point of the slice on the XY plane
+   * @param {PIXI.Point|Point3d} end       Ending point of the slice on the XY plane
+   * @returns {CutawayPolygon[]} Array of CutawayPolygon cross-sections (solids and holes)
+   */
+  verticalSlice(start, end, { topZ, hillSampleSpacing = CONFIG[MODULE_ID].hillSampleSpacing } = {}) {
+    // The base signifies the holes.
+    // Build the cutaways with a mock topZ.
+    const bottomZ = this.bottomZ;
+    const mockTopZ = bottomZ + 100;
+    const cutaways = super.verticalSlice(start, end, { topZ: mockTopZ, bottomZ });
+    if ( !cutaways.length ) return cutaways;
+
+    // Can sample evenly across the hill to get the top elevations.
+    // This is smoother than relying on the polygon mesh.
+    const opts = { topZ: topZ ?? this.topZ, bottomZ, testContainment: false };
+    const spacer = canvas.grid.size * hillSampleSpacing;
+    using a3d = Point3d.tmp;
+    using b3d = Point3d.tmp;
+    using dir = Point3d.tmp;
+    using newPt3d = Point3d.tmp;
+    using newPt = PIXI.Point.tmp;
+    for ( const cutaway of cutaways ) {
+      // Locate the top edge of the quad.
+      let i = 0;
+      let a;
+      let b;
+      for ( const edge of cutaway.iterateEdges() ) {
+        a = edge.a;
+        b = edge.b;
+        if ( a.y === mockTopZ && b.y === mockTopZ ) break;
+        i += 2; // Edges share points, so advance one point at a time.
+      }
+      if ( !a ) break; // Should not happen.
+
+      // Convert to canvas.
+      cutaway._from2d(a, a3d);
+      cutaway._from2d(b, b3d);
+
+      // Insert new points along the a|b line.
+      b3d.subtract(a3d, dir).normalize(dir);
+      const dist = Point3d.distanceBetween(a3d, b3d);
+      const ts = [0, ...calculateEvenlySpacedValues(0, dist, spacer), dist];
+      let j = 0;
+      const newPtsArr = new Array(ts.length * 2);
+      for ( const t of ts ) {
+        a3d.add(dir.multiplyScalar(t, newPt3d), newPt3d);
+        newPt3d.z = this.elevationAtCanvasLocation(newPt3d, opts);
+        cutaway._to2d(newPt3d, newPt);
+        newPtsArr[j++] = newPt.x;
+        newPtsArr[j++] = newPt.y;
+      }
+
+      // Remove the existing a/b.
+      if ( i === cutaway.points.length - 1) {
+        cutaway.points.splice(i, 2);
+        cutaway.points.splice(0, 2);
+      } else cutaway.points.splice(i, 4);
+
+      // Put the new points back in the cutaway
+      cutaway.points.splice(i, 0, ...newPtsArr);
+
+    }
+
+    // Reverse orientation if the shape is a hole. Cutaway holes are isPositive === true.
+    const isHole = this.isHole;
+    cutaways.forEach(poly => {
+      if ( poly.isPositive ^ isHole ) poly.reverseOrientation();
+    });
+
+    return cutaways;
   }
 
 }

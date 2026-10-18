@@ -51,7 +51,11 @@
   "documentTypes": {
     "RegionBehavior": {
       "setElevation": {},
-      "elevator": {}
+      "elevator": {},
+      "plateauTerrain": {},
+      "rampTerrain": {},
+      "stepsTerrain": {},
+      "hillTerrain": {}
     }
   },
 

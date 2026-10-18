@@ -162,7 +162,35 @@ export function trimCutawayPolygonWithVerticalHole(parentPoly, holePoly) {
   return resultPolygons;
 }
 
+/**
+ * Faster version of PlaceableDocument#getFlag.
+ * Keyed to this module. Does not handle nested flag properties (use only the base flag property).
+ * @param {PlaceableDocument} placeableD
+ * @param {string} flag
+ * @returns {*} Flag at that position or undefined.
+ */
+export function fastFlag(placeableD, flag) { return placeableD.flags[MODULE_ID]?.[flag]; }
 
 
+/**
+ * For a given array of {min, max} intervals, sort and merge overlapping.
+ * @param {object<min: number, max: number>[]} intervals
+ * @returns {object<min: number, max: number>[]}
+ */
+export function mergeIntervals(intervals) {
+  intervals.sort((a, b) => a.min - b.min);
+  const mergedIntervals = [];
+  const iter = intervals.values();
+  mergedIntervals.push(iter.next().value);
+  let last = mergedIntervals[0];
+  for ( const curr of iter ) {
+    if ( curr.min < last.max ) last.max = Math.max(last.max, curr.max);
+    else {
+      mergedIntervals.push(curr);
+      last = curr;
+    }
+  }
+  return mergedIntervals;
+}
 
 

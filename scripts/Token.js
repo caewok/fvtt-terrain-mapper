@@ -1,8 +1,6 @@
 /* globals
 canvas,
 CONFIG,
-CONST,
-game,
 PIXI,
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
@@ -22,8 +20,8 @@ Hook token movement to add/remove terrain effects and pause tokens dependent on 
 
 import { MODULE_ID, FLAGS } from "./const.js";
 import { log } from "./util.js";
-import { TokenElevationHandler } from "./TokenElevationHandler.js";
 import { ElevatedPoint } from "./geometry/3d/ElevatedPoint.js";
+import { TokenElevationHandler } from "./TokenElevationHandler.js";
 
 export const PATCHES = {};
 PATCHES.BASIC = {};
@@ -81,9 +79,12 @@ function createTerrainMovementPath(wrapped, waypoints, options) {
   log(`createTerrainMovementPath|Initial Waypoints: ${waypoints.length} waypoints: ${ElevatedPoint.fromObject(waypoints[0])} --> ${ElevatedPoint.fromObject(waypoints.at(-1))}`);
   if ( CONFIG[MODULE_ID].debug ) console.table(waypoints);
 
-  // Check if this is a basic elevation change. Allow, disallow, allow with elevation change.
+  // Check if this is a basic elevation change.
   waypoints = waypoints.filter((pt, idx) => idx === 0 || (!pt.intermediate && (pt.explicit || pt.checkpoint)));
   const tm = this[MODULE_ID];
+
+
+  if ( waypoints.length >= 2 && PIXI.Point.distanceBetween(waypoints.at(-2), waypoints.at(-1)) > 500 ) log(`Longer waypoint path.`);
 
   // Testing
   // if ( waypoints.length > 2 ) console.log("Waypoints", waypoints);
@@ -107,15 +108,6 @@ function createTerrainMovementPath(wrapped, waypoints, options) {
     const a = _centerWaypoint(start, this);
     const b = _centerWaypoint(next, this);
     tm._initialize(a, b);
-
-    // If no regions or tiles, just allow the movement to continue as is.
-    // Somewhat avoids issue where cannot change elevation when on the canvas, which can be unexpected.
-    // Avoids having to explicitly set constrain movement to false in a scene.
-    if ( !(tm.regions.length || (tm.tiles.length) )  ) {
-      newWaypoints.push(next);
-      start = next;
-      continue;
-    }
 
     const path = tm.constructPath(a, b, { flying, burrowing, walking, initialize: false });
     path.forEach(pt => _uncenterPathPointInPlace(pt, this));
@@ -185,6 +177,7 @@ function _uncenterPathPointInPlace(pathPt, token) {
 }
 
 
+
 PATCHES.BASIC.WRAPS = {
   createTerrainMovementPath,
   };
@@ -227,11 +220,9 @@ PATCHES.BASIC.METHODS = {
   getTopLeft
 };
 
-// ----- NOTE: Helper functions ----- //
 
 
-
-// ----- NOTE: Getters ----- //
+// ------ NOTE: Getters ------ //
 
 /**
  * New getter: Token#terrainmapper

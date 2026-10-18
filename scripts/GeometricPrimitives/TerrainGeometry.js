@@ -1,4 +1,6 @@
 /* globals
+foundry,
+Hooks,
 PIXI,
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
@@ -10,14 +12,14 @@ import { RampPrimitive } from "./Ramp.js";
 import { HillPrimitive } from "./Hill.js";
 import { HillDrawingManager } from "../regions/HillDrawingManager.js";
 import { SceneElevationHandler } from "../regions/RegionElevationHandler.js";
+import { fastFlag } from "../util.js";
 
 // Geometry
-import { CombinedGeometricPrimitive } from "../geometry/placeable_geometry/CombinedGeometricPrimitive.js";
 import { RegionGeometry } from "../geometry/placeable_geometry/RegionGeometry.js";
 import { EmptyGeometricPrimitive } from "../geometry/placeable_geometry/EmptyGeometricPrimitive.js";
 
-
 // LibGeometry
+import { Polygons3d } from "../geometry/3d/Polygon3d.js";
 import { Point3d } from "../geometry/3d/Point3d.js";
 import { gridUnitsToPixels } from "../geometry/util.js";
 import { Matrix } from "../geometry/Matrix.js";
@@ -36,54 +38,42 @@ Hill: Base shape + hill
 
 // ----- NOTE: Terrain combined geometry shape classes ----- //
 
-/**
- * Base shape + ramp
- */
-class CombinedTerrainPrimitive extends CombinedGeometricPrimitive {
-
-  /**
-   * @param {string} id
-   * @param {GeometricPrimitive} baseShape
-   * @param {GeometricPrimitive} hillShape
-   * @returns {CombinedHillPrimitive}
-   */
-  static create(id, baseShape, topShape) {
-    // Base shapes and top shapes should not require any model-specific transforms;
-    // everything is handled by the world matrix.
-    // Accordingly, reset the model matrix to the identity matrix.
-    baseShape.setPosition({ x: 0, y: 0, z: 0 });
-    baseShape.setRotation({ x: 0, y: 0, z: 0 });
-    baseShape.setScale({ x: 1, y: 1, z: 1 });
-    baseShape.setAnchor({ x: 0, y: 0, z: 0 });
-
-    topShape.setPosition({ x: 0, y: 0, z: 0 });
-    topShape.setRotation({ x: 0, y: 0, z: 0 });
-    topShape.setScale({ x: 1, y: 1, z: 1 });
-    topShape.setAnchor({ x: 0, y: 0, z: 0 });
-
-    const combinedShape = CombinedGeometricPrimitive.create(id);
-    combinedShape.addShape(baseShape);
-    combinedShape.addShape(topShape);
-    return combinedShape;
-  }
-}
-
-
 export class TerrainGeometry extends RegionGeometry {
 
   static UPDATE_KEY_MAP = new Map([
     ...super.UPDATE_KEY_MAP,
-    [`flags.${MODULE_ID}.${FLAGS.REGION.TERRAIN.TYPE}`, "terrainType"], // Triggers rebuild of the shape.
-    [`flags.${MODULE_ID}.${FLAGS.REGION.PLATEAU_ELEVATION}`, "plateauElevation"],
+    [`${MODULE_ID}.plateauTerrain.create`, "terrainType"],
+    [`${MODULE_ID}.plateauTerrain.delete`, "terrainType"],
+
+    [`${MODULE_ID}.rampTerrain.create`, "terrainType"],
+    [`${MODULE_ID}.rampTerrain.delete`, "terrainType"],
+
+    [`${MODULE_ID}.stepsTerrain.create`, "terrainType"],
+    [`${MODULE_ID}.stepsTerrain.delete`, "terrainType"],
+
+    [`${MODULE_ID}.hillTerrain.create`, "terrainType"],
+    [`${MODULE_ID}.hillTerrain.delete`, "terrainType"],
+
+    // [`flags.${MODULE_ID}.${FLAGS.REGION.TERRAIN.TYPE}`, "terrainType"], // Triggers rebuild of the shape.
+    // [`flags.${MODULE_ID}.${FLAGS.REGION.PLATEAU_ELEVATION}`, "plateauElevation"],
 
     // Ramps
-    [`flags.${MODULE_ID}.${FLAGS.REGION.RAMP.FLOOR}`, "terrainBottom"],
-    [`flags.${MODULE_ID}.${FLAGS.REGION.RAMP.DIRECTION}`, "rampDirection"],
-    [`flags.${MODULE_ID}.${FLAGS.REGION.RAMP.STEP_SIZE}`, "steps"],
+    [`${MODULE_ID}.rampTerrain.system.direction`, "rampDirection"],
+
+    // [`flags.${MODULE_ID}.${FLAGS.REGION.RAMP.FLOOR}`, "terrainBottom"],
+    // [`flags.${MODULE_ID}.${FLAGS.REGION.RAMP.DIRECTION}`, "rampDirection"],
+
+    // Steps
+    [`${MODULE_ID}.stepsTerrain.system.direction`, "rampDirection"],
+    [`${MODULE_ID}.stepsTerrain.system.stepSize`, "steps"],
+
+    // [`flags.${MODULE_ID}.${FLAGS.REGION.RAMP.STEP_SIZE}`, "steps"],
 
     // Hills
-    [`flags.${MODULE_ID}.${FLAGS.REGION.HILL.CURVE}`, "hill"],
-    [`flags.${MODULE_ID}.${FLAGS.REGION.HILL.TYPE}`, "hill"],
+    [`${MODULE_ID}.hillTerrain.system.type`, "hill"],
+
+    // [`flags.${MODULE_ID}.${FLAGS.REGION.HILL.CURVE}`, "hill"],
+    // [`flags.${MODULE_ID}.${FLAGS.REGION.HILL.TYPE}`, "hill"],
   ]);
 
 
@@ -99,53 +89,46 @@ export class TerrainGeometry extends RegionGeometry {
     if ( !this.constructor.isElevated(regionD)
       || this.constructor.isPlateau(regionD) ) return false;
 
-    // If the user sets the top and bottom equal, no top terrain.
-    const terrainElev = this.terrainElevationZ;
+    // If the user sets the top and bottom equal, no terrain.
+    const terrainElev = this.elevationZ;
     return (terrainElev.topZ - terrainElev.bottomZ).strictlyGreaterThan(0); // height > 0.
   }
 
   /**
-   * Instantiate the correct primitive shape based on constraints and type.
-   * @param {RegionShape} regionShape
-   * @param {RegionShape[]} holeShapes
-   * @param {string} id
-   * @param {GeometricPrimitive}
+   * Create a geometric primitive representing the region shape at the given index.
+   * @param {number} i      Index of the region shape in region.document.shapes
+   * @returns {GeometricPrimitive}
    */
-  _instantiateShape(regionShape, holeShapes, id) {
-    const baseShape = super._instantiateShape(regionShape, holeShapes, id);
-    if ( !baseShape.faces.length ) return baseShape; // Skip empty shapes.
+  _createBaseShape(i) {
+    // Terrains cannot be holes because holes in regions cut all the way through.
+    // If the region is not a terrain or the shape is a hole, use the original base shape.
+    const baseShape = super._createBaseShape(i);
+    const regionShape = this.regionShapes[i];
+    if ( regionShape.hole || !this.hasTerrainShape ) return baseShape;
 
-    if ( this.hasTerrainShape ) {
-      try {
-      const regionD = this.placeableDocument;
-      let opts = this._shapeDimensions(regionShape);
+    // Update the dimensions of the base shape in order to estimate the prototype terrain shape.
+    this.baseShapes[i] = baseShape;
+    this._updateShapeDimensions(i);
 
-      // Set the base shape dimensions; needed so we can build the top on the base dimensions.
-      // See _updateShapeDimensions.
-      baseShape.setPosition(opts.center);
-      baseShape.setRotation(opts.angles);
-      baseShape.setScale(opts.dims);
-      baseShape.setAnchor(opts.anchors);
+    // Get the solid base(s) and build a terrain for each.
+    let terrainBases = baseShape.bottomFaces;
+    terrainBases = terrainBases.length > 1 ? Polygons3d.from3dPolygons(terrainBases) : terrainBases[0];
 
-      const terrainElev = this.terrainElevationZ;
-      opts.bottomZ = terrainElev.bottomZ;
-      opts.topZ = terrainElev.topZ;
+    const regionD = this.placeableDocument;
+    const id = this._shapeId(i);
 
-      // Build the terrain for only this specific region shape's polygons.
-      const terrainBase = baseShape.faces[0].clone(); // Top of the base is bottom of the terrain shape.
-      terrainBase.reverseOrientation();
-
-      let terrainShape;
-      if ( this.constructor.isRamp(regionD) ) {
+    const TERRAIN_TYPES = this.constructor.TERRAIN_TYPES;
+    let opts = this._shapeDimensions(regionShape);
+    switch ( this.constructor.terrainType(regionD) ) {
+      case TERRAIN_TYPES.RAMP: {
         opts = { ...opts, ...this.#rampParameters };
-        terrainShape = RampPrimitive.fromBasePolygon3d(id, terrainBase, opts);
+        return RampPrimitive.fromBasePolygon3d(id, terrainBases, opts);
       }
-
-      else if ( this.constructor.isSteps(regionD) ) {
+      case TERRAIN_TYPES.STEPS: {
         // So the steps are facing the correct way, rotate the base shape so steps run along the x axis from low to high.
-        let rotTerrainBase = terrainBase;
+        let rotTerrainBase = terrainBases;
         if ( this.#stepParameters.rampDir ) {
-          rotTerrainBase = terrainBase.transform(this.#stepParameters.M);
+          rotTerrainBase = terrainBases.transform(this.#stepParameters.M);
 
           // Modify the rotation to account for the temporary rotation when building the prototype faces in StepsPrimitive.
           opts.angles.z -= this.#stepParameters.rampDir;
@@ -153,30 +136,15 @@ export class TerrainGeometry extends RegionGeometry {
 
         // Build the steps.
         opts = { ...opts, ...this.#stepParameters };
-        terrainShape = StepsPrimitive.fromBasePolygon3d(id, rotTerrainBase, opts);
+        return StepsPrimitive.fromBasePolygon3d(id, rotTerrainBase, opts);
       }
-
-      else if ( this.constructor.isHill(regionD) ) {
-         opts = { ...opts, ...this.#hillParameters };
-         opts.groundZ = this.constructor.rampFloor(regionD);
-         terrainShape = HillPrimitive.fromBasePolygon3d(id, terrainBase, opts);
+      case TERRAIN_TYPES.HILL: {
+        opts = { ...opts, ...this.#hillParameters };
+        opts.groundZ = this.constructor.hillGroundElevation(regionD);
+        return HillPrimitive.fromBasePolygon3d(id, terrainBases, opts);
       }
-
-      if ( this.hasBaseShape ) {
-        // Drop the top of the base shape and bottom of the terrain shape.
-        // Top of the base shape should be first, as should the bottom of the terrain shape.
-        // If this becomes problematic, could search by plane.normal for z === -1 and z === 1.
-        baseShape.prototypeFaces.shift();
-        terrainShape.prototypeFaces.shift(); // Terrain shapes have bottom at 0, followed by complex top.
-        return CombinedTerrainPrimitive.create(id, baseShape, terrainShape);
-      }
-      else return terrainShape;
-
-      } catch ( err ) { console.error(err); } // Fall to the base shape option.
+      default: return new EmptyGeometricPrimitive(id);
     }
-
-    if ( this.hasBaseShape ) return baseShape;
-    return new EmptyGeometricPrimitive(id);
   }
 
   // Cache terrain data that is based on the entire region shape.
@@ -207,13 +175,20 @@ export class TerrainGeometry extends RegionGeometry {
   }
 
   createShapes() {
+    this._updateTerrainData();
+    return super.createShapes();
+  }
+
+  _updateTerrainData() {
     const regionD = this.placeableDocument;
     if ( this.regionShapes.length !== 0 ) {
-      if ( this.constructor.isSteps(regionD) ) this._updateStepsData();
-      else if ( this.constructor.isRamp(regionD) ) this._updateRampData();
-      else if ( this.constructor.isHill(regionD) ) this._updateHillData();
+      const TERRAIN_TYPES = this.constructor.TERRAIN_TYPES;
+      switch ( this.constructor.terrainType(regionD) ) {
+        case TERRAIN_TYPES.STEPS: this._updateStepsData(); break;
+        case TERRAIN_TYPES.RAMP: this._updateRampData(); break;
+        case TERRAIN_TYPES.HILL: this._updateHillData(); break;
+      }
     }
-    return super.createShapes();
   }
 
   #stepDimensions(polygons) {
@@ -258,10 +233,12 @@ export class TerrainGeometry extends RegionGeometry {
     // Plateau elevation updated: rebuild terrain + base if ramp/steps/hill; adjust dimensions if plateau
 
     // Update cached terrain-specific data.
-    if ( this.activeUpdates.has("hill") ) this._updateHillData();
-    if ( this.activeUpdates.has("rampDirection") ) { this._updateRampData(); this._updateStepsData(); }
-    else if ( this.activeUpdates.has("steps") ) this._updateStepsData();
 
+    const terrainDataUpdateNeeded = this.activeUpdates.has("terrainType")
+      || this.activeUpdates.has("hill")
+      || this.activeUpdates.has("rampDirection")
+      || this.activeUpdates.has("steps");
+    if ( terrainDataUpdateNeeded ) this._updateTerrainData();
 
     // Evaluate if terrain parameter changes necessitate a full rebuild.
     const regionD = this.placeableDocument;
@@ -282,31 +259,31 @@ export class TerrainGeometry extends RegionGeometry {
    * @param {RegionShape[]} holes
    * @returns {string}
    */
-  _getStructuralSignature(regionShape, holes = []) {
-    const baseSignature = super._getStructuralSignature(regionShape, holes);
+  _getStructuralSignature(regionShape) {
+    const baseSignature = super._getStructuralSignature(regionShape);
     if ( baseSignature === "empty" ) return baseSignature;
 
     const regionD = this.placeableDocument;
+    const parts = [baseSignature];
+    const TERRAIN_TYPES = this.constructor.TERRAIN_TYPES
+    switch ( this.constructor.terrainType(regionD) ) {
+      case TERRAIN_TYPES.NONE:
+      case TERRAIN_TYPES.PLATEAU: return baseSignature;
 
-    // Append the primary terrain algorithm.
-    const parts = [baseSignature, `terrainType:${this.constructor.algorithm(regionD)}`]
-
-    // Append properties that structurally alter the top geometry.
-    if ( this.constructor.isElevated(regionD) ) {
-      parts.push(`plateauElev:${this.constructor.terrainTop(regionD)}`)
-      if ( !this.constructor.isPlateau(regionD) ) {
-        parts.push(`terrainBottom:${this.constructor.terrainBottom(regionD)}`);
-        if ( this.constructor.isSteps(regionD) ) {
-          parts.push(`stepSize:${this.constructor.rampStepSize(regionD)}`);
-        } else if ( this.constructor.isRamp(regionD) || this.constructor.isSteps(regionD) ) {
-          parts.push(`rampDir:${this.constructor.rampDirection(regionD)}`);
-        } else if ( this.constructor.isHill(regionD) ) {
-          parts.push(`hillType:${this.constructor.hillType(regionD)}`);
-          parts.push(`hillCurve:${this.constructor.hillData(regionD).join(",")}`);
-        }
-      }
+      // Append properties that structurally alter the terrain geometry.
+      case TERRAIN_TYPES.RAMP:
+        parts.push(`rampDir:${this.constructor.rampDirection(regionD)}`);
+        break;
+      case TERRAIN_TYPES.STEPS:
+        parts.push(`rampDir:${this.constructor.rampDirection(regionD)}`);
+        parts.push(`stepSize:${this.constructor.stepSize(regionD)}`);
+        break;
+      case TERRAIN_TYPES.HILL:
+        parts.push(`rampDir:${this.constructor.rampDirection(regionD)}`);
+        parts.push(`hillType:${this.constructor.hillType(regionD)}`);
+        parts.push(`hillCurve:${this.constructor.hillData(regionD).join(",")}`);
+        break;
     }
-
     return parts.join("|");
   }
 
@@ -318,9 +295,10 @@ export class TerrainGeometry extends RegionGeometry {
    * @returns {PIXI.Point[]}
    */
   _calculateRampPlane(polygons) {
-    const topZ = this.constructor.terrainTop(this.placeableDocument);
-    const rampFloor = this.constructor.terrainBottom(this.placeableDocument);
-    const rampDir = this.constructor.rampDirection(this.placeableDocument);
+    const regionD = this.placeableDocument
+    const bottomZ = this.elevationZ.bottomZ;
+    const rise = this.constructor.zHeight(regionD);
+    const rampDir = this.constructor.rampDirection(regionD);
 
     // Calculate the lowest and highest points on the plane.
 		// 0º is due south (0, 1), 90º is due west (1, 0)
@@ -351,12 +329,11 @@ export class TerrainGeometry extends RegionGeometry {
     if ( !(minPoint && maxPoint) || minProj === maxProj ) throw new Error("Ramp direction does not span a valid polygon area.");
 
     // Define 3d low and high points.
-    const low3d = Point3d.tmp.set(minPoint.x, minPoint.y, rampFloor);
+    const low3d = Point3d.tmp.set(minPoint.x, minPoint.y, bottomZ);
     // const high3d = Point3d.tmp.set(maxPoint.x, maxPoint.y, topZ);
 
     // Calculate 3d normal vector.
     const run = maxProj - minProj;
-    const rise = topZ - rampFloor;
 
     // Normalized 3d normal vector pointing orthogonally "up" from the ramp surface.
     const len = Math.hypot(rise, run);
@@ -367,29 +344,142 @@ export class TerrainGeometry extends RegionGeometry {
     });
   }
 
+  // ----- NOTE: Elevation testing ----- //
+
+  /**
+   * Elevation at a canvas location for a hill.
+   * @param {PIXI.Point} canvasLoc
+   * @param {boolean} [testContainment=true]
+   * @returns {number|null} Z-value in pixel units or null if not within the ramp.
+   */
+  hillZAtPoint(canvasLoc, { testContainment = true } = {}) {
+    const elevs = this.elevationZ;
+    const zs = this.shapes.map(s => s.elevationAtCanvasLocation(canvasLoc, { ...elevs, testContainment }));
+    return Math.max(...zs);
+  }
+
+  /**
+   * Elevation at a canvas location for a ramp.
+   * @param {PIXI.Point} canvasLoc
+   * @returns {number|null} Z-value in pixel units or null if not within the ramp.
+   */
+  rampZAtPoint(canvasLoc, { testContainment = true } = {}) {
+    const zs = this.shapes.map(s => s.elevationAtCanvasLocation(canvasLoc, { testContainment }));
+    return Math.max(...zs);
+  }
+
+  /**
+   * Elevation at a canvas location for a plateau.
+   * @param {PIXI.Point} canvasLoc
+   * @returns {number|null} Z-value in pixel units or null if not within the ramp.
+   */
+  plateauZAtPoint(canvasLoc, { testContainment = true } = {}) {
+    if ( testContainment && !this.shapes.some(s => s.containsProjectedXY(canvasLoc)) ) return null;
+    return this.elevationZ.topZ;
+  }
+
+  /**
+   * Elevation at a canvas location for a plateau.
+   * @param {PIXI.Point} canvasLoc
+   * @returns {number|null} Z-value in pixel units or null if not within the ramp.
+   */
+  stepsZAtPoint(canvasLoc, { testContainment = true } = {}) {
+    const zs = this.shapes.map(s => s.elevationAtCanvasLocation(canvasLoc, { testContainment }));
+    return Math.max(...zs);
+  }
+
+  /**
+   * Elevation at a canvas location.
+   * @param {PIXI.Point} canvasLoc
+   * @returns {number|null} Z-value in pixel units or null if not within the ramp.
+   */
+  elevationAtCanvasLocation(canvasLoc, { testContainment = true } = {}) {
+    const TERRAIN_TYPES = this.constructor.TERRAIN_TYPES;
+    const regionD = this.placeableDocument;
+    switch ( this.constructor.terrainType(regionD) ) {
+      case TERRAIN_TYPES.NONE: return null;
+      case TERRAIN_TYPES.PLATEAU: return this.plateauZAtPoint(canvasLoc, { testContainment });
+      case TERRAIN_TYPES.RAMP: return this.rampZAtPoint(canvasLoc, { testContainment });
+      case TERRAIN_TYPES.STEPS: return this.stepsZAtPoint(canvasLoc, { testContainment });
+      case TERRAIN_TYPES.HILL: return this.hillZAtPoint(canvasLoc, { testContainment });
+    }
+  }
+
   // ----- NOTE: Static properties for terrains ----- //
+
+  /** @type {enum<string>} */
+  static TERRAIN_TYPES = {
+    NONE: "none",
+    PLATEAU: `${MODULE_ID}.plateauTerrain`,
+    RAMP: `${MODULE_ID}.rampTerrain`,
+    STEPS:`${MODULE_ID}.stepsTerrain`,
+    HILL: `${MODULE_ID}.hillTerrain`,
+  };
+
+  /** @type {Set<TERRAIN_TYPES>} */
+  static ELEVATED_TYPES = new Set([
+      this.TERRAIN_TYPES.PLATEAU,
+      this.TERRAIN_TYPES.RAMP,
+      this.TERRAIN_TYPES.STEPS,
+      this.TERRAIN_TYPES.HILL,
+    ]);
 
   /**
    * @param {RegionDocument} regionD
    * @returns {boolean}
    */
-  static isElevated(regionD) { return this.isPlateau(regionD) || this.isRampType(regionD) || this.isHill(regionD); }
+  static isElevated(regionD) {
+    const ELEVATED_TYPES = this.ELEVATED_TYPES;
+    return regionD.behaviors.some(b => !b.disabled && ELEVATED_TYPES.has(b.type))
+  }
+
+  /** @type {enum<string>} */
+  static terrainType(regionD) {
+    const ELEVATED_TYPES = this.ELEVATED_TYPES;
+    for ( const b of regionD.behaviors ) {
+      if ( b.disabled ) continue;
+      if ( ELEVATED_TYPES.has(b.type) ) return b.type;
+    }
+    return "none";
+  }
 
   /** @type {boolean} */
-  static isPlateau(regionD) { return regionD.getFlag(MODULE_ID, FLAGS.REGION.TERRAIN.TYPE) === FLAGS.REGION.TERRAIN.CHOICES.PLATEAU };
+  static isPlateau(regionD) {
+    const plateauType = this.TERRAIN_TYPES.PLATEAU;
+    return regionD.behaviors.some(b => !b.disabled && b.type === plateauType);
+  };
 
-  static isRampType(regionD) { return regionD.getFlag(MODULE_ID, FLAGS.REGION.TERRAIN.TYPE) === FLAGS.REGION.TERRAIN.CHOICES.RAMP }
+  static isRamp(regionD) {
+    const rampType = this.TERRAIN_TYPES.RAMP;
+    return regionD.behaviors.some(b => !b.disabled && b.type === rampType);
+  }
 
   /** @type {boolean} */
-  static isRamp(regionD) { return this.isRampType(regionD) && this.rampStepSize(regionD) === 0; };
+  static isSteps(regionD) {
+    const stepsType = this.TERRAIN_TYPES.STEPS;
+    return regionD.behaviors.some(b => !b.disabled && b.type === stepsType);
+  }
 
   /** @type {boolean} */
-  static isSteps(regionD) { return this.isRampType(regionD) && this.rampStepSize(regionD) !== 0; }
+  static isHill(regionD) {
+    const hillType = this.TERRAIN_TYPES.HILL;
+    return regionD.behaviors.some(b => !b.disabled && b.type === hillType);
+  }
+
+  /** @type {string} */
+  static hillType(regionD) {
+    const hillType = this.TERRAIN_TYPES.HILL;
+    for ( const b of regionD.behaviors ) {
+      if ( b.disabled || b.type !== hillType ) continue;
+      return b.system.type || "linear";
+    }
+  }
 
   /** @type {boolean} */
   static isBelowGround(regionD) {
     if ( this.isHill(regionD) ) return this.hillHasNegativeElevation(regionD);
-    else if ( SceneElevationHandler.sceneFloor > Math.min(this.terrainBottom(regionD), this.terrainTop(regionD)) ) return true;
+    const elev = this.elevationZ;
+    if ( SceneElevationHandler.sceneFloor > elev.topZ ) return true;
     return false;
   }
 
@@ -398,154 +488,90 @@ export class TerrainGeometry extends RegionGeometry {
    * @type {boolean}
    */
   static hillHasNegativeElevation(regionD) {
-    const curve = HillDrawingManager._unadjustedHillData(regionD);
+    const curve = HillDrawingManager._unadjustedHillData(regionD) || HillDrawingManager.defaultCurve();
     const out = curve.cp1.y > 0 || curve.cp2.y > 0 || curve.end.y > 0;
     Object.values(curve).forEach(pt => pt.release());
     return out;
   }
 
-  /** @type {boolean} */
-  static isHill(regionD) { return regionD.getFlag(MODULE_ID, FLAGS.REGION.TERRAIN.TYPE) === FLAGS.REGION.TERRAIN.CHOICES.HILL; }
 
-  static hillType(regionD) { return regionD.getFlag(MODULE_ID, FLAGS.REGION.HILL.TYPE) || DEFAULT_FLAGS.REGION[FLAGS.REGION.HILL.TYPE]; }
+  /**
+   * The hill ground elevation is the point at which the hill is 0 along the curve.
+   * For a positive-only curve, this is the region bottom.
+   * For a negative-only curve, this is the region top.
+   * For a mixed curve, this is between the top and bottom.
+   * @type {number}
+   */
+  static hillGroundElevation(regionD) {
+    const { bottomZ, topZ } = regionD;
+    const { min, max } = this.hillMinMaxElevation(regionD);
+    if ( min >= 0 ) return bottomZ;
+    if ( max < 0 ) return topZ;
 
-  /** @type {number} */
-  static hillFloor(regionD) {
-    const floor = this.rampFloor(regionD);
-
-    // If the hill goes negative, it dips below the ramp floor.
-    if ( this.hillHasNegativeElevation(regionD) ) {
-      // Scale the min and max to -1 to 1.
-      const { min, max } = this.hillMinMaxElevation(regionD);
-      const maxHeight = Math.max(Math.abs(min), Math.abs(max)) || 1;
-
-      const scaledMin = min / maxHeight;
-      const scaledMax = max / maxHeight;
-
-      const positiveHeight = this.terrainTop(regionD) - floor;
-      return Math.floor(floor + (positiveHeight * scaledMin));
-    } else floor;
+    // Hill is a mix of negative and positive.
+    const maxHeight = Math.max(Math.abs(min), Math.abs(max)) || 1;
+    const scaledMin = min / maxHeight;
+    const positiveHeight = topZ - bottomZ;
+    return Math.floor(bottomZ + (positiveHeight * scaledMin))
   }
 
   /** @type {object{ min:{number}, max:{number} }} */
   static hillMinMaxElevation(regionD) {
-    const curve = HillDrawingManager._unadjustedHillData(regionD);
+    const curve = HillDrawingManager._unadjustedHillData(regionD) || HillDrawingManager.defaultCurve();
     return HillDrawingManager.curveMinMaxHeight(curve);
   }
 
-  static hillData(regionD) { return regionD.getFlag(MODULE_ID, FLAGS.REGION.HILL.CURVE) || DEFAULT_FLAGS.REGION[FLAGS.REGION.HILL.CURVE] }
+  static hillData(regionD) { return fastFlag(regionD, FLAGS.REGION.HILL.CURVE) || DEFAULT_FLAGS.REGION[FLAGS.REGION.HILL.CURVE] }
 
   /** @type {number} */
-  static terrainTop(regionD) {
-    return gridUnitsToPixels(regionD.getFlag(MODULE_ID, FLAGS.REGION.PLATEAU_ELEVATION)
-      || DEFAULT_FLAGS.REGION[FLAGS.REGION.PLATEAU_ELEVATION]);
+  static rampDirection(regionD) {
+    const rampType = this.TERRAIN_TYPES.RAMP;
+    const stepsType = this.TERRAIN_TYPES.STEPS;
+    const rampB = regionD.behaviors.find(b => !b.disabled && (b.type === rampType || b.type === stepsType));
+    if ( !rampB ) return 0;
+    return rampB.system.direction;
   }
 
   /** @type {number} */
-  static plateauElevation(regionD) {
-    console.debug("TerrainGeometry|plateauElevation is now terrainTop.");
-    return this.terrainTop(regionD);
+  static stepSize(regionD) {
+    const stepsType = this.TERRAIN_TYPES.STEPS;
+    const stepsB = regionD.behaviors.find(b => !b.disabled && b.type === stepsType);
+    if ( !stepsB ) return 1;
+    return gridUnitsToPixels(stepsB.system.stepSize);
   }
 
   /** @type {number} */
-  static terrainBottom(regionD) {
-    if ( this.isHill(regionD) ) return this.hillFloor(regionD);
-    return this.rampFloor(regionD);
-  }
-
-  /** @type {number} */
-  static rampFloor(regionD) {
-    return gridUnitsToPixels(regionD.getFlag(MODULE_ID, FLAGS.REGION.RAMP.FLOOR)
-      || DEFAULT_FLAGS.REGION[FLAGS.REGION.RAMP.FLOOR]);
-  }
-
-  /** @type {number} */
-  static rampDirection(regionD) { return regionD.getFlag(MODULE_ID, FLAGS.REGION.RAMP.DIRECTION) || DEFAULT_FLAGS.REGION[FLAGS.REGION.RAMP.DIRECTION]; }
-
-  /** @type {number} */
-  static rampStepSize(regionD) {
-    return gridUnitsToPixels(regionD.getFlag(MODULE_ID, FLAGS.REGION.RAMP.STEP_SIZE)
-      || DEFAULT_FLAGS.REGION[FLAGS.REGION.RAMP.STEP_SIZE]);
-  }
-
-  /** @type {FLAGS.REGION.CHOICES} */
-  static algorithm(regionD) {
-    return regionD.getFlag(MODULE_ID, FLAGS.REGION.TERRAIN.TYPE) || FLAGS.REGION.TERRAIN.CHOICES.NONE;
-  }
-
-  /** @type {number} */
-  static totalStepHeight(regionD) {
-    return this.terrainTop(regionD) - this.terrainBottom(regionD);
-  }
+  static totalStepHeight = RegionGeometry.zHeight;
 
   /** @type {number} */
   static numSteps(regionD) {
-    if ( !this.isSteps(regionD) ) return 0;
-    return Math.ceil(this.totalStepHeight(regionD) / this.rampStepSize(regionD));
-  }
-
-
-  /**
-   * Top and bottom elevation of the base of the region.
-   * Equivalent to baseElevationZ except that it avoids 0-height
-   * @param {Region} region
-   * @returns {object}
-   * - @prop {number} topZ
-   * - @prop {number} bottomZ
-   */
-  get elevationZ() {
-    const baseElev = this.baseElevationZ;
-    if ( baseElev.topZ <= baseElev.bottomZ ) baseElev.bottomZ -= 1;
-    return baseElev;
-  }
-
-  /**
-   * Top and bottom of the non-terrain portion of the region shape, forming the base.
-   * Might be 0 height.
-   * @returns {object}
-   * - @prop {number} topZ
-   * - @prop {number} bottomZ
-   */
-  get baseElevationZ() {
-    const regionD = this.placeableDocument;
-    const elev = super.elevationZ;
-    if ( !this.constructor.isElevated(regionD) ) return elev;
-
-    // If plateau, can simply adjust the region top to the plateau top. Region shape is otherwise unaffected.
-    if ( this.constructor.isPlateau(regionD) ) {
-      elev.topZ = this.constructor.terrainTop(regionD);
-      return elev;
-    }
-
-    // Return the elevation for the bottom of the region to the base (of the ramp, steps, or hill).
-    elev.topZ = this.constructor.terrainBottom(regionD);
-    return elev;
-  }
-
-  /**
-   * Top and bottom of the non-terrain terrain of the region shape, forming the top.
-   * Might be 0 height. Plateaus and non-elevated terrain always return 0 height (top of base).
-   * @returns {object}
-   * - @prop {number} topZ
-   * - @prop {number} bottomZ
-   */
-  get terrainElevationZ() {
-    const regionD = this.placeableDocument;
-    const elev = super.elevationZ;
-    if ( !this.constructor.isElevated(regionD) || this.constructor.isPlateau(regionD)  ) {
-      elev.bottomZ = elev.topZ;
-      return elev;
-    }
-
-    // Return the elevation from top of base to top of terrain.
-    return {
-      topZ: this.constructor.terrainTop(regionD),
-      bottomZ: this.constructor.terrainBottom(regionD),
-    };
+    if ( !this.isSteps(regionD) ) return 1;
+    return Math.ceil(this.zHeight(regionD) / this.stepSize(regionD));
   }
 }
 
 export class TerrainGeometryManager extends RegionGeometryManager {
   /** @type {PlaceableGeometry} */
   static geometryClass = TerrainGeometry;
+
+  registerHooks() {
+    if ( !super.registerHooks() ) return;
+
+    // Register hooks for changes in region behavior.
+    Hooks.on("createRegionBehavior", (regionBehavior, options, _userId) => {
+      this.update(regionBehavior.region, new Set([`${regionBehavior.type}.create`]), options);
+    });
+
+    Hooks.on("updateRegionBehavior", (regionBehavior, changed, options, _userId) => {
+      // Flatten the change object to handle nested keys, like flags.
+      // Get only the specific system keys that have changes, and combine with type to create a unique key.
+      const updateKeys = Object.keys(foundry.utils.flattenObject(changed.system || {})).map(key => `${regionBehavior.type}.${key}`);
+      this.update(regionBehavior.region, new Set(updateKeys), options);
+    });
+
+    Hooks.on("deleteRegionBehavior", (regionBehavior, options, _userId) => {
+      this.update(regionBehavior.region, new Set([`${regionBehavior.type}.delete`]), options);
+    });
+
+  }
 }

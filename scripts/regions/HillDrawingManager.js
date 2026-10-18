@@ -10,6 +10,7 @@ PIXI,
 import { MODULE_ID, FLAGS, DEFAULT_FLAGS } from "../const.js";
 import { Draw } from "../geometry/Draw.js";
 import { MatrixFloat32 } from "../geometry/Matrix.js";
+import { gridUnitsToPixels } from "../geometry/util.js";
 
 // TODO: Temp Hook region creation and deletion to update.
 export const PATCHES = {};
@@ -109,11 +110,32 @@ export class HillDrawingManager {
   /** @type {Region|undefined} */
   get region() { return this.regionDocument.object; }
 
-  /** @type {number} */
-  static terrainTop(regionD) { return regionD.getFlag(MODULE_ID, FLAGS.REGION.PLATEAU_ELEVATION) || DEFAULT_FLAGS.REGION[FLAGS.REGION.PLATEAU_ELEVATION]; }
+  /**
+   * Finite elevation.
+   * If positive infinity, will be set to a maximum value.
+   * If negative infinity, will be set to a minimum value.
+   * If undefined, will be set to 0.
+   * @param {number|null|undefined} elev
+   * @returns {number}
+   */
+  static finiteElevation(elev) {
+    if ( !Number.isNumeric(elev) ) return 0;
+    if ( isFinite(elev) ) return elev;
+    const MAX_ELEV = 1e06;
+    return elev === Number.POSITIVE_INFINITY ? MAX_ELEV : -MAX_ELEV;
+  }
 
-  /** @type {number} */
-  static terrainBottom(regionD) { return regionD.getFlag(MODULE_ID, FLAGS.REGION.RAMP.FLOOR) || DEFAULT_FLAGS.REGION[FLAGS.REGION.RAMP.FLOOR]; }
+  /** @type {number<pixelUnits>} */
+  static terrainTop(regionD) {
+    const { top, topInclusive } = regionD.elevation;
+    const topE = this.finiteElevation(topInclusive ? top : top - 1); // Subtract 1 grid distance if not inclusive.
+    return gridUnitsToPixels(topE);
+  }
+
+  /** @type {number<pixelUnits>} */
+  static terrainBottom(regionD) {
+    return regionD.bottomZ;
+  }
 
   /** @type {PIXI.Container} */
   regionUI = new PIXI.Container();

@@ -4,14 +4,15 @@
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { ExtrudedPolygonPrimitiveWithHoles } from "../geometry/placeable_geometry/ModelGeometricPrimitive.js";
+import { ExtrudedPolygonPrimitive } from "../geometry/placeable_geometry/ModelGeometricPrimitive.js";
 import { Polygon3d, Polygons3d } from "../geometry/3d/Polygon3d.js";
+import { Point3d } from "../geometry/3d/Point3d.js";
 
 /**
  * Ramp.
  * Use the model primitive b/c the base of the ramp is 1+ polygons, which can change.
  */
-export class RampPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
+export class RampPrimitive extends ExtrudedPolygonPrimitive {
 
   /**
    * Build an extruded ramp shape (top moving up in z-axis) from a 2d polygon.
@@ -49,7 +50,7 @@ export class RampPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
    * @returns {Polygon3d[]} Array of top, bottom, and 3+ sides
    */
   static _facesFromPolygon(poly, { plane, topZ, bottomZ } = {}) {
-    const top = Polygon3d.fromPolygon(poly, topZ);
+    const top = Polygon3d.fromPolygon(poly, { elevationZ: topZ });
     return this._facesFromPolygon3d(top, plane, bottomZ);
   }
 
@@ -99,20 +100,59 @@ export class RampPrimitive extends ExtrudedPolygonPrimitiveWithHoles {
 
     const EPSILON = 1e-04; // Larger epsilon because these side will eventually be transformed to a smaller prototype.
     const bottomZ = opts.bottomZ;
-    const faces = [base, top, ...top.buildTopSides(bottomZ, epsilon)];
+    const faces = [base, top, ...top.buildTopSides(bottomZ, EPSILON)];
     const protoFaces = this.canvasToPrototypeFaces(faces, opts);
     return new this(id, protoFaces);
   }
 
-  _testFacesOutward(faces) {
-    if ( !faces || faces.length < 3 ) return false;
+  // ----- NOTE: Elevation testing ------ //
 
-    // Test each face against the centroid.
-    const centroid = this.constructor.calculateCentroid(faces);
-    for ( const face of faces ) {
-      if ( face.isFacing(centroid) ) return false;
+  get rampFace() { return this.faces[1]; }
+
+  get baseFace() { return this.faces[0]; }
+
+  /**
+   * Elevation at a canvas location.
+   * @param {PIXI.Point} canvasLoc
+   * @returns {number|null} Z-value in pixel units or null if not within the ramp.
+   */
+  elevationAtCanvasLocation(canvasLoc, { testContainment = true } = {}) {
+    if ( testContainment && !this.baseFace.containsProjectedXY(canvasLoc) ) return null;
+    return this.rampFace.plane.getZ(canvasLoc.x, canvasLoc.y);
+  }
+
+  /**
+   * Slice this 3d shape with a vertical plane, returning 2d cross-section(s).
+   * @param {PIXI.Point} start     Starting point of the slice on the XY plane
+   * @param {PIXI.Point} end        Ending point of the slice on the XY plane
+   * @returns {CutawayPolygon[]}
+   */
+  verticalSlice(start, end) {
+    // Build the cutaways with a mock topZ.
+    const bottomZ = this.bottomZ;
+    const topZ = bottomZ + 100;
+    const cutaways = super.verticalSlice(start, end, { topZ, bottomZ });
+
+    // Determine the actual ramp elevation for each cutaway top point.
+    using canvasLoc = Point3d.tmp;
+    const opts = { topZ: this.topZ, bottomZ, testContainment: false };
+    for ( const cutaway of cutaways ) {
+      for ( let i = 1, n = cutaway.points.length; i < n; i += 2 ) {
+        const y = cutaway.points[i];
+        if ( y !== topZ ) continue;
+        const x = cutaway.points[i - 1];
+        cutaway._from2d({ x, y }, canvasLoc);
+        cutaway.points[i] = this.elevationAtCanvasLocation(canvasLoc, opts);
+      }
     }
-    return true;
+
+    // Reverse orientation if the shape is a hole. Cutaway holes are isPositive === true.
+    const isHole = this.isHole;
+    cutaways.forEach(poly => {
+      if ( poly.isPositive ^ isHole ) poly.reverseOrientation();
+    });
+
+    return cutaways;
   }
 }
 
@@ -129,15 +169,15 @@ function rampFromPlane(poly3d, plane) {
   // Project each point of the polygon onto the plane.
   if ( poly3d instanceof Polygons3d ){
     for ( const poly of poly3d.polygons ) {
-       for ( const pt of poly.iteratePoints() ) pt.z = plane.getZ(pt.x, pt.y);
+       for ( const pt of poly.points) pt.z = plane.getZ(pt.x, pt.y);
     }
   } else {
-    for ( const pt of poly3d.iteratePoints() ) pt.z = plane.getZ(pt.x, pt.y);
+    for ( const pt of poly3d.points ) pt.z = plane.getZ(pt.x, pt.y);
   }
+  poly3d.clearCache();
 
   // Adjust the plane to exactly match.
-  poly3d.plane.normal.copyFrom(plane.normal);
-  poly3d.clearCache();
+  poly3d.plane = plane;
 
   return poly3d;
 }
