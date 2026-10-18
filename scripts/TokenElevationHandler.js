@@ -311,9 +311,6 @@ export class TokenElevationHandler {
     a.roundDecimals(1);
     if ( a.z === desiredElevation ) return [a];
 
-    // If no cutaways at this location, allow free movement.
-    if ( !this._supportingFloorEdge(a, this.cutaways) ) return [a, ElevatedPoint.tmp.set(a.x, a.y, desiredElevation)];
-
     flying ??= this.flying;
     burrowing ??= this.burrowing;
     walking ??= this.walking
@@ -322,6 +319,10 @@ export class TokenElevationHandler {
     const a2d = this.to2d(a);
     const b2d = this.to2d(b);
 
+    // If no cutaways at this location, allow free movement.
+    if ( !this.cutaways.some(handler => handler.aabb.almostContainsPoint(a2d)) ) {
+      return [a, ElevatedPoint.tmp.set(a.x, a.y, desiredElevation)];
+    }
 
     // Burrowing
     if ( burrowing ) {
@@ -932,68 +933,6 @@ export class TokenElevationHandler {
     }
     return { cutHandler: nextFloor, location: LOCS.ABOVE, elevation: maxElev };
   }
-
-  /**
-   * Find the next supporting edge at or below this point.
-   * If no support, moves directly up to the nearest support.
-   * @param {PIXI.Point} pt2d
-   * @returns {object|null}
-   * - @prop {CutawayHandler} cutaway
-   * - @prop {Edge2d} edge
-   * - @prop {PIXI.Point} ix
-   */
-  _supportingFloorEdge(pt2d, cutaways, tolerance = 1) {
-    cutaways ??= this.cutaways
-
-    using a = PIXI.Point.tmp.set(pt2d.x, pt2d.y + 1e06);
-    using b = PIXI.Point.tmp.set(pt2d.x, pt2d.y - 1e06);
-
-    // Locate the nearest above and below intersections.
-    let aboveIx;
-    let belowIx;
-    for ( const cutaway of cutaways ) {
-      for ( const edgeIx of cutaway.iterateValidEdgeIntersections(a, b) ) {
-        if ( edgeIx.ix.y > pt2d.y ) { // Above.
-          aboveIx ??= edgeIx;
-          if ( edgeIx.ix.y < aboveIx.ix.y ) aboveIx = edgeIx;
-        }
-        else { // Below.
-          belowIx ??= edgeIx;
-          if ( edgeIx.ix.y > belowIx.ix.y ) belowIx = edgeIx;
-         }
-      }
-    }
-    if ( !(aboveIx || belowIx) ) return null;
-    if ( !belowIx || (aboveIx && aboveIx.ix.y.almostEqual(pt2d.y, tolerance)) ) return aboveIx;
-    return belowIx;
-  }
-
-  /**
-   * Find the next obstacle along a segment.
-   * @param {PIXI.Point} a2d
-   * @param {PIXI.Point} b2d
-   * @returns {object|null} The matching obstacle or null.
-   */
-  _closestObstacleAlongSegment(a2d, b2d, obstacles) {
-    obstacles ??= this.cutaways
-    let minT = 1;
-    let closestObstacle = null;
-    for ( const cutaway of obstacles ) {
-      for ( const edgeIx of cutaway.iterateValidEdgeIntersections(a2d, b2d) ) {
-        if ( edgeIx.ix.t0 > minT ) continue;
-        if ( edgeIx.ix.t0.almostLessThan(0) ) continue;
-        minT = edgeIx.ix.t0;
-        closestObstacle = edgeIx;
-      }
-    }
-    return closestObstacle;
-  }
-
-
-  // ----- NOTE: Basic Helper methods ----- //
-
-
-
 
   // ----- NOTE: Token actions ----- //
 
