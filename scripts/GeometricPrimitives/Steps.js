@@ -378,7 +378,7 @@ export class StepsPrimitive extends ExtrudedPolygonPrimitive {
       topElevationFn: null,
       bottomElevationFn: () => bottomZ,
     }
-    const cutaways = [];
+    let cutaways = [];
     for ( const f of this.faces.slice(1) ) {
       // Skip faces not parallel to the XY plane (step sides).
       const normal = f.plane.normal;
@@ -395,16 +395,23 @@ export class StepsPrimitive extends ExtrudedPolygonPrimitive {
          cutaways.push(...cutaway);
       }
     }
-    if ( cutaways.length < 2 ) return cutaways;
+    if ( cutaways.length >= 2 ) {
+      // Use Clipper to union the cutaways. Holes go straight through, leaving 1+ solid polygons.
+      const paths = CONFIG[GEOMETRY_LIB_ID].CONFIG.ClipperPaths.fromPolygons(cutaways);
+      cutaways = paths
+        .union()
+        .clean()
+        .toPolygons();
+     }
+    cutaways = cutaways.map(poly => CutawayPolygon.fromPolygon(poly, start, end));
 
-    // Use Clipper to union the cutaways. Holes go straight through, leaving 1+ solid polygons.
-    const paths = CONFIG[GEOMETRY_LIB_ID].CONFIG.ClipperPaths.fromPolygons(cutaways);
-    const out = paths
-      .union()
-      .clean()
-      .toPolygons();
+    // Reverse orientation if the shape is a hole. Cutaway holes are isPositive === true.
+    const isHole = this.isHole;
+    cutaways.forEach(poly => {
+      if ( poly.isPositive ^ isHole ) poly.reverseOrientation();
+    });
 
-    return out.map(poly => CutawayPolygon.fromPolygon(poly, start, end));
+    return cutaways;
   }
 
 }

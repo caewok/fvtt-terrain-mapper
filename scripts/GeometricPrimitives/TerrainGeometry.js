@@ -224,8 +224,6 @@ export class TerrainGeometry extends RegionGeometry {
 
   // ----- NOTE: Updating ----- //
 
-
-
   _update() {
     // Terrain type updated: rebuild terrain shape.
     // Ramp floor updated: rebuild terrain + base if ramp/steps/hill

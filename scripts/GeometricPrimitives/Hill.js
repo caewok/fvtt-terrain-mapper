@@ -426,7 +426,7 @@ export class HillPrimitive extends ExtrudedPolygonPrimitive {
         a = edge.a;
         b = edge.b;
         if ( a.y === mockTopZ && b.y === mockTopZ ) break;
-        i += 4; // edge.a.x, a.y, b.x, b.y
+        i += 2; // Edges share points, so advance one point at a time.
       }
       if ( !a ) break; // Should not happen.
 
@@ -449,12 +449,22 @@ export class HillPrimitive extends ExtrudedPolygonPrimitive {
       }
 
       // Remove the existing a/b.
-      cutaway.points.splice(i, 4);
+      if ( i === cutaway.points.length - 1) {
+        cutaway.points.splice(i, 2);
+        cutaway.points.splice(0, 2);
+      } else cutaway.points.splice(i, 4);
 
       // Put the new points back in the cutaway
       cutaway.points.splice(i, 0, ...newPtsArr);
 
     }
+
+    // Reverse orientation if the shape is a hole. Cutaway holes are isPositive === true.
+    const isHole = this.isHole;
+    cutaways.forEach(poly => {
+      if ( poly.isPositive ^ isHole ) poly.reverseOrientation();
+    });
+
     return cutaways;
   }
 

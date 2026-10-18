@@ -146,6 +146,12 @@ export class RampPrimitive extends ExtrudedPolygonPrimitive {
       }
     }
 
+    // Reverse orientation if the shape is a hole. Cutaway holes are isPositive === true.
+    const isHole = this.isHole;
+    cutaways.forEach(poly => {
+      if ( poly.isPositive ^ isHole ) poly.reverseOrientation();
+    });
+
     return cutaways;
   }
 }
