@@ -475,31 +475,43 @@ export class TokenElevationHandler {
     addCheckpoint(tmpPt.set(tMin, z))
 
     // Loop through the breakpoints to find the highest valid elevation for each.
+    const epsilon = 0.1; // Small offset to check before/after terrain boundaries.
     for ( let i = 0, n = breakpoints.length; i < n; i += 1 ) {
       const x = breakpoints[i];
 
       // Highest top wins.
-      let bestTop = null;
-      for ( const handler of relevant ) {
-        const top = handler.topAt(x);
-        if ( top === null ) continue;
-        const bottom = handler.bottomAt(x) ?? Number.NEGATIVE_INFINITY; // No bottom edge found: don't exclude.
-
-        if ( bottom > z ) continue; // Floating above the token; ineligible.
-        if ( bestTop === null || top > bestTop ) bestTop = top;
-        if ( top !== null && (bestTop === null || top > bestTop)) bestTop = top;
-      }
-
+      let bestTop = this.#topAt(x, z, relevant);
       if ( bestTop === null ) {
         // No terrain covers x. Leaving terrain (or still in a gap between regions).
         z = mode === "burrowing" ? Math.min(z, floor)
           : mode === "flying" ? Math.max(z, floor)
             : floor;
-      } else if ( mode === "flying" ) {
-        if ( z <= bestTop ) z = bestTop; // Would otherwise collide, so go over the top. Otherwise fly.
-      } else z = bestTop; // Ride the slope exactly if walking or burrowing.
+        addCheckpoint(tmpPt.set(x, z));
+      } else {
+        // Check if terrain exists just before x.
+        let bestTopBefore = null;
+        const testBefore = x - epsilon;
+        if ( testBefore >= tMin ) bestTopBefore = this.#topAt(testBefore, z, relevant);
 
-      addCheckpoint(tmpPt.set(x, z));
+        // Check if terrain exists just after x.
+        let bestTopAfter = null;
+        const testAfter = x + epsilon;
+        if ( testAfter <= tMax ) bestTopAfter = this.#topAt(testAfter, z, relevant);
+
+        // If entering terrain from a gap/floor while walking, hold floor level first.
+        if ( bestTopBefore === null && mode === "walking" && z < bestTop ) addCheckpoint(tmpPt.set(x, z)); // z is currently floor.
+
+        if ( mode === "flying" ) {
+          if ( z <= bestTop ) z = bestTop; // Would otherwise collide, so go over the top. Otherwise fly.
+        } else z = bestTop; // Ride the slope exactly if walking or burrowing.
+        addCheckpoint(tmpPt.set(x, z));
+
+        // If existing terrain into a gap/floor while walking, drop down immediately at x.
+        if ( bestTopAfter === null && mode === "walking" ) {
+          z = floor;
+          addCheckpoint(tmpPt.set(x, z));
+        }
+      }
     }
 
     // Trailing straight segment: Input line, untouched, from where terrain ends to actual endpoint.
@@ -511,6 +523,18 @@ export class TokenElevationHandler {
     // Avoid Token##preUpdateMovement treating a single-point path as unconstrained and continuing past it.
     if ( checkpoints.length === 1 ) return [checkpoints[0], checkpoints[0].clone()];
     return checkpoints;
+  }
+
+  #topAt(x, z, relevant) {
+    let best = null;
+    for ( const handler of relevant ) {
+      const top = handler.topAt(x);
+      if ( top === null ) continue;
+      const bottom = handler.bottomAt(x) ?? Number.NEGATIVE_INFINITY;
+      if ( bottom > z ) continue;
+      if ( best === null || top > best ) best = top;
+    }
+    return best;
   }
 
   /* ----- NOTE: Burrowing ----- */
@@ -1071,10 +1095,22 @@ export class CutawayHandler {
   #buildProfile() {
     const tops = [];
     const bottoms = [];
-    for ( const edge of this.cutPoly.iterateEdges() ) {
-      if ( edge.a.x.almostEqual(edge.b.x) ) continue; // Vertical side.
-      if ( edge.a.x < edge.b.x ) tops.push(edge);
-      else bottoms.push(edge.reverse()); // Normalize right-to-left for lookup.
+    if ( this.cutPoly.isPositive ) {
+      for ( const edge of this.cutPoly.iterateEdges() ) {
+        // Top (high y) goes high x --> low x
+        // Bottom (low y) goes low x --> high x
+        if ( edge.a.x.almostEqual(edge.b.x) ) continue; // Vertical side.
+        if ( edge.a.x > edge.b.x ) tops.push(edge.reverse());  // Normalize right-to-left for lookup.
+        else bottoms.push(edge);
+      }
+    } else {
+      for ( const edge of this.cutPoly.iterateEdges() ) {
+        // Top (high y) goes low x --> high x
+        // Bottom (low y) goes high x --> low x
+        if ( edge.a.x.almostEqual(edge.b.x) ) continue; // Vertical side.
+        if ( edge.a.x < edge.b.x ) tops.push(edge);
+        else bottoms.push(edge.reverse()); // Normalize right-to-left for lookup.
+      }
     }
     tops.sort((e1, e2) => e1.a.x - e2.a.x); // Sort low to high by x.
     bottoms.sort((e1, e2) => e1.a.x - e2.a.x);
