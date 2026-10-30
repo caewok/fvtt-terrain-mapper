@@ -1,5 +1,4 @@
 /* globals
-CONFIG,
 CONST,
 foundry,
 game,
@@ -8,6 +7,7 @@ game,
 "use strict";
 
 import { MODULE_ID } from "../const.js";
+import { log } from "../util.js";
 
 export const PATCHES = {};
 PATCHES.REGIONS = {};

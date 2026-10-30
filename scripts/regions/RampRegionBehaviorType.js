@@ -1,5 +1,4 @@
 /* globals
-CONFIG,
 CONST,
 foundry,
 game,
@@ -8,8 +7,7 @@ game,
 "use strict";
 
 import { MODULE_ID } from "../const.js";
-import { GEOMETRY_LIB_ID } from "../geometry/const.js";
-import { pixelsToGridUnits } from "../geometry/util.js";
+import { log } from "../util.js";
 
 export const PATCHES = {};
 PATCHES.REGIONS = {};

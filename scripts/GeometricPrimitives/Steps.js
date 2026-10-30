@@ -333,8 +333,8 @@ export class StepsPrimitive extends ExtrudedPolygonPrimitive {
    * @param {PIXI.Point} canvasLoc
    * @returns {number|null} Z-value in pixel units or null if not within the ramp.
    */
-  elevationAtCanvasLocation(canvasLoc, { testContainment = true } = {}) {
-    if ( testContainment && !this.baseFace.containsProjectedXY(canvasLoc) ) return null;
+  elevationAtCanvasLocation(canvasLoc) {
+    if ( !this.baseFace.containsProjectedXY(canvasLoc) ) return null;
 
     // Test only the horizontal planes.
     using rayOrigin = Point3d.tmp.set(canvasLoc.x, canvasLoc.y, 1e06);

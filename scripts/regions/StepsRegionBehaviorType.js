@@ -1,11 +1,13 @@
 /* globals
 CONST,
 foundry,
+game,
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
 import { MODULE_ID } from "../const.js";
+import { log } from "../util.js";
 
 export const PATCHES = {};
 PATCHES.REGIONS = {};

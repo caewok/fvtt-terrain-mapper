@@ -209,9 +209,6 @@ export class HillPrimitive extends ExtrudedPolygonPrimitive {
       if ( count === 1 ) {
         const edge = edgeData.get(key);
 
-        // Skip wall-building if the segment sits entirely flat on the base elevation.
-        if ( edge.a.z.almostEqual(bottomZ) && edge.b.z.almostEqual(bottomZ) ) continue;
-
         // Build bottom points.
         const bottomA = edge.a.clone();
         const bottomB = edge.b.clone();
@@ -379,8 +376,8 @@ export class HillPrimitive extends ExtrudedPolygonPrimitive {
    * @param {PIXI.Point} canvasLoc
    * @returns {number|null} Z-value in pixel units or null if not within the ramp.
    */
-  elevationAtCanvasLocation(canvasLoc, { topZ, bottomZ, testContainment = true } = {}) {
-    if ( testContainment && !this.baseFace.containsProjectedXY(canvasLoc) ) return null;
+  elevationAtCanvasLocation(canvasLoc, { topZ, bottomZ } = {}) {
+    if ( !this.baseFace.containsProjectedXY(canvasLoc) ) return null;
     const percent = HillDrawingManager._hillPercentHeightAtPoint(canvasLoc, this.hillType, this.curve);
 
     // Estimate top and bottom from the faces if not provided.
