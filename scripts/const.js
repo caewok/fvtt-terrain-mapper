@@ -172,6 +172,9 @@ export const GEOMETRY_LIB_OPTS = {
     "Wall",
     "Level",
   ],
+
+  wallHeightRequired: false,
+  tokenHeightRequired: false,
 };
 
 

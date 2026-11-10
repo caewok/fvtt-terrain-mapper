@@ -1,5 +1,5 @@
 /* globals
-HighlightRegionShader,
+foundry,
 Hooks,
 PIXI,
 */
@@ -12,10 +12,11 @@ PIXI,
 Hooks.on("init", function() {
   const HighlightRegionShader = foundry.canvas.rendering.shaders.HighlightRegionShader;
 
-  HighlightRegionShader.vertexShader = `\
-    precision ${PIXI.settings.PRECISION_VERTEX} float;
+  HighlightRegionShader._createVertexShader = function() {
+    return `\
+    precision ${PIXI.Program.defaultFragmentPrecision} float;
 
-    ${HighlightRegionShader.CONSTANTS}
+    ${this.CONSTANTS}
 
     attribute vec2 aVertexPosition;
 
@@ -62,9 +63,11 @@ Hooks.on("init", function() {
       vSquarePercentFromBorder = (pixelCoord - border.st) / size;
     }
   `;
+  };
 
-  HighlightRegionShader.fragmentShader = `\
-    precision ${PIXI.settings.PRECISION_FRAGMENT} float;
+  HighlightRegionShader._createFragmentShader = function() {
+    return `\
+    precision ${PIXI.Program.defaultFragmentPrecision} float;
 
     varying float vHatchOffset;
 
@@ -141,8 +144,6 @@ Hooks.on("init", function() {
       }
 
 
-
-
       // From original HighlightRegionShader.
       float x = abs(hatchOffset - floor(hatchOffset + 0.5)) * 2.0;
       float s = thisHatchThickness * resolution;
@@ -151,6 +152,7 @@ Hooks.on("init", function() {
       gl_FragColor *= mix(0.3333, 1.0, y0 - y1);
     }
   `;
+  };
 
   HighlightRegionShader.defaultUniforms ??= {};
   HighlightRegionShader.defaultUniforms.hatchX = 1;

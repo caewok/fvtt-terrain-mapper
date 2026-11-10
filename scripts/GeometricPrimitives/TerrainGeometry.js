@@ -344,67 +344,6 @@ export class TerrainGeometry extends RegionGeometry {
     });
   }
 
-  // ----- NOTE: Elevation testing ----- //
-
-  /**
-   * Elevation at a canvas location for a hill.
-   * @param {PIXI.Point} canvasLoc
-   * @param {boolean} [testContainment=true]
-   * @returns {number|null} Z-value in pixel units or null if not within the ramp.
-   */
-  hillZAtPoint(canvasLoc, { testContainment = true } = {}) {
-    const elevs = this.elevationZ;
-    const zs = this.shapes.map(s => s.elevationAtCanvasLocation(canvasLoc, { ...elevs, testContainment }));
-    return Math.max(...zs);
-  }
-
-  /**
-   * Elevation at a canvas location for a ramp.
-   * @param {PIXI.Point} canvasLoc
-   * @returns {number|null} Z-value in pixel units or null if not within the ramp.
-   */
-  rampZAtPoint(canvasLoc, { testContainment = true } = {}) {
-    const zs = this.shapes.map(s => s.elevationAtCanvasLocation(canvasLoc, { testContainment }));
-    return Math.max(...zs);
-  }
-
-  /**
-   * Elevation at a canvas location for a plateau.
-   * @param {PIXI.Point} canvasLoc
-   * @returns {number|null} Z-value in pixel units or null if not within the ramp.
-   */
-  plateauZAtPoint(canvasLoc, { testContainment = true } = {}) {
-    if ( testContainment && !this.shapes.some(s => s.containsProjectedXY(canvasLoc)) ) return null;
-    return this.elevationZ.topZ;
-  }
-
-  /**
-   * Elevation at a canvas location for a plateau.
-   * @param {PIXI.Point} canvasLoc
-   * @returns {number|null} Z-value in pixel units or null if not within the ramp.
-   */
-  stepsZAtPoint(canvasLoc, { testContainment = true } = {}) {
-    const zs = this.shapes.map(s => s.elevationAtCanvasLocation(canvasLoc, { testContainment }));
-    return Math.max(...zs);
-  }
-
-  /**
-   * Elevation at a canvas location.
-   * @param {PIXI.Point} canvasLoc
-   * @returns {number|null} Z-value in pixel units or null if not within the ramp.
-   */
-  elevationAtCanvasLocation(canvasLoc, { testContainment = true } = {}) {
-    const TERRAIN_TYPES = this.constructor.TERRAIN_TYPES;
-    const regionD = this.placeableDocument;
-    switch ( this.constructor.terrainType(regionD) ) {
-      case TERRAIN_TYPES.NONE: return null;
-      case TERRAIN_TYPES.PLATEAU: return this.plateauZAtPoint(canvasLoc, { testContainment });
-      case TERRAIN_TYPES.RAMP: return this.rampZAtPoint(canvasLoc, { testContainment });
-      case TERRAIN_TYPES.STEPS: return this.stepsZAtPoint(canvasLoc, { testContainment });
-      case TERRAIN_TYPES.HILL: return this.hillZAtPoint(canvasLoc, { testContainment });
-    }
-  }
-
   // ----- NOTE: Static properties for terrains ----- //
 
   /** @type {enum<string>} */

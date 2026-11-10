@@ -116,8 +116,8 @@ export class RampPrimitive extends ExtrudedPolygonPrimitive {
    * @param {PIXI.Point} canvasLoc
    * @returns {number|null} Z-value in pixel units or null if not within the ramp.
    */
-  elevationAtCanvasLocation(canvasLoc, { testContainment = true } = {}) {
-    if ( testContainment && !this.baseFace.containsProjectedXY(canvasLoc) ) return null;
+  elevationAtCanvasLocation(canvasLoc) {
+    if ( !this.baseFace.containsProjectedXY(canvasLoc) ) return null;
     return this.rampFace.plane.getZ(canvasLoc.x, canvasLoc.y);
   }
 

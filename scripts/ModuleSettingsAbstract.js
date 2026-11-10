@@ -101,6 +101,32 @@ export class ModuleSettingsAbstract {
   static registerMenu(key, options) { game.settings.registerMenu(MODULE_ID, key, options); }
 
   /**
+   * Register a world setting.
+   * @param {string} key          Setting key to use
+   * @param {object} [opts]       Options passed to this.register
+   * @param {string} [opts.name]  Name if not `${key}.Name`
+   * @param {string} [opts.hint]  Hint if not `${key}.Hint`
+   * @param {...}                 Additional overrides. For a client setting, add { scope: "client" } here.
+   */
+  static registerWorld(key, { name, hint, ...opts } ) {
+    this.register(key, {
+      name: name ?? this.localize(`${key}.Name`),
+      hint: hint ?? this.localize(`${key}.Hint`),
+      scope: "world",
+      config: true,
+      ...opts,
+    });
+  }
+
+  static registerSubmenuSetting(key, tab, opts) {
+    this.registerWorld(key, { tab, config: false, ...opts  });
+  }
+
+  static registerHidden(key, opts ) {
+    this.registerWorld(key, { config: false, ...opts });
+  }
+
+  /**
    * Localize a setting key.
    * @param {string} key
    */
@@ -110,6 +136,7 @@ export class ModuleSettingsAbstract {
    * Register all settings
    */
   static registerAll() {}
+
 
   /**
    * Check the stored value for a setting.
@@ -122,5 +149,32 @@ export class ModuleSettingsAbstract {
     if ( !game.settings?.storage ) return undefined;
     if ( storageType === "client" ) return game.settings.storage.get(storageType).getItem(`${MODULE_ID}.${storageKey}`);
     return game.settings.storage.get(storageType).getSetting(`${MODULE_ID}.${storageKey}`).value;
+  }
+
+  /**
+   * Reset all settings to defaults for this module.
+   * @param {function} [filterFn]       Optional filter for the settings.
+   *   - @param {object} settingData
+   */
+  static async resetToDefault(filterFn = () => true) {
+    const moduleSettingKeys = game.settings.settings.keys().filter(key => key.startsWith(MODULE_ID));
+    const promises = [];
+    for ( const key of moduleSettingKeys ) {
+      const settingsObject = game.settings.settings.get(key);
+      if ( !filterFn(settingsObject) ) continue;
+      promises.push(this.set(key, settingsObject.default));
+    }
+    return Promise.allSettled(promises);
+  }
+
+  /**
+   * For a given key, return the default value.
+   * @param {string} key
+   * @returns {*|null}
+   */
+  static getDefaultKey(key) {
+    const settingsObject = game.settings.settings.get(`${MODULE_ID}.${key}`);
+    if ( !settingsObject ) return null;
+    return settingsObject.default;
   }
 }
