@@ -3,7 +3,7 @@ canvas,
 CONFIG,
 PIXI,
 PreciseText,
-ui
+ui,
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
@@ -16,20 +16,14 @@ export const PATCHES = {};
 PATCHES.REGIONS = {};
 
 const TOOLS = {};
-TOOLS.FILL_BY_GRID = {
-  name: "fill-by-grid",
-  title: `${MODULE_ID}.controls.fill-by-grid.name`,
-  icon: FA_ICONS.FILL_BY_GRID,
-  toggle: false,
-  order: 0,
-};
 
 TOOLS.FILL_BY_LOS = {
   name: "fill-by-los",
   title: `${MODULE_ID}.controls.fill-by-los.name`,
   icon: FA_ICONS.FILL_BY_LOS,
   toggle: false,
-  onChange: toggleWallDisplay,
+  onChange: () => renderSceneControls(ui.controls),
+  control: true, // Keep the selected region when switching to this tool.
   order: 0,
 }
 
@@ -38,7 +32,8 @@ TOOLS.FILL_BY_WALLS = {
   title: `${MODULE_ID}.controls.fill-space.name`,
   icon: FA_ICONS.FILL_BY_WALLS,
   toggle: false,
-  onChange: toggleWallDisplay,
+  onChange: () => renderSceneControls(ui.controls),
+  control: true, // Keep the selected region when switching to this tool.
   order: 0,
 }
 
@@ -54,80 +49,96 @@ TOOLS.DRAW_HILL = {
   order: 0,
 }
 
+// Tools that should show the scene walls while active.
+const WALL_DISPLAY_TOOLS = new Set(["fill-by-walls", "fill-by-los"]);
+
+/** @type {WallDisplay|undefined} */
 let wallDisplay;
 
 /**
- * Hook renderSceneControls
- * If the fill-by-walls control is active, display scene walls.
- * @param {Application} application     The Application instance being rendered
- * @param {jQuery} html                 The inner HTML of the document that will be displayed and may be modified
- * @param {object} data                 The object of data used when rendering the application
+ * Show or hide the wall display so that it matches whether a wall-based tool is active.
+ * Safe to call repeatedly.
+ * @param {boolean} enabled
  */
-function renderSceneControls(sceneControls, _html, _data) {
-  const activeControl = sceneControls.control.name;
-  const activeTool = sceneControls.tool.name;
-  const fillWallsEnabled = activeControl === "regions" && activeTool === "fill-by-walls";
-  if ( fillWallsEnabled && !wallDisplay ) {
-    wallDisplay = new WallDisplay();
+function setWallDisplay(enabled) {
+  if ( enabled ) {
+    if ( !canvas.regions ) return;
+    wallDisplay ??= new WallDisplay();
     wallDisplay.render();
-  } else if ( !fillWallsEnabled && wallDisplay ) {
+  } else if ( wallDisplay ) {
     wallDisplay.destroy();
     wallDisplay = undefined;
   }
+}
+
+/**
+ * Hook renderSceneControls
+ * Display scene walls while a wall-based fill tool is active.
+ * @param {SceneControls} sceneControls
+ */
+function renderSceneControls(sceneControls, _element, _context, _options) {
+  const enabled = sceneControls.control?.name === "regions"
+    && WALL_DISPLAY_TOOLS.has(sceneControls.tool?.name);
+  setWallDisplay(enabled);
 }
 
 /**
  * Hook getSceneControlButtons
  * Add additional shape controls to the region controls.
+ * @param {Record<string, SceneControl>} controls   Scene controls, keyed by control name
  */
-function getSceneControlButtons(controls, _html, _data) {
+function getSceneControlButtons(controls) {
   if ( !canvas.scene ) return;
-  const regionTools = controls.regions;
-  if ( !regionTools ) return;
-  if ( !canvas.grid.isGridless ) {
-    const selectIdx = regionTools.tools.select.order;
-    TOOLS.FILL_BY_GRID.order = selectIdx + 1;
-    Object.values(regionTools.tools)
-      .filter(tool => tool.order >= selectIdx + 1)
-      .forEach(tool => tool.order += 1);
-    regionTools.tools[TOOLS.FILL_BY_GRID.name] = TOOLS.FILL_BY_GRID;
-  }
-  const polyIdx = regionTools.tools.polygon.order;
-  TOOLS.FILL_BY_WALLS.order = polyIdx;
-  TOOLS.FILL_BY_LOS.order = polyIdx + 1;
-  TOOLS.DRAW_HILL.order = polyIdx + 2;
-  Object.values(regionTools.tools)
-      .filter(tool => tool.order >= polyIdx)
-      .forEach(tool => tool.order += 3);
-  regionTools.tools[TOOLS.FILL_BY_WALLS.name] = TOOLS.FILL_BY_WALLS;
-  regionTools.tools[TOOLS.FILL_BY_LOS.name] = TOOLS.FILL_BY_LOS;
-  regionTools.tools[TOOLS.DRAW_HILL.name] = TOOLS.DRAW_HILL;
+  const tools = controls.regions?.tools;
+  if ( !tools ) return;
+
+  /**
+   * Insert one or more tools at a given order, pushing existing tools at or after it down.
+   * Copies the tool definitions so the shared TOOLS objects are never mutated.
+   */
+  const insertTools = (order, newTools) => {
+    newTools = newTools.filter(tool => !tools[tool.name]); // Idempotent if the hook re-fires.
+    if ( !newTools.length ) return;
+    for ( const tool of Object.values(tools) ) {
+      if ( tool.order >= order ) tool.order += newTools.length;
+    }
+    newTools.forEach((tool, i) => { tools[tool.name] = { ...tool, order: order + i, visible: !canvas.regions?.templateMode }; });
+  };
+
+  // Walls, LOS and hill tools go in front of the polygon tool.
+  // Read the polygon order after the first insert, because it may have shifted.
+  const polyOrder = tools.polygon?.order ?? Object.keys(tools).length;
+  insertTools(polyOrder, [TOOLS.FILL_BY_WALLS, TOOLS.FILL_BY_LOS, TOOLS.DRAW_HILL]);
+}
+
+/**
+ * Hook canvasTearDown
+ * Drop the display so it is not left pointing at destroyed canvas layers.
+ */
+function canvasTearDown() {
+  setWallDisplay(false);
+}
+
+/**
+ * Refresh the display (if showing) when walls change.
+ * Hooks: createWall, updateWall, deleteWall.
+ */
+function refreshWallDisplay() {
+  wallDisplay?.render();
 }
 
 PATCHES.REGIONS.HOOKS = {
   getSceneControlButtons,
-  renderSceneControls
+  renderSceneControls,
+  canvasTearDown,
+  createWall: refreshWallDisplay,
+  updateWall: refreshWallDisplay,
+  deleteWall: refreshWallDisplay,
 }
 
 // ----- NOTE: Helper functions ----- //
 
-/**
- * When fill-by-walls control is active, display the walls for the scene.
- * @param {PIXI.InteractionEvent} event
- */
-function toggleWallDisplay() {
-  const enabled = ui.controls.control.name == "regions"
-    && ( ui.controls.tool.name === "fill-by-walls"
-      || ui.controls.tool.name === "fill-by-los" );
-  // console.log(`Fill by walls ${enabled ? "enabled" : "disabled"}!`);
-  if ( enabled && !wallDisplay ) {
-    wallDisplay = new WallDisplay();
-    wallDisplay.render();
-  } else if ( !enabled && wallDisplay ) {
-    wallDisplay.destroy();
-    wallDisplay = undefined;
-  }
-}
+
 
 /**
  * Class to draw current wall set on the canvas.
@@ -153,26 +164,43 @@ class WallDisplay {
    */
   destroy() {
     if ( this.#displayContainer.destroyed ) return;
-    canvas.regions.removeChild(this.#displayContainer);
-    this.#displayContainer.removeChildren().forEach(child => child.destroy());
-    this.#displayContainer.destroy();
+    this.#displayContainer.parent?.removeChild(this.#displayContainer);
+    this.#displayContainer.destroy({ children: true });
   }
 
   /**
-   * Render all walls and inner boundaries.
+   * Remove prior drawings so that render can be called repeatedly.
+   */
+  #clear() {
+    this.#graphics.clear();
+    for ( const child of [...this.#displayContainer.children] ) {
+      if ( child === this.#graphics ) continue;
+      this.#displayContainer.removeChild(child);
+      child.destroy();
+    }
+  }
+
+  /**
+   * Render all walls and inner boundaries for the current level.
    */
   render() {
+    if ( this.#displayContainer.destroyed ) return;
+    this.#clear();
+    const levelId = canvas.level?.id;
     for ( const edge of canvas.edges.values() ) {
       if ( edge.type === "wall" ) {
         const wallD = edge.object;
-        if ( wallD.levels.has(canvas.level.id) ) this._drawWall(wallD.object);
-      }
-      else if ( edge.type === "innerBounds" ) this._drawEdgeSegment(edge);
+        const wall = wallD?.object;
+        if ( !wall ) continue; // Not drawn, e.g. on a level that is not rendered.
+        if ( levelId && !wallD.levels?.has(levelId) ) continue;
+        this._drawWall(wall);
+      } else if ( edge.type === "innerBounds" ) this._drawEdgeSegment(edge);
     }
   }
 
   /**
    * Draw a single wall.
+   * @param {Wall} wall
    */
   _drawWall(wall) {
     this._drawEdgeSegment(wall.edge, wall.isOpen);
@@ -181,15 +209,12 @@ class WallDisplay {
   }
 
   /**
-   * Draw wall segments
-   * @param {Wall} wall
-   * @param {PIXI.Graphics} [graphics]   Optional graphics container to use
-   * @returns {PIXI.Graphics} The added wall graphic
+   * Draw a wall segment, blue if open and red if closed.
+   * @param {Edge} edge
+   * @param {boolean} [isOpen=true]
    */
   _drawEdgeSegment(edge, isOpen = true) {
     const draw = this.#draw;
-
-    // Draw the wall, coloring blue if it is open, red if closed.
     const color = isOpen ? Draw.COLORS.blue : Draw.COLORS.red;
     const alpha = isOpen ? 0.5 : 1;
     draw.segment(edge, { color, alpha });
@@ -198,29 +223,25 @@ class WallDisplay {
   }
 
   /**
-   * From https://github.com/theripper93/wall-height/blob/12c204b44e6acfa1e835464174ac1d80e77cec4a/scripts/patches.js#L318
    * Draw the wall lower and upper heights on the canvas.
+   * Based on https://github.com/theripper93/wall-height/blob/12c204b44e6acfa1e835464174ac1d80e77cec4a/scripts/patches.js#L318
    * @param {Wall} wall
-   * @param {PreciseText} [g]   Optional PreciseText container to use
-   * @returns {PreciseText} The text label for the wall
+   * @returns {PreciseText|undefined} The text label for the wall, if the wall is height-limited
    */
-  #drawWallRange(wall, text) {
-    // Fill in for WallHeight.getWallBounds
-    const bounds = {
-      top: wall.topE,
-      bottom: wall.bottomE
-    };
-    if ( bounds.top === Infinity && bounds.bottom === -Infinity ) return;
+  #drawWallRange(wall) {
+    const { topE, bottomE } = wall;
+    if ( topE === Infinity && bottomE === -Infinity ) return;
 
-    // Update or set new text.
-    text ??= new PreciseText("", this.#wallRangeTextStyle);
-    if ( bounds.top === Infinity ) bounds.top = "Inf";
-    if ( bounds.bottom === -Infinity ) bounds.bottom = "-Inf";
-    text.text = `${bounds.top} / ${bounds.bottom}`;
-    text.style.fill = wall._getWallColor();
+    const top = topE === Infinity ? "Inf" : topE;
+    const bottom = bottomE === -Infinity ? "-Inf" : bottomE;
+
+    const text = new PreciseText(`${top} / ${bottom}`, this.#wallRangeTextStyle());
+    if ( typeof wall._getWallColor === "function" ) text.style.fill = wall._getWallColor();
     text.name = "wall-height-text";
-    let angle = (Math.atan2( wall.coords[3] - wall.coords[1], wall.coords[2] - wall.coords[0] ) * ( 180 / Math.PI ));
-    angle = ((angle + 90 ) % 180) - 90;
+
+    const [x0, y0, x1, y1] = wall.coords;
+    let angle = Math.atan2(y1 - y0, x1 - x0) * (180 / Math.PI);
+    angle = ((angle + 90) % 180) - 90;
     text.position.set(wall.center.x, wall.center.y);
     text.anchor.set(0.5, 0.5);
     text.angle = angle;
@@ -228,12 +249,14 @@ class WallDisplay {
     return text;
   }
 
+  /**
+   * Text style for the height labels. Clones the canvas default so the shared style is not altered.
+   * @returns {PIXI.TextStyle}
+   */
   #wallRangeTextStyle() {
     const style = CONFIG.canvasTextStyle.clone();
     style.fontSize /= 1.5;
     return style;
   }
-
 }
-
 
