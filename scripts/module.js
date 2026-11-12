@@ -13,9 +13,6 @@ import { log } from "./util.js";
 import { Settings } from "./settings.js";
 import { PATCHER, initializePatching } from "./patching.js";
 
-// Scene Graph
-import { WallTracerEdge, WallTracerVertex, WallTracer, SCENE_GRAPH } from "./WallTracer.js";
-
 // Regions
 import { PlateauTerrainRegionBehaviorType } from "./regions/PlateauRegionBehaviorType.js";
 import { HillTerrainRegionBehaviorType } from "./regions/HillRegionBehaviorType.js";
@@ -212,10 +209,6 @@ function initializeAPI() {
   game.modules.get(MODULE_ID).api = {
     Settings,
     PATCHER,
-    WallTracerEdge,
-    WallTracerVertex,
-    WallTracer,
-    SCENE_GRAPH,
     regionElevationAtPoint,
     StraightLinePath,
     TokenElevationHandler,

@@ -7,8 +7,6 @@ game
 import { Patcher } from "./Patcher.js";
 
 import { PATCHES as PATCHES_Token } from "./Token.js";
-import { PATCHES as PATCHES_Wall } from "./Wall.js";
-import { PATCHES as PATCHES_CanvasEdges } from "./CanvasEdges.js";
 import { PATCHES as PATCHES_RegionSceneControls } from "./regions/controls.js";
 import { PATCHES as PATCHES_RegionLayer } from "./regions/RegionLayer.js";
 import { PATCHES as PATCHES_SceneConfig } from "./SceneConfig.js";
@@ -23,7 +21,6 @@ import { PATCHES as PATCHES_HillDrawingManager } from "./regions/HillDrawingMana
 import { PATCHES as PATCHES_LevelConfig } from "./LevelConfig.js";
 
 export const PATCHES = {
-  "foundry.canvas.edges.CanvasEdges": PATCHES_CanvasEdges,
   "foundry.helpers.ClientSettings": PATCHES_ModuleSettingsAbstract,
   "foundry.canvas.placeables.Region": PATCHES_Region,
   "foundry.canvas.layers.RegionLayer": PATCHES_RegionLayer,
@@ -33,7 +30,6 @@ export const PATCHES = {
   "foundry.applications.sheets.LevelConfig": PATCHES_LevelConfig,
   // "foundry.documents.TokenDocument": PATCHES_TokenDocument,
   "foundry.canvas.placeables.Token": PATCHES_Token,
-  "foundry.canvas.placeables.Wall": PATCHES_Wall,
   "foundry.documents.Scene": PATCHES_Scene,
 
   // Only hooks
