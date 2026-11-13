@@ -1,3 +1,14 @@
+## 14.0.2
+Update libGeometry to v0.7.1.
+- Fix for point los test in region holes.
+- Support for region grid shapes.
+Remove deprecated fill-by-grid (FoundryVTT v14.370 does this.)
+Fix fill-by-los and fill-by-walls tools.
+Improved handling of region holes.
+
+### New Features
+- Moved all terrain settings to region behaviors.
+
 ## 14.0.1
 ### New Features
 Added a hill control to region controls that allows the GM to define a cubic Bézier curve, representing an elevated hill, for the region.
@@ -5,12 +16,11 @@ Added hill terrain type to the configuration.
 Added hill type to permit 3 different types of interpretations for translating the curve to the 2d region surface:
 - linear (along a single direction; parallel lines in the region share the same curve)
 - ridge (curve defines a ridge; hill slopes downward proportionally in directions normal to the ridge)
-- symmetrical (half curve is mirrored in a circle)
+- symmetrical (curve is mirrored in a circle)
 
-#### Other fixes
+### Other fixes
 Improve walking path algorithm. Remove dependence on ClipperJS, even for underground terrain.
 Region config tab now hides unneeded settings when switching between terrain types.
-Update libGeometry to v0.6.1.
 
 ## 14.0.0
 Update for Foundry v14.

@@ -43,14 +43,12 @@ function updateTile(tileD, changed, _options, _userId) {
   const resized = ["x", "y", "width", "height"].some(key => changeKeys.has(key));
   const transformed = ["rotation", "texture", "scaleX", "scaleY"].some(key => changeKeys.has(key));
   const flagChanged = [
-    `flags.${MODULE_ID}.${FLAGS.TILE.IS_FLOOR}`,
-    `flags.${MODULE_ID}.${FLAGS.TILE.TEST_HOLES}`,
-    `flags.${MODULE_ID}.${FLAGS.TILE.ALPHA_THRESHOLD}`
+    `flags.${MODULE_ID}.${FLAGS.TILE_ALPHA_SHAPE}`,
   ].some(key => changeKeys.has(key));
   if ( !(resized || transformed || flagChanged) ) return;
 
   // Rebuild the hole cache if the alpha threshold changed
-  if ( foundry.utils.hasProperty(changed, `flags.${MODULE_ID}.${FLAGS.TILE.ALPHA_THRESHOLD}`) ) tm.clearHoleCache();
+  if ( foundry.utils.hasProperty(changed, "texture.alphaThreshold") ) tm.clearHoleCache();
 }
 
 

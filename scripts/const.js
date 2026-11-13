@@ -1,5 +1,4 @@
 /* globals
-foundry,
 game,
 Hooks
 */
@@ -12,7 +11,6 @@ export const MODULE_ID = "terrainmapper";
 export const TEMPLATES = {
   SCENE: `modules/${MODULE_ID}/templates/scene-config.html`,
   SETTINGS: `modules/${MODULE_ID}/templates/settings-menu-tab-partial.html`,
-  REGION: `modules/${MODULE_ID}/templates/region-config.html`,
   TILE: `modules/${MODULE_ID}/templates/tile-config.html`,
 };
 
@@ -30,8 +28,24 @@ Hooks.once("init", function() {
   MODULES_ACTIVE.LEVELS = game.modules.get("levels")?.active;
 });
 
+/** @type {enum<string>} */
+export const TILE_THRESHOLD_SHAPE_OPTIONS = {
+  RECTANGLE: "full", // Fastest, but only trims rectangular transparent border without considering holes or irregular shapes.
+  ALPHA_TRIANGLES: "triangles", // In testing, this seems very slow.
+  ALPHA_POLYGONS: "polygons", // Much faster than triangles.
+  ALPHA_BOUNDING_BOX: "boundingRect",   // Just the outer alpha box.
+  ALPHA_BOUNDING_POLYGON: "boundingPolygon", // The outer alpha polygon.
+};
+
 // Flags set on various documents.
 export const FLAGS = {
+
+  TILE_ALPHA_SHAPE: "tileAlphaShape",
+  TILE_ALPHA_SHAPE_OPTIONS: {
+    ...TILE_THRESHOLD_SHAPE_OPTIONS,
+    CALCULATED: "calculated",
+    IGNORE: "ignore",
+  },
 
   // Scene
   SCENE: {
@@ -79,13 +93,6 @@ export const FLAGS = {
     },
   },
 
-  TILE: {
-    IS_FLOOR: "isFloor",
-    TRIM_BORDER: "trimAlphaBorder",
-    TEST_HOLES: "testHoles",
-    ALPHA_THRESHOLD: "alphaThreshold"
-  },
-
   // StairsRegionBehavior
   STAIRS_BEHAVIOR: {
     CHOICES: {
@@ -110,6 +117,7 @@ export const FA_ICONS = {
   STAIRS: "fa-solid fa-stairs",                 // https://fontawesome.com/icons/stairs
   ELEVATOR: "fa-solid fa-elevator",             // https://fontawesome.com/icons/elevator
   DRAW_HILL: "fa-solid fa-mountain",            // https://fontawesome.com/icons/mountain
+  TERRAIN: "fa-solid fa-mountain",              // https://fontawesome.com/icons/mountain
 };
 
 export const ICONS = {
@@ -118,21 +126,55 @@ export const ICONS = {
 
 export const DEFAULT_FLAGS = {
   TILE: {
-    [FLAGS.TILE.IS_FLOOR]: false,
-    [FLAGS.TILE.TRIM_BORDER]: true,
-    [FLAGS.TILE.TEST_HOLES]: false,
-    [FLAGS.TILE.ALPHA_THRESHOLD]: 0.75
+    [FLAGS.TILE_ALPHA_SHAPE]: "calculated",
   },
 
   SCENE: {
     [FLAGS.SCENE.BACKGROUND_ELEVATION]: 0,
     [FLAGS.SCENE.CONSTRAIN_ELEVATION]: true,
-  }
+  },
+
+  REGION: {
+    [FLAGS.REGION.TERRAIN.TYPE]: FLAGS.REGION.TERRAIN.CHOICES.NONE,
+
+    [FLAGS.REGION.PLATEAU_ELEVATION]: 0,
+
+    [FLAGS.REGION.RAMP.FLOOR]: 0,
+    [FLAGS.REGION.RAMP.DIRECTION]: 0,
+    [FLAGS.REGION.RAMP.STEP_SIZE]: 0,
+    [FLAGS.REGION.RAMP.SPLIT_POLYGONS]: false,
+
+    [FLAGS.REGION.HILL.TYPE]: FLAGS.REGION.HILL.CHOICES.LINEAR,
+    [FLAGS.REGION.HILL.CURVE]: [
+      // Curve points
+    //0.00, 0,      // start, which is always 0,0 when normalized.
+      0.25, 0,      // cp1
+      0.75, 0,      // cp2
+      1.00, 0,      // end
+
+      // Orientation points, relative to a center. Placed at region bounds along x axis.
+      -1, 0,        // left
+       1, 0         // right
+    ],
+  },
 };
 
-// Ids for the submenu blocks for configuring region terrain shapes.
-export const CONFIG_BLOCK_IDS = {
-  RAMP: `${MODULE_ID}-config-ramp`,
-  HILL: `${MODULE_ID}-config-hill`,
+/**
+ * Checks for libGeometery.
+ * @type {object}
+ */
+export const GEOMETRY_LIB_OPTS = {
+  // What geometries we need to track.
+  placeableGeometries: [
+    "Tile",
+    "Token",
+    "Region",
+    "Wall",
+    "Level",
+  ],
+
+  wallHeightRequired: false,
+  tokenHeightRequired: false,
 };
+
 

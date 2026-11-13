@@ -7,7 +7,7 @@
   "socket": "true",
   "compatibility": {
     "minimum": "14",
-    "verified": "14.363"
+    "verified": "14.370"
   },
   "authors": [
     {
@@ -51,7 +51,11 @@
   "documentTypes": {
     "RegionBehavior": {
       "setElevation": {},
-      "elevator": {}
+      "elevator": {},
+      "plateauTerrain": {},
+      "rampTerrain": {},
+      "stepsTerrain": {},
+      "hillTerrain": {}
     }
   },
 
