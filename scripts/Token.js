@@ -74,17 +74,21 @@ export function calculatePathForCenterPoints(token, aCenter, bCenter) {
  * @returns {TokenTerrainMovementWaypoint[]}                   The movement path with terrain data
  */
 function createTerrainMovementPath(wrapped, waypoints, options) {
-  if ( waypoints.length < 2 || !canvas.scene.getFlag(MODULE_ID, FLAGS.SCENE.CONSTRAIN_ELEVATION) ) return wrapped(waypoints, options);
+  const numWaypoints = waypoints.length;
+  if ( numWaypoints < 2 || !canvas.scene.getFlag(MODULE_ID, FLAGS.SCENE.CONSTRAIN_ELEVATION) ) return wrapped(waypoints, options);
 
   log(`createTerrainMovementPath|Initial Waypoints: ${waypoints.length} waypoints: ${ElevatedPoint.fromObject(waypoints[0])} --> ${ElevatedPoint.fromObject(waypoints.at(-1))}`);
   if ( CONFIG[MODULE_ID].debug ) console.table(waypoints);
 
-  // Check if this is a basic elevation change.
-  waypoints = waypoints.filter((pt, idx) => idx === 0 || (!pt.intermediate && (pt.explicit || pt.checkpoint)));
+  // Simplify to start, end, and any checkpoints or explicit waypoints.
+  waypoints = waypoints.filter((pt, idx) => idx === 0 || idx === (numWaypoints - 1) || (!pt.intermediate && (pt.explicit || pt.checkpoint)));
   const tm = this[MODULE_ID];
 
+  //
 
-  if ( waypoints.length >= 2 && PIXI.Point.distanceBetween(waypoints.at(-2), waypoints.at(-1)) > 500 ) log(`Longer waypoint path.`);
+
+  // Debug moves in progress.
+  // if ( waypoints.length >= 2 && PIXI.Point.distanceBetween(waypoints.at(-2), waypoints.at(-1)) > 500 ) log(`Longer waypoint path.`);
 
   // Testing
   // if ( waypoints.length > 2 ) console.log("Waypoints", waypoints);
@@ -104,41 +108,33 @@ function createTerrainMovementPath(wrapped, waypoints, options) {
     const burrowing = CONFIG[MODULE_ID].terrainBurrowActions.has(next.action);
     const walking = CONFIG[MODULE_ID].terrainWalkActions.has(next.action);
 
-    // log(`createTerrainMovementPath|${ElevatedPoint.fromObject(start)} --> ${ElevatedPoint.fromObject(next)}`, { flying, burrowing, walking });
-    const a = _centerWaypoint(start, this);
-    const b = _centerWaypoint(next, this);
-    tm._initialize(a, b);
+    // If on the same level, determine the path between the two waypoints.
+    if ( start.level == next.level ) {
+      newWaypoints.push(..._buildPathBetweenTwoWaypoints(start, next, this, { flying, burrowing, walking }));
+      start = newWaypoints.at(-1);
+    } else {
+      // Moving to another level; don't touch the waypoints.
+      newWaypoints.push(next);
+      start = next;
 
-    const path = tm.constructPath(a, b, { flying, burrowing, walking, initialize: false });
-    path.forEach(pt => _uncenterPathPointInPlace(pt, this));
-
-    // Use the next waypoint parameters, changing only what is necessary.
-    for ( let j = 1, maxJ = path.length - 1; j < maxJ; j += 1 ) {
-      const pathPt = path[j];
-      const waypoint = Object.assign({}, next, {
-        checkpoint: false,
-        intermediate: true,
-        snapped: false,
-        explicit: false,
-        x: pathPt.x,
-        y: pathPt.y,
-        elevation: Math.round(pathPt.elevation * 10) / 10,
-      });
-      newWaypoints.push(waypoint);
+      // Enforce gravity after the move.
+      const destCtr = _centerWaypoint(next, this);
+      const newLocation = tm.enforceGravity(destCtr, next.level);
+      if ( !newLocation.almostEqual(destCtr) ) {
+        // Add the move from dest to new location.
+        _uncenterPathPointInPlace(newLocation, this);
+        const waypoint = Object.assign({}, next, {
+          x: newLocation.x,
+          y: newLocation.y,
+          elevation: Math.round(newLocation.elevation * 10) / 10,
+        });
+        newWaypoints.push(waypoint);
+        start = waypoint;
+      }
     }
-
-    // Update the next waypoint with the last path point.
-    if ( path.length > 1 ) {
-      const pathPt = path.at(-1);
-      const waypoint = Object.assign({}, next, {
-        x: pathPt.x,
-        y: pathPt.y,
-        elevation: Math.round(pathPt.elevation * 10) / 10,
-      });
-      newWaypoints.push(waypoint);
-      start = waypoint;
-    } else start = next;
   }
+
+  // Enforce gravity after the move?
 
   // Testing
   if ( newWaypoints.length > 1000 ) {
@@ -150,6 +146,52 @@ function createTerrainMovementPath(wrapped, waypoints, options) {
   log(`\n\n`);
 
   return wrapped(newWaypoints, options);
+}
+
+/**
+ * Build the path between two waypoints.
+ * @param {TokenGetTerrainMovementPathWaypoint} start
+ * @param {TokenGetTerrainMovementPathWaypoint} end
+ * @returns {TokenGetTerrainMovementPathWaypoint[]} The waypoints for the path
+ */
+function _buildPathBetweenTwoWaypoints(start, end, tokenD, movementOpts = {}) {
+   // log(`createTerrainMovementPath|${ElevatedPoint.fromObject(start)} --> ${ElevatedPoint.fromObject(next)}`, { flying, burrowing, walking })
+  const tm = tokenD[MODULE_ID];
+  const a = _centerWaypoint(start, tokenD);
+  const b = _centerWaypoint(end, tokenD);
+  tm._initialize(a, b);
+
+  const path = tm.constructPath(a, b, { ...movementOpts, initialize: false });
+  path.forEach(pt => _uncenterPathPointInPlace(pt, tokenD));
+
+  const out = [];
+
+  // Use the next waypoint parameters, changing only what is necessary.
+  for ( let j = 1, maxJ = path.length - 1; j < maxJ; j += 1 ) {
+    const pathPt = path[j];
+    const waypoint = Object.assign({}, end, {
+      checkpoint: false,
+      intermediate: true,
+      snapped: false,
+      explicit: false,
+      x: pathPt.x,
+      y: pathPt.y,
+      elevation: Math.round(pathPt.elevation * 10) / 10,
+    });
+    out.push(waypoint);
+  }
+
+  // Update the next waypoint with the last path point.
+  if ( path.length > 1 ) {
+    const pathPt = path.at(-1);
+    const waypoint = Object.assign({}, end, {
+      x: pathPt.x,
+      y: pathPt.y,
+      elevation: Math.round(pathPt.elevation * 10) / 10,
+    });
+    out.push(waypoint);
+  }
+  return out;
 }
 
 /**

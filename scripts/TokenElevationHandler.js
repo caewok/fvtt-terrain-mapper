@@ -223,7 +223,77 @@ export class TokenElevationHandler {
   }
 
 
+
+
   // ----- NOTE: Primary methods ----- //
+
+  /**
+   * Enforce gravity for this token. Move the token from its current position.
+   * Typically done after a level or scene change.
+   * Walking: token should be on the ground if terrain along z axis.
+   * Burrowing: token should be below or at ground if terrain along z axis.
+   * Flying: token should be at or above ground if  terrain along z axis.
+   * @param {ElevatedPoint} Current location
+   * @returns {ElevatedPoint} Destination point
+   */
+  enforceGravity(currentLocation, levelId = canvas.level.id) {
+    const token = this.token;
+    currentLocation ??= ElevatedPoint.fromLocationWithElevation(token.getCenterPoint(), token.document.bottomZ);
+    this._initialize(currentLocation, currentLocation, levelId);
+
+    const floor = this.floor;
+    const curr2d = this.to2d(currentLocation);
+    let dest2d = curr2d.clone();
+    const ranges = mergeRanges(this._cutawayElevationRangesAtX(curr2d.x));
+    if ( !ranges.length ) return currentLocation;
+
+    // Walking: If inside a region, move to top. Handle multiple overlapping regions.
+    if ( this.walking ) dest2d.y = getHighestConnectedElevation(ranges, curr2d.y, ranges) ?? curr2d.y;
+
+    // Burrowing: If not within a region, fall to the next region or the floor.
+    else if ( this.burrowing && curr2d.y > floor ) {
+      let isOutsideRegion = true;
+      for ( const r of ranges ) {
+        if ( curr2d.x.almostBetween(r[0], r[1]) ) { isOutsideRegion = false; break; }
+      }
+      if ( isOutsideRegion ) {
+        // Drop to top of the region below or scene floor.
+        let maxElev = floor;
+        for ( const r of ranges ) {
+          const t = r[1];
+          if ( t < curr2d.y ) maxElev = Math.max(maxElev, t);
+        }
+        dest2d.y = maxElev
+      }
+
+    // Flying: If within a region, move up to the top.
+    } else if ( this.flying ) {
+      let isOutsideRegion = true;
+      for ( const r of ranges ) {
+        if ( curr2d.x.almostBetween(r[0], r[1]) ) { isOutsideRegion = false; break; }
+      }
+
+      // Just like walking. Move to top of region.
+      if ( !isOutsideRegion ) dest2d.y = getHighestConnectedElevation(ranges, curr2d.y, ranges) ?? curr2d.y;
+    }
+
+    return this.from2d(dest2d);
+  }
+
+  /**
+   * Get the elevation ranges for all cutaways at x.
+   * @param {number} x
+   * @returns {number[2][]}
+   */
+  _cutawayElevationRangesAtX(x) {
+    const ranges = [];
+    for ( const cutaway of this.cutaways ) {
+      const r = cutaway.rangeAt(x);
+      if ( r ) ranges.push(r);
+    }
+    return ranges;
+  }
+
 
   /**
    * Determine the path between a and b that accounts for terrain regions and terrain tiles
@@ -1070,6 +1140,20 @@ export class CutawayHandler {
    */
   bottomAt(x) { return CutawayHandler.#elevationAt(this.#bottomEdges, x); }
 
+
+  /**
+   * Elevation range at given x position.
+   * @param {number} x
+   * @returns {number[2]|null} Array of bottom and top elevations or null.
+   */
+  rangeAt(x) {
+    const t = this.topAt(x);
+    if ( t === null ) return null;
+    const b = this.bottomAt(x);
+    if ( b === null ) return null;
+    return [b, t];
+  }
+
   /**
    * Binary search a sorted, left-to-right, non-overlapping edge list for the one covering x, and
    * linearly interpolate its elevation there.
@@ -1299,4 +1383,49 @@ function _ixToPoint(ix) {
   const pt = PIXI.Point.tmp.set(ix.x, ix.y);
   pt.t0 = ix.t0;
   return pt;
+}
+
+/**
+ * Get the highest connected elevation range from a starting elevation.
+ * For example, if elev is 12, then elev is within [10,20].
+ * And you can get from [10, 20] to [15, 30] because 15–20 overlap. So the answer is 30.
+ * @param {number[2][]} ranges
+ * @param {number} startingElevation
+ * @returns {number} Highest elevation
+ */
+function getHighestConnectedElevation(ranges, startingElevation, merged) {
+  if ( !ranges || ranges.length === 0 ) return null;
+  merged ??= mergeRanges(ranges);
+
+  // Find which merged range contains the target elevation.
+  for (const [low, high] of merged) {
+    if ( startingElevation >= low && startingElevation <= high ) return high;
+  }
+
+  // Return null if elev doesn't fall into any range.
+  return null;
+}
+
+/**
+ * Merge ranges that overlap. E.g., [[10, 20], [15, 30]] returns [[10, 30]].
+ * @param {number[2][]} ranges
+ * @returns {number[2][]}
+ */
+function mergeRanges(ranges) {
+  if ( ranges.length < 2 ) return ranges;
+
+  // Sort ranges by their low boundary.
+  const sorted = [...ranges].sort((a, b) => a[0] - b[0]);
+
+  // Merge overlapping or touching intervals.
+  const merged = [sorted[0]];
+  for ( let i = 1; i < sorted.length; i++ ) {
+    const current = sorted[i];
+    const lastMerged = merged[merged.length - 1];
+
+    // If the current range overlaps or touches the previous one
+    if ( current[0] <= lastMerged[1] ) lastMerged[1] = Math.max(lastMerged[1], current[1]);
+    else merged.push(current);
+  }
+  return merged;
 }
