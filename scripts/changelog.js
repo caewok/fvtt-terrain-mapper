@@ -205,6 +205,21 @@ Hooks.once("ready", () => {
                 `
         })
 
+        .addEntry({
+            version: "14.0.2",
+            title: "Terrain behaviors",
+            body: `\
+                All terrain settings are moved to region behaviors:
+                - Terrain: Plateau
+                - Terrain: Ramp
+                - Terrain: Steps
+                - Terrain: Hill
+
+               In addition, the terrain elevation is now set to match th region elevation (top/bottom).
+               This is meant to simplify the choices when adding terrains.
+               `
+        })
+
         .build()
         ?.render(true);
 });
