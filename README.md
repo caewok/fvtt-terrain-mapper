@@ -21,15 +21,10 @@ This module is meant to work with [Alternative Token Visibility](https://github.
 
 This module intends to be system-neutral. I will endeavor to make this module compatible with other systems upon request (and to the extent possible).
 
-You can use the [wiki page](https://github.com/caewok/fvtt-terrain-mapper/wiki/Terrains) to share exported terrains.
-
-[Screen Recording 2024-06-22 at 8.40.46 AM.webm](https://github.com/caewok/fvtt-terrain-mapper/assets/1267134/acf36c7b-04a6-4673-b02a-9901f71a138e)
-
 # Thanks
 
 Special thanks to:
 - [dev7355608](https://github.com/dev7355608) for answering yet more random PIXIjs questions.
-- [DFreds](https://github.com/DFreds) for inspiration from their [Convenient Effects](https://github.com/DFreds/dfreds-convenient-effects) module.
 
 ## Required modules
 - [libWrapper](https://github.com/ruipin/fvtt-lib-wrapper)
@@ -118,11 +113,8 @@ Unlike the "Create Shape from Controlled Walls" tool provided by Regions, this d
 <img width="1047" alt="Screenshot 2024-06-21 at 9 16 16 PM" src="https://github.com/caewok/fvtt-terrain-mapper/assets/1267134/143d3ebc-787c-4c45-97fa-dc832cbfd78e">
 
 ## Region configuration
-Within a region, you can set three behaviors: set terrain, stairs, and elevator.
+Within a region, you can set two behaviors: stairs, and elevator.
 <img width="482" alt="Screenshot 2024-09-03 at 11 38 56 AM" src="https://github.com/user-attachments/assets/e0cb2d51-50bc-4f64-b049-4650dd61ea49">
-
-### Set Terrain
-<img width="482" alt="Screenshot 2024-09-03 at 11 42 53 AM" src="https://github.com/user-attachments/assets/c563bfb4-b484-4343-9603-744a74cd0de8">
 
 ### Stairs
 <img width="476" alt="Screenshot 2024-09-03 at 11 38 23 AM" src="https://github.com/user-attachments/assets/df5b0f13-6ac7-4a8b-b1aa-8478d305af83">
