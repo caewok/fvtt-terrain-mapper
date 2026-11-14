@@ -1,5 +1,5 @@
 /* globals
-Dialog,
+foundry,
 Hooks,
 game,
 showdown,
@@ -217,11 +217,12 @@ Hooks.once("ready", () => {
 
                In addition, the terrain elevation is now set to match th region elevation (top/bottom).
                This is meant to simplify the choices when adding terrains.
+
+               You should also see better support for switching between levels in a scene with constrained elevation.
                `
         })
 
-        .build()
-        ?.render(true);
+        .build();
 });
 
 
@@ -229,67 +230,71 @@ Hooks.once("ready", () => {
  * Display a dialog with changes; store changes as entries.
  */
 class ChangelogBuilder {
-    #entries = [];
+  #entries = [];
 
-    addEntry({ version, title = "", body }) {
-        this.#entries.push({ version, title, body });
-        return this;
+  addEntry({ version, title = "", body }) {
+    this.#entries.push({ version, title, body });
+    return this;
+  }
+
+  build() {
+    const converter = new showdown.Converter();
+    const curr = Settings.get(CHANGELOG);
+    const next = this.#entries.length;
+    let content = "";
+
+    if (curr >= next) return;
+    for ( let [index, { version, title, body }] of this.#entries.entries() ) {
+      let entry = `<strong>v${version}</strong>${title ? ": " + title : ""}`;
+
+      let indentation = 0;
+      while (body[indentation] === " ") indentation++;
+      if (indentation) body = body.replace(new RegExp(`^ {0,${indentation}}`, "gm"), "");
+
+      if ( index < curr ) {
+        // Past entries are collapsed into details tags
+        entry = `<details><summary>${entry}</summary>${converter.makeHtml(body)}</details>`;
+      } else {
+        // Most recent / unread entries are fully expanded
+        entry = `<h3>${entry}</h3>${converter.makeHtml(body)}`;
+      }
+
+      // Add clean separator between entries if it is not the last.
+      content = entry + (content ? `<hr style="margin: 10px 0;">` + content : "");
     }
 
-    build() {
-        const converter = new showdown.Converter();
-        const curr = Settings.get(CHANGELOG);
-        const next = this.#entries.length;
-        let content = "";
+    // Wrap content in a scrollable container because DialogV2 ignores top-level 'styles' configs
+    content = `<div style="max-height: 65vh; overflow-y: auto; padding-right: 5px;">${content}</div>`;
 
-        if (curr >= next) {
-            return;
+    return foundry.applications.api.DialogV2.wait({
+      window: {
+        title: "Terrain Mapper: Changelog",
+      },
+      position: {
+        width: 750
+      },
+      content,
+      buttons: [
+        {
+          action: "view_documentation",
+          icon: "fas fa-book",
+          label: "View documentation",
+          callback: () => {
+              window.open("https://github.com/caewok/fvtt-terrain-mapper/blob/master/README.md");
+              return false; // Keeps dialog open.
+          }
+        },
+        {
+          action: "dont_show_again",
+          icon: "fas fa-times",
+          label: "Don't show again",
+          default: true,
+          callback: async () => {
+              await Settings.set(CHANGELOG, next);
+          }
         }
-
-        for (let [index, { version, title, body }] of this.#entries.entries()) {
-            let entry = `<strong>v${version}</strong>${title ? ": " + title : ""}`;;
-
-            if (index < curr) {
-                entry = `<summary>${entry}</summary>`;
-            } else {
-                entry = `<h3>${entry}</h3>`;
-            }
-
-            let indentation = 0;
-
-            while (body[indentation] === " ") indentation++;
-
-            if (indentation) {
-                body = body.replace(new RegExp(`^ {0,${indentation}}`, "gm"), "");
-            }
-
-            entry += converter.makeHtml(body);
-
-            if (index < curr) {
-                entry = `<details>${entry}</details><hr>`;
-            } else if (index === curr) {
-                entry += `<hr><hr>`;
-            }
-
-            content = entry + content;
-        }
-
-        return new Dialog({
-            title: "Terrain Mapper: Changelog",
-            content,
-            buttons: {
-                view_documentation: {
-                    icon: `<i class="fas fa-book"></i>`,
-                    label: "View documentation",
-                    callback: () => window.open("https://github.com/caewok/fvtt-terrain-mapper/blob/master/README.md")
-                },
-                dont_show_again: {
-                    icon: `<i class="fas fa-times"></i>`,
-                    label: "Don't show again",
-                    callback: async () => await Settings.set(CHANGELOG, next)
-                }
-            },
-            default: "dont_show_again"
-        });
-    }
+      ],
+      close: () => {}
+    });
+  }
 }
