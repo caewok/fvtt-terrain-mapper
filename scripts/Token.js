@@ -91,6 +91,9 @@ export function calculatePathForCenterPoints(token, aCenter, bCenter) {
  * @returns {TokenTerrainMovementWaypoint[]}                   The movement path with terrain data
  */
 function createTerrainMovementPath(wrapped, waypoints, options = {}) {
+  log(`createTerrainMovementPath|${this.document.name} from ${waypoints[0].x},${waypoints[0].y},${waypoints[0].elevation} to ${waypoints.at(-1).x},${waypoints.at(-1).y},${waypoints.at(-1).elevation}`,
+   { prebuilt: options?.[MODULE_ID]?.prebuilt, numWaypoints: waypoints.length, dragged: this.isDragged, preview: this.isPreview } );
+
   if ( waypoints.length < 2
     || options?.[MODULE_ID]?.prebuilt
     || !canvas.scene.getFlag(MODULE_ID, FLAGS.SCENE.CONSTRAIN_ELEVATION) ) return wrapped(waypoints, options);
@@ -234,7 +237,9 @@ function _buildPathBetweenTwoWaypoints(start, end, token, movementOpts = {}) {
 
   // constructPath initializes the handler for this segment if needed.
   let path;
-  try { path = tm.constructPath(a, b, { ...movementOpts, levelId }); } catch ( err ) {
+  try {
+    path = tm.constructPath(a, b, { ...movementOpts, levelId });
+  } catch ( err ) {
     console.error(`${MODULE_ID}|constructPath failed for ${a} --> ${b}`, err);
     return [Object.assign({}, end)];
   }
