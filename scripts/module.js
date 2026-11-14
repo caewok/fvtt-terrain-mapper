@@ -27,7 +27,6 @@ import { TerrainGeometryManager } from "./GeometricPrimitives/TerrainGeometry.js
 // Elevation
 import { TokenElevationHandler } from "./TokenElevationHandler.js";
 
-
 // Load the geometry library.
 import "./geometry/registration.js";
 import { GEOMETRY_LIB_ID } from "./geometry/const.js";
