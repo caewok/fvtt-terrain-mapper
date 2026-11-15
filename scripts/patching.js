@@ -19,6 +19,7 @@ import { PATCHES as PATCHES_TileConfig } from "./TileConfig.js";
 import { PATCHES as PATCHES_Scene } from "./Scene.js";
 import { PATCHES as PATCHES_HillDrawingManager } from "./regions/HillDrawingManager.js";
 import { PATCHES as PATCHES_LevelConfig } from "./LevelConfig.js";
+import { PATCHES as PATCHES_TokenDocument } from "./TokenDocument.js";
 
 export const PATCHES = {
   "foundry.helpers.ClientSettings": PATCHES_ModuleSettingsAbstract,
@@ -31,6 +32,7 @@ export const PATCHES = {
   // "foundry.documents.TokenDocument": PATCHES_TokenDocument,
   "foundry.canvas.placeables.Token": PATCHES_Token,
   "foundry.documents.Scene": PATCHES_Scene,
+  "foundry.documents.TokenDocument": PATCHES_TokenDocument,
 
   // Only hooks
   RegionSceneControls: PATCHES_RegionSceneControls,
