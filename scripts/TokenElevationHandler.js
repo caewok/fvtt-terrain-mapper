@@ -297,6 +297,26 @@ export class TokenElevationHandler {
     this.cutaways = this.cutaways.map(cutaway => new CutawayHandler(cutaway));
   }
 
+  /**
+   * Deduplicate path points.
+   * @param {ElevatedPoint[]}
+   * @returns {ElevatedPoint[]} Same path, with duplicates removed.
+   */
+  deduplicatePath(path) {
+    const n = path.length;
+    if ( n < 2 ) return path;
+
+    let last = path[0];
+    const newPath = [last];
+    for ( let i = 1; i < n; i += 1 ) {
+      const curr = path[i];
+      if ( last.almostEqual(curr) ) continue;
+      newPath.push(curr);
+      last = curr;
+    }
+    return newPath;
+  }
+
 
   // ----- NOTE: Primary methods ----- //
 
@@ -314,19 +334,19 @@ export class TokenElevationHandler {
    * @param {boolean} [opts.flying]
    * @returns {ElevatedPoint} Destination point
    */
-  enforceGravity(currentLocation, levelId = canvas.level.id, { walking, burrowing, flying } = {}) {
+  enforceGravity(currentLocation, { levelId, walking, burrowing, flying, initialize = true } = {}) {
     walking ??= this.walking;
     burrowing ??= this.burrowing;
     flying ??= this.flying;
     const token = this.token;
     currentLocation ??= ElevatedPoint.fromLocationWithElevation(token.getCenterPoint(), token.document.bottomZ);
-    this._initialize(currentLocation, currentLocation, levelId);
+    if ( initialize ) this._initialize(currentLocation, currentLocation, levelId);
 
-    const floor = this.floorForLevel(levelId);
+    const floor = this.floorForLevel(levelId ?? this.levelId);
     const curr2d = this.to2d(currentLocation);
     let dest2d = curr2d.clone();
     const ranges = mergeRanges(this._cutawayElevationRangesAtX(curr2d.x));
-    if ( !ranges.length ) return currentLocation;
+    if ( !ranges.length ) return currentLocation.clone();
 
     // Walking: If inside a region, move to top. Handle multiple overlapping regions.
     if ( walking ) dest2d.y = getHighestConnectedElevation(ranges, curr2d.y, ranges) ?? curr2d.y;
@@ -335,7 +355,7 @@ export class TokenElevationHandler {
     else if ( burrowing && curr2d.y > floor ) {
       let isOutsideRegion = true;
       for ( const r of ranges ) {
-        if ( curr2d.x.almostBetween(r[0], r[1]) ) { isOutsideRegion = false; break; }
+        if ( curr2d.y.almostBetween(r[0], r[1]) ) { isOutsideRegion = false; break; }
       }
       if ( isOutsideRegion ) {
         // Drop to top of the region below or scene floor.
@@ -351,7 +371,7 @@ export class TokenElevationHandler {
     } else if ( flying ) {
       let isOutsideRegion = true;
       for ( const r of ranges ) {
-        if ( curr2d.x.almostBetween(r[0], r[1]) ) { isOutsideRegion = false; break; }
+        if ( curr2d.y.almostBetween(r[0], r[1]) ) { isOutsideRegion = false; break; }
       }
 
       // Just like walking. Move to top of region.
@@ -394,7 +414,7 @@ export class TokenElevationHandler {
   constructPath(a, b, { flying, burrowing, walking, levelId, initialize = true } = {}) {
     a.roundDecimals(1);
     b.roundDecimals(1);
-    if ( a.equals(b) ) return [a];
+    if ( a.equals(b) ) return [a.clone()];
 
     flying ??= this.flying;
     burrowing ??= this.burrowing;
@@ -402,7 +422,7 @@ export class TokenElevationHandler {
     levelId ??= canvas.level.id;
 
     // Simple case: Token unbound by terrain; can fly and burrow!
-    if ( (flying && burrowing) || !(flying || burrowing || walking) ) return [a, b];
+    if ( (flying && burrowing) || !(flying || burrowing || walking) ) return [a.clone(), b.clone()];
 
     // Vertical-only move. Core rounds x,y to integers, so treat sub-pixel xy differences as no horizontal
     // movement; otherwise the direction of the cutaway plane is set by rounding noise.
@@ -416,7 +436,7 @@ export class TokenElevationHandler {
     if ( initialize && this._initializationRequired(a, b, levelId) ) this._initialize(a, b, levelId);
 
     // If no cutaways, allow free movement.
-    if ( !this.cutaways.length ) return [a, b];
+    if ( !this.cutaways.length ) return [a.clone(), b.clone()];
 
     if ( burrowing ) return this.constructBurrowingPath(a, b, false);
     if ( flying ) return this.constructFlyingPath(a, b, false);
@@ -466,61 +486,170 @@ export class TokenElevationHandler {
 
   /* ----- NOTE: Vertical climb ----- */
 
+  /**
+   * Move from current location to a new z value at the same XY location.
+   * @param {ElevatedPoint} a
+   * @param {number} desiredElevation
+   * @param {object} [opts]
+   * @param {boolean} [opts.flying]           Defaults to the current token state
+   * @param {boolean} [opts.burrowing]        Defaults to the current token state
+   * @param {boolean} [opts.walking]          Defaults to the current token state
+   * @param {string} [opts.levelId]           Defaults to the current canvas level
+   * @param {boolean} [opts.initialize = true]
+   * @returns {ElevatedPoint[]} One or more points. Single point if no move is required.
+   */
   verticalOnlyMove(a, desiredElevation, { flying, burrowing, walking, levelId, initialize = true } = {}) {
     a.roundDecimals(1);
-    if ( Math.abs(a.z - desiredElevation) < 0.05 ) return [a];
+    if ( Math.abs(a.z - desiredElevation) < 0.05 ) return [a.clone()];
 
     if ( initialize ) this._initialize(a, a, levelId);
     using b = ElevatedPoint.tmp.set(a.x, a.y, desiredElevation);
-    const a2d = this.to2d(a);
-    const b2d = this.to2d(b);
-
-    // If no cutaways at this location, allow free movement.
-    if ( !this.cutaways.some(handler => handler.aabb.almostContainsPoint(a2d)) ) {
-      return [a, ElevatedPoint.tmp.set(a.x, a.y, desiredElevation)];
-    }
-
-
+    using a2d = this.to2d(a);
+    using b2d = this.to2d(b);
     flying ??= this.flying;
     burrowing ??= this.burrowing;
     walking ??= this.walking;
-    // Burrowing
-    if ( burrowing ) {
-      const path2d = this.#connectBurrowingPathToEnd([a2d], a, b, a2d, b2d);
-      return path2d.map(pt => this.from2d(pt));
 
-    // Flying
-    } else if ( flying ) {
-      const path2d = this.#connectFlyingPathToEnd([a2d], a, b, a2d, b2d);
-      return path2d.map(pt => this.from2d(pt));
-
-    // Walking
-    } else {
-      // Does not consider more complex scenarios where multiple cutaway edges are stacked but with a gap.
-      // Assumes that if currently on a cutaway edge, can move all the way to the top of the edge.
-      // Also assumes movement up only on left side and movement down only on right side.
-      if ( desiredElevation > a.z ) { // Moving up.
-        for ( const cutaway of this.cutaways ) {
-          const loc = cutaway._elevationTypeAndEntry(a2d);
-          if ( loc.edge === this.constructor.VERTICAL_LOCATIONS.LEFT ) {
-            // We are at the edge of a terrain, so we can move up.
-            a2d.y = Math.min(loc.floor, desiredElevation);
-            if ( a2d.y === desiredElevation ) return [a, this.from2d(a2d)];
-          }
-        }
-      } else { // Moving (falling) down.
-        const support = this._nearestSupport(a2d);
-        a2d.y = Math.max(support.elevation, desiredElevation);
-        if ( a2d.y === desiredElevation ) return [a, this.from2d(a2d)];
-      }
+    // If no cutaways at this location, allow free movement.
+    // If not a known constrained movement type, allow free movement.
+    if ( !this.cutaways.some(handler => handler.aabb.almostContainsPoint(a2d))
+      || !(flying || burrowing || walking) ) {
+      return [a.clone(), ElevatedPoint.tmp.set(a.x, a.y, desiredElevation)];
     }
 
-    return [a];
+    // If the cutaways are ill-defined at this x, allow free movement.
+    const ranges = mergeRanges(this._cutawayElevationRangesAtX(a2d.x));
+    if ( !ranges.length ) return [a.clone(), ElevatedPoint.tmp.set(a.x, a.y, desiredElevation)];
+
+    // Burrowing
+    // If within a range, move up to minimum of this elevation or the top.
+    // If moving down, allow free movement (burrow + fall).
+    if ( burrowing ) {
+      const dir = Math.sign(a2d.y - b2d.y);
+      if ( dir === -1 ) return [a, b];
+      let currRange;
+      for ( const r of ranges ) {
+        if ( a2d.y.almostBetween(r[0], r[1]) ) { currRange = r; break; }
+      }
+      if ( currRange ) {
+        b2d.y = Math.min(currRange[1], b2d.y);
+        return [a.clone(), this.from2d(b2d)];
+      } else return [a.clone()];
+
+    // Flying
+    // If moving up, allow free movement (fly + pass through regions upward).
+    // If moving down, stop at next range top.
+    } else if ( flying ) {
+      const dir = Math.sign(a2d.y - b2d.y);
+      if ( dir === 1 ) return [a.clone(), b.clone()];
+      let targetRange;
+      for ( const r of ranges ) {
+        if ( a2d.y.almostBetween(r[0], r[1]) ) return [a.clone()]; // Already in a range, so don't go lower.
+        if ( a2d.y > r[1] && (!targetRange || r[1] > targetRange[1]) ) targetRange = r;
+      }
+      if ( targetRange ) {
+        b2d.y = Math.max(b2d.y, targetRange[1]);
+        return [a.clone(), this.from2d(b2d)];
+      } else return [a.clone(), ElevatedPoint.fromLocationWithElevation(a, this.floorForLevel(levelId ?? this.levelId))]; // Fall to floor.
+
+    // Walking
+    // Not free to move up/down. Enforce gravity.
+    } else if ( walking ) {
+      return [a.clone(), this.enforceGravity(a, { burrowing, walking, levelId, initialize: false })];
+    }
+
+    return [a.clone(), b.clone()]; // Should not happen.
   }
 
   /* ----- NOTE: Walking ----- */
 
   get walking() { return this.constructor.tokenIsWalking(this.token); }
+
+
+  constructWalkingPath(a, b, opts) { return this._constructPath("walking", a, b, opts); }
+
+  constructBurrowingPath(a, b, opts) { return this._constructPath("burrowing", a, b, opts); }
+
+  constructFlyingPath(a, b, opts) { return this._constructPath("flying", a, b, opts); }
+
+  /**
+   * @param {"walking"|"burrowing"|"flying"} type
+   * @param {ElevatedPoint} a
+   * @param {ElevatedPoint} b
+   * @param {object} [opts]
+   * @param {boolean} [opts.flying]           Defaults to the current token state
+   * @param {boolean} [opts.burrowing]        Defaults to the current token state
+   * @param {boolean} [opts.walking]          Defaults to the current token state
+   * @param {string} [opts.levelId]           Defaults to the current canvas level
+   * @param {boolean} [opts.initialize = true]
+   * @returns {ElevatedPoint[]}
+   */
+  _constructPath(type, a, b, opts = {}) {
+    if ( opts.initialize ) this._initialize(a, b, opts.levelId);
+    opts = { ...opts, initialize: false, walking: false, flying: false, burrowing: false };
+    opts[type] = true;
+    const newA = this.enforceGravity(a, opts);
+    using a2d = this.to2d(newA);
+    using b2d = this.to2d(b);
+    let path2d = [];
+    try {
+      path2d = this._constructWalkingPath(a2d, b2d, type);
+      this.#verifyPath2d(path2d);
+
+    } catch( err ) {
+      console.error(`constructWalkingPath ${a} -> ${b}`, path2d);
+      console.error(err);
+      path2d.forEach(pt => pt.release());
+      return [a.clone(), b.clone()];
+    }
+
+    if ( type === "burrowing" ) path2d = this._buildBurrowingShortcuts(path2d, newA, b, a2d, b2d);
+    else if ( type === "flying" ) path2d = this._buildFlyingShortcuts(path2d, newA, b, a2d, b2d);
+
+    const path = path2d.map(pt => this.from2d(pt).roundDecimals(1));
+    path2d.forEach(pt => pt.release());
+
+    path.unshift(newA);
+    const newEnd = this.enforceGravity(path.at(-1), opts);
+    path.push(newEnd);
+
+    return this.deduplicatePath(path);
+  }
+
+  _buildBurrowingShortcuts(path2d, a, b, a2d, b2d) {
+    // Can we reach the end point? If the end is below but blocked by a cutaway, try to connect the two.
+    path2d = this.#connectBurrowingPathToEnd(path2d, a, b, a2d, b2d);
+
+    // Run anchor algorithm locate shortcuts along diagonals.
+    try {
+      path2d = this._constructBurrowingPath(path2d, b2d);
+      this.#verifyPath2d(path2d);
+
+    } catch( err ) {
+      console.error(`constructBurrowingPath ${a} -> ${b}`, path2d);
+      console.error(err);
+      path2d.forEach(pt => pt.release());
+      return [a.clone(), b.clone()];
+    }
+    return path2d;
+  }
+
+  _buildFlyingShortcuts(path2d, a, b, a2d, b2d) {
+    // Can we reach the end point? If the end is above but blocked by a cutaway, try to connect the two.
+    path2d = this.#connectFlyingPathToEnd(path2d, a, b, a2d, b2d);
+
+    // Run anchor algorithm locate shortcuts along diagonals.
+    try {
+      const tmp = this._constructFlyingPath(path2d, b2d);
+      this.#verifyPath2d(tmp);
+      path2d = tmp;
+
+    } catch( err ) {
+      console.error(`constructFlyingPath ${a} -> ${b}`, path2d);
+      console.error(err);
+    }
+    return path2d;
+  }
 
   /* Walking
     Walk along terrain surfaces, falling to next support when the terrain ends.
@@ -532,26 +661,6 @@ export class TokenElevationHandler {
     2. If above a region. Move vertically down.
     3. If below a region. Move vertically up.
   */
-  constructWalkingPath(a, b, initialize = true) {
-    if ( initialize ) this._initialize(a, b);
-    using a2d = this.to2d(a);
-    using b2d = this.to2d(b);
-    let path2d = [];
-    try {
-      path2d = this._constructWalkingPath(a2d, b2d);
-      this.#verifyPath2d(path2d);
-
-    } catch( err ) {
-      console.error(`constructWalkingPath ${a} -> ${b}`, path2d);
-      console.error(err);
-      path2d.forEach(pt => pt.release());
-      return [a, b];
-    }
-    const path = path2d.map(pt => this.from2d(pt).roundDecimals(1));
-    path2d.forEach(pt => pt.release());
-    return path;
-  }
-
 
   /**
    * Build walking path from start2d to end2d.
@@ -695,8 +804,6 @@ export class TokenElevationHandler {
     // between two regions.
     this.#removeBumps(checkpoints);
 
-    // Avoid Token##preUpdateMovement treating a single-point path as unconstrained and continuing past it.
-    if ( checkpoints.length === 1 ) return [checkpoints[0], checkpoints[0].clone()];
     return checkpoints;
   }
 
@@ -754,41 +861,6 @@ export class TokenElevationHandler {
 
   get burrowing() { return this.constructor.tokenIsBurrowing(this.token); }
 
-  constructBurrowingPath(a, b, initialize = true) {
-    if ( initialize ) this._initialize(a, b);
-    const a2d = this.to2d(a);
-    const b2d = this.to2d(b);
-    let path2d = [];
-    try {
-      path2d = this._constructWalkingPath(a2d, b2d, "burrowing");
-      this.#verifyPath2d(path2d);
-
-    } catch( err ) {
-      console.error(`constructWalkingPath ${a} -> ${b}`, path2d);
-      console.error(err);
-      path2d.forEach(pt => pt.release());
-      return [a, b];
-    }
-
-    // Can we reach the end point? If the end is below but blocked by a cutaway, try to connect the two.
-    path2d = this.#connectBurrowingPathToEnd(path2d, a, b, a2d, b2d);
-
-    // Run anchor algorithm locate shortcuts along diagonals.
-    try {
-      path2d = this._constructBurrowingPath(path2d, b2d);
-      this.#verifyPath2d(path2d);
-
-    } catch( err ) {
-      console.error(`constructBurrowingPath ${a} -> ${b}`, path2d);
-      console.error(err);
-      path2d.forEach(pt => pt.release());
-      return [a, b];
-    }
-    const path = path2d.map(pt => this.from2d(pt).roundDecimals(1));
-    path2d.forEach(pt => pt.release());
-    return path;
-  }
-
   #connectBurrowingPathToEnd(path2d, a, b, a2d, b2d) {
     a2d ??= this.to2d(a);
     b2d ??= this.to2d(b);
@@ -824,11 +896,11 @@ export class TokenElevationHandler {
     const MAX_ITER = 10000;
     let nIters = 0;
     let prevWaypoint = path[0];
-    const startingHandler = this._nearestSupport(prevWaypoint);
-    if ( startingHandler.location === BELOW || startingHandler.location === GROUND ) anchors.push(0);
+    const loc = this._currentElevationLocation(prevWaypoint);
+    if ( loc === BELOW || loc === GROUND ) anchors.push(0);
 
     // Add in burrowing endpoint if present.
-    if ( !path.at(-1).almostEqual(b2d) && this._nearestSupport(b2d).location === BELOW ) {
+    if ( !path.at(-1).almostEqual(b2d) && this._currentElevationLocation(b2d) === BELOW ) {
       if ( this.#foundBurrowingShortcut(path.at(-1), b2d) ) path.push(b2d);
     }
 
@@ -918,41 +990,6 @@ export class TokenElevationHandler {
       - If blocked, try to connect using the BL corner of the blocking region as the swing point.
       - Need only connect each TL corner once.
     */
-  constructFlyingPath(a, b, initialize = true) {
-    if ( initialize ) this._initialize(a, b);
-    const a2d = this.to2d(a);
-    const b2d = this.to2d(b);
-    let path2d = [];
-    try {
-      path2d = this._constructWalkingPath(a2d, b2d, "flying");
-      this.#verifyPath2d(path2d);
-
-    } catch( err ) {
-      console.error(`constructWalkingPath ${a} -> ${b}`, path2d);
-      console.error(err);
-      path2d.forEach(pt => pt.release());
-      return [a, b]; // Give up; return a --> b directly.
-    }
-
-    // Can we reach the end point? If the end is above but blocked by a cutaway, try to connect the two.
-    path2d = this.#connectFlyingPathToEnd(path2d, a, b, a2d, b2d);
-
-    // Run anchor algorithm locate shortcuts along diagonals.
-    try {
-      const tmp = this._constructFlyingPath(path2d, b2d);
-      this.#verifyPath2d(tmp);
-      path2d = tmp;
-
-    } catch( err ) {
-      console.error(`constructFlyingPath ${a} -> ${b}`, path2d);
-      console.error(err);
-    }
-
-    // Convert back to 3d.
-    const path = path2d.map(pt => this.from2d(pt).roundDecimals(1));
-    path2d.forEach(pt => pt.release());
-    return path;
-  }
 
   #connectFlyingPathToEnd(path2d, a, b, a2d, b2d) {
     a2d ??= this.to2d(a);
@@ -1063,11 +1100,11 @@ export class TokenElevationHandler {
     const MAX_ITER = 10000;
     let nIters = 0;
     let prevWaypoint = path[0];
-    const startingHandler = this._nearestSupport(prevWaypoint);
-    if ( startingHandler.location === ABOVE || startingHandler.location === GROUND ) anchors.push(0);
+    const loc = this.__currentElevationLocation(prevWaypoint);
+    if ( loc === ABOVE || loc === GROUND ) anchors.push(0);
 
     // Add in flying endpoint if present.
-    if ( !path.at(-1).almostEqual(b2d) && this._nearestSupport(b2d).location === ABOVE ) {
+    if ( !path.at(-1).almostEqual(b2d) && this._currentElevationLocation(b2d) === ABOVE ) {
       if ( this.#foundFlyingShortcut(path.at(-1), b2d) ) path.push(b2d);
     }
 
@@ -1127,37 +1164,22 @@ export class TokenElevationHandler {
 
   // ----- NOTE: Secondary methods ----- //
 
-  _nearestSupport(pt2d) {
+  /**
+   * @param {PIXI.Point} pt2d
+   * @returns {TokenElevationHandler.ELEVATION_LOCATIONS} Whether the point is within,
+   *   at ground, above, or outside cutaways.
+   *   Outside if no cutaway at any z for this x/y.
+   */
+  _currentElevationLocation(pt2d) {
     const LOCS = TokenElevationHandler.ELEVATION_LOCATIONS;
-
-    // If burrowing, always move up.
-    // If floating, determine top surface below.
-    const floatingHandlers = [];
-    const groundHandlers = [];
-    for ( const cutHandler of this.cutaways ) {
-      const type = cutHandler.elevationType(pt2d);
-      if ( type & LOCS.BELOW ) return {
-        cutHandler,
-        location: LOCS.BELOW,
-        elevation: cutHandler.elevationUponEntry(pt2d)
-      };
-      if ( type & LOCS.GROUND ) groundHandlers.push(cutHandler);
-      if ( type & LOCS.ABOVE ) floatingHandlers.push(cutHandler);
+    const ranges = mergeRanges(this._cutawayElevationRangesAtX(pt2d.x));
+    for ( const r of ranges ) {
+      if ( r[1].almostEqual(pt2d.y) ) return LOCS.GROUND;
+      if ( pt2d.y.almostBetween(r[0], r[1]) ) return LOCS.BELOW;
     }
-    // Undefined to have multiple ground at the same point. Take the first.
-    if ( groundHandlers.length ) return { cutHandler: groundHandlers[0], location: LOCS.GROUND, elevation: pt2d.y };
-
-    // Floating. Locate the highest ground.
-    let maxElev = Number.NEGATIVE_INFINITY;
-    let nextFloor;
-    for ( const cutHandler of floatingHandlers ) {
-      const elev = cutHandler.elevationUponEntry(pt2d);
-      if ( elev > maxElev ) {
-        maxElev = elev;
-        nextFloor = cutHandler;
-      }
-    }
-    return { cutHandler: nextFloor, location: LOCS.ABOVE, elevation: maxElev };
+    if ( pt2d.y.almostEqual(this.floor) ) return LOCS.GROUND;
+    if ( !ranges.length ) return LOCS.OUTSIDE; // Not outside if ground?
+    return LOCS.ABOVE;
   }
 
   // ----- NOTE: Token actions ----- //
@@ -1214,7 +1236,6 @@ export class TokenElevationHandler {
     cutawayPath.forEach(pt => Draw.point(pt, drawOpts));
   }
 }
-
 
 /**
  * Manages tests of a cutaway polygon related to movement along the cutaway.
@@ -1381,122 +1402,6 @@ export class CutawayHandler {
     return this.cutPoly.contains(pt2d.x, pt2d.y);
   }
 
-  // ----- NOTE: Elevation and surface testing ----- //
-
-  /**
-   * Where is this point relative to this terrain polygon cutaway?
-   * @param {PIXI.Point} pt2d         Point to test
-   * @returns {ELEVATION_LOCATIONS}
-   */
-  _elevationTypeAndEntry(pt2d) {
-    const LOCS = TokenElevationHandler.ELEVATION_LOCATIONS;
-    const VERTICAL = TokenElevationHandler.VERTICAL_LOCATIONS;
-    let out = {
-      location: LOCS.OUTSIDE,          // Location of the pt2d w/r/t the cutPoly floor.
-      floor: Number.NEGATIVE_INFINITY, // Maximum supporting elevation.
-      edge: VERTICAL.NONE,   // Whether on a vertical edge.
-    };
-
-    if ( !this.aabb.containsPoint(pt2d, ["x"]) ) return out;
-
-    const verticalIxs = polygonVerticalTangentPoints(pt2d.x, this.cutPoly);
-
-    // Get all the intersections of the vertical line, minus tangents.
-    // First ix is in. Cannot just shoelace b/c we might be on a vertical edge.
-    const ixs = this.cutPoly.lineIntersections(pt2d, PIXI.Point.tmp.set(pt2d.x, pt2d.y + 1)); // Should not need to exclude tangents b/c regions and tiles should not create them for verticals here.
-    const numIxs = ixs.length;
-    if ( !numIxs ) return out;
-
-    // If we are lower than the lowest intersection, consider as outside.
-    ixs.sort((a, b) => a.y - b.y); // Bottom to top in elevation.
-    let a = ixs[0];
-    if ( pt2d.y < a.y && !pt2d.y.almostEqual(a.y) ) return out;
-
-    // Check each segment between intersections in turn.
-    let midPoint = PIXI.Point.tmp;
-    for ( let i = 1; i < numIxs; i += 1 ) {
-      const b = ixs[i];
-      if ( a.y.almostEqual(b.y) ) continue; // Duplicate intersection points.
-
-      // Either we are at a vertical edge, at an outside gap between two edges,
-      // or at an inside portion between two edges.
-      const vertical = this.#isVerticalEdge(verticalIxs, a, b); // Check if segment is left or right vertical.
-      switch ( vertical ) {
-        case VERTICAL.LEFT: {
-          out.floor = b.y;
-          out.edge = VERTICAL.LEFT;
-          if ( !pt2d.y.almostLessThan(b.y) ) break; // Have not gotten to the point yet.
-          if ( pt2d.y.almostEqual(b.y) ) out.location ||= LOCS.GROUND;
-          else out.location = LOCS.BELOW;
-          break;
-        }
-        case VERTICAL.RIGHT: { // Treat as outside the cutaway. No change to floor.
-          out.edge = VERTICAL.RIGHT;
-          if ( !pt2d.y.almostLessThan(b.y) ) break; // Have not gotten to the point yet.
-          if ( out.location ) return out; // Found the floor and reached an outside segment.
-          if ( i ) out.location = LOCS.ABOVE;
-          break;
-        }
-        case VERTICAL.NONE: {
-          out.edge = VERTICAL.NONE;
-          // Are we inside or outside? Test the midpoint between a and b.
-          PIXI.Point.midPoint(a, b, midPoint);
-          const inside = this.cutPoly.contains(midPoint.x, midPoint.y);
-          if ( inside ) out.floor = b.y;
-          if ( !pt2d.y.almostLessThan(b.y) ) break; // Have not gotten to the point yet.
-          if ( out.location && !inside ) return out; // Found the floor and reached an outside segment.
-
-          if ( pt2d.y.almostEqual(b.y) ) {
-            if ( inside ) out.location ||= LOCS.GROUND;
-            else out.location = LOCS.BELOW;
-
-          } else {
-            if ( inside ) out.location = LOCS.BELOW;
-            else {
-              // Outside, so the intersection below was the last floor.
-              out.location = LOCS.ABOVE;
-              if ( !out.location ) out.floor = a.y;
-              return out;
-            }
-          }
-          break;
-        }
-      }
-      a = b;
-    }
-    if ( isFinite(out.floor) ) out.location ||= LOCS.ABOVE;
-    return out; // Above the last segment's ground.
-  }
-
-  #isVerticalEdge(verticalIxs, a, b) {
-    const VERTICAL = TokenElevationHandler.VERTICAL_LOCATIONS;
-    for ( let i = 1, iMax = verticalIxs.length; i < iMax; i += 2 ) {
-      const aV = verticalIxs[0];
-      const bV = verticalIxs[1];
-      if ( (a.almostEqual(aV) && b.almostEqual(bV))
-        || (b.almostEqual(aV) && a.almostEqual(bV)) ) return aV.y < bV.y ? VERTICAL.LEFT : VERTICAL.RIGHT;
-    }
-    return VERTICAL.NONE;
-  }
-
-  /**
-   * Where is this point relative to this terrain polygon cutaway?
-   * @param {PIXI.Point} pt2d         Point to test
-   * @returns {ELEVATION_LOCATIONS}
-   */
-  elevationType(pt2d) { return this._elevationTypeAndEntry(pt2d).location; }
-
-  /**
-   * Determine the elevation upon moving into this cutaway polygon.
-   * If the point is above, fall to the next surface.
-   * If point is below, move up to next surface.
-   * The provided location is not tested for whether it is within the region.
-   * @param {PIXI.Point} a   Position immediately upon entry
-   * @returns {number} The elevation of the plateau or the ramp at this location
-   *   Return Number.NEGATIVE_INFINITY if it would be outside.
-   */
-  elevationUponEntry(pt2d) { return this._elevationTypeAndEntry(pt2d).floor; }
-
   // ----- NOTE: Intersections ----- //
 
   /**
@@ -1507,22 +1412,6 @@ export class CutawayHandler {
    * @returns {PIXI.Point[]}
    */
   segmentIntersections(a2d, b2d, opts) { return this.cutPoly.segmentIntersections(a2d, b2d, opts); }
-}
-
-
-/**
- * Test if a polygon has a vertical edge that overlaps (is tangent) to a vertical line.
- * @param {number} x              The x value for the tangent line
- * @param {PIXI.Polygon} poly     The polygon to test
- * @returns {PIXI.Point[]} Intersection points (the edge endpoints) in order encountered in the edge(s).
- */
-function polygonVerticalTangentPoints(x, poly) {
-  const ixs = [];
-  for ( const edge of poly.iterateEdges() ) {
-    if ( !(edge.a.x === edge.b.x && edge.a.x.almostEqual(x)) ) continue;
-    ixs.push(edge.a, edge.b);
-  }
-  return ixs;
 }
 
 

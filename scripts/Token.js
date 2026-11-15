@@ -98,6 +98,8 @@ function createTerrainMovementPath(wrapped, waypoints, options = {}) {
     || options?.[MODULE_ID]?.prebuilt
     || !canvas.scene.getFlag(MODULE_ID, FLAGS.SCENE.CONSTRAIN_ELEVATION) ) return wrapped(waypoints, options);
 
+  if ( CONFIG[MODULE_ID].debug && PIXI.Point.distanceBetween(waypoints[0], waypoints.at(-1)) >= 1000 ) log("\tLong path");
+
   const tm = this[MODULE_ID];
   let built;
   try {
