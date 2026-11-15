@@ -80,7 +80,7 @@ export class TerrainGeometry extends RegionGeometry {
   get hasBaseShape() {
     // Any terrain with a base height has a base shape.
     const baseElev = this.baseElevationZ;
-    return (baseElev.topZ - baseElev.bottomZ).strictlyGreaterThan(0); // height > 0.
+    return (baseElev.topZ - baseElev.bottomZ).strictlyGreaterThan(0); // Height > 0.
   }
 
   get hasTerrainShape() {
@@ -91,7 +91,7 @@ export class TerrainGeometry extends RegionGeometry {
 
     // If the user sets the top and bottom equal, no terrain.
     const terrainElev = this.elevationZ;
-    return (terrainElev.topZ - terrainElev.bottomZ).strictlyGreaterThan(0); // height > 0.
+    return (terrainElev.topZ - terrainElev.bottomZ).strictlyGreaterThan(0); // Height > 0.
   }
 
   /**
@@ -125,12 +125,12 @@ export class TerrainGeometry extends RegionGeometry {
         return RampPrimitive.fromBasePolygon3d(id, terrainBases, opts);
       }
       case TERRAIN_TYPES.STEPS: {
-        // So the steps are facing the correct way, rotate the base shape so steps run along the x axis from low to high.
+        // So the steps are facing correctly, rotate the base shape so steps run along the x axis from low to high.
         let rotTerrainBase = terrainBases;
         if ( this.#stepParameters.rampDir ) {
           rotTerrainBase = terrainBases.transform(this.#stepParameters.M);
 
-          // Modify the rotation to account for the temporary rotation when building the prototype faces in StepsPrimitive.
+          // Account for the temporary rotation when building the prototype faces in StepsPrimitive.
           opts.angles.z -= this.#stepParameters.rampDir;
         }
 
@@ -197,24 +197,30 @@ export class TerrainGeometry extends RegionGeometry {
     const numSteps = this.constructor.numSteps(regionD) || 1;
     const stepHeight = totalStepHeight / numSteps;
     const rampDir = Math.toRadians(this.constructor.rampDirection(regionD));
-    let M;
+    let M = Matrix.identity(4);
     let rotatedPolygons = polygons;
     if ( rampDir !== 0 ) {
       // Rotate the polygons based on ramp direction.
       const center = polygons[0].center;
-      const txMat = Matrix.translation(center, { d3: false });
-      const rotMat = Matrix.rotationZ(-rampDir, { d3: false });
-      const txMatInv = Matrix.translation(center.multiplyScalar(-1), { d3: false });
+      const txMat2d = Matrix.translation(center, { d3: false });
+      const rotMat2d = Matrix.rotationZ(-rampDir, { d3: false });
+      const txMatInv2d = Matrix.translation(center.multiplyScalar(-1), { d3: false });
+      const M2d = txMat2d.multiply3x3(rotMat2d).multiply3x3(txMatInv2d);
 
       // Rotate the polygons.
-      M = txMat.multiply3x3(rotMat).multiply3x3(txMatInv);
       rotatedPolygons = [];
-      for ( const poly of regionD.polygons ) rotatedPolygons.push(poly.transform(M));
+      for ( const poly of regionD.polygons ) rotatedPolygons.push(poly.transform(M2d));
+
+      // Create a 4x4 matrix for later transforms of the 3d terrain base.
+      const txMat3d = Matrix.translation(center, { d3: true });
+      const rotMat3d = Matrix.rotationZ(-rampDir, { d3: true });
+      const txMatInv3d = Matrix.translation(center.multiplyScalar(-1), { d3: true });
+      M = txMat3d.multiply4x4(rotMat3d).multiply4x4(txMatInv3d);
     }
 
     // Find the x bounds of the new rotated polygons.
     const xs = [];
-    polygons.forEach(poly => poly.iteratePoints().forEach(pt => xs.push(pt.x)))
+    polygons.forEach(poly => poly.iteratePoints().forEach(pt => xs.push(pt.x)));
     const xMinMax = Math.minMax(...xs);
     const shapeLength = (xMinMax.max - xMinMax.min);
     const stepWidth = (shapeLength / numSteps) || 1;
@@ -245,7 +251,7 @@ export class TerrainGeometry extends RegionGeometry {
     const needsRebuild = this.activeUpdates.has("terrainType")
       || (this.activeUpdates.has("rampDirection") && this.constructor.isElevated(regionD) && !this.constructor.isPlateau(regionD))
       || (this.activeUpdates.has("steps") && this.constructor.isSteps(regionD))
-      || (this.activeUpdates.has('hill') && this.constructor.isHill(regionD));
+      || (this.activeUpdates.has("hill") && this.constructor.isHill(regionD));
     if ( needsRebuild ) this.activeUpdates.add("shapes"); // Force RegionGeometry to trigger _updateShapes().
 
     super._update();
@@ -265,7 +271,7 @@ export class TerrainGeometry extends RegionGeometry {
 
     const regionD = this.placeableDocument;
     const parts = [baseSignature];
-    const TERRAIN_TYPES = this.constructor.TERRAIN_TYPES
+    const TERRAIN_TYPES = this.constructor.TERRAIN_TYPES;
     switch ( this.constructor.terrainType(regionD) ) {
       case TERRAIN_TYPES.NONE:
       case TERRAIN_TYPES.PLATEAU: return baseSignature;
@@ -295,15 +301,15 @@ export class TerrainGeometry extends RegionGeometry {
    * @returns {PIXI.Point[]}
    */
   _calculateRampPlane(polygons) {
-    const regionD = this.placeableDocument
+    const regionD = this.placeableDocument;
     const bottomZ = this.elevationZ.bottomZ;
     const rise = this.constructor.zHeight(regionD);
     const rampDir = this.constructor.rampDirection(regionD);
 
     // Calculate the lowest and highest points on the plane.
-		// 0º is due south (0, 1), 90º is due west (1, 0)
-		const rad = Math.normalizeRadians(Math.toRadians(rampDir + 90));
-		using dir = PIXI.Point.tmp.set(Math.sin(rad), Math.cos(rad));
+    // 0º is due south (0, 1), 90º is due west (1, 0)
+    const rad = Math.normalizeRadians(Math.toRadians(rampDir + 90));
+    using dir = PIXI.Point.tmp.set(Math.sin(rad), Math.cos(rad));
 
     // Find extreme outer points along the direction vector across all vertices.
     // Project polygon vertices along the direction vector, avoiding line-intersection overhead.
@@ -330,7 +336,7 @@ export class TerrainGeometry extends RegionGeometry {
 
     // Define 3d low and high points.
     const low3d = Point3d.tmp.set(minPoint.x, minPoint.y, bottomZ);
-    // const high3d = Point3d.tmp.set(maxPoint.x, maxPoint.y, topZ);
+    // High is not needed here: const high3d = Point3d.tmp.set(maxPoint.x, maxPoint.y, topZ);
 
     // Calculate 3d normal vector.
     const run = maxProj - minProj;
@@ -351,17 +357,17 @@ export class TerrainGeometry extends RegionGeometry {
     NONE: "none",
     PLATEAU: `${MODULE_ID}.plateauTerrain`,
     RAMP: `${MODULE_ID}.rampTerrain`,
-    STEPS:`${MODULE_ID}.stepsTerrain`,
+    STEPS: `${MODULE_ID}.stepsTerrain`,
     HILL: `${MODULE_ID}.hillTerrain`,
   };
 
   /** @type {Set<TERRAIN_TYPES>} */
   static ELEVATED_TYPES = new Set([
-      this.TERRAIN_TYPES.PLATEAU,
-      this.TERRAIN_TYPES.RAMP,
-      this.TERRAIN_TYPES.STEPS,
-      this.TERRAIN_TYPES.HILL,
-    ]);
+    this.TERRAIN_TYPES.PLATEAU,
+    this.TERRAIN_TYPES.RAMP,
+    this.TERRAIN_TYPES.STEPS,
+    this.TERRAIN_TYPES.HILL,
+  ]);
 
   /**
    * @param {RegionDocument} regionD
@@ -369,7 +375,7 @@ export class TerrainGeometry extends RegionGeometry {
    */
   static isElevated(regionD) {
     const ELEVATED_TYPES = this.ELEVATED_TYPES;
-    return regionD.behaviors.some(b => !b.disabled && ELEVATED_TYPES.has(b.type))
+    return regionD.behaviors.some(b => !b.disabled && ELEVATED_TYPES.has(b.type));
   }
 
   /** @type {enum<string>} */
@@ -386,7 +392,7 @@ export class TerrainGeometry extends RegionGeometry {
   static isPlateau(regionD) {
     const plateauType = this.TERRAIN_TYPES.PLATEAU;
     return regionD.behaviors.some(b => !b.disabled && b.type === plateauType);
-  };
+  }
 
   static isRamp(regionD) {
     const rampType = this.TERRAIN_TYPES.RAMP;
@@ -451,7 +457,7 @@ export class TerrainGeometry extends RegionGeometry {
     const maxHeight = Math.max(Math.abs(min), Math.abs(max)) || 1;
     const scaledMin = min / maxHeight;
     const positiveHeight = topZ - bottomZ;
-    return Math.floor(bottomZ + (positiveHeight * scaledMin))
+    return Math.floor(bottomZ + (positiveHeight * scaledMin));
   }
 
   /** @type {object{ min:{number}, max:{number} }} */
@@ -460,7 +466,10 @@ export class TerrainGeometry extends RegionGeometry {
     return HillDrawingManager.curveMinMaxHeight(curve);
   }
 
-  static hillData(regionD) { return fastFlag(regionD, FLAGS.REGION.HILL.CURVE) || DEFAULT_FLAGS.REGION[FLAGS.REGION.HILL.CURVE] }
+  static hillData(regionD) {
+    return fastFlag(regionD, FLAGS.REGION.HILL.CURVE)
+      || DEFAULT_FLAGS.REGION[FLAGS.REGION.HILL.CURVE];
+  }
 
   /** @type {number} */
   static rampDirection(regionD) {
