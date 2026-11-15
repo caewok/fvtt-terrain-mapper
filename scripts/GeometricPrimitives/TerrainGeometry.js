@@ -513,8 +513,11 @@ export class TerrainGeometryManager extends RegionGeometryManager {
     Hooks.on("updateRegionBehavior", (regionBehavior, changed, options, _userId) => {
       // Flatten the change object to handle nested keys, like flags.
       // Get only the specific system keys that have changes, and combine with type to create a unique key.
-      const updateKeys = Object.keys(foundry.utils.flattenObject(changed.system || {})).map(key => `${regionBehavior.type}.${key}`);
-      this.update(regionBehavior.region, new Set(updateKeys), options);
+      const type = regionBehavior.type;
+      const updateKeys = new Set(Object.keys(foundry.utils.flattenObject(changed.system ?? {}))
+        .map(key => `${type}.system.${key}`);
+      if ( "disabled" in changed ) keys.add(`${type}.${regionBehavior.disabled ? "delete" : "create"}`);
+      if ( updateKeys.size ) this.update(regionBehavior.region, updateKeys, options);
     });
 
     Hooks.on("deleteRegionBehavior", (regionBehavior, options, _userId) => {
