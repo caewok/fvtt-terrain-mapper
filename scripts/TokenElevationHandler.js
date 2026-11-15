@@ -430,19 +430,30 @@ export class TokenElevationHandler {
     const xb = b2d.x;
     const span = xb - xa;
     const free = mode !== "walking";
-    const line = x => ((span > EPS) ? a2d.y + ((b2d.y - a2d.y) * ((x - xa) / span)) : a2d.y);
+    const line = x => ((Math.abs(span) > EPS) ? a2d.y + ((b2d.y - a2d.y) * ((x - xa) / span)) : a2d.y);
+
+    // The cutaway plane is oriented by the move that initialized it; later moves along the same line may go
+    // either way. dir = +1: toward higher cutaway x; -1: toward lower. Everything below is in travel order.
+    const dir = (xb >= xa) ? 1 : -1;
+    const xMin = Math.min(xa, xb);
+    const xMax = Math.max(xa, xb);
+    const arrive = -dir; // Side from which the token arrives at a breakpoint: the side it came from.
+    const leave = dir;   // Side toward which the token leaves.
 
     // Terrain along this segment; otherwise nothing to do.
-    const relevant = this.cutaways.filter(h => h.aabb.max.x >= xa - EPS && h.aabb.min.x <= xb + EPS);
+    const relevant = this.cutaways.filter(h => h.aabb.max.x >= xMin - EPS && h.aabb.min.x <= xMax + EPS);
     if ( !relevant.length ) return [new PIXI.Point(xa, a2d.y), new PIXI.Point(xb, b2d.y)];
 
-    // Breakpoints.
+    // Breakpoints, ascending in x.
     const dedupe = xs => xs.sort((p, q) => p - q).filter((x, i, arr) => i === 0 || x - arr[i - 1] > EPS);
-    let breaks = [xa, xb];
-    for ( const h of relevant ) for ( const x of h.breakpoints() ) if ( x > xa + EPS && x < xb - EPS ) breaks.push(x);
+    let breaks = [xMin, xMax];
+    for ( const h of relevant ) {
+      for ( const x of h.breakpoints() ) if ( x > xMin + EPS && x < xMax - EPS ) breaks.push(x);
+    }
     breaks = dedupe(breaks);
     const crossings = this._topCrossings(breaks);
     if ( crossings.length ) breaks = dedupe([...breaks, ...crossings]);
+    if ( dir < 0 ) breaks.reverse(); // Now in travel order; breaks[0] is xa.
 
     // Sweep.
     const path = [new PIXI.Point(xa, a2d.y)];
@@ -461,7 +472,7 @@ export class TokenElevationHandler {
         z = constrain(mode, zRef(z), this.groundAt(x, zRef(z), 0)); // The position of the start.
         push(x, z);
       } else {
-        z = constrain(mode, zRef(z), this.groundAt(x, zRef(z), -1)); // Arriving from the left.
+        z = constrain(mode, zRef(z), this.groundAt(x, zRef(z), arrive));
         push(x, z);
         if ( i === lastIdx ) {
           z = constrain(mode, zRef(z), this.groundAt(x, zRef(z), 0)); // The position of the end.
@@ -470,14 +481,14 @@ export class TokenElevationHandler {
       }
       if ( i === lastIdx ) break;
 
-      z = constrain(mode, zRef(z), this.groundAt(x, zRef(z), 1)); // Leaving to the right.
+      z = constrain(mode, zRef(z), this.groundAt(x, zRef(z), leave));
       push(x, z);
 
       // Flying and burrowing: the line may cross the ground within the interval.
       if ( free ) {
         const xNext = breaks[i + 1];
-        const d0 = line(x) - this.groundAt(x, line(x), 1);
-        const d1 = line(xNext) - this.groundAt(xNext, line(xNext), -1);
+        const d0 = line(x) - this.groundAt(x, line(x), leave);
+        const d1 = line(xNext) - this.groundAt(xNext, line(xNext), arrive);
         if ( (d0 > EPS && d1 < -EPS) || (d0 < -EPS && d1 > EPS) ) {
           const xc = x + ((xNext - x) * (d0 / (d0 - d1)));
           push(xc, line(xc));
@@ -578,7 +589,7 @@ export class TokenElevationHandler {
     }
 
     // Initialize only if needed.
-    if ( initialize /* && this._initializationRequired(a, b, levelId) */ ) this._initialize(a, b, levelId);
+    if ( initialize && this._initializationRequired(a, b, levelId) ) this._initialize(a, b, levelId);
 
     // If no cutaways, allow free movement.
     if ( !this.cutaways.length ) return [a.clone(), b.clone()];
