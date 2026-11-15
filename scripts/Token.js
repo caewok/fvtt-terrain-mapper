@@ -92,7 +92,7 @@ export function calculatePathForCenterPoints(token, aCenter, bCenter) {
  */
 function createTerrainMovementPath(wrapped, waypoints, options = {}) {
   log(`createTerrainMovementPath|${this.document.name} from ${waypoints[0].x},${waypoints[0].y},${waypoints[0].elevation} to ${waypoints.at(-1).x},${waypoints.at(-1).y},${waypoints.at(-1).elevation}`,
-   { prebuilt: options?.[MODULE_ID]?.prebuilt, numWaypoints: waypoints.length, dragged: this.isDragged, preview: this.isPreview } );
+    { prebuilt: options?.[MODULE_ID]?.prebuilt, numWaypoints: waypoints.length, dragged: this.isDragged, preview: this.isPreview } );
 
   if ( waypoints.length < 2
     || options?.[MODULE_ID]?.prebuilt
@@ -120,7 +120,7 @@ function createTerrainMovementPath(wrapped, waypoints, options = {}) {
     if ( !valid ) throw new Error(`Invalid path: ${errors.join("; ")}`);
     tm.rememberOutput(waypointSignature(built));
 
-  } catch ( err ) {
+  } catch( err ) {
     console.error(`${MODULE_ID}|createTerrainMovementPath failed; using the unmodified path.`, err);
     return wrapped(waypoints, options);
   }
@@ -155,7 +155,7 @@ function _normalizeWaypoints(token, waypoints) {
     width: src.width, height: src.height, depth: src.depth, shape: src.shape, level: src.level,
     action: token.document.movementAction };
   return waypoints.map(waypoint => {
-    const out = Object.assign({}, waypoint);
+    const out = { ...waypoint };
     for ( const key of INHERITED_KEYS ) out[key] ??= prev[key];
     out.x = Math.round(out.x);
     out.y = Math.round(out.y);
@@ -209,15 +209,15 @@ function _buildTerrainPath(token, input) {
 function _buildLevelChange(next, token, movementOpts) {
   const out = [next];
   const destCtr = _centerWaypoint(next, token);
-  const newLocation = token[MODULE_ID].enforceGravity(destCtr, next.level, movementOpts);
+  const newLocation = token[MODULE_ID].enforceGravity(destCtr, { levelId: next.level, ...movementOpts });
   if ( !newLocation.almostEqual(destCtr) ) {
     // Add the move from dest to new location.
     _uncenterPathPointInPlace(newLocation, token);
-    out.push(Object.assign({}, next, {
+    out.push({ ...next,
       x: Math.round(newLocation.x),
       y: Math.round(newLocation.y),
       elevation: round1(newLocation.elevation),
-    }));
+    });
   }
   return out;
 }
@@ -237,13 +237,13 @@ function _buildPathBetweenTwoWaypoints(start, end, token, movementOpts = {}) {
   const a = _centerWaypoint(start, token);
   const b = _centerWaypoint(end, token);
 
-  // constructPath initializes the handler for this segment if needed.
+  // ConstructPath initializes the handler for this segment if needed.
   let path;
   try {
     path = tm.constructPath(a, b, { ...movementOpts, levelId });
-  } catch ( err ) {
+  } catch( err ) {
     console.error(`${MODULE_ID}|constructPath failed for ${a} --> ${b}`, err);
-    return [Object.assign({}, end)];
+    return [{ ...end }];
   }
   path.forEach(pt => _uncenterPathPointInPlace(pt, token));
 
@@ -256,9 +256,9 @@ function _buildPathBetweenTwoWaypoints(start, end, token, movementOpts = {}) {
     const isLast = j === lastIdx;
     if ( isLast ) {
       // Keep the end flags and the exact end x,y; only the elevation may change.
-      out.push(Object.assign({}, end, { elevation: round1(pathPt.elevation) }));
+      out.push({ ...end, elevation: round1(pathPt.elevation) });
     } else {
-      out.push(Object.assign({}, end, {
+      out.push({ ...end,
         checkpoint: false,
         intermediate: false,
         snapped: false,
@@ -266,17 +266,48 @@ function _buildPathBetweenTwoWaypoints(start, end, token, movementOpts = {}) {
         x: Math.round(pathPt.x),
         y: Math.round(pathPt.y),
         elevation: round1(pathPt.elevation),
-      }));
+      });
     }
   }
 
-  // Degenerate path (start equals end): keep the end waypoint so its flags are not lost.
-  if ( !out.length ) out.push(Object.assign({}, end));
+  // After rounding to what core stores, points may land on the same x,y: collapse up/down/up runs at
+  // one x,y to the first and last point, then merge duplicates.
+  const clean = [start];
+  _appendWithoutDuplicates(clean, _collapseVerticalRuns([start, ...out]).slice(1));
+  const cleaned = clean.slice(1);
 
-  const { valid, errors } = validateWaypointPath([start, ...out], { start, end, maxPoints: MAX_PATH_WAYPOINTS });
+  // Degenerate path (start equals end): keep the end waypoint so its flags are not lost.
+  if ( !cleaned.length ) cleaned.push({ ...end });
+
+  const { valid, errors } = validateWaypointPath([start, ...cleaned], { start, end, maxPoints: MAX_PATH_WAYPOINTS });
   if ( !valid ) {
     log(`_buildPathBetweenTwoWaypoints|Invalid path ${a} --> ${b}: ${errors.join("; ")}`);
-    return [Object.assign({}, end)];
+    return [{ ...end }];
+  }
+  return cleaned;
+}
+
+/**
+ * A run of three or more consecutive waypoints at the same x,y is a vertical move with intermediate stops,
+ * e.g., floor -> top -> floor from terrain narrower than a pixel. Keep only the first and last.
+ * Flags (checkpoint, explicit) of the dropped waypoints are merged into the last.
+ * @param {TokenGetTerrainMovementPathWaypoint[]} points
+ * @returns {TokenGetTerrainMovementPathWaypoint[]}
+ */
+function _collapseVerticalRuns(points) {
+  const out = [];
+  for ( let i = 0; i < points.length; ) {
+    let j = i;
+    while ( (j + 1) < points.length && points[j + 1].x === points[i].x && points[j + 1].y === points[i].y ) j += 1;
+    if ( (j - i) >= 2 ) {
+      const last = points[j];
+      for ( let k = i + 1; k < j; k += 1 ) {
+        last.checkpoint ||= points[k].checkpoint;
+        last.explicit ||= points[k].explicit;
+      }
+      out.push(points[i], last);
+    } else for ( let k = i; k <= j; k += 1 ) out.push(points[k]);
+    i = j + 1;
   }
   return out;
 }
@@ -323,7 +354,6 @@ function _uncenterPathPointInPlace(pathPt, token) {
   pathPt.y = tl.y;
   return pathPt;
 }
-
 
 
 PATCHES.BASIC.WRAPS = {

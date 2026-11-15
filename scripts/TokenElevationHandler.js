@@ -1,7 +1,6 @@
 /* globals
 canvas,
 CONFIG,
-foundry,
 Hooks,
 PIXI
 */
@@ -72,16 +71,6 @@ export class TokenElevationHandler {
    * @type {number}
    */
   static terrainVersion = 0;
-
-  /**
-   * Minimum distance (pixels along the path) that the path must travel through terrain before
-   * the terrain affects a token that it would raise. Shorter contacts are ignored: the path ends
-   * just inside an edge, starts just inside an edge, or clips a corner of a region.
-   * Token positions are rounded to integer pixels, so contact shorter than a pixel is noise;
-   * without this, a token whose center is near an edge steps up and back down.
-   * @type {number}
-   */
-  static MIN_TERRAIN_TRAVERSAL = 1;
 
   /** Mark all cached cutaways (on every token's handler) as stale. */
   static invalidate() { this.terrainVersion += 1; }
@@ -297,110 +286,270 @@ export class TokenElevationHandler {
     this.cutaways = this.cutaways.map(cutaway => new CutawayHandler(cutaway));
   }
 
-  /**
-   * Deduplicate path points.
-   * @param {ElevatedPoint[]}
-   * @returns {ElevatedPoint[]} Same path, with duplicates removed.
-   */
-  deduplicatePath(path) {
-    const n = path.length;
-    if ( n < 2 ) return path;
 
-    let last = path[0];
-    const newPath = [last];
-    for ( let i = 1; i < n; i += 1 ) {
-      const curr = path[i];
-      if ( last.almostEqual(curr) ) continue;
-      newPath.push(curr);
-      last = curr;
-    }
-    return newPath;
-  }
+  // ----- NOTE: Movement mode ----- //
 
+  get walking() { return this.constructor.tokenIsWalking(this.token); }
 
-  // ----- NOTE: Primary methods ----- //
+  get burrowing() { return this.constructor.tokenIsBurrowing(this.token); }
+
+  get flying() { return this.constructor.tokenIsFlying(this.token); }
 
   /**
-   * Enforce gravity for this token. Move the token from its current position.
-   * Typically done after a level or scene change.
-   * Walking: token should be on the ground if terrain along z axis.
-   * Burrowing: token should be below or at ground if terrain along z axis.
-   * Flying: token should be at or above ground if  terrain along z axis.
-   * @param {ElevatedPoint} Current location
-   * @param {string} [levelId]    Level at the destination
-   * @param {object} [opts]       Movement flags from the waypoint action. Default to the token's HUD action.
-   * @param {boolean} [opts.walking]
-   * @param {boolean} [opts.burrowing]
-   * @param {boolean} [opts.flying]
-   * @returns {ElevatedPoint} Destination point
+   * Resolve movement flags (defaulting to the token's current action) to a single mode.
+   * @param {object} [flags]
+   * @param {boolean} [flags.walking]
+   * @param {boolean} [flags.burrowing]
+   * @param {boolean} [flags.flying]
+   * @returns {"walking"|"burrowing"|"flying"|null}   Null if the token is not bound by terrain.
    */
-  enforceGravity(currentLocation, { levelId, walking, burrowing, flying, initialize = true } = {}) {
+  _movementMode({ walking, burrowing, flying } = {}) {
     walking ??= this.walking;
     burrowing ??= this.burrowing;
     flying ??= this.flying;
-    const token = this.token;
-    currentLocation ??= ElevatedPoint.fromLocationWithElevation(token.getCenterPoint(), token.document.bottomZ);
-    if ( initialize ) this._initialize(currentLocation, currentLocation, levelId);
+    if ( flying && burrowing ) return null; // Can fly and burrow; terrain does not matter.
+    if ( burrowing ) return "burrowing";
+    if ( flying ) return "flying";
+    if ( walking ) return "walking";
+    return null;
+  }
 
-    const floor = this.floorForLevel(levelId ?? this.levelId);
-    const curr2d = this.to2d(currentLocation);
-    let dest2d = curr2d.clone();
-    const ranges = mergeRanges(this._cutawayElevationRangesAtX(curr2d.x));
-    if ( !ranges.length ) return currentLocation.clone();
+  // ----- NOTE: Elevation at a position ----- //
 
-    // Walking: If inside a region, move to top. Handle multiple overlapping regions.
-    if ( walking ) dest2d.y = getHighestConnectedElevation(ranges, curr2d.y, ranges) ?? curr2d.y;
+  /*
+    Every x/y position has a ground elevation, determined only by the cutaway ranges at that x and the token's
+    elevation z (to ignore terrain floating above the token). The movement mode then picks the permitted elevation:
+      walking:   exactly the ground
+      burrowing: at or below the ground
+      flying:    at or above the ground
+    Because the rule depends only on the position (and z), the elevation is the same whichever direction the
+    token approaches from. At a vertical edge, the ground is the top of the edge, so moving in and out is symmetric.
+  */
 
-    // Burrowing: If not within a region, fall to the next region or the floor.
-    else if ( burrowing && curr2d.y > floor ) {
-      let isOutsideRegion = true;
-      for ( const r of ranges ) {
-        if ( curr2d.y.almostBetween(r[0], r[1]) ) { isOutsideRegion = false; break; }
-      }
-      if ( isOutsideRegion ) {
-        // Drop to top of the region below or scene floor.
-        let maxElev = floor;
-        for ( const r of ranges ) {
-          const t = r[1];
-          if ( t < curr2d.y ) maxElev = Math.max(maxElev, t);
-        }
-        dest2d.y = maxElev;
-      }
+  // BEGIN-PROFILE
+  /**
+   * Slack, in pixels of elevation, when testing whether a token is at or above the bottom of a terrain.
+   * @type {number}
+   */
+  static ELEVATION_TOLERANCE = 0.1;
 
-    // Flying: If within a region, move up to the top.
-    } else if ( flying ) {
-      let isOutsideRegion = true;
-      for ( const r of ranges ) {
-        if ( curr2d.y.almostBetween(r[0], r[1]) ) { isOutsideRegion = false; break; }
-      }
-
-      // Just like walking. Move to top of region.
-      if ( !isOutsideRegion ) dest2d.y = getHighestConnectedElevation(ranges, curr2d.y, ranges) ?? curr2d.y;
+  /**
+   * Permitted elevation given the ground.
+   * @param {"walking"|"burrowing"|"flying"} mode
+   * @param {number} z          Desired elevation
+   * @param {number} ground     Ground elevation at the position
+   * @returns {number}
+   */
+  static constrainElevation(mode, z, ground) {
+    switch ( mode ) {
+      case "burrowing": return Math.min(z, ground);
+      case "flying": return Math.max(z, ground);
+      default: return ground;
     }
-
-    return this.from2d(dest2d);
   }
 
   /**
    * Get the elevation ranges for all cutaways at x.
    * @param {number} x
+   * @param {-1|0|1} [side=0]     -1: limit approaching x from the left; 1: from the right;
+   *                              0: both sides together (a vertical edge covers its full height)
    * @returns {number[2][]}
    */
-  _cutawayElevationRangesAtX(x) {
+  _cutawayElevationRangesAtX(x, side = 0) {
     const ranges = [];
     for ( const cutaway of this.cutaways ) {
-      const r = cutaway.rangeAt(x);
+      const r = cutaway.rangeAt(x, side);
       if ( r ) ranges.push(r);
     }
     return ranges;
   }
 
+  /**
+   * Ground elevation at x for a token at elevation z: the highest top of the (merged) ranges
+   * whose bottom is at or below z, or the scene floor. Terrain floating above z is ignored.
+   * At a vertical edge (side 0) this is the top of the edge.
+   * @param {number} x
+   * @param {number} z
+   * @param {-1|0|1} [side=0]
+   * @returns {number}
+   */
+  groundAt(x, z, side = 0) {
+    let ground = this.floor;
+    const tolerance = this.constructor.ELEVATION_TOLERANCE;
+    for ( const [low, high] of mergeRanges(this._cutawayElevationRangesAtX(x, side)) ) {
+      if ( low <= z + tolerance && high > ground ) ground = high;
+    }
+    return ground;
+  }
+
+  /**
+   * Where do the tops of two overlapping cutaways cross between breakpoints?
+   * Between breakpoints every top is linear, but the highest of several linear tops is not.
+   * @param {number[]} breaks     Sorted
+   * @returns {number[]}
+   */
+  _topCrossings(breaks) {
+    const crossings = [];
+    for ( let i = 0, n = breaks.length - 1; i < n; i += 1 ) {
+      const x0 = breaks[i];
+      const x1 = breaks[i + 1];
+      const tops = [];
+      for ( const cutaway of this.cutaways ) {
+        const t0 = cutaway.topAt(x0, 1);
+        const t1 = cutaway.topAt(x1, -1);
+        if ( t0 !== null && t1 !== null ) tops.push([t0, t1]);
+      }
+      for ( let j = 0; j < tops.length; j += 1 ) {
+        for ( let k = j + 1; k < tops.length; k += 1 ) {
+          const d0 = tops[j][0] - tops[k][0];
+          const d1 = tops[j][1] - tops[k][1];
+          if ( d0 * d1 < 0 ) crossings.push(x0 + ((x1 - x0) * (d0 / (d0 - d1))));
+        }
+      }
+    }
+    return crossings;
+  }
+
+  /**
+   * Build the elevation profile from a2d to b2d, in cutaway space (x is distance, y is elevation).
+   * 1. Breakpoints: every cutaway vertex (and crossing of two tops) between a and b.
+   * 2. At each breakpoint, evaluate the permitted elevation just before and just after.
+   *    A difference is a vertical step at that x. Linear in between.
+   * 3. Walking follows the ground. Flying and burrowing follow the straight line from a to b,
+   *    constrained by the ground (so a flier rejoins its line after clearing terrain).
+   * The first point is the start itself; the position of the start and end use the top of any vertical edge.
+   * @param {"walking"|"burrowing"|"flying"} mode
+   * @param {PIXI.Point} a2d
+   * @param {PIXI.Point} b2d
+   * @returns {PIXI.Point[]}
+   */
+  _profilePath2d(mode, a2d, b2d) {
+    const EPS = 1e-6;
+    const constrain = this.constructor.constrainElevation;
+    const xa = a2d.x;
+    const xb = b2d.x;
+    const span = xb - xa;
+    const free = mode !== "walking";
+    const line = x => ((span > EPS) ? a2d.y + ((b2d.y - a2d.y) * ((x - xa) / span)) : a2d.y);
+
+    // Terrain along this segment; otherwise nothing to do.
+    const relevant = this.cutaways.filter(h => h.aabb.max.x >= xa - EPS && h.aabb.min.x <= xb + EPS);
+    if ( !relevant.length ) return [new PIXI.Point(xa, a2d.y), new PIXI.Point(xb, b2d.y)];
+
+    // Breakpoints.
+    const dedupe = xs => xs.sort((p, q) => p - q).filter((x, i, arr) => i === 0 || x - arr[i - 1] > EPS);
+    let breaks = [xa, xb];
+    for ( const h of relevant ) for ( const x of h.breakpoints() ) if ( x > xa + EPS && x < xb - EPS ) breaks.push(x);
+    breaks = dedupe(breaks);
+    const crossings = this._topCrossings(breaks);
+    if ( crossings.length ) breaks = dedupe([...breaks, ...crossings]);
+
+    // Sweep.
+    const path = [new PIXI.Point(xa, a2d.y)];
+    const push = (x, y) => {
+      const last = path.at(-1);
+      if ( Math.abs(last.x - x) < EPS && Math.abs(last.y - y) < EPS ) return;
+      path.push(new PIXI.Point(x, y));
+    };
+    let z = a2d.y; // Walking carries the elevation, so terrain floating above is ignored.
+    const lastIdx = breaks.length - 1;
+    for ( let i = 0; i <= lastIdx; i += 1 ) {
+      const x = breaks[i];
+      const zRef = z => (free ? line(x) : z);
+
+      if ( i === 0 ) {
+        z = constrain(mode, zRef(z), this.groundAt(x, zRef(z), 0)); // The position of the start.
+        push(x, z);
+      } else {
+        z = constrain(mode, zRef(z), this.groundAt(x, zRef(z), -1)); // Arriving from the left.
+        push(x, z);
+        if ( i === lastIdx ) {
+          z = constrain(mode, zRef(z), this.groundAt(x, zRef(z), 0)); // The position of the end.
+          push(x, z);
+        }
+      }
+      if ( i === lastIdx ) break;
+
+      z = constrain(mode, zRef(z), this.groundAt(x, zRef(z), 1)); // Leaving to the right.
+      push(x, z);
+
+      // Flying and burrowing: the line may cross the ground within the interval.
+      if ( free ) {
+        const xNext = breaks[i + 1];
+        const d0 = line(x) - this.groundAt(x, line(x), 1);
+        const d1 = line(xNext) - this.groundAt(xNext, line(xNext), -1);
+        if ( (d0 > EPS && d1 < -EPS) || (d0 < -EPS && d1 > EPS) ) {
+          const xc = x + ((xNext - x) * (d0 / (d0 - d1)));
+          push(xc, line(xc));
+        }
+      }
+    }
+    return path;
+  }
+  // END-PROFILE
+
+  /**
+   * Enforce gravity for this token. Move the token from its current position to the permitted elevation.
+   * Typically done after a level or scene change.
+   * Walking: on the ground. Burrowing: at or below the ground. Flying: at or above the ground.
+   * @param {ElevatedPoint} currentLocation
+   * @param {object} [opts]
+   * @param {string} [opts.levelId]     Level at the destination
+   * @param {boolean} [opts.walking]    Movement flags from the waypoint action. Default to the token's HUD action.
+   * @param {boolean} [opts.burrowing]
+   * @param {boolean} [opts.flying]
+   * @param {boolean} [opts.initialize=true]    If false, presume the handler is initialized for this point.
+   * @returns {ElevatedPoint} Destination point
+   */
+  enforceGravity(currentLocation, { levelId, walking, burrowing, flying, initialize = true } = {}) {
+    const token = this.token;
+    currentLocation ??= ElevatedPoint.fromLocationWithElevation(token.getCenterPoint(), token.document.bottomZ);
+    const mode = this._movementMode({ walking, burrowing, flying });
+    if ( !mode ) return currentLocation;
+    if ( initialize ) this._initialize(currentLocation, currentLocation, levelId);
+
+    using curr2d = this.to2d(currentLocation);
+    const y = this.constructor.constrainElevation(mode, curr2d.y, this.groundAt(curr2d.x, curr2d.y, 0));
+    if ( Math.abs(y - curr2d.y) < 0.05 ) return currentLocation;
+    curr2d.y = y;
+    return this.from2d(curr2d);
+  }
+
+  /**
+   * Deduplicate path points.
+   * @param {ElevatedPoint[]} path
+   * @returns {ElevatedPoint[]} Same path, with consecutive duplicates removed.
+   */
+  deduplicatePath(path) {
+    if ( path.length < 2 ) return path;
+    let last = path[0];
+    const out = [last];
+    for ( let i = 1; i < path.length; i += 1 ) {
+      const curr = path[i];
+      if ( last.almostEqual(curr) ) continue;
+      out.push(curr);
+      last = curr;
+    }
+    return out;
+  }
+
+  /** Mode-specific entry points kept for callers of the previous API. */
+  constructWalkingPath(a, b, opts = {}) {
+    return this.constructPath(a, b, { ...opts, walking: true, flying: false, burrowing: false });
+  }
+
+  constructBurrowingPath(a, b, opts = {}) {
+    return this.constructPath(a, b, { ...opts, walking: false, flying: false, burrowing: true });
+  }
+
+  constructFlyingPath(a, b, opts = {}) {
+    return this.constructPath(a, b, { ...opts, walking: false, flying: true, burrowing: false });
+  }
 
   /**
    * Determine the path between a and b that accounts for terrain regions and terrain tiles
-   * along the way.
+   * along the way. The first point of the returned path is always a.
    * Points a and b should be on the start|end segment; otherwise this will be reinitialized.
-   * Always returns at least one point; callers must tolerate a single-point path when a equals b.
    * @param {ElevatedPoint} a
    * @param {ElevatedPoint} b
    * @param {object} [opts]
@@ -416,31 +565,48 @@ export class TokenElevationHandler {
     b.roundDecimals(1);
     if ( a.equals(b) ) return [a.clone()];
 
-    flying ??= this.flying;
-    burrowing ??= this.burrowing;
-    walking ??= this.walking;
+    const mode = this._movementMode({ flying, burrowing, walking });
     levelId ??= canvas.level.id;
 
-    // Simple case: Token unbound by terrain; can fly and burrow!
-    if ( (flying && burrowing) || !(flying || burrowing || walking) ) return [a.clone(), b.clone()];
+    // Token unbound by terrain.
+    if ( !mode ) return [a.clone(), b.clone()];
 
     // Vertical-only move. Core rounds x,y to integers, so treat sub-pixel xy differences as no horizontal
     // movement; otherwise the direction of the cutaway plane is set by rounding noise.
-    // The vertical move builds its own (a, a) cutaway.
     if ( Math.hypot(b.x - a.x, b.y - a.y) < this.constructor.MIN_HORIZONTAL_MOVE ) {
       return this.verticalOnlyMove(a, b.z, { flying, walking, burrowing, levelId, initialize: true });
     }
 
-    // Initialize only if needed. If initialize is false, presume initialization is not required.
-    // (Must precede the empty-cutaway test; otherwise a stale or never-initialized handler allows free movement.)
-    if ( initialize && this._initializationRequired(a, b, levelId) ) this._initialize(a, b, levelId);
+    // Initialize only if needed.
+    if ( initialize /* && this._initializationRequired(a, b, levelId) */ ) this._initialize(a, b, levelId);
 
     // If no cutaways, allow free movement.
     if ( !this.cutaways.length ) return [a.clone(), b.clone()];
 
-    if ( burrowing ) return this.constructBurrowingPath(a, b, false);
-    if ( flying ) return this.constructFlyingPath(a, b, false);
-    return this.constructWalkingPath(a, b, false);
+    using a2d = this.to2d(a);
+    using b2d = this.to2d(b);
+    let path2d;
+    try {
+      path2d = this._profilePath2d(mode, a2d, b2d);
+      this.#verifyPath2d(path2d);
+    } catch( err ) {
+      console.error(`constructPath ${mode} ${a} -> ${b}`, path2d);
+      console.error(err);
+      return [a.clone(), b.clone()];
+    }
+
+    // Back to 3d. The first point is a itself.
+    const out = [a.clone()];
+    for ( const pt2d of path2d ) {
+      const pt = this.from2d(pt2d).roundDecimals(1);
+      const prev = out.at(-1);
+      if ( Math.abs(pt.x - prev.x) < 0.05
+        && Math.abs(pt.y - prev.y) < 0.05
+        && Math.abs(pt.z - prev.z) < 0.05 ) continue;
+      out.push(pt);
+    }
+    if ( out.length < 2 ) out.push(b.clone());
+    return this.deduplicatePath(out);
   }
 
   /**
@@ -464,7 +630,6 @@ export class TokenElevationHandler {
 
     // Both points must lie on the segment: distance from the line within tolerance, and
     // projection onto the line within the segment (the segment is already padded by 1 pixel at each end).
-    // Note: the cross product alone scales with length; divide by length to get a distance.
     const tol = this.constructor.PATH_TOLERANCE;
     for ( const pt of [a, b] ) {
       const px = pt.x - start.x;
@@ -476,15 +641,12 @@ export class TokenElevationHandler {
     return false;
   }
 
-
   #verifyPath2d(path2d) {
     if ( !path2d.length ) throw Error("Path is empty.");
     if ( path2d.length > 9999 ) throw Error("Path is too long.");
     if ( path2d.some(pt => isNaN(pt.x) || isNaN(pt.y)) ) throw Error("Path has NaN.");
     if ( path2d.some(pt => pt.y > 100000 || pt.y < -100000) ) throw Error("Path elevation error");
   }
-
-  /* ----- NOTE: Vertical climb ----- */
 
   /**
    * Move from current location to a new z value at the same XY location.
@@ -502,684 +664,21 @@ export class TokenElevationHandler {
     a.roundDecimals(1);
     if ( Math.abs(a.z - desiredElevation) < 0.05 ) return [a.clone()];
 
+    const free = () => [a, ElevatedPoint.tmp.set(a.x, a.y, desiredElevation)];
+    const mode = this._movementMode({ flying, burrowing, walking });
+    if ( !mode ) return free();
     if ( initialize ) this._initialize(a, a, levelId);
-    using b = ElevatedPoint.tmp.set(a.x, a.y, desiredElevation);
-    using a2d = this.to2d(a);
-    using b2d = this.to2d(b);
-    flying ??= this.flying;
-    burrowing ??= this.burrowing;
-    walking ??= this.walking;
 
     // If no cutaways at this location, allow free movement.
-    // If not a known constrained movement type, allow free movement.
-    if ( !this.cutaways.some(handler => handler.aabb.almostContainsPoint(a2d))
-      || !(flying || burrowing || walking) ) {
-      return [a.clone(), ElevatedPoint.tmp.set(a.x, a.y, desiredElevation)];
-    }
-
-    // If the cutaways are ill-defined at this x, allow free movement.
-    const ranges = mergeRanges(this._cutawayElevationRangesAtX(a2d.x));
-    if ( !ranges.length ) return [a.clone(), ElevatedPoint.tmp.set(a.x, a.y, desiredElevation)];
-
-    // Burrowing
-    // If within a range, move up to minimum of this elevation or the top.
-    // If moving down, allow free movement (burrow + fall).
-    if ( burrowing ) {
-      const dir = Math.sign(a2d.y - b2d.y);
-      if ( dir === -1 ) return [a, b];
-      let currRange;
-      for ( const r of ranges ) {
-        if ( a2d.y.almostBetween(r[0], r[1]) ) { currRange = r; break; }
-      }
-      if ( currRange ) {
-        b2d.y = Math.min(currRange[1], b2d.y);
-        return [a.clone(), this.from2d(b2d)];
-      } else return [a.clone()];
-
-    // Flying
-    // If moving up, allow free movement (fly + pass through regions upward).
-    // If moving down, stop at next range top.
-    } else if ( flying ) {
-      const dir = Math.sign(a2d.y - b2d.y);
-      if ( dir === 1 ) return [a.clone(), b.clone()];
-      let targetRange;
-      for ( const r of ranges ) {
-        if ( a2d.y.almostBetween(r[0], r[1]) ) return [a.clone()]; // Already in a range, so don't go lower.
-        if ( a2d.y > r[1] && (!targetRange || r[1] > targetRange[1]) ) targetRange = r;
-      }
-      if ( targetRange ) {
-        b2d.y = Math.max(b2d.y, targetRange[1]);
-        return [a.clone(), this.from2d(b2d)];
-      } else return [a.clone(), ElevatedPoint.fromLocationWithElevation(a, this.floorForLevel(levelId ?? this.levelId))]; // Fall to floor.
-
-    // Walking
-    // Not free to move up/down. Enforce gravity.
-    } else if ( walking ) {
-      return [a.clone(), this.enforceGravity(a, { burrowing, walking, levelId, initialize: false })];
-    }
-
-    return [a.clone(), b.clone()]; // Should not happen.
-  }
-
-  /* ----- NOTE: Walking ----- */
-
-  get walking() { return this.constructor.tokenIsWalking(this.token); }
-
-
-  constructWalkingPath(a, b, opts) { return this._constructPath("walking", a, b, opts); }
-
-  constructBurrowingPath(a, b, opts) { return this._constructPath("burrowing", a, b, opts); }
-
-  constructFlyingPath(a, b, opts) { return this._constructPath("flying", a, b, opts); }
-
-  /**
-   * @param {"walking"|"burrowing"|"flying"} type
-   * @param {ElevatedPoint} a
-   * @param {ElevatedPoint} b
-   * @param {object} [opts]
-   * @param {boolean} [opts.flying]           Defaults to the current token state
-   * @param {boolean} [opts.burrowing]        Defaults to the current token state
-   * @param {boolean} [opts.walking]          Defaults to the current token state
-   * @param {string} [opts.levelId]           Defaults to the current canvas level
-   * @param {boolean} [opts.initialize = true]
-   * @returns {ElevatedPoint[]}
-   */
-  _constructPath(type, a, b, opts = {}) {
-    if ( opts.initialize ) this._initialize(a, b, opts.levelId);
-    opts = { ...opts, initialize: false, walking: false, flying: false, burrowing: false };
-    opts[type] = true;
-    const newA = this.enforceGravity(a, opts);
-    using a2d = this.to2d(newA);
-    using b2d = this.to2d(b);
-    let path2d = [];
-    try {
-      path2d = this._constructWalkingPath(a2d, b2d, type);
-      this.#verifyPath2d(path2d);
-
-    } catch( err ) {
-      console.error(`constructWalkingPath ${a} -> ${b}`, path2d);
-      console.error(err);
-      path2d.forEach(pt => pt.release());
-      return [a.clone(), b.clone()];
-    }
-
-    if ( type === "burrowing" ) path2d = this._buildBurrowingShortcuts(path2d, newA, b, a2d, b2d);
-    else if ( type === "flying" ) path2d = this._buildFlyingShortcuts(path2d, newA, b, a2d, b2d);
-
-    const path = path2d.map(pt => this.from2d(pt).roundDecimals(1));
-    path2d.forEach(pt => pt.release());
-
-    path.unshift(newA);
-    const newEnd = this.enforceGravity(path.at(-1), opts);
-    path.push(newEnd);
-
-    return this.deduplicatePath(path);
-  }
-
-  _buildBurrowingShortcuts(path2d, a, b, a2d, b2d) {
-    // Can we reach the end point? If the end is below but blocked by a cutaway, try to connect the two.
-    path2d = this.#connectBurrowingPathToEnd(path2d, a, b, a2d, b2d);
-
-    // Run anchor algorithm locate shortcuts along diagonals.
-    try {
-      path2d = this._constructBurrowingPath(path2d, b2d);
-      this.#verifyPath2d(path2d);
-
-    } catch( err ) {
-      console.error(`constructBurrowingPath ${a} -> ${b}`, path2d);
-      console.error(err);
-      path2d.forEach(pt => pt.release());
-      return [a.clone(), b.clone()];
-    }
-    return path2d;
-  }
-
-  _buildFlyingShortcuts(path2d, a, b, a2d, b2d) {
-    // Can we reach the end point? If the end is above but blocked by a cutaway, try to connect the two.
-    path2d = this.#connectFlyingPathToEnd(path2d, a, b, a2d, b2d);
-
-    // Run anchor algorithm locate shortcuts along diagonals.
-    try {
-      const tmp = this._constructFlyingPath(path2d, b2d);
-      this.#verifyPath2d(tmp);
-      path2d = tmp;
-
-    } catch( err ) {
-      console.error(`constructFlyingPath ${a} -> ${b}`, path2d);
-      console.error(err);
-    }
-    return path2d;
-  }
-
-  /* Walking
-    Walk along terrain surfaces, falling to next support when the terrain ends.
-    • Cannot move vertically unless at a terrain intersection or moving along ramp/steps surface.
-    • Cannot move within a terrain.
-
-    Algorithm:
-    1. If on a region. Follow the region's surface until it ends or intersects another region.
-    2. If above a region. Move vertically down.
-    3. If below a region. Move vertically up.
-  */
-
-  /**
-   * Build walking path from start2d to end2d.
-   * @param {PIXI.Point} start2d
-   * @param {PIXI.Point} end2d          Must be different from start2d.
-   */
-  _constructWalkingPath(start2d, end2d, mode = "walking") {
-    /*
-      Build a walking-style path from start2d to end2d by sweeping left to right through the terrain
-      breakpoints, rather than tracing polygon edges. Used as the base path for walking, burrowing, and
-      flying: burrowing and flying refine it afterwards (shortcut/anchor passes) to tunnel or fly direct
-      where a straight diagonal would do.
-
-      Areas of the start|end line that are not under, over, or within any terrain are left untouched --
-      only the sub-range actually spanned by terrain (clamped to [start2d.x, end2d.x]) is swept. Outside
-      that range the path is just the input segment: no terrain means nothing to compute.
-
-      Within the swept range, at each breakpoint the highest terrain top covering that x wins ("highest
-      top wins" for overlapping solids). Walking and burrowing always track that top exactly (climbing,
-      following a descending ramp/steps down, or falling onto it from above). Flying only reacts when it
-      would collide (z at or below the top); otherwise it is unaffected and keeps its prior elevation.
-
-      Leaving all terrain (no solid covers x) snaps to the scene floor, per mode:
-        - walking:   z := floor (exact)
-        - burrowing: z := min(z, floor)  -- never pulled up to the surface, only ever pulled down to it
-        - flying:    z := max(z, floor)  -- never pulled below the floor, only ever pulled up to it
-      Both clamped forms are idempotent once satisfied, so travel stays flat (parallel to the floor)
-      until the next terrain is reached, with no separate "carry flat" state needed.
-    */
-
-    start2d.roundDecimals(1);
-    end2d.roundDecimals(1);
-    const terrain = this.cutaways;
-
-    // If no terrain, pass through the segment unmodified.
-    if ( !terrain.length ) return [start2d, end2d];
-
-    using tmpPt = PIXI.Point.tmp;
-    const floor = this.floor;
-    const checkpoints = [];
-    const addCheckpoint = curr => {
-      const last = checkpoints.at(-1);
-      if ( last && last.almostEqual(curr) ) return;
-      checkpoints.push(curr.clone());
-    };
-
-    // Restrict work to the terrain actually overlapping this segment, based on x-span.
-    let tMin = Number.POSITIVE_INFINITY;
-    let tMax = Number.NEGATIVE_INFINITY;
-    const relevant = [];
-    for ( const handler of terrain ) {
-      if ( !handler.aabb.overlapsSegment(start2d, end2d, ["x"]) ) continue; // Not on this segment.
-      relevant.push(handler);
-      tMin = Math.min(tMin, handler.aabb.min.x);
-      tMax = Math.max(tMax, handler.aabb.max.x);
-    }
-    if ( !relevant.length ) return [start2d, end2d];
-    tMin = Math.max(tMin, start2d.x);
-    tMax = Math.min(tMax, end2d.x);
-    if ( tMin > tMax ) return [start2d, end2d]; // Terrain only touches the padding beyond the segment.
-
-    // Sort and deduplicate breakpoints along x.
-    // Each breakpoint represents a top-surface vertex within the segment.
-    // Between consecutive breakpoints, every handler's top is linear or constant.
-    // Change elevation at every breakpoint based on highest-top-wins.
-    const breakpointSet = new Set([tMin, tMax]);
-    for ( const handler of relevant ) {
-      for ( const x of handler.topBreakpoints() ) {
-        if ( x.between(tMin, tMax) ) breakpointSet.add(x);
-      }
-    }
-    const breakpoints = [...breakpointSet]
-      .filter(x => x <= end2d.x) // Ignore breakpoints after the endpoint.
-      .sort((a, b) => a - b); // Sort low to high.
-
-    // Leave input line untouched up to where terrain begins.
-    addCheckpoint(start2d);
-
-    // Add the point of entry.
-    // Entry elevation at tMin is whatever the input line would be there.
-    // Test tMin itself against the terrain just like every other breakpoint,
-    // so that a region that floats above is correctly excluded.
-    using delta = end2d.subtract(start2d);
-    let z = (mode === "walking" || delta.x.almostEqual(0)) ? start2d.y // Move in flat line when walking.
-      : start2d.y + (delta.y * ((tMin - start2d.x) / delta.x)); // Locate z along start|end segment.
-    addCheckpoint(tmpPt.set(tMin, z));
-
-    // Loop through the breakpoints to find the highest valid elevation for each.
-    const epsilon = 0.1; // Small offset to check before/after terrain boundaries.
-    const minTraversal = this.constructor.MIN_TERRAIN_TRAVERSAL;
-    for ( let i = 0, n = breakpoints.length; i < n; i += 1 ) {
-      const x = breakpoints[i];
-
-      // Highest top wins.
-      const bestTop = this.#topAt(x, z, relevant);
-      if ( bestTop === null ) {
-        // No terrain covers x. Leaving terrain (or still in a gap between regions).
-        z = mode === "burrowing" ? Math.min(z, floor)
-          : mode === "flying" ? Math.max(z, floor)
-            : floor;
-        addCheckpoint(tmpPt.set(x, z));
-      } else {
-        // Brief contact that would raise the token (ending, starting, or clipping a corner within
-        // a pixel of an edge) is ignored. The token neither climbs nor drops.
-        // Contact that would not raise the token (e.g., leaving the top of a plateau) is kept.
-        if ( bestTop > z + 1e-6 && this.#coveredRunLength(breakpoints, i, z, relevant) < minTraversal ) continue;
-
-        // Check if terrain exists just before x.
-        const bestTopBefore = this.#topAt(x - epsilon, z, relevant);
-
-        // Check if terrain exists just after x.
-        const bestTopAfter = this.#topAt(x + epsilon, z, relevant);
-
-        // If entering terrain from a gap/floor while walking, hold floor level first.
-        if ( bestTopBefore === null && mode === "walking" && z < bestTop ) addCheckpoint(tmpPt.set(x, z)); // Floor is z.
-
-        if ( mode === "flying" ) {
-          if ( z <= bestTop ) z = bestTop; // Would otherwise collide, so go over the top. Otherwise fly.
-        } else z = bestTop; // Ride the slope exactly if walking or burrowing.
-        addCheckpoint(tmpPt.set(x, z));
-
-        // If existing terrain into a gap/floor while walking,
-        // drop down immediately at x unless the terrain continues beyond.
-        if ( bestTopAfter === null && mode === "walking" ) {
-          z = floor;
-          addCheckpoint(tmpPt.set(x, z));
-        }
-      }
-    }
-
-    // Trailing straight segment: Input line, untouched, from where terrain ends to actual endpoint.
-    if ( tMax < end2d.x ) {
-      const finalZ = mode === "walking" ? floor : z;
-      addCheckpoint(tmpPt.set(end2d.x, finalZ));
-    }
-
-    // If the breakpoints at the end were skipped (brief contact), still finish at the endpoint.
-    if ( !checkpoints.at(-1).x.almostEqual(end2d.x) ) addCheckpoint(tmpPt.set(end2d.x, z));
-
-    // Remove up-and-down (or down-and-up) bumps narrower than the minimum traversal, e.g., from a tiny gap
-    // between two regions.
-    this.#removeBumps(checkpoints);
-
-    return checkpoints;
-  }
-
-  /**
-   * Length of the continuous run of terrain (that could support z) containing breakpoint i,
-   * clipped to the swept range. Between consecutive breakpoints, coverage is all or nothing,
-   * so testing the midpoints is sufficient.
-   * @param {number[]} breakpoints    Sorted
-   * @param {number} i                Index of the breakpoint
-   * @param {number} z
-   * @param {CutawayHandler[]} relevant
-   * @returns {number}
-   */
-  #coveredRunLength(breakpoints, i, z, relevant) {
-    let lo = i;
-    while ( lo > 0 && this.#topAt((breakpoints[lo - 1] + breakpoints[lo]) * 0.5, z, relevant) !== null ) lo -= 1;
-    let hi = i;
-    const last = breakpoints.length - 1;
-    while ( hi < last && this.#topAt((breakpoints[hi] + breakpoints[hi + 1]) * 0.5, z, relevant) !== null ) hi += 1;
-    return breakpoints[hi] - breakpoints[lo];
-  }
-
-  /**
-   * Remove points that form a spike up or a dip down narrower than the minimum traversal.
-   * Modifies the array in place.
-   * @param {PIXI.Point[]} points
-   */
-  #removeBumps(points) {
-    const minWidth = this.constructor.MIN_TERRAIN_TRAVERSAL;
-    const eps = 1e-6;
-    for ( let i = 0; i < points.length - 2; i += 1 ) {
-      let k = i + 1;
-      while ( k + 1 < points.length && points[k + 1].x - points[i].x < minWidth ) k += 1;
-      if ( k - i < 2 ) continue;
-      const lo = Math.min(points[i].y, points[k].y);
-      const hi = Math.max(points[i].y, points[k].y);
-      const mids = points.slice(i + 1, k);
-      if ( mids.every(p => p.y > hi + eps) || mids.every(p => p.y < lo - eps) ) points.splice(i + 1, k - i - 1);
-    }
-  }
-
-  #topAt(x, z, relevant) {
-    let best = null;
-    for ( const handler of relevant ) {
-      const top = handler.topAt(x);
-      if ( top === null ) continue;
-      const bottom = handler.bottomAt(x) ?? Number.NEGATIVE_INFINITY;
-      if ( bottom > z ) continue;
-      if ( best === null || top > best ) best = top;
-    }
-    return best;
-  }
-
-  /* ----- NOTE: Burrowing ----- */
-
-  get burrowing() { return this.constructor.tokenIsBurrowing(this.token); }
-
-  #connectBurrowingPathToEnd(path2d, a, b, a2d, b2d) {
-    a2d ??= this.to2d(a);
-    b2d ??= this.to2d(b);
-
-    // Are we already at the endpoint?
-    const pathEnd = path2d.at(-1);
-    if ( pathEnd.almostEqual(b2d) ) return path2d;
-
-    // Could we get there by burrowing without hitting anything?
-    if ( this.#foundBurrowingShortcut(pathEnd, b2d) ) {
-      path2d.push(b2d);
-      return path2d;
-    }
-
-    return path2d;
-  }
-
-
-  /* Can we get there faster by burrowing?
-    Track elevation changes:
-    Anchors:
-    - When on ground
-    - When burrowing
-
-    Test anchors:
-    - When moving down, test if we can get there faster using the anchor position.
-    - If anchor is better, remove the intermediate waypoints. Keep the anchor in case the regions connect/overlap.
-    - The diagonal move replaces waypoints inbetween. So need to keep an index for the waypoints.
-    */
-  _constructBurrowingPath(path, b2d) {
-    const { ABOVE, BELOW, GROUND } = this.constructor.ELEVATION_LOCATIONS;
-    const anchors = [];
-    const MAX_ITER = 10000;
-    let nIters = 0;
-    let prevWaypoint = path[0];
-    const loc = this._currentElevationLocation(prevWaypoint);
-    if ( loc === BELOW || loc === GROUND ) anchors.push(0);
-
-    // Add in burrowing endpoint if present.
-    if ( !path.at(-1).almostEqual(b2d) && this._currentElevationLocation(b2d) === BELOW ) {
-      if ( this.#foundBurrowingShortcut(path.at(-1), b2d) ) path.push(b2d);
-    }
-
-    for ( let i = 1, iMax = path.length; i < iMax; i += 1 ) {
-      nIters += 1;
-      if ( nIters > MAX_ITER ) break;
-      const currWaypoint = path[i];
-
-      // GROUND: moving right-to-left.
-      // BELOW: moving vertical up (BELOW -> GROUND)
-      // ABOVE: moving vertical down (ABOVE -> GROUND)
-      const moveType = currWaypoint.x > prevWaypoint.x ? GROUND : currWaypoint.y > prevWaypoint.y ? BELOW : ABOVE;
-
-      // Test anchors.
-      // If can get from anchor to waypoint while always within at least one region, can burrow there.
-      // Test the current waypoint if moving right-to-left or above-to-ground.
-      if ( moveType === GROUND || moveType === ABOVE ) {
-        for ( const [idx, anchor] of anchors.entries() ) {
-          const anchorPt = path[anchor];
-          if ( !this.#foundBurrowingShortcut(currWaypoint, anchorPt) ) continue;
-          const nDeletions = i - anchor - 1; // Delete intermediate waypoints
-          path.splice(anchor+1, nDeletions);
-          anchors.splice(idx);
-          i -= nDeletions; // Reset i to the next waypoint after the deletions.
-          iMax = path.length;
-        }
-      }
-
-      // Set new anchors for the previous point.
-      switch ( moveType ) {
-        case GROUND:                     // Previous waypoint is ground and not at right edge.
-        case BELOW: anchors.push(i - 1); // Previous waypoint is below (left edge).
-      }
-    }
-    return path;
-  }
-
-  #foundBurrowingShortcut(testPoint, anchor) {
-    // Allow movement vertically down through regions/tiles.
-    // (Includes falling straight down or burrowing, then falling, etc.)
-    if ( testPoint.x.almostEqual(anchor.x) && testPoint.y >= anchor.y ) return true;
-
-    // Construct a path between the anchor and the point to test.
-    // Must remain within at least one region at all times.
-    // 1. Test if the center of the segment is within a region.
-    // 2. Test if intersections only occur at endpoints.
-    // --> If both are true, can burrow. If not true, either region ends or other region overlaps.
-    // (Overlapping is very unlikely b/c we are using combined cutaways here.)
-    const mid = PIXI.Point.midPoint(anchor, testPoint);
-    if ( !this.cutaways.some(cutHandler => cutHandler.testPoint(mid)) ) return false;
-    const ixFound = this.cutaways.some(cutHandler => {
-      const ixs = cutHandler.segmentIntersections(anchor, testPoint);
-      return ixs.some(ix => !(testPoint.almostEqual(ix) || anchor.almostEqual(ix)));
-    });
-    return !ixFound;
-  }
-
-  /* ----- NOTE: Flying ----- */
-
-  get flying() { return this.constructor.tokenIsFlying(this.token); }
-
-  /* Flying Options without using pathfinding:
-    1. Get walking path.
-    - If end equals end of walking path, run anchor shortcut algorithm.
-    - If end is above end of walking path and reachable without hitting cutaway, run anchor shortcut algorithm.
-    - If end is below, likely (definitely?) unreachable. Run anchor shortcut.
-    - Otherwise, go to #2.
-
-    2. Get reverse walking path from end to start.
-    - (Create new instance, initialize in reverse, and run. Convert to 3d and then back to 2d in original direction.)
-    - Attempt to connect the two paths. If they connect, combine and run anchor shortcut algorithm.
-    - Otherwise, go to #3.
-
-    3. End point is above the walking path but does not intersect via walking. Is that possible?
-    - Probably not. Either original or reverse walking path should fall down and meet up.
-    - But maybe moving through a tile or region does it?
-    - Set a warning message to check for this scenario. To try to handle, go to #4.
-
-    4. Find a flight path between the two walking paths.
-    - Could try #5.
-    - Or, just allow flight straight up. Straight up through a tile or straight up through any region.
-
-    5. More complex version
-    - For each original path segment:
-    - For each TL and BL corner on reverse path:
-      - Try to connect to the original walking path edge.
-      - If blocked, try to connect using the BL corner of the blocking region as the swing point.
-      - Need only connect each TL corner once.
-    */
-
-  #connectFlyingPathToEnd(path2d, a, b, a2d, b2d) {
-    a2d ??= this.to2d(a);
-    b2d ??= this.to2d(b);
-
-    // Are we already at the endpoint?
-    const pathEnd = path2d.at(-1);
-    if ( pathEnd.almostEqual(b2d) ) return path2d;
-
-    // Prevents elevation falling back to initial elevation when elevation at destination
-    // is higher than initial elevation.
-    if ( pathEnd.x.almostEqual(b2d.x) ) {
-      if ( pathEnd.y > b2d.y ) b2d.y = pathEnd.y;
-      if ( pathEnd.almostEqual(b2d) ) return path2d;
-    }
-
-    // Could we get there simply by flying without hitting anything?
-    if ( this.#foundFlyingShortcut(pathEnd, b2d) ) {
-      path2d.push(b2d);
-      return path2d;
-    }
-
-    // If the end is above but blocked by a cutaway, try to connect the two.
-    // Connect by drawing the reverse path, from finish to start.
-    // Requires a separate manager.
-    const tm = new this.constructor(this.token);
-    tm._initialize(b, a);
-    let path2dReverse;
-    try {
-      path2dReverse = tm.constructWalkingPath(b, a); // Note: 3d coordinates.
-
-      // Convert to be in this path's 2d coordinates.
-      path2dReverse = path2dReverse.map(pt => this.to2d(pt));
-      path2d = this.#connectPaths(path2d, path2dReverse);
-      this.#verifyPath2d(path2d);
-
-    } catch( err ) {
-      console.error(`constructReverseWalkingPath ${b} -> ${a}`, path2dReverse);
-      console.error(err);
-    }
-
-    return path2d;
-  }
-
-  /**
-   * Given two paths, determine the first point of connect and return a new path joining the two.
-   * The assumption is that the second path is in the opposite line of travel.
-   * The new path follows the first path's line of travel.
-   * @param {TerrainPath} path
-   * @param {TerrainPath} reversePath
-   * @returns {TerrainPath} A new array of connected paths or if they don't connect, throw an error.
-   *   Will reuse the points in the path in the newly returned array.
-   */
-  #connectPaths(path, reversePath) {
-    // Walk the reverse path, checking against the first path segments.
-    const nPath = path.length;
-    const nReversePath = reversePath.length;
-    let revA = reversePath[0];
-    if ( path[0].almostEqual(revA) ) return [path[0]];
-
-    // Brute force, but taking advantage of early skipping.
-    for ( let i = 1; i < nReversePath; i += 1 ) {
-      const revB = reversePath[i];
-      let a = path[0];
-      if ( a.almostEqual(revB) ) { const r = reversePath.slice(0, i + 1); r.reverse(); return r; }
-      for ( let j = 1; j < nPath; j += 1 ) {
-        const b = path[j];
-        if ( b.almostEqual(revA) ) {
-          const r = reversePath.slice(0, i);
-          r.reverse();
-          return [...path.slice(0, j), ...r];
-        }
-        if ( b.almostEqual(revB) ) {
-          const r = reversePath.slice(0, i + 1);
-          r.reverse();
-          return [...path.slice(0, j), ...r];
-        }
-        if ( revB.x > b.x ) continue;
-
-        if ( foundry.utils.lineSegmentIntersects(revA, revB, a, b) ) {
-          const ix = foundry.utils.lineLineIntersection(a, b, revA, revB);
-          const r = reversePath.slice(0, i);
-          r.reverse();
-          return [...path.slice(0, j), _ixToPoint(ix), ...r];
-        }
-        a = b;
-      }
-      revA = revB;
-    }
-    console.error("connectPaths|Unable to connect the two paths!");
-    return path;
-  }
-
-  /* Can we get there faster by flying?
-    Track elevation changes:
-    Anchors:
-    - When on ground
-    - When flying
-
-    Test anchors:
-    - When moving up, test if we can get there faster using the anchor position.
-    - If anchor is better, remove the intermediate waypoints. Keep the anchor in case the regions connect/overlap.
-    - The diagonal move replaces waypoints inbetween. So need to keep an index for the waypoints.
-    */
-  _constructFlyingPath(path, b2d) {
-    const { ABOVE, BELOW, GROUND } = this.constructor.ELEVATION_LOCATIONS;
-    const anchors = [];
-    const MAX_ITER = 10000;
-    let nIters = 0;
-    let prevWaypoint = path[0];
-    const loc = this.__currentElevationLocation(prevWaypoint);
-    if ( loc === ABOVE || loc === GROUND ) anchors.push(0);
-
-    // Add in flying endpoint if present.
-    if ( !path.at(-1).almostEqual(b2d) && this._currentElevationLocation(b2d) === ABOVE ) {
-      if ( this.#foundFlyingShortcut(path.at(-1), b2d) ) path.push(b2d);
-    }
-
-    for ( let i = 1, iMax = path.length; i < iMax; i += 1 ) {
-      nIters += 1;
-      if ( nIters > MAX_ITER ) break;
-      const currWaypoint = path[i];
-
-      // GROUND: moving right-to-left.
-      // BELOW: moving vertical up (BELOW -> GROUND)
-      // ABOVE: moving vertical down (ABOVE -> GROUND)
-      const moveType = currWaypoint.x > prevWaypoint.x ? GROUND : currWaypoint.y > prevWaypoint.y ? BELOW : ABOVE;
-
-      // Test anchors.
-      // If can get from anchor to waypoint while always within at least one region, can burrow there.
-      // Test the current waypoint if moving right-to-left or below-to-ground.
-      if ( moveType === GROUND || moveType === BELOW ) {
-        for ( const [idx, anchor] of anchors.entries() ) {
-          const anchorPt = path[anchor];
-          if ( !this.#foundFlyingShortcut(currWaypoint, anchorPt) ) continue;
-          const nDeletions = i - anchor - 1; // Delete intermediate waypoints
-          path.splice(anchor+1, nDeletions);
-          anchors.splice(idx);
-          i -= nDeletions; // Reset i to the next waypoint after the deletions.
-          iMax = path.length;
-        }
-      }
-
-      // Set new anchors for the previous point.
-      switch ( moveType ) {
-        case GROUND:                     // Previous waypoint is ground and not at right edge.
-        case ABOVE: anchors.push(i - 1); // Previous waypoint is above (left edge)
-      }
-    }
-    return path;
-  }
-
-  #foundFlyingShortcut(testPoint, anchor) {
-    // Allow movement vertically up through regions/tiles.
-    if ( testPoint.x.almostEqual(anchor.x) && testPoint.y <= anchor.y ) return true;
-
-    // Almost same as #foundBurrowingShortcut
-    // Construct a path between the anchor and the point to test.
-    // Must not intersect any terrain cutaways.
-    // 1. Test if the center of the segment is not within a cutaway.
-    // 2. Test if intersections only occur at endpoints.
-    // --> If both are true, can fly. If not true, some region intersects
-    // (Overlapping is very unlikely b/c we are using combined cutaways here.)
-    const mid = PIXI.Point.midPoint(anchor, testPoint);
-    if ( this.cutaways.some(cutHandler => cutHandler.testPoint(mid)) ) return false;
-    const ixFound = this.cutaways.some(cutHandler => {
-      const ixs = cutHandler.segmentIntersections(anchor, testPoint);
-      return ixs.some(ix => !(testPoint.almostEqual(ix) || anchor.almostEqual(ix)));
-    });
-    return !ixFound;
-  }
-
-  // ----- NOTE: Secondary methods ----- //
-
-  /**
-   * @param {PIXI.Point} pt2d
-   * @returns {TokenElevationHandler.ELEVATION_LOCATIONS} Whether the point is within,
-   *   at ground, above, or outside cutaways.
-   *   Outside if no cutaway at any z for this x/y.
-   */
-  _currentElevationLocation(pt2d) {
-    const LOCS = TokenElevationHandler.ELEVATION_LOCATIONS;
-    const ranges = mergeRanges(this._cutawayElevationRangesAtX(pt2d.x));
-    for ( const r of ranges ) {
-      if ( r[1].almostEqual(pt2d.y) ) return LOCS.GROUND;
-      if ( pt2d.y.almostBetween(r[0], r[1]) ) return LOCS.BELOW;
-    }
-    if ( pt2d.y.almostEqual(this.floor) ) return LOCS.GROUND;
-    if ( !ranges.length ) return LOCS.OUTSIDE; // Not outside if ground?
-    return LOCS.ABOVE;
+    using a2d = this.to2d(a);
+    if ( !this.cutaways.some(handler => handler.aabb.containsPoint(a2d, ["x"])) ) return free();
+
+    // Walking: cannot choose the elevation; gravity. Flying: not below the ground. Burrowing: not above it.
+    const ground = this.groundAt(a2d.x, a2d.y, 0);
+    const y = mode === "walking" ? ground : this.constructor.constrainElevation(mode, desiredElevation, ground);
+    if ( Math.abs(y - a.z) < 0.05 ) return [a.clone()];
+    a2d.y = y;
+    return [a, this.from2d(a2d)];
   }
 
   // ----- NOTE: Token actions ----- //
@@ -1238,9 +737,17 @@ export class TokenElevationHandler {
 }
 
 /**
- * Manages tests of a cutaway polygon related to movement along the cutaway.
+ * Top and bottom surface profiles of a cutaway polygon (x is distance along the path; y is elevation).
+ * Lookups can be one-sided so that a vertical edge is well defined:
+ *   side -1: the limit approaching x from the left
+ *   side +1: the limit leaving x to the right
+ *   side  0: both sides; the top is the higher of the two and the bottom the lower
+ *            (at a vertical edge, the top of the edge)
  */
 export class CutawayHandler {
+
+  /** Tolerance in x (pixels) for treating a position as at a vertex. */
+  static EPS = 1e-6;
 
   /** @type {CutawayPolygon} */
   cutPoly;
@@ -1254,195 +761,122 @@ export class CutawayHandler {
     this.#buildProfile();
   }
 
-  // ----- NOTE: Top surface profile for the sweep ----- //
-
   /**
-   * Non-vertical, left-to-right edges only. Represents the walkable top surface.
-   * Sorted by x to facilitate binary search.
-   * Assumes no polygon change after construction.
-   * @type {Segment}
+   * Non-vertical edges of the top (walkable) surface, each stored left-to-right, sorted by x.
+   * @type {{a: PIXI.Point, b: PIXI.Point}[]}
    */
   #topEdges;
 
   /**
-   * Non-vertical, left-to-right edges only. Represents the walkable bottom surface.
-   * Sorted by x to facilitate binary search.
-   * Assumes no polygon change after construction.
-   * @type {Segment}
+   * Non-vertical edges of the bottom (underside) surface, each stored left-to-right, sorted by x.
+   * @type {{a: PIXI.Point, b: PIXI.Point}[]}
    */
   #bottomEdges;
-
-  /**
-   * Non-vertical, right-to-left edges. Represents the solid's underside.
-   * Usually a flat base, but built generally in case some other shape requires it.
-   * Stores each edge left-to-right and sorted by x (same convention as #topEdges).
-   * Typically used to determine if the solid region is floating above the current token position.
-   * @type {Segment}
-   */
 
   #buildProfile() {
     const tops = [];
     const bottoms = [];
-    if ( this.cutPoly.isPositive ) {
-      for ( const edge of this.cutPoly.iterateEdges() ) {
-        // Top (high y) goes high x --> low x
-        // Bottom (low y) goes low x --> high x
-        if ( edge.a.x.almostEqual(edge.b.x) ) continue; // Vertical side.
-        if ( edge.a.x > edge.b.x ) tops.push(edge.reverse());  // Normalize right-to-left for lookup.
-        else bottoms.push(edge);
-      }
-    } else {
-      for ( const edge of this.cutPoly.iterateEdges() ) {
-        // Top (high y) goes low x --> high x
-        // Bottom (low y) goes high x --> low x
-        if ( edge.a.x.almostEqual(edge.b.x) ) continue; // Vertical side.
-        if ( edge.a.x < edge.b.x ) tops.push(edge);
-        else bottoms.push(edge.reverse()); // Normalize right-to-left for lookup.
-      }
+    const positive = this.cutPoly.isPositive;
+    for ( const edge of this.cutPoly.iterateEdges() ) {
+      if ( edge.a.x.almostEqual(edge.b.x) ) continue; // Vertical side.
+      // Positive winding: top edges run high x --> low x; bottom edges low x --> high x. Reverse for negative.
+      const leftToRight = edge.a.x < edge.b.x;
+      const isTop = positive ? !leftToRight : leftToRight;
+      const normalized = leftToRight ? edge : edge.reverse();
+      (isTop ? tops : bottoms).push(normalized);
     }
-    tops.sort((e1, e2) => e1.a.x - e2.a.x); // Sort low to high by x.
+    tops.sort((e1, e2) => e1.a.x - e2.a.x);
     bottoms.sort((e1, e2) => e1.a.x - e2.a.x);
     this.#topEdges = tops;
     this.#bottomEdges = bottoms;
   }
 
   /**
-   * Elevation of this solid's top surface at x, by linear interpolation along the covering top edges.
+   * Elevation of the top surface at x.
    * @param {number} x
-   * @returns {number|null} Null if this solid's top surface does not cover x.
+   * @param {-1|0|1} [side=0]
+   * @returns {number|null} Null if the top surface does not cover x on that side.
    */
-  topAt(x) { return CutawayHandler.#elevationAt(this.#topEdges, x); }
+  topAt(x, side = 0) { return CutawayHandler.#elevationAt(this.#topEdges, x, side, Math.max); }
 
   /**
-   * Elevation of this solid's bottom surface at x, by linear interpolation along the bottom edges.
+   * Elevation of the bottom surface at x.
    * @param {number} x
-   * @returns {number|null} Null if this solid's bottom surface does not cover x.
+   * @param {-1|0|1} [side=0]
+   * @returns {number|null} Null if the bottom surface does not cover x on that side.
    */
-  bottomAt(x) { return CutawayHandler.#elevationAt(this.#bottomEdges, x); }
-
+  bottomAt(x, side = 0) { return CutawayHandler.#elevationAt(this.#bottomEdges, x, side, Math.min); }
 
   /**
-   * Elevation range at given x position.
+   * Elevation range at x.
    * @param {number} x
+   * @param {-1|0|1} [side=0]
    * @returns {number[2]|null} Array of bottom and top elevations or null.
    */
-  rangeAt(x) {
-    const t = this.topAt(x);
+  rangeAt(x, side = 0) {
+    const t = this.topAt(x, side);
     if ( t === null ) return null;
-    const b = this.bottomAt(x);
+    const b = this.bottomAt(x, side);
     if ( b === null ) return null;
     return [b, t];
   }
 
-  /**
-   * Binary search a sorted, left-to-right, non-overlapping edge list for the one covering x, and
-   * linearly interpolate its elevation there.
-   * @param {Segment[]} edges
-   * @param {number} x
-   * @returns {number|null}
-   */
-  static #elevationAt(edges, x) {
-    let lo = 0;
-    let hi = edges.length - 1;
+  // ----- NOTE: Compatibility helpers ----- //
 
-    // Binary search to locate the correct edge.
-    while ( lo <= hi ) {
-      const mid = (lo + hi) >> 1; // Average of lo and high, rounded down. Requires positive integers.
-      const e = edges[mid];
-      if ( x < e.a.x && !x.almostEqual(e.a.x) ) hi = mid - 1;
-      else if ( x > e.b.x && !x.almostEqual(e.b.x) ) lo = mid + 1;
-      else return e.a.x.almostEqual(e.b.x)
-        ? e.a.y : e.a.y + ((e.b.y - e.a.y) * (x - e.a.x) / (e.b.x - e.a.x));
-    }
-    return null;
-  }
-
-  /**
-   * The x-values of every top-surface vertex, where the top slope can change.
-   * @returns {number[]}
-   */
-  topBreakpoints() {
-    const tops = this.#topEdges;
-    const n = tops.length;
-    const xs = new Array(n * 2);
-    for ( let i = 0, j = 0; i < n; i += 1 ) {
-      const e = tops[i];
-      xs[j++] = e.a.x;
-      xs[j++] = e.b.x;
-    }
-    return xs;
-  }
-
-  // ----- NOTE: Bounds testing ----- //
-
-  /**
-   * Does this segment intersect (or is inside) the bounding box of this cutaway polygon?
-   * @param {PIXI.Point} a2d      Endpoint of segment
-   * @param {PIXI.Point} b2d      Other segment endpoint
-   * @param {["x", "y"]} [axes]      Axes to test
-   * @returns {boolean} True if within the bounding box
-   */
   segmentInBounds(a2d, b2d, axes) { return this.aabb.overlapsSegment(a2d, b2d, axes); }
 
-  /**
-   * Does this point intersect the bounding box of this cutaway polygon?
-   * @param {PIXI.Point} a2d            Point to test
-   * @param {["x", "y"]} [axes]       Axes to test
-   * @returns {boolean} True if within the bounding box
-   */
   pointInBounds(a2d, axes) { return this.aabb.containsPoint(a2d, axes); }
 
-  /**
-   * Terrain version of `region.document.testPoint`. Rejects if above or below the cutaway.
-   * @param {PIXI.Point} pt2d         Point to test
-   * @returns {boolean}
-   */
+  /** Terrain version of `region.document.testPoint`. Rejects if above or below the cutaway. */
   testPoint(pt2d) {
     if ( !this.pointInBounds(pt2d) ) return false;
     return this.cutPoly.contains(pt2d.x, pt2d.y);
   }
 
-  // ----- NOTE: Intersections ----- //
+  segmentIntersections(a2d, b2d, opts) { return this.cutPoly.segmentIntersections(a2d, b2d, opts); }
+
+  /** Alias of breakpoints(). */
+  topBreakpoints() { return this.breakpoints(); }
 
   /**
-   * Obtain the intersection points for a 2d segment against this cut polygon.
-   * Does not test bounds.
-   * @param {PIXI.Point} a2d
-   * @param {PIXI.Point} b2d
-   * @returns {PIXI.Point[]}
+   * The x-values of every vertex of the top and bottom surfaces, where the slope or coverage can change.
+   * @returns {number[]}
    */
-  segmentIntersections(a2d, b2d, opts) { return this.cutPoly.segmentIntersections(a2d, b2d, opts); }
+  breakpoints() {
+    const xs = [];
+    for ( const e of this.#topEdges ) xs.push(e.a.x, e.b.x);
+    for ( const e of this.#bottomEdges ) xs.push(e.a.x, e.b.x);
+    return xs;
+  }
+
+  static #elevationAt(edges, x, side, pick) {
+    if ( side ) return CutawayHandler.#edgeElevation(edges, x, side);
+    const left = CutawayHandler.#edgeElevation(edges, x, -1);
+    const right = CutawayHandler.#edgeElevation(edges, x, 1);
+    if ( left === null ) return right;
+    if ( right === null ) return left;
+    return pick(left, right);
+  }
+
+  /**
+   * One-sided lookup. The edges partition x into (left, right] for side -1 and [left, right) for side 1.
+   */
+  static #edgeElevation(edges, x, side) {
+    const eps = CutawayHandler.EPS;
+    for ( const e of edges ) {
+      const l = e.a.x;
+      const r = e.b.x;
+      if ( l > x + eps ) break; // Sorted by left x.
+      const covers = side < 0 ? (x > l + eps && x <= r + eps) : (x >= l - eps && x < r - eps);
+      if ( !covers ) continue;
+      return e.a.y + ((e.b.y - e.a.y) * ((Math.min(Math.max(x, l), r) - l) / (r - l)));
+    }
+    return null;
+  }
 }
 
 
 // ----- NOTE: Helper functions ----- //
-
-function _ixToPoint(ix) {
-  const pt = PIXI.Point.tmp.set(ix.x, ix.y);
-  pt.t0 = ix.t0;
-  return pt;
-}
-
-/**
- * Get the highest connected elevation range from a starting elevation.
- * For example, if elev is 12, then elev is within [10,20].
- * And you can get from [10, 20] to [15, 30] because 15–20 overlap. So the answer is 30.
- * @param {number[2][]} ranges
- * @param {number} startingElevation
- * @returns {number} Highest elevation
- */
-function getHighestConnectedElevation(ranges, startingElevation, merged) {
-  if ( !ranges || ranges.length === 0 ) return null;
-  merged ??= mergeRanges(ranges);
-
-  // Find which merged range contains the target elevation.
-  for (const [low, high] of merged) {
-    if ( startingElevation >= low && startingElevation <= high ) return high;
-  }
-
-  // Return null if elev doesn't fall into any range.
-  return null;
-}
 
 /**
  * Merge ranges that overlap. E.g., [[10, 20], [15, 30]] returns [[10, 30]].
@@ -1451,19 +885,13 @@ function getHighestConnectedElevation(ranges, startingElevation, merged) {
  */
 function mergeRanges(ranges) {
   if ( ranges.length < 2 ) return ranges;
-
-  // Sort ranges by their low boundary.
   const sorted = [...ranges].sort((a, b) => a[0] - b[0]);
-
-  // Merge overlapping or touching intervals.
-  const merged = [sorted[0]];
+  const merged = [[sorted[0][0], sorted[0][1]]];
   for ( let i = 1; i < sorted.length; i++ ) {
     const current = sorted[i];
-    const lastMerged = merged[merged.length - 1];
-
-    // If the current range overlaps or touches the previous one
+    const lastMerged = merged.at(-1);
     if ( current[0] <= lastMerged[1] ) lastMerged[1] = Math.max(lastMerged[1], current[1]);
-    else merged.push(current);
+    else merged.push([current[0], current[1]]);
   }
   return merged;
 }
