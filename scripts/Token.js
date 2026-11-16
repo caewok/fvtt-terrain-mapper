@@ -115,6 +115,10 @@ function createTerrainMovementPath(wrapped, waypoints, options = {}) {
     if ( CONFIG[MODULE_ID].debug ) console.table(input);
     built = _buildTerrainPath(this, input);
 
+    // Nothing to build (e.g., zero-length move, or waypoints that all share one position): leave it to core.
+    // The input is core's, not ours, so it is neither validated as our output nor remembered as such.
+    if ( !built ) return wrapped(waypoints, options);
+
     // Global sanity check: segment-level checks were already done in _buildPathBetweenTwoWaypoints.
     const { valid, errors } = validateWaypointPath(built, { maxPoints: MAX_PATH_WAYPOINTS });
     if ( !valid ) throw new Error(`Invalid path: ${errors.join("; ")}`);
@@ -168,7 +172,7 @@ function _normalizeWaypoints(token, waypoints) {
  * Build the terrain path for a set of normalized waypoints.
  * @param {Token} token
  * @param {TokenGetTerrainMovementPathWaypoint[]} input     Normalized waypoints
- * @returns {TokenGetTerrainMovementPathWaypoint[]}
+ * @returns {TokenGetTerrainMovementPathWaypoint[]|null}   Null if there is nothing to build.
  */
 function _buildTerrainPath(token, input) {
   const n = input.length;
@@ -194,8 +198,8 @@ function _buildTerrainPath(token, input) {
     _appendWithoutDuplicates(out, segment);
   }
 
-  // A zero-length move; leave it to core. (A single-point path is treated as unconstrained.)
-  if ( out.length < 2 ) return input;
+  // A zero-length move: every waypoint is at the start position. Signal the caller to leave it to core.
+  if ( out.length < 2 ) return null;
   return out;
 }
 
