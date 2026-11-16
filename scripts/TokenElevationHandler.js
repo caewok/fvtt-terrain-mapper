@@ -969,7 +969,8 @@ export function validateWaypointPath(path, { start, end, maxPoints = 1000, toler
   for ( let i = 1; i < path.length; i += 1 ) {
     const p = path[i - 1];
     const q = path[i];
-    if ( p.x === q.x && p.y === q.y && Math.abs(p.elevation - q.elevation) < 0.05 ) {
+    // Waypoints on different levels are not duplicates.
+    if ( p.x === q.x && p.y === q.y && p.level === q.level && Math.abs(p.elevation - q.elevation) < 0.05 ) {
       errors.push(`duplicate points at ${i - 1},${i}`);
     }
   }
