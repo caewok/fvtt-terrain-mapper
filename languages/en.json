@@ -63,12 +63,16 @@
   "terrainmapper.behavior.types.elevator.fields.resetOnExit.name": "Reset on Exit",
   "terrainmapper.behavior.types.elevator.fields.resetOnExit.hint": "If enabled, the token will be reset to the scene elevation (ground) on exit. This will occur regardless of whether the token took stairs or elevator when entering the region.",
 
+  "terrainmapper.behavior.types.parallax.fields.strength.name": "Strength",
+  "terrainmapper.behavior.types.parallax.fields.strength.hint": "How strong to make the parallax effect.",
+
   "TYPES.RegionBehavior.terrainmapper.setElevation": "Stairs",
   "TYPES.RegionBehavior.terrainmapper.elevator": "Elevator",
   "TYPES.RegionBehavior.terrainmapper.plateauTerrain": "Terrain: Plateau",
   "TYPES.RegionBehavior.terrainmapper.rampTerrain": "Terrain: Ramp",
   "TYPES.RegionBehavior.terrainmapper.stepsTerrain": "Terrain: Steps",
   "TYPES.RegionBehavior.terrainmapper.hillTerrain": "Terrain: Hill",
+  "TYPES.RegionBehavior.terrainmapper.parallax": "Parallax",
 
   "terrainmapper.elevationAlgorithm.labels.none": "None",
   "terrainmapper.elevationAlgorithm.labels.oneWay": "One-Way Stairs",

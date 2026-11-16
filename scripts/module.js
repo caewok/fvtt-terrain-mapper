@@ -20,9 +20,14 @@ import { StepsTerrainRegionBehaviorType } from "./regions/StepsRegionBehaviorTyp
 import { RampTerrainRegionBehaviorType } from "./regions/RampRegionBehaviorType.js";
 import { StairsRegionBehaviorType } from "./regions/StairsRegionBehaviorType.js";
 import { ElevatorRegionBehaviorType } from "./regions/ElevatorRegionBehaviorType.js";
+
 import { StraightLinePath } from "./StraightLinePath.js";
 import { HillDrawingManager} from "./regions/HillDrawingManager.js";
 import { TerrainGeometryManager } from "./GeometricPrimitives/TerrainGeometry.js";
+
+// Parallax
+import { ParallaxRegionBehaviorType } from "./parallax/ParallaxRegionBehaviorType.js";
+import { parallaxManager } from "./parallax/ParallaxManager.js";
 
 // Elevation
 import { TokenElevationHandler } from "./TokenElevationHandler.js";
@@ -138,6 +143,7 @@ Hooks.once("init", function() {
     [`${MODULE_ID}.rampTerrain`]: RampTerrainRegionBehaviorType,
     [`${MODULE_ID}.stepsTerrain`]: StepsTerrainRegionBehaviorType,
     [`${MODULE_ID}.hillTerrain`]: HillTerrainRegionBehaviorType,
+    [`${MODULE_ID}.parallax`]: ParallaxRegionBehaviorType,
   });
 
   //   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.addTerrain`] = FA_ICONS.MODULE;
@@ -148,6 +154,7 @@ Hooks.once("init", function() {
   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.rampTerrain`] = FA_ICONS.TERRAIN;
   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.stepsTerrain`] = FA_ICONS.TERRAIN;
   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.hillTerrain`] = FA_ICONS.TERRAIN;
+  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.parallax`] = FA_ICONS.PARALLAX;
 
 
   // Must go at end?
@@ -212,6 +219,7 @@ function initializeAPI() {
     StraightLinePath,
     TokenElevationHandler,
     HillDrawingManager,
+    parallaxManager,
 
     /**
      * API to determine the elevation of a line through 0+ setElevation regions.
