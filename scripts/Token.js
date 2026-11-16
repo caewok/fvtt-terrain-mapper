@@ -35,6 +35,20 @@ const INHERITED_KEYS = ["x", "y", "elevation", "width", "height", "depth", "shap
 
 const round1 = v => Math.round(v * 10) / 10;
 
+/**
+ * Do two waypoints occupy the same x,y on the same level? Waypoints on different levels are never duplicates,
+ * even at identical x,y,elevation: the level change is itself the movement.
+ * @param {TokenGetTerrainMovementPathWaypoint} p
+ * @param {TokenGetTerrainMovementPathWaypoint} q
+ * @returns {boolean}
+ */
+function sameXYLevel(p, q) { return p.x === q.x && p.y === q.y && p.level === q.level; }
+
+/**
+ * Do two waypoints duplicate one another: same x,y, level, and elevation (to core's 0.1 precision)?
+ */
+function sameWaypointPosition(p, q) { return sameXYLevel(p, q) && Math.abs(p.elevation - q.elevation) < 0.05; }
+
 
 // ----- NOTE: Wraps ----- //
 
@@ -292,7 +306,7 @@ function _buildPathBetweenTwoWaypoints(start, end, token, movementOpts = {}) {
 }
 
 /**
- * A run of three or more consecutive waypoints at the same x,y is a vertical move with intermediate stops,
+ * A run of three or more consecutive waypoints at the same x,y and level is a vertical move with intermediate stops,
  * e.g., floor -> top -> floor from terrain narrower than a pixel. Keep only the first and last.
  * Flags (checkpoint, explicit) of the dropped waypoints are merged into the last.
  * @param {TokenGetTerrainMovementPathWaypoint[]} points
@@ -302,7 +316,7 @@ function _collapseVerticalRuns(points) {
   const out = [];
   for ( let i = 0; i < points.length; ) {
     let j = i;
-    while ( (j + 1) < points.length && points[j + 1].x === points[i].x && points[j + 1].y === points[i].y ) j += 1;
+    while ( (j + 1) < points.length && sameXYLevel(points[j + 1], points[i]) ) j += 1;
     if ( (j - i) >= 2 ) {
       const last = points[j];
       for ( let k = i + 1; k < j; k += 1 ) {
@@ -317,7 +331,7 @@ function _collapseVerticalRuns(points) {
 }
 
 /**
- * Append waypoints, merging any that land on the same position (after core's rounding) as the previous one.
+ * Append waypoints, merging any that land on the same position and level (after core's rounding) as the previous one.
  * A merged waypoint keeps the union of the checkpoint/explicit flags so a user's waypoint is never lost.
  * @param {TokenGetTerrainMovementPathWaypoint[]} out     Modified in place
  * @param {TokenGetTerrainMovementPathWaypoint[]} segment
@@ -325,9 +339,7 @@ function _collapseVerticalRuns(points) {
 function _appendWithoutDuplicates(out, segment) {
   for ( const pt of segment ) {
     const prev = out.at(-1);
-    const same = prev.x === pt.x && prev.y === pt.y && prev.level === pt.level
-      && Math.abs(prev.elevation - pt.elevation) < 0.05;
-    if ( !same ) { out.push(pt); continue; }
+    if ( !sameWaypointPosition(prev, pt) ) { out.push(pt); continue; }
     if ( out.length === 1 ) continue; // Duplicate of the origin; drop it.
     prev.checkpoint ||= pt.checkpoint;
     prev.explicit ||= pt.explicit;
