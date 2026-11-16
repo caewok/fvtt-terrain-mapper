@@ -67,7 +67,8 @@ export class StepsPrimitive extends ExtrudedPolygonPrimitive {
    * @type {VertexObject}
    */
   get sidesVO() {
-    return (this._sidesVO ??= this.constructor.generateVerticesForFaces(this.prototypeFaces.slice(1 + this._numTopFaces)));
+    return (this._sidesVO ??= this.constructor
+      .generateVerticesForFaces(this.prototypeFaces.slice(1 + this._numTopFaces)));
   }
 
 
@@ -83,7 +84,9 @@ export class StepsPrimitive extends ExtrudedPolygonPrimitive {
     return this.createStepsFromPolygons2d([poly], opts);
   }
 
-  static fromBasePolygon3d(id, base, { stepHeight = 1, stepWidth = 1, planks, ...opts } = {}) {
+  static fromBasePolygon3d(id, base, { stepHeight = 1, stepWidth = 1, planks, toCanvas, ...opts } = {}) {
+    base = base.clone();
+
     // Confirm base orientation is facing down.
     using ctr = base.centroid.clone();
     ctr.z += 1;
@@ -95,7 +98,7 @@ export class StepsPrimitive extends ExtrudedPolygonPrimitive {
     // Build the steps
     const bottomZ = base.polygons ? base.polygons[0].points[0].z : base.points[0].z;
     planks ??= this.verticalPlanks(polys, stepWidth);
-    const steps = this.createSteps(polys, planks, { stepHeight, stepWidth, bottomZ })
+    const steps = this.createSteps(polys, planks, { stepHeight, stepWidth, bottomZ });
 
     // Organize the sides, which are always vertical.
     const tops = [];
@@ -104,7 +107,16 @@ export class StepsPrimitive extends ExtrudedPolygonPrimitive {
 
 
     // Transform to prototype shape using provided model.
-    const faces = [base, ...tops, ...sides];
+    let faces = [base, ...tops, ...sides];
+
+    // Steps were build in the rotated frame. Rotate them back to canvas space.
+    if ( toCanvas ) {
+      const invT = toCanvas.invert().transpose();
+      const mirrors = Polygon3d.isMirroringTransform(toCanvas);
+      const txFaces = faces.map(f => f.transform(toCanvas, invT, mirrors));
+      faces.forEach(face => face.release());
+      faces = txFaces;
+    }
     const protoFaces = this.canvasToPrototypeFaces(faces, opts);
     return new this(id, protoFaces);
   }
@@ -181,14 +193,16 @@ export class StepsPrimitive extends ExtrudedPolygonPrimitive {
 
           if ( isHole ) {
             // Every hole edge is exposed to the floor for this row.
-            wallPieces.push(this.#buildWallQuad(a, b, floorZ, stepTop));
+            const quad = this.#buildWallQuad(a, b, floorZ, stepTop);
+            if ( quad ) wallPieces.push(quad);
             continue;
           }
 
           if ( !a.x.almostEqual(b.x) ) {
             // Outer edges go to the floor (full height).
             // (Clipper only introduces new edges along the strip's vertical sides.)
-            wallPieces.push(this.#buildWallQuad(a, b, floorZ, stepTop));
+            const quad = this.#buildWallQuad(a, b, floorZ, stepTop);
+            if ( quad ) wallPieces.push(quad);
             continue;
           }
 
@@ -200,13 +214,18 @@ export class StepsPrimitive extends ExtrudedPolygonPrimitive {
           if ( hasWest && hasEast ) {
             // Riser, not a full wall. Build only once, from the plank's own west edge so it is
             // not duplicated by the neighboring (lower, west) plank's east edge.
-            if ( edgeX.almostEqual(stripMinX) ) wallPieces.push(this.#buildWallQuad(a, b, bottomZ, stepTop));
+            if ( Math.abs(edgeX - stripMinX) < stepWidth * 0.5 ) {
+              wallPieces.push(this.#buildWallQuad(a, b, bottomZ, stepTop));
+            }
             // Else this is the current plank's east edge. The next plank to the
             // east will build this same riser from its own west-edge pass, using
             // its own (higher) bottomZ/stepTop -- skip here to avoid a duplicate.
 
           // True outer bounds using full height. Notch, or west/east end of the shape.
-          } else wallPieces.push(this.#buildWallQuad(a, b, floorZ, stepTop))
+          } else {
+            const quad = this.#buildWallQuad(a, b, floorZ, stepTop);
+            if ( quad ) wallPieces.push(quad);
+          }
         }
       }
 
@@ -218,7 +237,7 @@ export class StepsPrimitive extends ExtrudedPolygonPrimitive {
       // hole passing through this row is correctly left open in the tread.
       if ( plank.length ) out.push(plank.length > 1
         ? Polygons3d.fromPIXIShapes(plank, { elevationZ: bottomZ })
-          : Polygon3d.fromPIXIShape(plank[0], { elevationZ: bottomZ }));
+        : Polygon3d.fromPIXIShape(plank[0], { elevationZ: bottomZ }));
     }
 
     // Weld same-plane wall pieces into as few objects as possible.
@@ -232,9 +251,12 @@ export class StepsPrimitive extends ExtrudedPolygonPrimitive {
    * @param {PIXI.Point} b
    * @param {number} zBottom
    * @param {number} zTop
-   * @returns {Quad3d}
+   * @returns {Quad3d|null}
    */
   static #buildWallQuad(a, b, zBottom, zTop) {
+    // Skip degenerate edges where endpoints are identical.
+    if ( a.almostEqual(b) ) return null;
+
     return Quad3d.from4Points(
       { x: a.x, y: a.y, z: zTop },
       { x: b.x, y: b.y, z: zTop },
@@ -277,7 +299,7 @@ export class StepsPrimitive extends ExtrudedPolygonPrimitive {
    * @param {number} [plankWidth=1]
    * @returns {Planks}
    */
-  static verticalPlanks(polys, plankWidth = 1) {
+  static verticalPlanks(polys, plankWidth = 1, numPlanks) { /* eslint-disable-line default-param-last */
     const ClipperPaths = CONFIG[GEOMETRY_LIB_ID].CONFIG.ClipperPaths;
     const paths = ClipperPaths.fromPolygons(polys);
     const aabb = AABB2d.union(polys.map(poly => AABB2d.fromPolygon(poly)));
@@ -290,23 +312,19 @@ export class StepsPrimitive extends ExtrudedPolygonPrimitive {
       aabb.max.y - aabb.min.y,
     );
     const rectClipper = ClipperPaths.fromPolygons([rect.toPolygon()]);
-    const scale = rectClipper.scalingFactor
+    const scale = rectClipper.scalingFactor;
     const path = rectClipper.paths[0];
-    const clipperXShift = Math.round(scale * plankWidth)
+
+    numPlanks ??= Math.max(1, Math.round((aabb.max.x - aabb.min.x) / plankWidth));
+    const baseXs = path.map(pt => pt.X);
     const planks = [];
-    for ( let x = aabb.min.x; x < aabb.max.x; x += plankWidth ) {
-      // Intersect the plank rectangle with the clipper paths.
+    for ( let i = 0; i < numPlanks; i += 1 ) {
+      const shift = Math.round(scale * plankWidth * i);
+      path.forEach((pt, j) => { pt.X = baseXs[j] + shift; });
       planks.push({
-        x,
+        x: aabb.min.x + (i * plankWidth),
         plank: paths.intersectPaths(rectClipper).toPolygons(),
       });
-
-      // Shift the rectangle to the new x.
-      // Do this manually by modifying the Clipper object for performance.
-      path[0].X += clipperXShift;  // TL
-      path[1].X += clipperXShift;  // TR
-      path[2].X += clipperXShift;  // BR
-      path[3].X += clipperXShift;  // BL
     }
     return planks;
   }
@@ -377,7 +395,7 @@ export class StepsPrimitive extends ExtrudedPolygonPrimitive {
     const opts = {
       topElevationFn: null,
       bottomElevationFn: () => bottomZ,
-    }
+    };
     let cutaways = [];
     for ( const f of this.faces.slice(1) ) {
       // Skip faces not parallel to the XY plane (step sides).
@@ -391,8 +409,8 @@ export class StepsPrimitive extends ExtrudedPolygonPrimitive {
       // Construct the cutaways.
       // Because the top face is parallel to the XY plane, we can just drop the z axis.
       for ( const poly of f.polygons || [f] ) {
-         const cutaway = poly.toPolygon2d().cutaway(start, end, opts);
-         cutaways.push(...cutaway);
+        const cutaway = poly.toPolygon2d().cutaway(start, end, opts);
+        cutaways.push(...cutaway);
       }
     }
     if ( cutaways.length >= 2 ) {
@@ -402,7 +420,7 @@ export class StepsPrimitive extends ExtrudedPolygonPrimitive {
         .union()
         .clean()
         .toPolygons();
-     }
+    }
     cutaways = cutaways.map(poly => CutawayPolygon.fromPolygon(poly, start, end));
 
     // Reverse orientation if the shape is a hole. Cutaway holes are isPositive === true.

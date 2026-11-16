@@ -1,3 +1,12 @@
+## 14.0.3
+Fix for `token.document.move` failing. Closes #96.
+Fix for changing levels failing. Closes #114.
+Update changelog dialog to DialogV2.
+Improve consistency of steps and ramps direction handling.
+
+Update libGeometry to v0.7.2.
+- Update region geometry when `topInclusive` changes.
+
 ## 14.0.2
 Update libGeometry to v0.7.1.
 - Fix for point los test in region holes.

@@ -27,7 +27,7 @@
   "terrainmapper.region-config.rampFloor.hint": "Base of the Ramp/Step/Hill.",
 
   "terrainmapper.region-config.rampDirection.name": "Direction",
-  "terrainmapper.region-config.rampDirection.hint": "0º is due south; 90º is due west.",
+  "terrainmapper.region-config.rampDirection.hint": "0º: rising to east; 90º: rising to north, 180º: rising to west; 270º rising to south.",
 
   "terrainmapper.region-config.rampStepSize.name": "Step Size",
   "terrainmapper.region-config.rampStepSize.hint": "How tall to make each step of the ramp. If set to 0, the ramp will approximate a smooth incline.",

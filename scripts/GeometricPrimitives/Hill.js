@@ -154,7 +154,7 @@ export class HillPrimitive extends ExtrudedPolygonPrimitive {
     // Confirm base orientation is facing down.
     using ctr = base.centroid.clone();
     ctr.z += 1;
-    if ( base.isFacing(ctr) ) base.reverseOrientation();
+    if ( base.isFacing(ctr) ) base = base.clone().reverseOrientation();
 
     const floorZ = base.polygons ? base.polygons[0].points[0].z : base.points[0].z;
     const polys = base.polygons ? base.toPolygon2d() : [base.toPolygon2d()];

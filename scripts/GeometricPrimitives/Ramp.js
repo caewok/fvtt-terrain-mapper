@@ -86,7 +86,7 @@ export class RampPrimitive extends ExtrudedPolygonPrimitive {
     // Confirm base orientation is facing down.
     using ctr = base.centroid.clone();
     ctr.z += 1;
-    if ( base.isFacing(ctr) ) base.reverseOrientation();
+    if ( base.isFacing(ctr) ) base = base.clone().reverseOrientation();
 
     const top = base.clone();
     top.reverseOrientation();
