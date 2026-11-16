@@ -3,6 +3,7 @@ foundry,
 Hooks,
 game,
 showdown,
+window,
 */
 "use strict";
 
