@@ -135,27 +135,7 @@ Hooks.once("init", function() {
   initializeConfig();
   initializeAPI();
   Settings.registerAll();
-
-  Object.assign(CONFIG.RegionBehavior.dataModels, {
-    [`${MODULE_ID}.setElevation`]: StairsRegionBehaviorType,
-    [`${MODULE_ID}.elevator`]: ElevatorRegionBehaviorType,
-    [`${MODULE_ID}.plateauTerrain`]: PlateauTerrainRegionBehaviorType,
-    [`${MODULE_ID}.rampTerrain`]: RampTerrainRegionBehaviorType,
-    [`${MODULE_ID}.stepsTerrain`]: StepsTerrainRegionBehaviorType,
-    [`${MODULE_ID}.hillTerrain`]: HillTerrainRegionBehaviorType,
-    [`${MODULE_ID}.parallax`]: ParallaxRegionBehaviorType,
-  });
-
-  //   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.addTerrain`] = FA_ICONS.MODULE;
-  //   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.removeTerrain`] = FA_ICONS.MODULE;
-  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.setElevation`] = FA_ICONS.STAIRS;
-  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.elevator`] = FA_ICONS.ELEVATOR;
-  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.plateauTerrain`] = FA_ICONS.TERRAIN;
-  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.rampTerrain`] = FA_ICONS.TERRAIN;
-  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.stepsTerrain`] = FA_ICONS.TERRAIN;
-  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.hillTerrain`] = FA_ICONS.TERRAIN;
-  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.parallax`] = FA_ICONS.PARALLAX;
-
+  initializeRegionBehaviors();
 
   // Must go at end?
   foundry.applications.handlebars.loadTemplates(Object.values(TEMPLATES)).then(_value => log("Templates loaded."));
@@ -232,6 +212,30 @@ function initializeAPI() {
      */
     estimateElevationForSegment: StairsRegionBehaviorType.estimateElevationForSegment,
   };
+}
+
+function initializeRegionBehaviors() {
+ Object.assign(CONFIG.RegionBehavior.dataModels, {
+    [`${MODULE_ID}.setElevation`]: StairsRegionBehaviorType,
+    [`${MODULE_ID}.elevator`]: ElevatorRegionBehaviorType,
+    [`${MODULE_ID}.plateauTerrain`]: PlateauTerrainRegionBehaviorType,
+    [`${MODULE_ID}.rampTerrain`]: RampTerrainRegionBehaviorType,
+    [`${MODULE_ID}.stepsTerrain`]: StepsTerrainRegionBehaviorType,
+    [`${MODULE_ID}.hillTerrain`]: HillTerrainRegionBehaviorType,
+    [`${MODULE_ID}.parallax`]: ParallaxRegionBehaviorType,
+  });
+
+  //   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.addTerrain`] = FA_ICONS.MODULE;
+  //   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.removeTerrain`] = FA_ICONS.MODULE;
+  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.setElevation`] = FA_ICONS.STAIRS;
+  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.elevator`] = FA_ICONS.ELEVATOR;
+  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.plateauTerrain`] = FA_ICONS.TERRAIN;
+  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.rampTerrain`] = FA_ICONS.TERRAIN;
+  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.stepsTerrain`] = FA_ICONS.TERRAIN;
+  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.hillTerrain`] = FA_ICONS.TERRAIN;
+  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.parallax`] = FA_ICONS.PARALLAX;
+
+
 }
 
 function initializeConfig() {
