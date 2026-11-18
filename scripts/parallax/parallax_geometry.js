@@ -15,7 +15,7 @@ import { GeometricPrimitive } from "../geometry/placeable_geometry/GeometricPrim
 Pipeline:
   TerrainGeometry (world-space faces, pixel units)
     --> ParallaxGeometryBuilder.build()   flat arrays: x, y, h (height above ground), uv, normal; sorted low-to-high
-    --> ParallaxRegionMesh                PIXI.Mesh; vertex shader scales xy about the camera center by (1 + k * h)
+    --> ParallaxRegionMesh                PIXI.Mesh; vertex shader scales xy about the camera center by a capped perspective factor
 
 Works unchanged for plateau, ramp, steps, hill, holes, rings, cones: it only reads the
 faces that the primitives already expose, so no per-terrain-type code.
@@ -30,6 +30,9 @@ export class ParallaxGeometryBuilder {
 
   /** Triangles lower than this (pixels above ground) contribute nothing visible. */
   static MIN_HEIGHT = 0.5;
+
+  /** How far outside a wall (in grid squares) to sample the texture for the wall strip. */
+  static WALL_UV_INSET = 0.12;
 
   /**
    * @typedef {object} ParallaxData
@@ -75,9 +78,13 @@ export class ParallaxGeometryBuilder {
       // Triangle normal from positions (independent of how the vertex object stores normals).
       const ux = t.bx - t.ax; const uy = t.by - t.ay; const uz = t.bz - t.az;
       const vx = t.cx - t.ax; const vy = t.cy - t.ay; const vz = t.cz - t.az;
-      let nx = (uy * vz) - (uz * vy);
-      let ny = (uz * vx) - (ux * vz);
-      let nz = (ux * vy) - (uy * vx);
+
+      // Canvas is left-handed (x right, y down, z up toward the camera). The library winds faces
+      // counterclockwise as seen from outside, with a top at +z, so use (v x u), not (u x v).
+      let nx = (uz * vy) - (uy * vz);
+      let ny = (ux * vz) - (uz * vx);
+      let nz = (uy * vx) - (ux * vy);
+
       const len = Math.hypot(nx, ny, nz);
       if ( len < 1e-9 ) continue; // Degenerate.
       nx /= len; ny /= len; nz /= len;
@@ -96,7 +103,8 @@ export class ParallaxGeometryBuilder {
       const hMax = Math.max(hA, hB, hC);
       if ( hMax < MIN_HEIGHT ) continue; // At ground level: nothing moves.
 
-      kept.push({ t, nx, ny, nz, hA, hB, hC, isTop, key: (hA + hB + hC) / 3 });
+      // Sort key is the MAX height. (Average height let a wall triangle sort beneath the lower tread beside it.)
+      kept.push({ t, nx, ny, nz, hA, hB, hC, isTop, key: hMax });
     }
     if ( !kept.length ) return null;
 
@@ -112,13 +120,19 @@ export class ParallaxGeometryBuilder {
     const rect = canvas.dimensions.sceneRect;
     let maxH = 0;
     let p = 0; let u = 0; let q = 0;
+    const wallInset = canvas.grid.size * this.WALL_UV_INSET;
     for ( const k of kept ) {
       const { t } = k;
       const verts = [[t.ax, t.ay, k.hA], [t.bx, t.by, k.hB], [t.cx, t.cy, k.hC]];
+
+      // Wall normals point away from the material (into the hole for hole walls).
+      // Sampling the ground just outside the wall, instead of the platform edge,
+      // turns the exposed wall strip into a low-contrast ground/shadow streak, not a smeared stone border.
+      const inset = k.isTop ? 0 : wallInset;
       for ( const [x, y, h] of verts ) {
         positions[p++] = x; positions[p++] = y; positions[p++] = h;
-        uvs[u++] = (x - rect.x) / rect.width;
-        uvs[u++] = (y - rect.y) / rect.height;
+        uvs[u++] = ((x + (k.nx * inset)) - rect.x) / rect.width;
+        uvs[u++] = ((y + (k.ny * inset)) - rect.y) / rect.height;
         normals[q++] = k.nx; normals[q++] = k.ny; normals[q++] = k.nz;
         if ( h > maxH ) maxH = h;
       }
@@ -166,16 +180,20 @@ attribute vec3 aNormal;
 uniform mat3 projectionMatrix;
 uniform mat3 translationMatrix;
 uniform vec2 uCenter;       // Camera center, scene coords (canvas.stage.pivot)
-uniform float uK;           // Scale growth per pixel of height
+uniform float uCamH;        // Virtual camera height above ground, px. Scale ~ 1 + h / uCamH for small h.
+uniform float uMaxScale;    // Cap on the scale, so tall terrain far from center cannot blow up.
 varying vec2 vUV;
 varying float vFacing;
 varying float vSide;
+varying float vH;
 void main() {
-  float s = 1.0 + min(uK * aPosition.z, 0.9);
+  // True perspective scale about the view center, capped.
+  float s = min(uCamH / max(uCamH - aPosition.z, 0.05 * uCamH), uMaxScale);
   vec2 p = uCenter + (aPosition.xy - uCenter) * s;
   vec3 pos = projectionMatrix * translationMatrix * vec3(p, 1.0);
   gl_Position = vec4(pos.xy, 0.0, 1.0);
   vUV = aUV;
+  vH = aPosition.z;
 
   // Walls are visible only if the camera (above uCenter) is on the wall's normal side.
   // n . (c - p) is constant along a vertical planar wall, so it is safe to interpolate.
@@ -188,13 +206,18 @@ precision mediump float;
 varying vec2 vUV;
 varying float vFacing;
 varying float vSide;
+varying float vH;
 uniform sampler2D uTex;
-uniform float uSideShade;   // 0..1 multiplier for walls
+uniform float uSideShade;   // 0..1 multiplier for walls at the ground contact
+uniform float uFadePx;      // Height (px) over which the wall shade fades from uSideShade up to 1
 uniform float uAlpha;
 void main() {
   if ( vFacing <= 0.0 ) discard;
   vec4 c = texture2D(uTex, vUV);
-  float shade = mix(1.0, uSideShade, vSide);
+
+  // Contact shadow: walls are darkest where they meet the ground and lighten toward the edge.
+  float wall = mix(uSideShade, 1.0, smoothstep(0.0, uFadePx, vH));
+  float shade = mix(1.0, wall, vSide);
   gl_FragColor = vec4(c.rgb * shade, c.a) * uAlpha;
 }`;
 
@@ -212,16 +235,52 @@ export class ParallaxRegionMesh {
   /** @type {PIXI.Mesh|null} */
   mesh = null;
 
-  /** @type {number} Strength, as fractional scale growth per grid square of height. */
+  /**
+   * Strength, as approximate fractional scale growth per grid square of height (small heights).
+   * Converted to a virtual camera height: camH = gridSize / strength.
+   * The video reference showed about 1.08x at the platform top.
+   * @type {number}
+   */
   strength = 0.05;
+
+  /** @type {number} Maximum scale, e.g. 1.15 = elevated art grows at most 15%. */
+  maxScale = 1.1;
 
   #version = -1;
 
-  constructor(regionD, { strength = 0.05, sideShade = 0.6, alpha = 1 } = {}) {
+  constructor(regionD, { strength = 0.05, sideShade = 0.6, alpha = 1, maxScale = 1.15 } = {}) {
     this.regionD = regionD;
     this.strength = strength;
     this.sideShade = sideShade;
     this.alpha = alpha;
+    this.maxScale = maxScale;
+  }
+
+  // ----- Per-frame camera center ----- //
+
+  /** @type {Set<ParallaxRegionMesh>} Instances that currently own a mesh. */
+  static #active = new Set();
+
+  static #tickFn = null;
+
+  /** Update every active mesh's view center from the current camera. Covers pan, zoom, resize, initial load. */
+  static #tick() {
+    const { x, y } = canvas.stage.pivot;
+    for ( const pm of this.#active ) pm.setCenter(x, y);
+  }
+
+  static #register(pm) {
+    this.#active.add(pm);
+    if ( this.#tickFn ) return;
+    this.#tickFn = () => this.#tick();
+    canvas.app.ticker.add(this.#tickFn, undefined, PIXI.UPDATE_PRIORITY.HIGH); // Before the render pass.
+  }
+
+  static #unregister(pm) {
+    this.#active.delete(pm);
+    if ( this.#active.size || !this.#tickFn ) return;
+    canvas.app.ticker.remove(this.#tickFn);
+    this.#tickFn = null;
   }
 
   /** @type {TerrainGeometry|null} */
@@ -272,12 +331,15 @@ export class ParallaxRegionMesh {
       const shader = PIXI.Shader.from(VERT, FRAG, {
         uTex: texture,
         uCenter: [0, 0],
-        uK: 0,
+        uCamH: 1e6,
+        uMaxScale: this.maxScale,
         uSideShade: this.sideShade,
+        uFadePx: canvas.grid.size * 0.5,
         uAlpha: this.alpha,
       });
       this.mesh = new PIXI.Mesh(meshGeom, shader);
       parent.addChild(this.mesh);
+      this.constructor.#register(this);
     }
     this.mesh.shader.uniforms.uTex = texture;
     this.setStrength(this.strength);
@@ -287,15 +349,20 @@ export class ParallaxRegionMesh {
 
   setStrength(strength) {
     this.strength = strength;
-    if ( this.mesh ) this.mesh.shader.uniforms.uK = strength / canvas.grid.size;
+    if ( !this.mesh ) return;
+    const u = this.mesh.shader.uniforms;
+    u.uCamH = canvas.grid.size / Math.max(strength, 1e-6);
+    u.uMaxScale = this.maxScale;
+    u.uFadePx = canvas.grid.size * 0.5;
   }
 
-  /** Call on every pan. */
+  /** Updated automatically every frame while a mesh exists; can also be called directly. */
   setCenter(x, y) {
     if ( this.mesh ) this.mesh.shader.uniforms.uCenter = [x, y];
   }
 
   destroy() {
+    this.constructor.#unregister(this);
     if ( !this.mesh ) return;
     this.mesh.parent?.removeChild(this.mesh);
     this.mesh.destroy({ children: true });
