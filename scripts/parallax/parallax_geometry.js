@@ -284,17 +284,44 @@ export class BackgroundTextureSource {
   }
 }
 
-/** A tile's art as the top texture (scenario 2). Transparent pixels are discarded by the shader. */
+/**
+ * Show or hide a tile's own (undisplaced) mesh.
+ * ASSUMPTION: the placeable's mesh is tileD.object.mesh and Foundry does not reset `renderable` on refresh.
+ * @param {TileDocument} tileD
+ * @param {boolean} renderable
+ */
+function setTileRenderable(tileD, renderable) {
+  const mesh = tileD?.object?.mesh;
+  if ( mesh ) mesh.renderable = renderable;
+}
+
+/**
+ * A tile's art as the top texture (scenario 2). Transparent pixels are discarded by the shader.
+ * With hideOriginal, the tile's own mesh is hidden while the parallax mesh exists, so the undisplaced
+ * copy does not show beneath the shifted one.
+ */
 export class TileTextureSource {
 
   /** @type {TileDocument} */
   tileD;
 
-  constructor(tileD) { this.tileD = tileD; }
+  /** @type {boolean} */
+  hideOriginal = false;
+
+  constructor(tileD, { hideOriginal = false } = {}) {
+    this.tileD = tileD;
+    this.hideOriginal = hideOriginal;
+  }
+
+  /** Called by ParallaxMesh when it creates its mesh, and again on every refresh (cheap; re-asserts the hide). */
+  attach() { if ( this.hideOriginal ) setTileRenderable(this.tileD, false); }
+
+  /** Called by ParallaxMesh when it destroys its mesh. Restores the tile. */
+  detach() { if ( this.hideOriginal ) setTileRenderable(this.tileD, true); }
 
   get version() {
     const { x, y, width, height, rotation, texture } = this.tileD;
-    return [texture?.src, texture?.scaleX, texture?.scaleY, x, y, width, height, rotation].join("|");
+    return [texture?.src, texture?.scaleX, texture?.scaleY, x, y, width, height, rotation, this.hideOriginal].join("|");
   }
 
   resolve() {
@@ -567,6 +594,9 @@ export class ParallaxMesh {
    * @returns {boolean} True if rebuilt
    */
   refresh(parent) {
+    // Foundry may have re-shown the tile since the last refresh; hide it again.
+    if ( this.mesh ) this.textureSource.attach?.();
+
     const gv = this.geometrySource.version;
     if ( gv == null ) { this.destroy(); return false; }
     const tv = this.textureSource.version;
@@ -611,6 +641,7 @@ export class ParallaxMesh {
       this.mesh = new PIXI.Mesh(meshGeom, shader);
       parent.addChild(this.mesh);
       this.geometrySource.attach?.();
+      this.textureSource.attach?.();
       register(this);
     }
     const u = this.mesh.shader.uniforms;
@@ -648,6 +679,7 @@ export class ParallaxMesh {
     unregister(this);
     if ( !this.mesh ) return;
     this.geometrySource.detach?.();
+    this.textureSource.detach?.();
     this.mesh.parent?.removeChild(this.mesh);
     this.mesh.destroy({ children: true });
     this.mesh = null;
@@ -671,9 +703,11 @@ export class ParallaxRegionMesh extends ParallaxMesh {
    * @param {RegionDocument} regionD
    * @param {object} [opts]               Same as ParallaxMesh
    * @param {TileDocument} [opts.tileD]   Use this tile's art for the top; transparent pixels are cut out
+   * @param {boolean} [opts.hideOriginal=true]  Hide the tile's undisplaced mesh while this is shown.
+   *   Set false when one large tile is shared by several regions (hiding it would hide the ground art).
    */
-  constructor(regionD, { tileD, ...opts } = {}) {
-    const textureSource = tileD ? new TileTextureSource(tileD) : new BackgroundTextureSource();
+  constructor(regionD, { tileD, hideOriginal = true, ...opts } = {}) {
+    const textureSource = tileD ? new TileTextureSource(tileD, { hideOriginal }) : new BackgroundTextureSource();
     super(new RegionGeometrySource(regionD), textureSource, opts);
     this.regionD = regionD;
   }

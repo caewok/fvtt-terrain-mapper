@@ -42,7 +42,7 @@ export class ParallaxManager {
     let pm = this.meshes.get(regionD.id);
     if ( !pm ) {
       const tileUUID = b.system.tileUUID;
-      const tileD = tileUUID ? fromUUIDSync(tileUUID)?.document : null;
+      const tileD = fromUuidSync(tileUUID);
       if ( !tileD ) this.meshes.set(regionD.id, pm = new ParallaxRegionMesh(regionD));
       else this.meshes.set(regionD.id, pm = new ParallaxRegionMesh(regionD, { tileD, hideOriginal: b.system.hideOriginal }));
     }
@@ -111,7 +111,42 @@ function canvasReady(_canvas) {
   for ( const tile of canvas.tiles.placeables ) parallaxManager.sync(tile.document);
 }
 
-PATCHES.PARALLAX.HOOKS = { canvasPan, canvasReady };
+/**
+ * A hook event that fires for every Document type after conclusion of an update workflow.
+ * Substitute the Document name in the hook event to target a specific Document type, for example "updateActor".
+ * This hook fires for all connected clients after the update has been processed.
+ *
+ * When tile updates, sync the mesh for the tile.
+ *
+ * @event
+ * @category Document
+ * @param {Document} document                       The existing Document which was updated
+ * @param {object} changed                          Differential data that was used to update the document
+ * @param {Partial<DatabaseUpdateOperation>} options Additional options which modified the update request
+ * @param {string} userId                           The ID of the User who triggered the update workflow
+ */
+function updateTile(tileD, _changed, _options, _userId) {
+  parallaxManager.sync(tileD);
+}
+
+/**
+ * A hook event that fires for every Document type after conclusion of an deletion workflow.
+ * Substitute the Document name in the hook event to target a specific Document type, for example "deleteActor".
+ * This hook fires for all connected clients after the deletion has been processed.
+ *
+ * When tile is deleted, remove the mesh.
+ *
+ * @event
+ * @category Document
+ * @param {Document} document                       The existing Document which was deleted
+ * @param {Partial<DatabaseDeleteOperation>} options Additional options which modified the deletion request
+ * @param {string} userId                           The ID of the User who triggered the deletion workflow
+ */
+function deleteTile(tileD, _options, _userId) {
+  parallaxManager._deleteMesh(tileD);
+}
+
+PATCHES.PARALLAX.HOOKS = { canvasPan, canvasReady, updateTile, deleteTile };
 
 // ----- NOTE: Helper functions ----- //
 
