@@ -29,7 +29,7 @@ Hooks.once("init", function() {
 });
 
 /** @type {enum<string>} */
-export const TILE_THRESHOLD_SHAPE_OPTIONS = {
+const TILE_THRESHOLD_SHAPE_OPTIONS = {
   RECTANGLE: "full", // Fastest, but only trims rectangular transparent border without considering holes or irregular shapes.
   ALPHA_TRIANGLES: "triangles", // In testing, this seems very slow.
   ALPHA_POLYGONS: "polygons", // Much faster than triangles.
@@ -40,11 +40,15 @@ export const TILE_THRESHOLD_SHAPE_OPTIONS = {
 // Flags set on various documents.
 export const FLAGS = {
 
-  TILE_ALPHA_SHAPE: "tileAlphaShape",
-  TILE_ALPHA_SHAPE_OPTIONS: {
-    ...TILE_THRESHOLD_SHAPE_OPTIONS,
-    CALCULATED: "calculated",
-    IGNORE: "ignore",
+  TILE: {
+    ALPHA_SHAPE: "tileAlphaShape",
+    ALPHA_SHAPE_OPTIONS: {
+      ...TILE_THRESHOLD_SHAPE_OPTIONS,
+      CALCULATED: "calculated",
+      IGNORE: "ignore",
+    },
+    THRESHOLD_SHAPE_OPTIONS: TILE_THRESHOLD_SHAPE_OPTIONS,
+    PARALLAX: "parallax",
   },
 
   // Scene
@@ -128,6 +132,7 @@ export const ICONS = {
 export const DEFAULT_FLAGS = {
   TILE: {
     [FLAGS.TILE_ALPHA_SHAPE]: "calculated",
+    [FLAGS.PARALLAX] : 0,
   },
 
   SCENE: {

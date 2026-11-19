@@ -33,7 +33,7 @@ function renderTileConfig(app, html, data) {
       calculated: `${MODULE_ID}.tile-config.options.calculated`,
       ignore: `${MODULE_ID}.tile-config.options.ignore`,
     },
-    selectedTileAlphaShape: data.document.getFlag(MODULE_ID, FLAGS.TILE_ALPHA_SHAPE) || "calculated",
+    selectedTileAlphaShape: data.document.getFlag(MODULE_ID, FLAGS.TILE.ALPHA_SHAPE) || "calculated",
   };
 
   const myHTML = renderTemplateSync(TEMPLATES.TILE, data);

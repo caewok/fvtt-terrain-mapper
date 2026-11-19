@@ -66,6 +66,13 @@
   "terrainmapper.behavior.types.parallax.fields.strength.name": "Strength",
   "terrainmapper.behavior.types.parallax.fields.strength.hint": "How strong to make the parallax effect.",
 
+  "terrainmapper.behavior.types.parallax.fields.tileUUID.name": "Tile image",
+  "terrainmapper.behavior.types.parallax.fields.tileUUID.hint": "What tile image to use as the top of this region. Leave blank to use the underlying canvas image.",
+
+  "terrainmapper.behavior.types.parallax.fields.hideOriginal.name": "Hide underlying tile?",
+  "terrainmapper.behavior.types.parallax.fields.hideOriginal.hint": "If true, hides the underlying tile when implementing parallax.",
+
+
   "TYPES.RegionBehavior.terrainmapper.setElevation": "Stairs",
   "TYPES.RegionBehavior.terrainmapper.elevator": "Elevator",
   "TYPES.RegionBehavior.terrainmapper.plateauTerrain": "Terrain: Plateau",
@@ -94,6 +101,8 @@
   "terrainmapper.tile-config.options.calculated": "Calculated",
   "terrainmapper.tile-config.options.ignore": "Not a Floor",
 
+  "terrainmapper.tile-config.parallax.name": "Parallax",
+  "terrainmapper.tile-config.parallax.hint": "Apply parallax effect to this tile based on its elevation? Set to 0 to disable.",
 
   "terrainmapper.phrases.terrainLayer": "Terrain Layer",
   "terrainmapper.phrases.terrain": "Terrain",

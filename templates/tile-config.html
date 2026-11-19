@@ -12,5 +12,14 @@
       <p class="hint">{{ localize "terrainmapper.tile-config.tileAlphaShape.hint" }}</p>
     </div>
 
+    <!-- Set Parallax -->
+    <div class="form-group" id="terrainmapper-tile-config-parallax">
+      <label>{{ localize "terrainmapper.tile-config.parallax.name" }} </label>
+      <div class="form-fields">
+        <input type="number" id="terrainmapper-parallax" name="flags.terrainmapper.parallax" class="terrainmapper" placeholder="0" step = "0.01" value="{{ document.flags.terrainmapper.parallax }}">
+      </div>
+      <p class="hint">{{ localize "terrainmapper.tile-config.parallax.hint" }}</p>
+    </div>
+
   </legend>
 </fieldset>

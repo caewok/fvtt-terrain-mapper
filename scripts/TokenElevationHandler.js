@@ -103,7 +103,7 @@ export class TokenElevationHandler {
    */
   static terrainTiles(levelId = canvas.level.id) {
     return [...canvas.tiles.documentCollection.values()].filter(tileD => {
-      if ( fastFlag(tileD, FLAGS.TILE_ALPHA_SHAPE) === FLAGS.TILE_ALPHA_SHAPE_OPTIONS.IGNORE ) return false;
+      if ( fastFlag(tileD, FLAGS.TILE.ALPHA_SHAPE) === FLAGS.TILE.ALPHA_SHAPE_OPTIONS.IGNORE ) return false;
       if ( !levelId ) return true;
       return tileD.levels.has(levelId);
     });
@@ -277,8 +277,8 @@ export class TokenElevationHandler {
     for ( const tile of this.tiles ) {
       const geom = this.constructor.geometryForTile(tile);
       const elevs = geom.elevationZ;
-      const geomSubtype = fastFlag(geom.placeableDocument, FLAGS.TILE_ALPHA_SHAPE)
-        || FLAGS.TILE_ALPHA_SHAPE_OPTIONS.CALCULATED;
+      const geomSubtype = fastFlag(geom.placeableDocument, FLAGS.TILE.ALPHA_SHAPE)
+        || FLAGS.TILE.ALPHA_SHAPE_OPTIONS.CALCULATED;
       this.cutaways.push(...geom[geomSubtype].verticalSlice(this.start, this.end, elevs));
     }
 
