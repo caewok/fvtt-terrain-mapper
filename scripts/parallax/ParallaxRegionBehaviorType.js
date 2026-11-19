@@ -20,6 +20,20 @@ export class ParallaxRegionBehaviorType extends foundry.data.regionBehaviors.Reg
         // min: -1, // 0 disables; negative would flip?
         // max: 1,
       }),
+
+      tileUUID: new foundry.data.fields.DocumentUUIDField({
+        label: `${MODULE_ID}.behavior.types.parallax.fields.tileUUID.name`,
+        hint: `${MODULE_ID}.behavior.types.parallax.fields.tileUUID.hint`,
+        type: "Tile",
+        nullable: true,
+        required: false,
+      }),
+
+      hideOriginal: new foundry.data.fields.BooleanField({
+        label: `${MODULE_ID}.behavior.types.parallax.fields.hideOriginal.name`,
+        hint: `${MODULE_ID}.behavior.types.parallax.fields.hideOriginal.hint`,
+        initial: true,
+      }),
     };
   }
 }

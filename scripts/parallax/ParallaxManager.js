@@ -1,11 +1,13 @@
 /* globals
 canvas,
+foundry,
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { ParallaxRegionMesh } from "./parallax_geometry.js";
-import { MODULE_ID } from "../const.js";
+import { ParallaxRegionMesh, ParallaxTileMesh } from "./parallax_geometry.js";
+import { MODULE_ID, FLAGS } from "../const.js";
+import { fastFlag } from "../util.js";
 
 export const PATCHES = {};
 PATCHES.PARALLAX = {};
@@ -18,9 +20,19 @@ export class ParallaxManager {
   /**
    * Create and refresh a region's parallax mesh.
    * Destroys the mesh, if any, if the region does not have a parallax behavior.
+   * @type {RegionDocument|TileDocument} placeableD
+   */
+  sync(placeableD) {
+    if ( placeableD instanceof foundry.documents.RegionDocument ) this._syncRegion(placeableD);
+    else if ( placeableD instanceof foundry.documents.TileDocument ) this._syncTile(placeableD);
+  }
+
+  /**
+   * Create and refresh a region's parallax mesh.
+   * Destroys the mesh, if any, if the region does not have a parallax behavior.
    * @type {RegionDocument} regionD
    */
-  sync(regionD) {
+  _syncRegion(regionD) {
     const atCurrentLevel = regionD.levels.size ? regionD.levels.has(canvas.level.id) : true;
     const b = regionD.behaviors.find(b => !b.disabled && b.type === `${MODULE_ID}.parallax`);
     if ( !(atCurrentLevel && b) ) {
@@ -28,8 +40,31 @@ export class ParallaxManager {
       return;
     }
     let pm = this.meshes.get(regionD.id);
-    if ( !pm ) this.meshes.set(regionD.id, pm = new ParallaxRegionMesh(regionD));
+    if ( !pm ) {
+      const tileUUID = b.system.tileUUID;
+      const tileD = tileUUID ? fromUUIDSync(tileUUID)?.document : null;
+      if ( !tileD ) this.meshes.set(regionD.id, pm = new ParallaxRegionMesh(regionD));
+      else this.meshes.set(regionD.id, pm = new ParallaxRegionMesh(regionD, { tileD, hideOriginal: b.system.hideOriginal }));
+    }
     pm.setStrength(b.system.strength);
+    pm.refresh(canvas.primary);
+  }
+
+  /**
+   * Create and refresh a tile's parallax mesh.
+   * Destroys the mesh, if any, if the tile does not have a parallax behavior.
+   * @type {TileDocument} tileD
+   */
+  _syncTile(tileD) {
+    const atCurrentLevel = tileD.levels.size ? tileD.levels.has(canvas.level.id) : true;
+    const hasParallax = fastFlag(tileD, FLAGS.TILE.PARALLAX);
+    if ( !(atCurrentLevel && hasParallax) ) {
+      this._deleteMesh(tileD);
+      return;
+    }
+    let pm = this.meshes.get(tileD.id);
+    if ( !pm ) this.meshes.set(tileD.id, pm = new ParallaxTileMesh(tileD));
+    pm.setStrength(hasParallax);
     pm.refresh(canvas.primary);
   }
 
@@ -73,6 +108,7 @@ function canvasPan(_canvas, { x, y } = {}) {
  */
 function canvasReady(_canvas) {
   for ( const region of canvas.regions.placeables ) parallaxManager.sync(region.document);
+  for ( const tile of canvas.tiles.placeables ) parallaxManager.sync(tile.document);
 }
 
 PATCHES.PARALLAX.HOOKS = { canvasPan, canvasReady };
