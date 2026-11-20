@@ -1,6 +1,7 @@
 /* globals
 canvas,
 foundry,
+fromUuidSync,
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
@@ -44,7 +45,10 @@ export class ParallaxManager {
       const tileUUID = b.system.tileUUID;
       const tileD = fromUuidSync(tileUUID);
       if ( !tileD ) this.meshes.set(regionD.id, pm = new ParallaxRegionMesh(regionD));
-      else this.meshes.set(regionD.id, pm = new ParallaxRegionMesh(regionD, { tileD, hideOriginal: b.system.hideOriginal }));
+      else this.meshes.set(regionD.id, pm = new ParallaxRegionMesh(regionD, {
+        tileD, hideOriginal:
+        b.system.hideOriginal
+      }));
     }
     pm.setStrength(b.system.strength);
     pm.refresh(canvas.primary);

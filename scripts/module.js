@@ -28,6 +28,7 @@ import { TerrainGeometryManager } from "./GeometricPrimitives/TerrainGeometry.js
 // Parallax
 import { ParallaxRegionBehaviorType } from "./parallax/ParallaxRegionBehaviorType.js";
 import { parallaxManager } from "./parallax/ParallaxManager.js";
+import { parallaxTokenManager } from "./parallax/ParallaxTokenManager.js";
 
 // Elevation
 import { TokenElevationHandler } from "./TokenElevationHandler.js";
@@ -39,6 +40,7 @@ import { GEOMETRY_LIB_ID } from "./geometry/const.js";
 // Self-executing hooks.
 import "./changelog.js";
 import "./regions/HighlightRegionShader.js";
+
 
 /* Foundry v13 movement
 Token#findMovementPath -- find path through waypoints
@@ -200,6 +202,7 @@ function initializeAPI() {
     TokenElevationHandler,
     HillDrawingManager,
     parallaxManager,
+    parallaxTokenManager,
 
     /**
      * API to determine the elevation of a line through 0+ setElevation regions.

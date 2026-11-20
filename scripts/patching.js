@@ -21,6 +21,7 @@ import { PATCHES as PATCHES_HillDrawingManager } from "./regions/HillDrawingMana
 import { PATCHES as PATCHES_LevelConfig } from "./LevelConfig.js";
 import { PATCHES as PATCHES_TokenDocument } from "./TokenDocument.js";
 import { PATCHES as PATCHES_Parallax } from "./parallax/ParallaxManager.js";
+import { PATCHES as PATCHES_TokenParallax } from "./parallax/ParallaxTokenManager.js";
 
 export const PATCHES = {
   "foundry.helpers.ClientSettings": PATCHES_ModuleSettingsAbstract,
@@ -41,6 +42,7 @@ export const PATCHES = {
   ElevatorRegionBehaviorType: PATCHES_ElevatorRegionBehaviorType,
   HillDrawingManager: PATCHES_HillDrawingManager,
   ParallaxManager: PATCHES_Parallax,
+  ParallaxTokenManager: PATCHES_TokenParallax,
 };
 
 export const PATCHER = new Patcher();
