@@ -26,6 +26,13 @@ Scenarios:
   2b. Tile art on a region:  new ParallaxRegionMesh(regionD, { tileD })        (ramp/steps/hill heights, tile colors)
 
 Region and tile meshes share one shader; only the sources differ.
+
+Lighting and shadows:
+  - Tops are shaded by slope: dot(normal, light) normalized so a flat top is unchanged (uSlope blends it in).
+  - A ground shadow is drawn beneath each mesh by ParallaxShadowMesh: opaque ground-plane triangles, offset away
+    from the light by height, blurred, then faded with one AlphaFilter (so overlapping steps do not double-darken).
+  - ParallaxMath holds the shared formulas (scale, displacement, shadow offset, light). The shader mirrors scale().
+    Tokens use the same math: see ParallaxTokenShadow, and ParallaxMath.displace for token position/size shift.
 */
 
 // ----- NOTE: UV mapping ----- //
@@ -66,6 +73,92 @@ function tileUVFn(tileD) {
     if ( flipV ) v = 1 - v;
     return [u, v];
   };
+}
+
+// ----- NOTE: Shared math (regions, tiles, tokens) ----- //
+
+export class ParallaxMath {
+
+  /**
+   * Unit vector pointing TOWARD the light, canvas coords (x right, y down, z up toward the camera).
+   * Default: light from the upper left, fairly high.
+   * @type {number[]}
+   */
+  static light = ParallaxMath.#norm(-0.45, -0.45, 0.77);
+
+  static #norm(x, y, z) {
+    const len = Math.hypot(x, y, z) || 1;
+    return [x / len, y / len, z / len];
+  }
+
+  /** Set the light direction (toward the light). Normalized. */
+  static setLight(x, y, z) { this.light = this.#norm(x, y, z); }
+
+  /** Virtual camera height (px) for a strength (fractional scale growth per grid square of height). */
+  static camHFromStrength(strength) { return canvas.grid.size / Math.max(strength, 1e-6); }
+
+  /**
+   * Perspective scale at height h about the view center. Mirrors the vertex shader.
+   * @param {number} h          Pixels above ground
+   * @param {number} camH       Virtual camera height, px
+   * @param {number} maxScale   Cap
+   * @returns {number}
+   */
+  static scale(h, camH, maxScale) {
+    return Math.min(camH / Math.max(camH - h, 0.05 * camH), maxScale);
+  }
+
+  /**
+   * Where a point at height h appears on screen (scene coords), and the scale to apply to its size.
+   * Use for tokens: move the token's display position and multiply its display size by `scale`.
+   * @param {number} x
+   * @param {number} y
+   * @param {number} h
+   * @param {{x: number, y: number}} center   View center (canvas.stage.pivot)
+   * @param {number} camH
+   * @param {number} maxScale
+   * @returns {{x: number, y: number, scale: number}}
+   */
+  static displace(x, y, h, center, camH, maxScale) {
+    const scale = this.scale(h, camH, maxScale);
+    return { x: center.x + ((x - center.x) * scale), y: center.y + ((y - center.y) * scale), scale };
+  }
+
+  /**
+   * Ground-plane offset of a shadow cast by a point at height h (away from the light).
+   * @param {number} h
+   * @param {number[]} [light]
+   * @param {number} [maxOffset]   Cap in px
+   * @returns {{dx: number, dy: number}}
+   */
+  static shadowOffset(h, light = this.light, maxOffset = Number.POSITIVE_INFINITY) {
+    const lz = Math.max(light[2], 0.05);
+    let dx = (-light[0] / lz) * h;
+    let dy = (-light[1] / lz) * h;
+    const len = Math.hypot(dx, dy);
+    if ( len > maxOffset ) { dx *= maxOffset / len; dy *= maxOffset / len; }
+    return { dx, dy };
+  }
+
+  /**
+   * Triangle fan for an ellipse shadow on the ground plane, offset by height. Constant vertex count,
+   * so a ParallaxShadowMesh can update it in place every frame.
+   * @returns {Float32Array} x, y pairs; 3 vertices per triangle
+   */
+  static ellipseFan(cx, cy, rx, ry, h, { segments = 24, light = this.light, maxOffset } = {}) {
+    const { dx, dy } = this.shadowOffset(h, light, maxOffset);
+    const ox = cx + dx; const oy = cy + dy;
+    const out = new Float32Array(segments * 6);
+    let i = 0;
+    for ( let s = 0; s < segments; s += 1 ) {
+      const a0 = (s / segments) * Math.PI * 2;
+      const a1 = ((s + 1) / segments) * Math.PI * 2;
+      out[i++] = ox; out[i++] = oy;
+      out[i++] = ox + (Math.cos(a0) * rx); out[i++] = oy + (Math.sin(a0) * ry);
+      out[i++] = ox + (Math.cos(a1) * rx); out[i++] = oy + (Math.sin(a1) * ry);
+    }
+    return out;
+  }
 }
 
 // ----- NOTE: Builder ----- //
@@ -183,6 +276,31 @@ export class ParallaxGeometryBuilder {
   }
 
   /**
+   * Ground-plane shadow triangles from built parallax data: every top triangle, each vertex moved
+   * away from the light by its own height. Walls and bottoms cast nothing extra (tops cover them).
+   * Shadows lie on the ground, so there is no parallax displacement here.
+   * @param {ParallaxData} data
+   * @param {object} [opts]
+   * @param {number[]} [opts.light]
+   * @param {number} [opts.maxOffset]   Px; default 2 grid squares
+   * @returns {{xy: Float32Array, uv: Float32Array}|null}   uv matches the top-texture uvs (for alpha silhouettes)
+   */
+  static buildShadowTriangles(data, { light = ParallaxMath.light, maxOffset = canvas.grid.size * 2 } = {}) {
+    const { positions, uvs, normals, vertexCount } = data;
+    const xy = []; const uv = [];
+    for ( let t = 0; t < vertexCount; t += 3 ) {
+      if ( normals[(t * 3) + 2] <= 0.001 ) continue; // Not a top.
+      for ( let v = t; v < t + 3; v += 1 ) {
+        const { dx, dy } = ParallaxMath.shadowOffset(positions[(v * 3) + 2], light, maxOffset);
+        xy.push(positions[v * 3] + dx, positions[(v * 3) + 1] + dy);
+        uv.push(uvs[v * 2], uvs[(v * 2) + 1]);
+      }
+    }
+    if ( !xy.length ) return null;
+    return { xy: new Float32Array(xy), uv: new Float32Array(uv) };
+  }
+
+  /**
    * Sort and flatten kept triangles into typed arrays.
    * @param {object[]} kept
    * @param {function} uvFn
@@ -266,6 +384,9 @@ Texture source interface:
 /** Scene background as the top texture (scenario 1). */
 export class BackgroundTextureSource {
 
+  /** Opaque art: shadows use the full footprint. */
+  hasAlpha = false;
+
   get version() { return canvas.scene?.background?.src ?? ""; }
 
   /**
@@ -304,6 +425,9 @@ export class TileTextureSource {
 
   /** @type {TileDocument} */
   tileD;
+
+  /** Tile art has a silhouette: shadows are cut out by the texture's alpha. */
+  hasAlpha = true;
 
   /** @type {boolean} */
   hideOriginal = false;
@@ -447,6 +571,7 @@ varying vec2 vUV2;
 varying float vFacing;
 varying float vSide;
 varying float vH;
+varying vec3 vNormal;
 void main() {
   // True perspective scale about the view center, capped.
   float s = min(uCamH / max(uCamH - aPosition.z, 0.05 * uCamH), uMaxScale);
@@ -456,6 +581,7 @@ void main() {
   vUV = aUV;
   vUV2 = aUV2;
   vH = aPosition.z;
+  vNormal = aNormal;
 
   // Walls are visible only if the camera (above uCenter) is on the wall's normal side.
   // n . (c - p) is constant along a vertical planar wall, so it is safe to interpolate.
@@ -470,6 +596,7 @@ varying vec2 vUV2;
 varying float vFacing;
 varying float vSide;
 varying float vH;
+varying vec3 vNormal;
 uniform sampler2D uTex;     // Top texture: background (scenario 1) or tile art (scenario 2)
 uniform sampler2D uBg;      // Scene background, for ground-sampled walls
 uniform float uWallMode;    // 0 none, 1 ground (sample uBg outside the wall), 2 stretch the top texture
@@ -477,6 +604,8 @@ uniform float uAlphaCutoff; // Fragments with texture alpha below this are disca
 uniform float uSideShade;   // 0..1 multiplier for walls at the ground contact
 uniform float uFadePx;      // Height (px) over which the wall shade fades from uSideShade up to 1
 uniform float uAlpha;
+uniform vec3 uLight;        // Unit vector toward the light (canvas coords, z up)
+uniform float uSlope;       // 0..1 how much slope shading to apply to tops
 void main() {
   if ( vFacing <= 0.0 ) discard;
   bool isWall = vSide > 0.5;
@@ -487,7 +616,12 @@ void main() {
 
   // Contact shadow: walls are darkest where they meet the ground and lighten toward the edge.
   float wall = mix(uSideShade, 1.0, smoothstep(0.0, uFadePx, vH));
-  float shade = mix(1.0, wall, vSide);
+
+  // Slope shading on tops: normalized so a flat top (normal = +z) is exactly 1.
+  // Faces tilted toward the light brighten (capped), faces tilted away darken.
+  float lam = max(dot(normalize(vNormal), uLight), 0.0) / max(uLight.z, 0.05);
+  float slope = mix(1.0, min(lam, 1.4), uSlope);
+  float shade = mix(slope, wall, vSide);
   gl_FragColor = vec4(c.rgb * shade, c.a) * uAlpha;
 }`;
 
@@ -496,14 +630,15 @@ const WALL_MODES = { none: 0, ground: 1, texture: 2 };
 
 // ----- NOTE: Per-frame camera center (shared by every mesh class) ----- //
 
-/** @type {Set<ParallaxMesh>} Instances that currently own a mesh. */
+/** @type {Set<{onFrame: function}>} Anything that animates with the camera: meshes, token shadows. */
 const ACTIVE = new Set();
 let tickFn = null;
 
-/** Update every active mesh's view center from the current camera. Covers pan, zoom, resize, initial load. */
+/** Push the current camera to every active object. Covers pan, zoom, resize, initial load. */
 function tick() {
   const { x, y } = canvas.stage.pivot;
-  for ( const pm of ACTIVE ) pm.setCenter(x, y);
+  const view = { x, y, zoom: canvas.stage.scale.x };
+  for ( const pm of ACTIVE ) pm.onFrame(view);
 }
 
 function register(pm) {
@@ -518,6 +653,186 @@ function unregister(pm) {
   if ( ACTIVE.size || !tickFn ) return;
   canvas.app.ticker.remove(tickFn);
   tickFn = null;
+}
+
+
+// ----- NOTE: Ground shadow ----- //
+
+const SHADOW_VERT = `
+precision highp float;
+attribute vec2 aPosition;
+attribute vec2 aUV;
+uniform mat3 projectionMatrix;
+uniform mat3 translationMatrix;
+varying vec2 vUV;
+void main() {
+  vec3 pos = projectionMatrix * translationMatrix * vec3(aPosition, 1.0);
+  gl_Position = vec4(pos.xy, 0.0, 1.0);
+  vUV = aUV;
+}`;
+
+const SHADOW_FRAG = `
+precision mediump float;
+varying vec2 vUV;
+uniform sampler2D uTex;
+uniform float uUseTex;      // 1 = silhouette from texture alpha, 0 = solid
+void main() {
+  float a = uUseTex > 0.5 ? texture2D(uTex, vUV).a : 1.0;
+  gl_FragColor = vec4(0.0, 0.0, 0.0, a);
+}`;
+
+/**
+ * Generic blurred ground shadow: draws ground-plane triangles opaque black, blurs them, then fades the result
+ * with one AlphaFilter (opaque first so overlapping triangles, e.g. stacked steps, do not double-darken).
+ * Knows nothing about regions or tokens; callers supply triangles.
+ *
+ * Blur is specified in world px and converted to screen px every frame (filters work in screen space).
+ * Not self-registering: the owner forwards onFrame(view), or calls register(this).
+ */
+export class ParallaxShadowMesh {
+
+  /** @type {PIXI.Mesh|null} */
+  mesh = null;
+
+  /** @type {number} 0..1 */
+  opacity;
+
+  /** @type {number} Blur strength in world px */
+  blur;
+
+  #blurFilter = null;
+
+  #alphaFilter = null;
+
+  /**
+   * @param {object} [opts]
+   * @param {number} [opts.opacity=0.4]
+   * @param {number} [opts.blur]       World px; default 0.15 grid squares
+   */
+  constructor({ opacity = 0.4, blur } = {}) {
+    this.opacity = opacity;
+    this.blur = blur ?? canvas.grid.size * 0.15;
+  }
+
+  /**
+   * Set the shadow shape.
+   * @param {Float32Array|null} xy       Ground-plane triangles, x y pairs. Null/empty hides the shadow.
+   *   Same length as last call updates the buffer in place (cheap per-frame updates, e.g., a moving token).
+   * @param {object} [opts]
+   * @param {PIXI.Container} [opts.parent]    Required the first time
+   * @param {Float32Array} [opts.uv]          Per-vertex uv into `texture`
+   * @param {PIXI.Texture} [opts.texture]     If given, its alpha shapes the shadow (tile silhouettes)
+   * @param {number} [opts.elevation]         Draw order vs tokens
+   * @param {number} [opts.sort]
+   */
+  setTriangles(xy, { parent, uv, texture, elevation = 0, sort = 0 } = {}) {
+    if ( !xy?.length ) { this.#remove(); return; }
+    const uvs = uv ?? new Float32Array(xy.length);
+    const posBuffer = this.mesh?.geometry.getBuffer("aPosition");
+    if ( posBuffer && posBuffer.data.length === xy.length ) {
+      posBuffer.update(xy);
+      this.mesh.geometry.getBuffer("aUV").update(uvs);
+    } else {
+      const geom = new PIXI.Geometry().addAttribute("aPosition", xy, 2).addAttribute("aUV", uvs, 2);
+      if ( this.mesh ) {
+        const old = this.mesh.geometry;
+        this.mesh.geometry = geom;
+        old.destroy();
+      } else {
+        if ( !parent ) return;
+        this.#create(geom, parent);
+      }
+    }
+    const u = this.mesh.shader.uniforms;
+    u.uTex = texture ?? PIXI.Texture.WHITE;
+    u.uUseTex = texture ? 1 : 0;
+    this.mesh.elevation = elevation;
+    this.mesh.sort = sort;
+    this.#alphaFilter.alpha = this.opacity;
+    if ( this.mesh.parent && this.mesh.parent.sortDirty !== undefined ) this.mesh.parent.sortDirty = true;
+  }
+
+  #create(geom, parent) {
+    const shader = PIXI.Shader.from(SHADOW_VERT, SHADOW_FRAG, { uTex: PIXI.Texture.WHITE, uUseTex: 0 });
+    this.mesh = new PIXI.Mesh(geom, shader);
+    // ASSUMPTION: PIXI.BlurFilter and PIXI.AlphaFilter are exposed in Foundry's PIXI build.
+    this.#blurFilter = new PIXI.BlurFilter(1, 3);
+    this.#alphaFilter = new PIXI.AlphaFilter(this.opacity);
+    this.mesh.filters = [this.#blurFilter, this.#alphaFilter];
+    parent.addChild(this.mesh);
+  }
+
+  /** Keep the blur constant in world units as the camera zooms. */
+  onFrame(view) {
+    if ( !this.#blurFilter ) return;
+    const px = this.blur * (view?.zoom ?? 1);
+    if ( Math.abs(px - this.#blurFilter.blur) > 0.05 ) this.#blurFilter.blur = px;
+  }
+
+  #remove() {
+    if ( !this.mesh ) return;
+    this.mesh.parent?.removeChild(this.mesh);
+    this.mesh.destroy({ children: true });
+    this.#blurFilter?.destroy();
+    this.#alphaFilter?.destroy();
+    this.mesh = null;
+    this.#blurFilter = null;
+    this.#alphaFilter = null;
+  }
+
+  destroy() { this.#remove(); }
+}
+
+/**
+ * Soft blob shadow on the ground beneath a token that is above the surface (floating, flying).
+ * Same shadow mesh, same light and offset math as the terrain shadows.
+ * Shrinks and softens as the token rises.
+ *
+ * Token display size/position shift (not implemented here) would use ParallaxMath.displace with the token's
+ * height: translate the token's display position and multiply its display size by the returned scale.
+ */
+export class ParallaxTokenShadow {
+
+  /** @type {Token} */
+  token;
+
+  /** @type {ParallaxShadowMesh} */
+  shadow;
+
+  /** @type {function(Token): number} Elevation (scene units) of the surface under the token. */
+  groundElevation;
+
+  /** @type {number} Fraction of the token's footprint covered by the blob at ground contact. */
+  coverage = 0.45;
+
+  constructor(token, { groundElevation = () => 0, opacity = 0.35, blur, coverage = 0.45 } = {}) {
+    this.token = token;
+    this.groundElevation = groundElevation;
+    this.coverage = coverage;
+    this.shadow = new ParallaxShadowMesh({ opacity, blur });
+    register(this);
+  }
+
+  onFrame(view) {
+    const token = this.token;
+    const ground = this.groundElevation(token);
+    // ASSUMPTION: token.document.elevation is scene units; token.center follows the animated position.
+    const hPx = ((token.document.elevation ?? 0) - ground) * canvas.dimensions.distancePixels;
+    if ( !(hPx >= ParallaxGeometryBuilder.MIN_HEIGHT) ) { this.shadow.setTriangles(null); return; }
+
+    const grid = canvas.grid.size;
+    const rise = clamp(hPx / (3 * grid), 0, 0.5);   // Shrink up to 50% by 3 squares up
+    const { x, y } = token.center;
+    const xy = ParallaxMath.ellipseFan(x, y, token.w * this.coverage * (1 - rise), token.h * this.coverage * (1 - rise), hPx,
+      { maxOffset: grid * 2 });
+    this.shadow.setTriangles(xy, { parent: canvas.primary, elevation: ground, sort: -1 });
+    this.shadow.onFrame(view);
+  }
+
+  destroy() {
+    unregister(this);
+    this.shadow.destroy();
+  }
 }
 
 
@@ -558,6 +873,15 @@ export class ParallaxMesh {
   /** Draw order within the parent; sort breaks ties at equal elevation. */
   sort = 0;
 
+  /** @type {number} 0..1, how much slope shading to apply to tops. */
+  slopeStrength = 0.5;
+
+  /** @type {object|null} Shadow options, or null for no shadow. */
+  shadowOpts = {};
+
+  /** @type {ParallaxShadowMesh|null} */
+  shadow = null;
+
   #gVersion = null;
 
   #tVersion = null;
@@ -574,9 +898,12 @@ export class ParallaxMesh {
    *   none: no walls (tile silhouettes); ground: background just outside the wall; texture: stretch the top texture
    * @param {number} [opts.alphaCutoff]
    * @param {number} [opts.sort]
+   * @param {number} [opts.slopeStrength]  0 = off. Light comes from ParallaxMath.light.
+   * @param {object|false} [opts.shadow]   false = no ground shadow; else { opacity, blur (world px), maxOffset (px) }
    */
   constructor(geometrySource, textureSource,
-    { strength = 0.05, sideShade = 0.6, alpha = 1, maxScale = 1.15, wallMode = "ground", alphaCutoff = 0.01, sort = 0 } = {}) {
+    { strength = 0.05, sideShade = 0.6, alpha = 1, maxScale = 1.15, wallMode = "ground", alphaCutoff = 0.01, sort = 0,
+      slopeStrength = 0.5, shadow = {} } = {}) {
     this.geometrySource = geometrySource;
     this.textureSource = textureSource;
     this.strength = strength;
@@ -586,6 +913,8 @@ export class ParallaxMesh {
     this.wallMode = wallMode;
     this.alphaCutoff = alphaCutoff;
     this.sort = sort;
+    this.slopeStrength = slopeStrength;
+    this.shadowOpts = shadow === false ? null : shadow;
   }
 
   /**
@@ -637,6 +966,8 @@ export class ParallaxMesh {
         uSideShade: this.sideShade,
         uFadePx: canvas.grid.size * 0.5,
         uAlpha: this.alpha,
+        uLight: ParallaxMath.light,
+        uSlope: this.slopeStrength,
       });
       this.mesh = new PIXI.Mesh(meshGeom, shader);
       parent.addChild(this.mesh);
@@ -649,6 +980,7 @@ export class ParallaxMesh {
     u.uBg = bgTexture;
     u.uWallMode = WALL_MODES[this.wallMode] ?? 1;
     u.uAlphaCutoff = this.alphaCutoff;
+    u.uSlope = this.slopeStrength;
 
     // Draw order against tokens and other primary-group children.
     // ASSUMPTION: the v14 primary group sorts children by their `elevation` then `sort` properties.
@@ -656,6 +988,7 @@ export class ParallaxMesh {
     this.mesh.sort = this.sort;
     if ( parent.sortDirty !== undefined ) parent.sortDirty = true;
 
+    this.#updateShadow(parent, data, texture);
     this.setStrength(this.strength);
     this.setCenter(canvas.stage.pivot.x, canvas.stage.pivot.y);
     return true;
@@ -675,8 +1008,35 @@ export class ParallaxMesh {
     if ( this.mesh ) this.mesh.shader.uniforms.uCenter = [x, y];
   }
 
+  /**
+   * Called every frame by the shared ticker.
+   * @param {{x: number, y: number, zoom: number}} view
+   */
+  onFrame(view) {
+    this.setCenter(view.x, view.y);
+    if ( this.mesh ) this.mesh.shader.uniforms.uLight = ParallaxMath.light;
+    this.shadow?.onFrame(view);
+  }
+
+  /** Build or refresh the ground shadow from the freshly built data. */
+  #updateShadow(parent, data, texture) {
+    if ( !this.shadowOpts ) { this.shadow?.destroy(); this.shadow = null; return; }
+    const { maxOffset, ...shadowMeshOpts } = this.shadowOpts;
+    this.shadow ??= new ParallaxShadowMesh(shadowMeshOpts);
+    const tris = ParallaxGeometryBuilder.buildShadowTriangles(data, { maxOffset });
+    this.shadow.setTriangles(tris?.xy ?? null, {
+      parent,
+      uv: tris?.uv,
+      texture: this.textureSource.hasAlpha ? texture : null,
+      elevation: this.mesh.elevation,
+      sort: this.sort - 1
+    });
+  }
+
   destroy() {
     unregister(this);
+    this.shadow?.destroy();
+    this.shadow = null;
     if ( !this.mesh ) return;
     this.geometrySource.detach?.();
     this.textureSource.detach?.();
