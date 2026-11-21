@@ -1,13 +1,16 @@
 /* globals
+canvas,
 Hooks,
+requestAnimationFrame,
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { TEMPLATES } from "./const.js";
+import { MODULE_ID, TEMPLATES } from "./const.js";
 import { renderTemplateSync } from "./util.js";
 // ASSUMPTION: adjust the folder to wherever parallax_geometry.js lives.
 import { ParallaxMath } from "./parallax/parallax_geometry.js";
+import { parallaxManager } from "./parallax/ParallaxManager.js";
 
 export const PATCHES = {};
 PATCHES.BASIC = {};
@@ -63,7 +66,43 @@ function addLightFields(app, html) {
   const wrapper = document.createElement("div");
   wrapper.innerHTML = myHTML;
   tab.append(...wrapper.childNodes);
+  addLightPreview(app, tab);
   return true;
 }
 
-PATCHES.BASIC.HOOKS = { renderSceneConfig };
+/**
+ * Live preview: move the light as the GM types or spins the inputs, before anything is saved.
+ * Only for the scene being viewed. Saving goes through the normal submit (and the updateScene hook);
+ * closing without saving restores the saved light (see closeSceneConfig).
+ */
+function addLightPreview(app, tab) {
+  if ( app.document !== canvas.scene ) return;
+  const dirInput = tab.querySelector(`input[name="flags.${MODULE_ID}.lightDirection"]`);
+  const elevInput = tab.querySelector(`input[name="flags.${MODULE_ID}.lightElevation"]`);
+  if ( !(dirInput && elevInput) ) return;
+
+  let pending = false;
+  const preview = () => {
+    if ( pending ) return; // At most one rebuild per frame while dragging a spinner.
+    pending = true;
+    requestAnimationFrame(() => {
+      pending = false;
+      parallaxManager.previewLight(dirInput.valueAsNumber, elevInput.valueAsNumber);
+    });
+  };
+  dirInput.addEventListener("input", preview);
+  elevInput.addEventListener("input", preview);
+}
+
+/**
+ * Hook closeSceneConfig
+ * Discard any unsaved preview. After a save this just re-applies the saved (new) values.
+ * ASSUMPTION: ApplicationV2 fires a close hook named for the class, closeSceneConfig.
+ * @param {Application} app
+ */
+function closeSceneConfig(app) {
+  if ( app.document !== canvas.scene ) return;
+  parallaxManager.restoreLight();
+}
+
+PATCHES.BASIC.HOOKS = { renderSceneConfig, closeSceneConfig };

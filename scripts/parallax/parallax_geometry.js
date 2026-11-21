@@ -131,9 +131,6 @@ export class ParallaxMath {
    */
   static DEFAULT_DIRECTION = 315;
 
-  /** Older saves stored a compass name; still read so they are not lost. */
-  static #LEGACY_COMPASS = { N: 0, NE: 45, E: 90, SE: 135, S: 180, SW: 225, W: 270, NW: 315 };
-
   /** Degrees above the horizon. 50 matches the original default vector. */
   static DEFAULT_ELEVATION = 50;
 
@@ -167,15 +164,26 @@ export class ParallaxMath {
     const rawDir = scene?.getFlag(MODULE_ID, "lightDirection");
     let direction;
     if ( rawDir == null || rawDir === "" ) direction = this.DEFAULT_DIRECTION;
-    else if ( typeof rawDir === "string" && rawDir in this.#LEGACY_COMPASS ) direction = this.#LEGACY_COMPASS[rawDir];
     else direction = Number(rawDir);
     if ( !Number.isFinite(direction) ) direction = this.DEFAULT_DIRECTION;
-    direction = ((direction % 360) + 360) % 360; // Wrap, so 360 = 0 and -45 = 315.
     const raw = scene?.getFlag(MODULE_ID, "lightElevation");
     let elevation = (raw == null || raw === "") ? this.DEFAULT_ELEVATION : Number(raw);
     if ( !Number.isFinite(elevation) ) elevation = this.DEFAULT_ELEVATION;
-    elevation = clamp(elevation, this.MIN_ELEVATION, this.MAX_ELEVATION);
-    return { direction, elevation };
+    return this.normalizeLight(direction, elevation);
+  }
+
+  /**
+   * Wrap the direction into [0, 360) (so 360 = 0 and -45 = 315) and clamp the elevation.
+   * @param {number} direction
+   * @param {number} elevation
+   * @returns {{direction: number, elevation: number}|null}   Null if either is not a finite number
+   */
+  static normalizeLight(direction, elevation) {
+    if ( !(Number.isFinite(direction) && Number.isFinite(elevation)) ) return null;
+    return {
+      direction: ((direction % 360) + 360) % 360,
+      elevation: clamp(elevation, this.MIN_ELEVATION, this.MAX_ELEVATION)
+    };
   }
 
   /**

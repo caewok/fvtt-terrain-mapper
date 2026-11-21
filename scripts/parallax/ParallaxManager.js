@@ -78,6 +78,25 @@ export class ParallaxManager {
   }
 
   /**
+   * Live preview of the light, e.g., while the GM edits the scene config. Not saved.
+   * Out-of-range values are wrapped/clamped; non-numbers (an empty field) are ignored.
+   * @param {number} direction    Degrees clockwise from north
+   * @param {number} elevation    Degrees above the horizon
+   */
+  previewLight(direction, elevation) {
+    const n = ParallaxMath.normalizeLight(direction, elevation);
+    if ( !n ) return;
+    ParallaxMath.setLightFromAngles(n.direction, n.elevation);
+    this.refreshShadows();
+  }
+
+  /** Back to the scene's saved light, e.g., the scene config closed without saving. */
+  restoreLight() {
+    ParallaxMath.applySceneLight(canvas.scene);
+    this.refreshShadows();
+  }
+
+  /**
    * Delete a region's parallax mesh.
    * @type {RegionDocument|string} idOrRegionD        Region document or its id
    */
