@@ -6,7 +6,7 @@ canvas,
 
 import { MODULE_ID } from "../const.js";
 import { ParallaxTokenShadow, ParallaxGeometryBuilder } from "./parallax_geometry.js";
-import { pixelsToGridUnits, gridUnitsToPixels } from "../geometry/util.js";
+import { gridUnitsToPixels } from "../geometry/util.js";
 
 export const PATCHES = {};
 PATCHES.PARALLAX = {};
@@ -43,7 +43,7 @@ export class ParallaxTokenManager {
    */
   isFloating(token) {
     if ( !token?.document || !token.isVisible ) return false; // Do not leak hidden tokens.
-    const heightPx = (token.document.elevation - this.groundElevation(token)) * canvas.dimensions.distancePixels;
+    const heightPx = gridUnitsToPixels(token.document.elevation - this.groundElevation(token));
     return heightPx >= ParallaxGeometryBuilder.MIN_HEIGHT;
   }
 

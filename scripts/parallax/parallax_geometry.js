@@ -7,6 +7,7 @@ PIXI,
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
+import { MODULE_ID } from "../const.js";
 import { GEOMETRY_LIB_ID } from "../geometry/const.js";
 import { GeometricPrimitive } from "../geometry/placeable_geometry/GeometricPrimitive.js";
 import { TokenElevationHandler } from "../TokenElevationHandler.js";
@@ -566,8 +567,7 @@ export class TileQuadGeometrySource {
 
   /** Pixels above ground. */
   get heightPx() {
-    const px = this.elevation * canvas.dimensions.distancePixels;
-    return px - ParallaxGeometryBuilder.defaultGroundZ();
+    return gridUnitsToPixels(this.elevation) - ParallaxGeometryBuilder.defaultGroundZ();
   }
 
   get version() {
@@ -709,6 +709,13 @@ function unregister(pm) {
 
 // ----- NOTE: Ground shadow ----- //
 
+/**
+ * Temporary toggle for all parallax shadows (terrain, tile and token). On unless CONFIG[MODULE_ID].shadows
+ * is explicitly false. Read every frame, so it takes effect immediately and can be turned back on.
+ * @returns {boolean}
+ */
+function shadowsEnabled() { return CONFIG[MODULE_ID]?.shadows !== false; }
+
 const SHADOW_VERT = `
 precision highp float;
 attribute vec2 aPosition;
@@ -801,6 +808,7 @@ export class ParallaxShadowMesh {
     this.mesh.elevation = elevation;
     this.mesh.sortLayer = sortLayer ?? PARALLAX_SORT.SHADOW;
     this.mesh.sort = sort;
+    this.mesh.visible = shadowsEnabled();
     this.#alphaFilter.alpha = this.opacity;
     if ( this.mesh.parent && this.mesh.parent.sortDirty !== undefined ) this.mesh.parent.sortDirty = true;
   }
@@ -817,6 +825,8 @@ export class ParallaxShadowMesh {
 
   /** Keep the blur constant in world units as the camera zooms. */
   onFrame(view) {
+    if ( !this.mesh ) return;
+    this.mesh.visible = shadowsEnabled();
     if ( !this.#blurFilter ) return;
     const px = this.blur * (view?.zoom ?? 1);
     if ( Math.abs(px - this.#blurFilter.blur) > 0.05 ) this.#blurFilter.blur = px;
@@ -867,10 +877,13 @@ export class ParallaxTokenShadow {
   }
 
   onFrame(view) {
+    // Shadows toggled off: drop the mesh and skip the ground lookup. The next frame after re-enabling rebuilds it.
+    if ( !shadowsEnabled() ) { this.shadow.setTriangles(null); return; }
+
     const token = this.token;
-    const ground = this.groundElevation(token);
-    // ASSUMPTION: token.document.elevation is scene units; token.center follows the animated position.
-    const hPx = ((token.document.elevation ?? 0) - ground) * canvas.dimensions.distancePixels;
+    const ground = this.groundElevation(token); // Elevation units, same as token.document.elevation.
+    // ASSUMPTION: token.center follows the animated position.
+    const hPx = gridUnitsToPixels((token.document.elevation ?? 0) - ground);
     if ( !(hPx >= ParallaxGeometryBuilder.MIN_HEIGHT) ) { this.shadow.setTriangles(null); return; }
 
     const grid = canvas.grid.size;
