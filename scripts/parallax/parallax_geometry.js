@@ -1,14 +1,16 @@
 /* globals
 canvas,
 CONFIG,
+foundry,
 PIXI,
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { MODULE_ID, FLAGS } from "../const.js";
 import { GEOMETRY_LIB_ID } from "../geometry/const.js";
 import { GeometricPrimitive } from "../geometry/placeable_geometry/GeometricPrimitive.js";
+import { TokenElevationHandler } from "../TokenElevationHandler.js";
+import { gridUnitsToPixels } from "../geometry/util.js";
 
 /* Parallax geometry for terrain regions and elevated tiles.
 
@@ -18,7 +20,7 @@ Pipeline:
     TileQuadGeometrySource (flat tile quad)    TileTextureSource       (tile art, alpha cutout)
         \                                         /
          --> ParallaxGeometryBuilder  flat arrays: x, y, h, uv (top texture), uv2 (background); sorted low-to-high
-         --> ParallaxMesh             PIXI.Mesh; vertex shader scales xy about the camera center by a capped perspective factor
+         --> ParallaxMesh {PIXI.Mesh} vertex shader scales xy about the camera center by a capped perspective factor
 
 Scenarios:
   1. Background only:        new ParallaxRegionMesh(regionD)
@@ -74,6 +76,30 @@ function tileUVFn(tileD) {
     return [u, v];
   };
 }
+
+// ----- NOTE: Draw order ----- //
+
+/*
+The primary canvas group sorts children by elevation, then sortLayer, then sort. At equal elevation:
+
+  SCENE (0)      level background
+  TILES (500)    tiles, including parallax tile meshes (they replace the original tile; same layer, same sort)
+  +10            ground shadows: terrain, tile and token. Above ground tiles (shadows fall on them),
+                 below region meshes (a platform covers its own shadow) and below tokens.
+  +20            parallax region meshes, with or without tile art. Sorted by max height so taller covers shorter.
+  DRAWINGS (600), TOKENS (700), WEATHER (1000)
+
+Elevation decides first. A shadow's elevation is the ground it falls on, not the elevation of what casts it.
+ASSUMPTION: the primary group's comparator reads `sortLayer` from plain PIXI meshes.
+*/
+
+export const PARALLAX_SORT = {
+  layers: foundry.canvas.groups.PrimaryCanvasGroup.SORT_LAYERS
+    ?? { SCENE: 0, TILES: 500, DRAWINGS: 600, TOKENS: 700, WEATHER: 1000 },
+  get TILE() { return this.layers.TILES; },
+  get SHADOW() { return this.layers.TILES + 10; },
+  get REGION() { return this.layers.TILES + 20; },
+};
 
 // ----- NOTE: Shared math (regions, tiles, tokens) ----- //
 
@@ -178,7 +204,7 @@ export class ParallaxGeometryBuilder {
    * @typedef {object} ParallaxData
    * @prop {Float32Array} positions   x, y, h per vertex (3 floats); h is pixels above groundZ
    * @prop {Float32Array} uvs         Top-texture uv per vertex (2 floats)
-   * @prop {Float32Array} uvs2        Background uv per vertex (2 floats); walls are inset toward the ground outside them
+   * @prop {Float32Array} uvs2        Background uv per vertex (2 floats); walls inset toward the ground outside them
    * @prop {Float32Array} normals     Flat per-triangle normal per vertex (3 floats). nz > 0 marks a top.
    * @prop {number} vertexCount
    * @prop {number} maxHeight         Highest h in the mesh, pixels
@@ -191,9 +217,14 @@ export class ParallaxGeometryBuilder {
    * @returns {number} Pixels
    */
   static defaultGroundZ() {
-    const floor = canvas.scene?.getFlag(MODULE_ID, FLAGS.SCENE.BACKGROUND_ELEVATION) ?? 0;
-    return Number.isFinite(floor) ? floor : 0;
+    return gridUnitsToPixels(TokenElevationHandler.floorForLevel());
   }
+
+  /**
+   * Ground elevation in scene units (defaultGroundZ converted from pixels). Used for draw order.
+   * @returns {number}
+   */
+  static defaultGroundElevation() { return TokenElevationHandler.floorForLevel(); }
 
   /**
    * Build parallax data from a region's geometry.
@@ -201,8 +232,9 @@ export class ParallaxGeometryBuilder {
    * @param {object} [opts]
    * @param {number} [opts.groundZ]      Elevation (pixels) treated as height 0
    * @param {number} [opts.maxHeight]    Clamp for h, pixels (guards against huge regions/elevations)
-   * @param {function} [opts.uvFn]       (x, y) --> [u, v] for the top texture. Default: scene background.
-   * @param {function} [opts.bgUvFn]     (x, y) --> [u, v] for the background (used by walls). Default: scene background.
+   * @param {function} [opts.uvFn]       (x, y) --> [u, v] for the top texture; Default: scene background
+   * @param {function} [opts.bgUvFn]     (x, y) --> [u, v] for the background (used by walls);
+   *                                     Default: scene background.
    * @returns {ParallaxData|null} Null if nothing to draw (e.g., terrain at ground level)
    */
   static build(geom, { groundZ, maxHeight = Number.POSITIVE_INFINITY, uvFn, bgUvFn } = {}) {
@@ -464,7 +496,10 @@ export class TileTextureSource {
 /*
 Geometry source interface:
   version   {*|null}      Changes when geometry changes; null if there is nothing to draw
-  elevation {number}      Scene units; used for the mesh's draw order against tokens
+  elevation {number}      Scene units; the mesh's elevation for draw order
+  sortLayer {number}      Optional. Default PARALLAX_SORT.REGION
+  sortFor(data) {number}  Optional. The mesh's sort within its layer. Default: the mesh's `sort` option
+  groundElevation {number} Optional. Scene units; the elevation the ground shadow sorts at
   build({uvFn, bgUvFn})   {ParallaxData|null}
   attach(), detach()      Optional hooks when a mesh is created/destroyed
 */
@@ -484,11 +519,19 @@ export class RegionGeometrySource {
 
   get version() { return this.geometry?.updateCount ?? null; }
 
-  /** Bottom of the region, so tokens standing on it draw above the mesh. */
+  /** Ground elevation, scene units. */
+  get groundElevation() { return ParallaxGeometryBuilder.defaultGroundElevation(); }
+
+  /** Bottom of the region (floored at ground), so tokens standing on it draw above the mesh. */
   get elevation() {
     const bottom = this.regionD.elevation?.bottom;
-    return Number.isFinite(bottom) ? bottom : 0;
+    return Number.isFinite(bottom) ? Math.max(bottom, this.groundElevation) : this.groundElevation;
   }
+
+  get sortLayer() { return PARALLAX_SORT.REGION; }
+
+  /** Taller regions cover shorter ones at the same elevation. */
+  sortFor(data) { return data.maxHeight; }
 
   build({ uvFn, bgUvFn } = {}) {
     const geom = this.geometry;
@@ -512,6 +555,14 @@ export class TileQuadGeometrySource {
 
   /** Tile elevation in scene units. ASSUMPTION: TileDocument#elevation; adjust if v14 levels move it. */
   get elevation() { return this.tileD.elevation ?? 0; }
+
+  /** The tile's shadow falls on the ground, not at the tile's own elevation. */
+  get groundElevation() { return ParallaxGeometryBuilder.defaultGroundElevation(); }
+
+  /** Same layer and sort as the original tile, so ordering against other tiles is unchanged. */
+  get sortLayer() { return PARALLAX_SORT.TILE; }
+
+  sortFor(_data) { return this.tileD.sort ?? 0; }
 
   /** Pixels above ground. */
   get heightPx() {
@@ -723,9 +774,10 @@ export class ParallaxShadowMesh {
    * @param {Float32Array} [opts.uv]          Per-vertex uv into `texture`
    * @param {PIXI.Texture} [opts.texture]     If given, its alpha shapes the shadow (tile silhouettes)
    * @param {number} [opts.elevation]         Draw order vs tokens
+   * @param {number} [opts.sortLayer]         Default PARALLAX_SORT.SHADOW
    * @param {number} [opts.sort]
    */
-  setTriangles(xy, { parent, uv, texture, elevation = 0, sort = 0 } = {}) {
+  setTriangles(xy, { parent, uv, texture, elevation = 0, sortLayer, sort = 0 } = {}) {
     if ( !xy?.length ) { this.#remove(); return; }
     const uvs = uv ?? new Float32Array(xy.length);
     const posBuffer = this.mesh?.geometry.getBuffer("aPosition");
@@ -747,6 +799,7 @@ export class ParallaxShadowMesh {
     u.uTex = texture ?? PIXI.Texture.WHITE;
     u.uUseTex = texture ? 1 : 0;
     this.mesh.elevation = elevation;
+    this.mesh.sortLayer = sortLayer ?? PARALLAX_SORT.SHADOW;
     this.mesh.sort = sort;
     this.#alphaFilter.alpha = this.opacity;
     if ( this.mesh.parent && this.mesh.parent.sortDirty !== undefined ) this.mesh.parent.sortDirty = true;
@@ -823,9 +876,18 @@ export class ParallaxTokenShadow {
     const grid = canvas.grid.size;
     const rise = clamp(hPx / (3 * grid), 0, 0.5);   // Shrink up to 50% by 3 squares up
     const { x, y } = token.center;
-    const xy = ParallaxMath.ellipseFan(x, y, token.w * this.coverage * (1 - rise), token.h * this.coverage * (1 - rise), hPx,
+    const xy = ParallaxMath.ellipseFan(
+      x, y,
+      token.w * this.coverage * (1 - rise),
+      token.h * this.coverage * (1 - rise),
+      hPx,
       { maxOffset: grid * 2 });
-    this.shadow.setTriangles(xy, { parent: canvas.primary, elevation: ground, sort: -1 });
+    this.shadow.setTriangles(xy, {
+      parent: canvas.primary,
+      elevation: ground,
+      sortLayer: PARALLAX_SORT.SHADOW,
+      sort: 1
+    });
     this.shadow.onFrame(view);
   }
 
@@ -870,7 +932,7 @@ export class ParallaxMesh {
   /** @type {number} Texture alpha below this is discarded. */
   alphaCutoff = 0.01;
 
-  /** Draw order within the parent; sort breaks ties at equal elevation. */
+  /** Fallback sort within the layer, used when the geometry source has no sortFor(). */
   sort = 0;
 
   /** @type {number} 0..1, how much slope shading to apply to tops. */
@@ -982,10 +1044,11 @@ export class ParallaxMesh {
     u.uAlphaCutoff = this.alphaCutoff;
     u.uSlope = this.slopeStrength;
 
-    // Draw order against tokens and other primary-group children.
-    // ASSUMPTION: the v14 primary group sorts children by their `elevation` then `sort` properties.
+    // Draw order against tokens and other primary-group children: elevation, then sortLayer, then sort.
+    // See PARALLAX_SORT.
     this.mesh.elevation = this.geometrySource.elevation ?? 0;
-    this.mesh.sort = this.sort;
+    this.mesh.sortLayer = this.geometrySource.sortLayer ?? PARALLAX_SORT.REGION;
+    this.mesh.sort = this.geometrySource.sortFor?.(data) ?? this.sort;
     if ( parent.sortDirty !== undefined ) parent.sortDirty = true;
 
     this.#updateShadow(parent, data, texture);
@@ -1028,8 +1091,9 @@ export class ParallaxMesh {
       parent,
       uv: tris?.uv,
       texture: this.textureSource.hasAlpha ? texture : null,
-      elevation: this.mesh.elevation,
-      sort: this.sort - 1
+      elevation: this.geometrySource.groundElevation ?? this.mesh.elevation,
+      sortLayer: PARALLAX_SORT.SHADOW,
+      sort: 0
     });
   }
 

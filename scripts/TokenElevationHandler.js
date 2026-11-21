@@ -9,7 +9,7 @@ PIXI
 import { MODULE_ID, FLAGS } from "./const.js";
 import { GEOMETRY_LIB_ID } from "./geometry/const.js";
 import { ElevatedPoint } from "./geometry/3d/ElevatedPoint.js";
-import { gridUnitsToPixels } from "./geometry/util.js";
+import { gridUnitsToPixels, pixelsToGridUnits } from "./geometry/util.js";
 import { Draw } from "./geometry/Draw.js";
 import { AABB2d } from "./geometry/AABB.js";
 import { TerrainGeometry } from "./GeometricPrimitives/TerrainGeometry.js";
@@ -212,16 +212,16 @@ export class TokenElevationHandler {
 
   levelId = "";
 
-  get floor() { return this.floorForLevel(this.levelId || canvas.level.id); }
+  get floor() { return gridUnitsToPixels(this.constructor.floorForLevel(this.levelId || canvas.level.id)); }
 
   /**
-   * Scene floor, in pixels, for the given level (not necessarily the viewed level).
+   * Scene floor for the given level (not necessarily the viewed level).
    * @param {string} levelId
-   * @returns {number}
+   * @returns {number} Elevation, in grid units, of the floor.
    */
-  floorForLevel(levelId) {
+  static floorForLevel(levelId) {
     const level = canvas.scene.levels.get(levelId) ?? canvas.level;
-    return gridUnitsToPixels(level.elevation.base);
+    return level.elevation.base;
   }
 
   to2d(pt3d) { return CutawayPolygon.to2d(pt3d, this.start, this.end); }
@@ -535,8 +535,8 @@ export class TokenElevationHandler {
    * @returns {ElevatedPoint} Destination point
    */
   enforceGravity(currentLocation, { levelId, walking, burrowing, flying, initialize = true } = {}) {
-    const token = this.token;
-    currentLocation ??= ElevatedPoint.fromLocationWithElevation(token.document.getCenterPoint(), token.document.bottomZ);
+    const tokenD = this.token.document;
+    currentLocation ??= ElevatedPoint.fromLocationWithElevation(tokenD.getCenterPoint(), tokenD.bottomZ);
     const mode = this._movementMode({ walking, burrowing, flying });
     if ( !mode ) return currentLocation;
     if ( initialize ) this._initialize(currentLocation, currentLocation, levelId);
