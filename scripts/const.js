@@ -12,6 +12,7 @@ export const TEMPLATES = {
   SCENE: `modules/${MODULE_ID}/templates/scene-config.html`,
   SETTINGS: `modules/${MODULE_ID}/templates/settings-menu-tab-partial.html`,
   TILE: `modules/${MODULE_ID}/templates/tile-config.html`,
+  SCENE_LIGHT: `modules/${MODULE_ID}/templates/scene-config-light.html`,
 };
 
 // Track certain modules that complement features of this module.

@@ -121,6 +121,72 @@ export class ParallaxMath {
   /** Set the light direction (toward the light). Normalized. */
   static setLight(x, y, z) { this.light = this.#norm(x, y, z); }
 
+  // ----- Light from scene settings: direction (0-360) + degrees above the horizon ----- //
+
+  /**
+   * Direction the light comes FROM (where the light is), in degrees clockwise from north:
+   * 0 = north (top of the scene), 90 = east, 180 = south, 270 = west.
+   * Shadows fall the opposite way: a light at 315 (northwest) casts shadows toward the southeast.
+   * Default 315 matches the original light vector.
+   */
+  static DEFAULT_DIRECTION = 315;
+
+  /** Older saves stored a compass name; still read so they are not lost. */
+  static #LEGACY_COMPASS = { N: 0, NE: 45, E: 90, SE: 135, S: 180, SW: 225, W: 270, NW: 315 };
+
+  /** Degrees above the horizon. 50 matches the original default vector. */
+  static DEFAULT_ELEVATION = 50;
+
+  /** Near 0 the shadows stretch toward infinity (they are also capped by maxOffset). */
+  static MIN_ELEVATION = 5;
+
+  static MAX_ELEVATION = 90;
+
+  /**
+   * Unit vector toward the light, from a compass azimuth and an elevation angle.
+   * @param {number} azimuthDeg     Degrees clockwise from north (the direction the light is in)
+   * @param {number} elevationDeg   Degrees above the horizon; 90 is straight overhead
+   * @returns {number[]}
+   */
+  static lightFromAngles(azimuthDeg, elevationDeg) {
+    const az = Math.toRadians(azimuthDeg);
+    const el = Math.toRadians(elevationDeg);
+    const horizontal = Math.cos(el);
+    // East is +x, north is -y (canvas y points down), up is +z.
+    return this.#norm(Math.sin(az) * horizontal, -Math.cos(az) * horizontal, Math.sin(el));
+  }
+
+  static setLightFromAngles(azimuthDeg, elevationDeg) { this.light = this.lightFromAngles(azimuthDeg, elevationDeg); }
+
+  /**
+   * The scene's light settings, with defaults and clamping. Used by the scene config and by applySceneLight.
+   * @param {Scene} [scene]
+   * @returns {{direction: number, elevation: number}}   direction in [0, 360), elevation in degrees
+   */
+  static sceneLightSettings(scene = canvas.scene) {
+    const rawDir = scene?.getFlag(MODULE_ID, "lightDirection");
+    let direction;
+    if ( rawDir == null || rawDir === "" ) direction = this.DEFAULT_DIRECTION;
+    else if ( typeof rawDir === "string" && rawDir in this.#LEGACY_COMPASS ) direction = this.#LEGACY_COMPASS[rawDir];
+    else direction = Number(rawDir);
+    if ( !Number.isFinite(direction) ) direction = this.DEFAULT_DIRECTION;
+    direction = ((direction % 360) + 360) % 360; // Wrap, so 360 = 0 and -45 = 315.
+    const raw = scene?.getFlag(MODULE_ID, "lightElevation");
+    let elevation = (raw == null || raw === "") ? this.DEFAULT_ELEVATION : Number(raw);
+    if ( !Number.isFinite(elevation) ) elevation = this.DEFAULT_ELEVATION;
+    elevation = clamp(elevation, this.MIN_ELEVATION, this.MAX_ELEVATION);
+    return { direction, elevation };
+  }
+
+  /**
+   * Set the light from the scene's flags.
+   * Meshes read ParallaxMath.light every frame; see ParallaxMesh#refreshShadow.
+   */
+  static applySceneLight(scene = canvas.scene) {
+    const { direction, elevation } = this.sceneLightSettings(scene);
+    this.setLightFromAngles(direction, elevation);
+  }
+
   /** Virtual camera height (px) for a strength (fractional scale growth per grid square of height). */
   static camHFromStrength(strength) { return canvas.grid.size / Math.max(strength, 1e-6); }
 
@@ -195,7 +261,7 @@ export class ParallaxGeometryBuilder {
   /** Faces with normal.z above this are treated as "top" surfaces. Below -this are bottoms (dropped). */
   static NZ_EPS = 1e-3;
 
-  /** Triangles lower than this (pixels above ground) contribute nothing visible. */
+  /** Triangles lower than this (elevation in grid units above ground) contribute nothing visible. */
   static MIN_HEIGHT = 0.5;
 
   /** How far outside a wall (in grid squares) to sample the background for the wall strip. */
@@ -277,7 +343,7 @@ export class ParallaxGeometryBuilder {
       const hB = clamp(t.bz - groundZ, 0, maxHeight);
       const hC = clamp(t.cz - groundZ, 0, maxHeight);
       const hMax = Math.max(hA, hB, hC);
-      if ( hMax < MIN_HEIGHT ) continue; // At ground level: nothing moves.
+      if ( hMax < gridUnitsToPixels(MIN_HEIGHT) ) continue; // At ground level: nothing moves.
 
       // Sort key is the MAX height. (Average height let a wall triangle sort beneath the lower tread beside it.)
       kept.push({ t, nx, ny, nz, hA, hB, hC, isTop, key: hMax });
@@ -297,7 +363,7 @@ export class ParallaxGeometryBuilder {
    * @returns {ParallaxData|null}
    */
   static buildQuad(corners, h, { uvFn, bgUvFn } = {}) {
-    if ( !(h >= this.MIN_HEIGHT) ) return null;
+    if ( !(h >= gridUnitsToPixels(this.MIN_HEIGHT)) ) return null;
     const [tl, tr, br, bl] = corners;
     // Winding gives +z by the same (v x u) convention used in build().
     const mk = (a, b, c) => ({
@@ -896,7 +962,7 @@ export class ParallaxTokenShadow {
     const token = this.token;
     const ground = this.groundElevation(token); // Elevation units, same as token.document.elevation.
     // ASSUMPTION: token.center follows the animated position.
-    const hPx = gridUnitsToPixels((token.document.elevation ?? 0) - ground);
+    const hPx = (token.document.elevation ?? 0) - ground;
     if ( !(hPx >= ParallaxGeometryBuilder.MIN_HEIGHT) ) { this.shadow.setTriangles(null); return; }
 
     const grid = canvas.grid.size;
@@ -973,6 +1039,11 @@ export class ParallaxMesh {
   #gVersion = null;
 
   #tVersion = null;
+
+  /** Last built data and texture, kept so the shadow can be rebuilt (light changed) without rebuilding the mesh. */
+  #lastData = null;
+
+  #lastTexture = null;
 
   /**
    * @param {object} geometrySource
@@ -1077,6 +1148,8 @@ export class ParallaxMesh {
     this.mesh.sort = this.geometrySource.sortFor?.(data) ?? this.sort;
     if ( parent.sortDirty !== undefined ) parent.sortDirty = true;
 
+    this.#lastData = data;
+    this.#lastTexture = texture;
     this.#updateShadow(parent, data, texture);
     this.setStrength(this.strength);
     this.setCenter(canvas.stage.pivot.x, canvas.stage.pivot.y);
@@ -1107,6 +1180,15 @@ export class ParallaxMesh {
     this.shadow?.onFrame(view);
   }
 
+  /**
+   * Rebuild only the ground shadow, e.g., after ParallaxMath.light changed. The mesh shader picks up the new
+   * light by itself every frame; shadow triangles are baked, so they need this.
+   */
+  refreshShadow() {
+    if ( !this.mesh || !this.#lastData ) return;
+    this.#updateShadow(this.mesh.parent, this.#lastData, this.#lastTexture);
+  }
+
   /** Build or refresh the ground shadow from the freshly built data. */
   #updateShadow(parent, data, texture) {
     if ( !this.shadowOpts ) { this.shadow?.destroy(); this.shadow = null; return; }
@@ -1127,6 +1209,8 @@ export class ParallaxMesh {
     unregister(this);
     this.shadow?.destroy();
     this.shadow = null;
+    this.#lastData = null;
+    this.#lastTexture = null;
     if ( !this.mesh ) return;
     this.geometrySource.detach?.();
     this.textureSource.detach?.();

@@ -72,6 +72,11 @@
   "terrainmapper.behavior.types.parallax.fields.hideOriginal.name": "Hide underlying tile?",
   "terrainmapper.behavior.types.parallax.fields.hideOriginal.hint": "If true, hides the underlying tile when implementing parallax.",
 
+  "terrainmapper.scene-config.light.legend": "Parallax Light",
+  "terrainmapper.scene-config.light.direction.name": "Light Direction (degrees)",
+  "terrainmapper.scene-config.light.direction.hint": "Direction the light comes from, in degrees clockwise from north (top of the scene): 0 = north, 90 = east, 180 = south, 270 = west. Shadows fall the opposite way: 315 (northwest) casts shadows toward the southeast.",
+  "terrainmapper.scene-config.light.elevation.name": "Light Angle (degrees)",
+  "terrainmapper.scene-config.light.elevation.hint": "Degrees above the horizon. Low angles give long shadows; 90 is straight overhead.",
 
   "TYPES.RegionBehavior.terrainmapper.setElevation": "Stairs",
   "TYPES.RegionBehavior.terrainmapper.elevator": "Elevator",

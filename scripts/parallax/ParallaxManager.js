@@ -6,7 +6,7 @@ fromUuidSync,
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { ParallaxRegionMesh, ParallaxTileMesh } from "./parallax_geometry.js";
+import { ParallaxRegionMesh, ParallaxTileMesh, ParallaxMath } from "./parallax_geometry.js";
 import { MODULE_ID, FLAGS } from "../const.js";
 import { fastFlag } from "../util.js";
 
@@ -72,6 +72,11 @@ export class ParallaxManager {
     pm.refresh(canvas.primary);
   }
 
+  /** Rebuild every mesh's ground shadow, e.g., after the light moved. */
+  refreshShadows() {
+    this.meshes.forEach(pm => pm.refreshShadow());
+  }
+
   /**
    * Delete a region's parallax mesh.
    * @type {RegionDocument|string} idOrRegionD        Region document or its id
@@ -111,6 +116,7 @@ function canvasPan(_canvas, { x, y } = {}) {
  * @param {Canvas} canvas The Canvas which is now ready for use
  */
 function canvasReady(_canvas) {
+  ParallaxMath.applySceneLight(canvas.scene); // Before the meshes are built, so their shadows use the scene's light.
   for ( const region of canvas.regions.placeables ) parallaxManager.sync(region.document);
   for ( const tile of canvas.tiles.placeables ) parallaxManager.sync(tile.document);
 }
@@ -150,7 +156,31 @@ function deleteTile(tileD, _options, _userId) {
   parallaxManager._deleteMesh(tileD);
 }
 
-PATCHES.PARALLAX.HOOKS = { canvasPan, canvasReady, updateTile, deleteTile };
+/**
+ * A hook event that fires for every Document type after conclusion of an update workflow.
+ *
+ * When the viewed scene's light direction or elevation changes, move the light and rebuild the shadows.
+ * Slope shading and token shadows follow ParallaxMath.light on the next frame.
+ *
+ * @event
+ * @category Document
+ * @param {Scene} sceneD
+ * @param {object} changed
+ * @param {Partial<DatabaseUpdateOperation>} _options
+ * @param {string} _userId
+ */
+function updateScene(sceneD, changed, _options, _userId) {
+  if ( sceneD !== canvas.scene ) return;
+  const hasProp = foundry.utils.hasProperty;
+  if ( !(hasProp(changed, `flags.${MODULE_ID}.lightDirection`)
+      || hasProp(changed, `flags.${MODULE_ID}.lightElevation`)
+      || hasProp(changed, `flags.${MODULE_ID}.-=lightDirection`)
+      || hasProp(changed, `flags.${MODULE_ID}.-=lightElevation`)) ) return;
+  ParallaxMath.applySceneLight(sceneD);
+  parallaxManager.refreshShadows();
+}
+
+PATCHES.PARALLAX.HOOKS = { canvasPan, canvasReady, updateTile, deleteTile, updateScene };
 
 // ----- NOTE: Helper functions ----- //
 
