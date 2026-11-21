@@ -511,7 +511,13 @@ export class RegionGeometrySource {
   /** @type {RegionDocument} */
   regionD;
 
-  constructor(regionD) { this.regionD = regionD; }
+  /** @type {TileDocument|null} Tile supplying the art, if any. */
+  tileD = null;
+
+  constructor(regionD, { tileD } = {}) {
+    this.regionD = regionD;
+    this.tileD = tileD ?? null;
+  }
 
   /** @type {TerrainGeometry|null} */
   get geometry() {
@@ -523,10 +529,17 @@ export class RegionGeometrySource {
   /** Ground elevation, scene units. */
   get groundElevation() { return ParallaxGeometryBuilder.defaultGroundElevation(); }
 
-  /** Bottom of the region (floored at ground), so tokens standing on it draw above the mesh. */
+  /**
+   * Bottom of the region (floored at ground), so tokens standing on it draw above the mesh.
+   * With tile art, also at least the tile's elevation: elevation sorts before sortLayer, so otherwise a tile
+   * above the region's bottom would draw over this mesh (the shifted copy would appear beneath the original).
+   */
   get elevation() {
     const bottom = this.regionD.elevation?.bottom;
-    return Number.isFinite(bottom) ? Math.max(bottom, this.groundElevation) : this.groundElevation;
+    let e = Number.isFinite(bottom) ? Math.max(bottom, this.groundElevation) : this.groundElevation;
+    const tileE = this.tileD?.elevation;
+    if ( Number.isFinite(tileE) ) e = Math.max(e, tileE);
+    return e;
   }
 
   get sortLayer() { return PARALLAX_SORT.REGION; }
@@ -1145,7 +1158,7 @@ export class ParallaxRegionMesh extends ParallaxMesh {
    */
   constructor(regionD, { tileD, hideOriginal = true, ...opts } = {}) {
     const textureSource = tileD ? new TileTextureSource(tileD, { hideOriginal }) : new BackgroundTextureSource();
-    super(new RegionGeometrySource(regionD), textureSource, opts);
+    super(new RegionGeometrySource(regionD, { tileD }), textureSource, opts);
     this.regionD = regionD;
   }
 
