@@ -3,7 +3,7 @@
   <div class="form-group">
     <label>{{ localize "terrainmapper.scene-config.light.direction.name" }}</label>
     <div class="form-fields">
-      <input type="number" name="flags.terrainmapper.lightDirection" class="terrainmapper" min="0" max="360" step="1" value="{{lightDirection}}">
+      <range-picker name="flags.terrainmapper.lightDirection" class="terrainmapper" min="0" max="360" step="1" value="{{lightDirection}}">
     </div>
     <p class="hint">{{ localize "terrainmapper.scene-config.light.direction.hint" }}</p>
   </div>
@@ -11,7 +11,7 @@
   <div class="form-group">
     <label>{{ localize "terrainmapper.scene-config.light.elevation.name" }}</label>
     <div class="form-fields">
-      <input type="number" name="flags.terrainmapper.lightElevation" class="terrainmapper" min="{{minElevation}}" max="{{maxElevation}}" step="1" value="{{lightElevation}}">
+      <range-picker name="flags.terrainmapper.lightElevation" class="terrainmapper" min="{{minElevation}}" max="{{maxElevation}}" step="1" value="{{lightElevation}}">
     </div>
     <p class="hint">{{ localize "terrainmapper.scene-config.light.elevation.hint" }}</p>
   </div>
@@ -19,7 +19,7 @@
   <div class="form-group">
     <label>{{ localize "terrainmapper.scene-config.tokenSizing.name" }}</label>
     <div class="form-fields">
-      <input type="number" name="flags.terrainmapper.tokenSizing" class="terrainmapper" min="{{minTokenSizing}}" max="{{maxTokenSizing}}" step="0.01" value="{{tokenSizing}}">
+      <range-picker name="flags.terrainmapper.tokenSizing" class="terrainmapper" min="{{minTokenSizing}}" max="{{maxTokenSizing}}" step="0.01" value="{{tokenSizing}}">
     </div>
     <p class="hint">{{ localize "terrainmapper.scene-config.tokenSizing.hint" }}</p>
   </div>

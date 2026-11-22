@@ -265,8 +265,7 @@ function initializeConfig() {
        * @type {boolean}
        */
       tokenSizing: true,
-    }
-
+    },
 
     /**
      * As a percent of token (width/height), how far from the edge can a token move

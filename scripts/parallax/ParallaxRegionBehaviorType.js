@@ -15,10 +15,10 @@ export class ParallaxRegionBehaviorType extends foundry.data.regionBehaviors.Reg
       strength: new foundry.data.fields.NumberField({
         label: `${MODULE_ID}.behavior.types.parallax.fields.strength.name`,
         hint: `${MODULE_ID}.behavior.types.parallax.fields.strength.hint`,
-        initial: 0.1,
-        // What range?
-        // min: -1, // 0 disables; negative would flip?
-        // max: 1,
+        initial: 0.04,
+        min: 0,
+        max: 0.5,
+        step: 0.01,
       }),
 
       tileUUID: new foundry.data.fields.DocumentUUIDField({
