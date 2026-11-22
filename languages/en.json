@@ -6,10 +6,12 @@
   "terrainmapper.controls.fill-space.name": "Fill space enclosed by walls",
   "terrainmapper.controls.draw-hill.name": "Terrain Mapper Hill",
 
+  "terrainmapper.settings.parallax-enable.Name": "Parallax: Enable",
+  "terrainmapper.settings.parallax-enable.Hint": "When true, designated background regions and tiles move at a different speed than foreground elements relative to a top-down, overhead camera perspective, to give the illusion of 3d depth.",
   "terrainmapper.settings.parallax-shadows-enable.Name": "Parallax: Enable Shadows",
-  "terrainmapper.settings.parallax-shadows-enable.Hint": "",
+  "terrainmapper.settings.parallax-shadows-enable.Hint": "Add shadows based on a scene overhead light source, configured in scene settings, to regions, tiles, and floating tokens.",
   "terrainmapper.settings.parallax-token-sizing-enable.Name": "Parallax: Enable Token Sizing",
-  "terrainmapper.settings.parallax-token-sizing-enable.Hint": "",
+  "terrainmapper.settings.parallax-token-sizing-enable.Hint": "Size tokens based on their elevation, using a multiplier in scene settings",
 
   "terrainmapper.scene-config.backgroundElevation.name": "Background Elevation",
   "terrainmapper.scene-config.backgroundElevation.hint": "The default elevation for tokens placed on the canvas.",

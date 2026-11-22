@@ -6,8 +6,9 @@ fromUuidSync,
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { ParallaxRegionMesh, ParallaxTileMesh, ParallaxMath } from "./parallax_geometry.js";
-import { MODULE_ID, FLAGS } from "../const.js";
+import {
+  ParallaxRegionMesh, ParallaxTileMesh, ParallaxMath, parallaxEnabled } from "./parallax_geometry.js";
+import { MODULE_ID, FLAGS, HOOKS } from "../const.js";
 import { fastFlag } from "../util.js";
 
 export const PATCHES = {};
@@ -34,6 +35,7 @@ export class ParallaxManager {
    * @type {RegionDocument} regionD
    */
   _syncRegion(regionD) {
+    if ( !parallaxEnabled() ) { this._deleteMesh(regionD); return; }
     const atCurrentLevel = regionD.levels.size ? regionD.levels.has(canvas.level.id) : true;
     const b = regionD.behaviors.find(b => !b.disabled && b.type === `${MODULE_ID}.parallax`);
     if ( !(atCurrentLevel && b) ) {
@@ -60,6 +62,7 @@ export class ParallaxManager {
    * @type {TileDocument} tileD
    */
   _syncTile(tileD) {
+    if ( !parallaxEnabled() ) { this._deleteMesh(tileD); return; }
     const atCurrentLevel = tileD.levels.size ? tileD.levels.has(canvas.level.id) : true;
     const hasParallax = fastFlag(tileD, FLAGS.TILE.PARALLAX);
     if ( !(atCurrentLevel && hasParallax) ) {
@@ -70,6 +73,24 @@ export class ParallaxManager {
     if ( !pm ) this.meshes.set(tileD.id, pm = new ParallaxTileMesh(tileD));
     pm.setStrength(hasParallax);
     pm.refresh(canvas.primary);
+  }
+
+  /**
+   * Destroy every mesh, along with its shadow and per-frame registration, and un-hide any original tiles.
+   */
+  destroyAll() {
+    for ( const pm of this.meshes.values() ) pm.destroy();
+    this.meshes.clear();
+  }
+
+  /**
+   * Create or destroy all meshes to match the global parallax setting and the current scene.
+   */
+  syncAll() {
+    if ( !parallaxEnabled() ) { this.destroyAll(); return; }
+    ParallaxMath.applySceneLight(canvas.scene); // Before the meshes are built, so their shadows use the scene's light.
+    for ( const region of canvas.regions?.placeables ?? [] ) this.sync(region.document);
+    for ( const tile of canvas.tiles?.placeables ?? [] ) this.sync(tile.document);
   }
 
   /** Rebuild every mesh's ground shadow, e.g., after the light moved. */
@@ -135,9 +156,28 @@ function canvasPan(_canvas, { x, y } = {}) {
  * @param {Canvas} canvas The Canvas which is now ready for use
  */
 function canvasReady(_canvas) {
-  ParallaxMath.applySceneLight(canvas.scene); // Before the meshes are built, so their shadows use the scene's light.
-  for ( const region of canvas.regions.placeables ) parallaxManager.sync(region.document);
-  for ( const tile of canvas.tiles.placeables ) parallaxManager.sync(tile.document);
+  parallaxManager.syncAll();
+}
+
+/**
+ * A hook event that fires when the Canvas is torn down (scene change).
+ *
+ * Destroy the meshes now, so they do not stay registered with the ticker after the canvas is gone.
+ *
+ * @event
+ * @category Canvas
+ * @param {Canvas} canvas
+ */
+function canvasTearDown(_canvas) {
+  parallaxManager.destroyAll();
+}
+
+/**
+ * Hook fired by the parallax setting's onChange (Hooks.callAll(HOOKS.PARALLAX_ENABLED)).
+ * Disabled: destroy every mesh. Enabled: build them.
+ */
+function parallaxEnabledChanged(_value) {
+  parallaxManager.syncAll();
 }
 
 /**
@@ -199,7 +239,10 @@ function updateScene(sceneD, changed, _options, _userId) {
   parallaxManager.refreshShadows();
 }
 
-PATCHES.PARALLAX.HOOKS = { canvasPan, canvasReady, updateTile, deleteTile, updateScene };
+PATCHES.PARALLAX.HOOKS = {
+  canvasPan, canvasReady, canvasTearDown, updateTile, deleteTile, updateScene,
+  [HOOKS.PARALLAX_ENABLED]: parallaxEnabledChanged,
+};
 
 // ----- NOTE: Helper functions ----- //
 

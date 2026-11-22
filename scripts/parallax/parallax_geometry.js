@@ -7,7 +7,7 @@ PIXI,
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { FLAGS } from "../const.js";
+import { MODULE_ID, FLAGS, HOOKS } from "../const.js";
 import { Settings } from "../settings.js";
 import { fastFlag } from "../util.js";
 import { GEOMETRY_LIB_ID } from "../geometry/const.js";
@@ -103,6 +103,21 @@ export const PARALLAX_SORT = {
   get SHADOW() { return this.layers.TILES + 10; },
   get REGION() { return this.layers.TILES + 20; },
 };
+
+// ----- NOTE: Global enable ----- //
+
+/**
+ * Hook name. The parallax setting's onChange should call Hooks.callAll(HOOKS.PARALLAX_ENABLED); the managers
+ * listen and then create or destroy every mesh, shadow, and token size. (A hook, not a direct call, so the
+ * settings module does not have to import the managers.)
+ */
+
+
+/**
+ * Global parallax setting. When false there are no parallax meshes, no shadows, and no token sizing.
+ * @returns {boolean}
+ */
+export function parallaxEnabled() { return Settings.get(Settings.KEYS.PARALLAX.ENABLE) !== false; }
 
 // ----- NOTE: Shared math (regions, tiles, tokens) ----- //
 
@@ -209,7 +224,9 @@ export class ParallaxMath {
    * After changing it at runtime, call parallaxTokenManager.refreshSizes() to update tokens already scaled.
    * @returns {boolean}
    */
-  static tokenSizingEnabled() { return Settings.get(Settings.KEYS.PARALLAX.ENABLE_TOKEN_SIZING) !== false; }
+  static tokenSizingEnabled() {
+    return parallaxEnabled() && Settings.get(Settings.KEYS.PARALLAX.ENABLE_TOKEN_SIZING) !== false;
+  }
 
   /**
    * Clamp a token sizing value. Anything that is not a positive number means 1 (off).
@@ -853,7 +870,7 @@ function unregister(pm) {
  * is explicitly false. Read every frame, so it takes effect immediately and can be turned back on.
  * @returns {boolean}
  */
-function shadowsEnabled() { return Settings.get(Settings.KEYS.PARALLAX.ENABLE_SHADOWS) !== false; }
+function shadowsEnabled() { return parallaxEnabled() && Settings.get(Settings.KEYS.PARALLAX.ENABLE_SHADOWS) !== false; }
 
 const SHADOW_VERT = `
 precision highp float;
@@ -1144,6 +1161,9 @@ export class ParallaxMesh {
    * @returns {boolean} True if rebuilt
    */
   refresh(parent) {
+    // Parallax is off: nothing may exist.
+    if ( !parallaxEnabled() ) { this.destroy(); return false; }
+
     // Foundry may have re-shown the tile since the last refresh; hide it again.
     if ( this.mesh ) this.textureSource.attach?.();
 

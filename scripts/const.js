@@ -128,6 +128,10 @@ export const SETTINGS = {
   CHANGELOG: "changelog"
 };
 
+export const HOOKS = {
+  PARALLAX_ENABLED: `${MODULE_ID}.parallaxEnabledChanged`,
+};
+
 // Icons used in this module in controls or tabs
 export const FA_ICONS = {
   MODULE: "fa-solid fa-mountain-sun",           // https://fontawesome.com/icons/mountain-sun

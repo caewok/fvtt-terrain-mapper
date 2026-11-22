@@ -3,7 +3,7 @@
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { SETTINGS } from "./const.js";
+import { SETTINGS, HOOKS } from "./const.js";
 import { ModuleSettingsAbstract } from "./ModuleSettingsAbstract.js";
 
 /**
@@ -33,6 +33,7 @@ export class Settings extends ModuleSettingsAbstract {
     registerWorld(KEYS.PARALLAX.ENABLE, {
       type: Boolean,
       default: false,
+      onChange: value => Hooks.callAll(HOOKS.PARALLAX_ENABLED, value),
     });
 
     registerWorld(KEYS.PARALLAX.ENABLE_SHADOWS, {

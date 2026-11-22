@@ -5,8 +5,10 @@ foundry,
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { MODULE_ID } from "../const.js";
-import { ParallaxTokenShadow, ParallaxGeometryBuilder, ParallaxMath } from "./parallax_geometry.js";
+import { MODULE_ID, HOOKS } from "../const.js";
+import {
+  ParallaxTokenShadow, ParallaxGeometryBuilder, ParallaxMath, parallaxEnabled
+} from "./parallax_geometry.js";
 import { gridUnitsToPixels } from "../geometry/util.js";
 
 export const PATCHES = {};
@@ -56,7 +58,7 @@ export class ParallaxTokenManager {
     if ( !token?.document ) return;
     const id = token.document.id;
     const existing = this.shadows.get(id);
-    const floating = this.isFloating(token);
+    const floating = parallaxEnabled() && this.isFloating(token); // Disabled: removes any existing shadow.
     if ( floating && !existing ) {
       this.shadows.set(id, new ParallaxTokenShadow(token, { groundElevation: t => this.groundElevation(t) }));
     } else if ( !floating && existing ) {
@@ -77,6 +79,18 @@ export class ParallaxTokenManager {
   clear() {
     for ( const shadow of this.shadows.values() ) shadow.destroy();
     this.shadows.clear();
+  }
+
+  /**
+   * Match every token to the global parallax setting: shadows are created (or destroyed) and sizes applied
+   * (or restored to core's).
+   */
+  syncAll() {
+    if ( !parallaxEnabled() ) this.clear();
+    for ( const token of canvas.tokens?.placeables ?? [] ) {
+      this.sync(token);
+      this.applySize(token); // sizeFactor is 1 when parallax is disabled, which restores core's scale.
+    }
   }
 
   // ----- NOTE: Token sizing ----- //
@@ -240,10 +254,15 @@ function canvasTearDown(_canvas) {
  */
 function canvasReady(_canvas) {
   parallaxTokenManager.sizingOverride = null;
-  for ( const token of canvas.tokens.placeables ) {
-    parallaxTokenManager.sync(token);
-    parallaxTokenManager.applySize(token);
-  }
+  parallaxTokenManager.syncAll();
+}
+
+/**
+ * Hook fired by the parallax setting's onChange (Hooks.callAll(PARALLAX_ENABLED_HOOK)).
+ * Disabled: destroy every token shadow and restore token sizes. Enabled: build them.
+ */
+function parallaxEnabledChanged(_value) {
+  parallaxTokenManager.syncAll();
 }
 
 /**
@@ -267,5 +286,6 @@ function updateScene(sceneD, changed, _options, _userId) {
 }
 
 PATCHES.PARALLAX.HOOKS = {
-  createToken, updateToken, deleteToken, refreshToken, canvasTearDown, canvasReady, updateScene
+  createToken, updateToken, deleteToken, refreshToken, canvasTearDown, canvasReady, updateScene,
+  [HOOKS.PARALLAX_ENABLED]: parallaxEnabledChanged
 };
