@@ -195,6 +195,57 @@ export class ParallaxMath {
     this.setLightFromAngles(direction, elevation);
   }
 
+  // ----- Token sizing: tokens grow (or shrink) with elevation above the level's floor ----- //
+
+  /** Scene setting range. 1 = off. */
+  static MIN_TOKEN_SIZING = 0.1;
+
+  static MAX_TOKEN_SIZING = 3;
+
+  /** A token is never scaled beyond this factor (or its inverse), however high or low it is. */
+  static TOKEN_MAX_SCALE = 2;
+
+  /**
+   * System-wide kill switch: CONFIG[MODULE_ID].tokenSizing === false disables token sizing everywhere.
+   * After changing it at runtime, call parallaxTokenManager.refreshSizes() to update tokens already scaled.
+   * @returns {boolean}
+   */
+  static tokenSizingEnabled() { return CONFIG[MODULE_ID]?.parallax.tokenSizing !== false; }
+
+  /**
+   * Clamp a token sizing value. Anything that is not a positive number means 1 (off).
+   * @param {number} value
+   * @returns {number}
+   */
+  static normalizeTokenSizing(value) {
+    const v = Number(value);
+    if ( !Number.isFinite(v) || v <= 0 ) return 1;
+    return clamp(v, this.MIN_TOKEN_SIZING, this.MAX_TOKEN_SIZING);
+  }
+
+  /**
+   * The scene's token sizing: scale factor per grid square of height. 1 = off, > 1 grows, < 1 shrinks.
+   * @param {Scene} [scene]
+   * @returns {number}
+   */
+  static sceneTokenSizing(scene = canvas.scene) {
+    return this.normalizeTokenSizing(scene?.getFlag(MODULE_ID, "tokenSizing"));
+  }
+
+  /**
+   * Size factor for a token at a height above the level floor.
+   * Compounds per grid square: sizing^(squares), so 1.05 at 2 squares up is 1.1025. Capped at TOKEN_MAX_SCALE
+   * (and its inverse). A negative height (below the floor) reverses the effect.
+   * @param {number} heightPx    Pixels above the level floor
+   * @param {number} sizing      Scene setting, 1 = off
+   * @returns {number}
+   */
+  static tokenScale(heightPx, sizing) {
+    if ( sizing === 1 || !heightPx ) return 1;
+    const squares = heightPx / canvas.grid.size;
+    return clamp(Math.pow(sizing, squares), 1 / this.TOKEN_MAX_SCALE, this.TOKEN_MAX_SCALE);
+  }
+
   /** Virtual camera height (px) for a strength (fractional scale growth per grid square of height). */
   static camHFromStrength(strength) { return canvas.grid.size / Math.max(strength, 1e-6); }
 
@@ -801,7 +852,7 @@ function unregister(pm) {
  * is explicitly false. Read every frame, so it takes effect immediately and can be turned back on.
  * @returns {boolean}
  */
-function shadowsEnabled() { return CONFIG[MODULE_ID]?.shadows !== false; }
+function shadowsEnabled() { return CONFIG[MODULE_ID]?.parallax.shadows !== false; }
 
 const SHADOW_VERT = `
 precision highp float;
@@ -970,9 +1021,11 @@ export class ParallaxTokenShadow {
     const token = this.token;
     const ground = this.groundElevation(token); // Elevation units, same as token.document.elevation.
     // ASSUMPTION: token.center follows the animated position.
-    const hPx = (token.document.elevation ?? 0) - ground;
-    if ( !(hPx >= ParallaxGeometryBuilder.MIN_HEIGHT) ) { this.shadow.setTriangles(null); return; }
+    const height = (token.document.elevation ?? 0) - ground; // Elevation units, like MIN_HEIGHT.
+    if ( !(height >= ParallaxGeometryBuilder.MIN_HEIGHT) ) { this.shadow.setTriangles(null); return; }
 
+    // The shadow offset and shrink below work in pixels.
+    const hPx = gridUnitsToPixels(height);
     const grid = canvas.grid.size;
     const rise = clamp(hPx / (3 * grid), 0, 0.5);   // Shrink up to 50% by 3 squares up
     const { x, y } = token.center;

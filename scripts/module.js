@@ -250,10 +250,23 @@ function initializeConfig() {
     debug: false,
 
     /**
-     * Toggle to turn off shadows temporarily, for debugging.
-     * @type {boolean}
+     * Global toggles for the parallax feature.
      */
-    shadows: true,
+    parallax: {
+
+      /**
+       * If false, turn off shadows.
+       * @type {boolean}
+       */
+      shadows: true,
+
+      /**
+       * If false, turn off token resizing.
+       * @type {boolean}
+       */
+      tokenSizing: true,
+    }
+
 
     /**
      * As a percent of token (width/height), how far from the edge can a token move

@@ -1,11 +1,12 @@
 /* globals
 canvas,
+foundry,
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
 import { MODULE_ID } from "../const.js";
-import { ParallaxTokenShadow, ParallaxGeometryBuilder } from "./parallax_geometry.js";
+import { ParallaxTokenShadow, ParallaxGeometryBuilder, ParallaxMath } from "./parallax_geometry.js";
 import { gridUnitsToPixels } from "../geometry/util.js";
 
 export const PATCHES = {};
@@ -43,8 +44,8 @@ export class ParallaxTokenManager {
    */
   isFloating(token) {
     if ( !token?.document || !token.isVisible ) return false; // Do not leak hidden tokens.
-    const heightPx = gridUnitsToPixels(token.document.elevation - this.groundElevation(token));
-    return heightPx >= ParallaxGeometryBuilder.MIN_HEIGHT;
+    // MIN_HEIGHT is in elevation units.
+    return (token.document.elevation - this.groundElevation(token)) >= ParallaxGeometryBuilder.MIN_HEIGHT;
   }
 
   /**
@@ -77,7 +78,79 @@ export class ParallaxTokenManager {
     for ( const shadow of this.shadows.values() ) shadow.destroy();
     this.shadows.clear();
   }
+
+  // ----- NOTE: Token sizing ----- //
+
+  /** @type {number|null} Unsaved value from the scene config form (live preview), if any. */
+  sizingOverride = null;
+
+  /**
+   * Size factor for a token: grows with elevation above the viewed level's floor, so a token standing on
+   * a plateau is scaled like the plateau art beside it. 1 if sizing is off (kill switch or scene setting).
+   * @param {Token} token
+   * @returns {number}
+   */
+  sizeFactor(token) {
+    if ( !ParallaxMath.tokenSizingEnabled() ) return 1;
+    const sizing = this.sizingOverride ?? ParallaxMath.sceneTokenSizing(canvas.scene);
+    if ( sizing === 1 ) return 1;
+    const height = token.document.elevation - ParallaxGeometryBuilder.defaultGroundElevation();
+    return ParallaxMath.tokenScale(gridUnitsToPixels(height), sizing);
+  }
+
+  /**
+   * Scale the token's mesh to match its elevation. Safe to call on every refresh.
+   *
+   * Core sets the mesh scale from the token's size and texture, and only when it thinks that changed. So
+   * this remembers the scale core last set (the base) and the scale it applied. If the mesh still has the
+   * scale applied here, the base is unchanged and is reused; otherwise core reset it, so the current
+   * scale is the new base. This keeps repeated calls from compounding.
+   * ASSUMPTION: the token's visual is token.mesh, anchored at its center, and core drives its size via mesh.scale.
+   * @param {Token} token
+   */
+  applySize(token) {
+    const mesh = token?.mesh;
+    if ( !mesh?.scale ) return;
+    const factor = this.sizeFactor(token);
+    let st = SIZE_STATE.get(mesh);
+    if ( !st ) {
+      if ( factor === 1 ) return; // Never touched; leave it to core.
+      st = { bx: 1, by: 1, sx: Number.NaN, sy: Number.NaN };
+      SIZE_STATE.set(mesh, st);
+    }
+    const { x, y } = mesh.scale;
+    if ( x !== st.sx || y !== st.sy ) { st.bx = x; st.by = y; }
+    const nx = st.bx * factor;
+    const ny = st.by * factor;
+    if ( nx !== x || ny !== y ) mesh.scale.set(nx, ny);
+    st.sx = nx;
+    st.sy = ny;
+  }
+
+  /** Re-apply sizing to every token, e.g., after the scene setting or the kill switch changed. */
+  refreshSizes() {
+    for ( const token of canvas.tokens?.placeables ?? [] ) this.applySize(token);
+  }
+
+  /**
+   * Live preview of the scene's token sizing, e.g., while the scene config is open. Not saved.
+   * @param {number} value      Ignored if not a finite number (an empty field)
+   */
+  previewSizing(value) {
+    if ( !Number.isFinite(value) ) return;
+    this.sizingOverride = ParallaxMath.normalizeTokenSizing(value);
+    this.refreshSizes();
+  }
+
+  /** Discard a preview; back to the saved scene value. */
+  restoreSizing() {
+    this.sizingOverride = null;
+    this.refreshSizes();
+  }
 }
+
+/** @type {WeakMap<object, {bx: number, by: number, sx: number, sy: number}>} Mesh --> base and applied scale. */
+const SIZE_STATE = new WeakMap();
 
 // Only need a singleton for a given session.
 export const parallaxTokenManager = new ParallaxTokenManager();
@@ -143,6 +216,8 @@ function deleteToken(tokenD, _options, _userId) {
  * @param {RenderFlags} flags
  */
 function refreshToken(token, flags) {
+  // Core may have reset the mesh scale on any refresh; re-apply. Cheap when nothing changed.
+  parallaxTokenManager.applySize(token);
   if ( !(flags.refreshPosition || flags.refreshElevation || flags.refreshState) ) return;
   parallaxTokenManager.sync(token);
 }
@@ -164,9 +239,33 @@ function canvasTearDown(_canvas) {
  * @category Canvas
  */
 function canvasReady(_canvas) {
-  for ( const token of canvas.tokens.placeables ) parallaxTokenManager.sync(token);
+  parallaxTokenManager.sizingOverride = null;
+  for ( const token of canvas.tokens.placeables ) {
+    parallaxTokenManager.sync(token);
+    parallaxTokenManager.applySize(token);
+  }
+}
+
+/**
+ * A hook event that fires for every Document type after conclusion of an update workflow.
+ *
+ * When the viewed scene's token sizing changes, resize every token.
+ *
+ * @event
+ * @category Document
+ * @param {Scene} sceneD
+ * @param {object} changed
+ * @param {Partial<DatabaseUpdateOperation>} _options
+ * @param {string} _userId
+ */
+function updateScene(sceneD, changed, _options, _userId) {
+  if ( sceneD !== canvas.scene ) return;
+  const hasProp = foundry.utils.hasProperty;
+  if ( !(hasProp(changed, `flags.${MODULE_ID}.tokenSizing`) || hasProp(changed, `flags.${MODULE_ID}.-=tokenSizing`)) ) return;
+  parallaxTokenManager.sizingOverride = null;
+  parallaxTokenManager.refreshSizes();
 }
 
 PATCHES.PARALLAX.HOOKS = {
-  createToken, updateToken, deleteToken, refreshToken, canvasTearDown, canvasReady
+  createToken, updateToken, deleteToken, refreshToken, canvasTearDown, canvasReady, updateScene
 };

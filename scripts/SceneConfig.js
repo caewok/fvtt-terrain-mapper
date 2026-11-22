@@ -11,6 +11,7 @@ import { renderTemplateSync } from "./util.js";
 // ASSUMPTION: adjust the folder to wherever parallax_geometry.js lives.
 import { ParallaxMath } from "./parallax/parallax_geometry.js";
 import { parallaxManager } from "./parallax/ParallaxManager.js";
+import { parallaxTokenManager } from "./parallax/ParallaxTokenManager.js";
 
 export const PATCHES = {};
 PATCHES.BASIC = {};
@@ -47,7 +48,8 @@ function addElevationFields(html, data) {
 }
 
 /**
- * Light direction (0-360 degrees clockwise from north) and elevation (degrees above the horizon), stored as scene flags.
+ * Light direction (0-360 degrees clockwise from north), light elevation (degrees above the horizon), and token sizing,
+ * stored as scene flags.
  * The inputs sit inside the scene config form, so the form's normal submit saves them.
  * @returns {boolean} True if something was added
  */
@@ -58,6 +60,9 @@ function addLightFields(app, html) {
     lightElevation: elevation,
     minElevation: ParallaxMath.MIN_ELEVATION,
     maxElevation: ParallaxMath.MAX_ELEVATION,
+    tokenSizing: ParallaxMath.sceneTokenSizing(app.document),
+    minTokenSizing: ParallaxMath.MIN_TOKEN_SIZING,
+    maxTokenSizing: ParallaxMath.MAX_TOKEN_SIZING,
   });
   if ( !myHTML ) return false;
 
@@ -71,7 +76,7 @@ function addLightFields(app, html) {
 }
 
 /**
- * Live preview: move the light as the GM types or spins the inputs, before anything is saved.
+ * Live preview: move the light and resize tokens as the GM types or spins the inputs, before anything is saved.
  * Only for the scene being viewed. Saving goes through the normal submit (and the updateScene hook);
  * closing without saving restores the saved light (see closeSceneConfig).
  */
@@ -92,6 +97,9 @@ function addLightPreview(app, tab) {
   };
   dirInput.addEventListener("input", preview);
   elevInput.addEventListener("input", preview);
+
+  const sizeInput = tab.querySelector(`input[name="flags.${MODULE_ID}.tokenSizing"]`);
+  sizeInput?.addEventListener("input", () => parallaxTokenManager.previewSizing(sizeInput.valueAsNumber));
 }
 
 /**
@@ -103,6 +111,7 @@ function addLightPreview(app, tab) {
 function closeSceneConfig(app) {
   if ( app.document !== canvas.scene ) return;
   parallaxManager.restoreLight();
+  parallaxTokenManager.restoreSizing();
 }
 
 PATCHES.BASIC.HOOKS = { renderSceneConfig, closeSceneConfig };
