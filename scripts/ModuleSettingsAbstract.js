@@ -109,9 +109,9 @@ export class ModuleSettingsAbstract {
    * @param {...}                 Additional overrides. For a client setting, add { scope: "client" } here.
    */
   static registerWorld(key, { name, hint, ...opts } ) {
-    this.register(key, {
-      name: name ?? this.localize(`${key}.Name`),
-      hint: hint ?? this.localize(`${key}.Hint`),
+    ModuleSettingsAbstract.register(key, {
+      name: name ?? ModuleSettingsAbstract.localize(`${key}.Name`),
+      hint: hint ?? ModuleSettingsAbstract.localize(`${key}.Hint`),
       scope: "world",
       config: true,
       ...opts,
@@ -119,11 +119,11 @@ export class ModuleSettingsAbstract {
   }
 
   static registerSubmenuSetting(key, tab, opts) {
-    this.registerWorld(key, { tab, config: false, ...opts  });
+    ModuleSettingsAbstract.registerWorld(key, { tab, config: false, ...opts  });
   }
 
   static registerHidden(key, opts ) {
-    this.registerWorld(key, { config: false, ...opts });
+    ModuleSettingsAbstract.registerWorld(key, { config: false, ...opts });
   }
 
   /**

@@ -7,7 +7,9 @@ PIXI,
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { MODULE_ID } from "../const.js";
+import { FLAGS } from "../const.js";
+import { Settings } from "../settings.js";
+import { fastFlag } from "../util.js";
 import { GEOMETRY_LIB_ID } from "../geometry/const.js";
 import { GeometricPrimitive } from "../geometry/placeable_geometry/GeometricPrimitive.js";
 import { TokenElevationHandler } from "../TokenElevationHandler.js";
@@ -127,12 +129,11 @@ export class ParallaxMath {
    * Direction the light comes FROM (where the light is), in degrees clockwise from north:
    * 0 = north (top of the scene), 90 = east, 180 = south, 270 = west.
    * Shadows fall the opposite way: a light at 315 (northwest) casts shadows toward the southeast.
-   * Default 315 matches the original light vector.
    */
-  static DEFAULT_DIRECTION = 315;
+  static DEFAULT_DIRECTION = 0;
 
   /** Degrees above the horizon. 50 matches the original default vector. */
-  static DEFAULT_ELEVATION = 50;
+  static DEFAULT_ELEVATION = 0;
 
   /** Near 0 the shadows stretch toward infinity (they are also capped by maxOffset). */
   static MIN_ELEVATION = 5;
@@ -161,14 +162,12 @@ export class ParallaxMath {
    * @returns {{direction: number, elevation: number}}   direction in [0, 360), elevation in degrees
    */
   static sceneLightSettings(scene = canvas.scene) {
-    const rawDir = scene?.getFlag(MODULE_ID, "lightDirection");
-    let direction;
-    if ( rawDir == null || rawDir === "" ) direction = this.DEFAULT_DIRECTION;
-    else direction = Number(rawDir);
-    if ( !Number.isFinite(direction) ) direction = this.DEFAULT_DIRECTION;
-    const raw = scene?.getFlag(MODULE_ID, "lightElevation");
-    let elevation = (raw == null || raw === "") ? this.DEFAULT_ELEVATION : Number(raw);
-    if ( !Number.isFinite(elevation) ) elevation = this.DEFAULT_ELEVATION;
+    let direction = this.DEFAULT_DIRECTION;
+    let elevation = this.DEFAULT_ELEVATION;
+    if ( scene ) {
+      direction = Number(fastFlag(scene, FLAGS.SCENE.LIGHT_DIRECTION) || 0); // Number coerces to 0 except for undefined.
+      elevation = Number(fastFlag(scene, FLAGS.SCENE.LIGHT_ELEVATION) || 0); // Will be clamped by normalizeLight.
+    }
     return this.normalizeLight(direction, elevation);
   }
 
@@ -206,11 +205,11 @@ export class ParallaxMath {
   static TOKEN_MAX_SCALE = 2;
 
   /**
-   * System-wide kill switch: CONFIG[MODULE_ID].tokenSizing === false disables token sizing everywhere.
+   * System-wide kill switch: tokenSizing === false disables token sizing everywhere.
    * After changing it at runtime, call parallaxTokenManager.refreshSizes() to update tokens already scaled.
    * @returns {boolean}
    */
-  static tokenSizingEnabled() { return CONFIG[MODULE_ID]?.parallax.tokenSizing !== false; }
+  static tokenSizingEnabled() { return Settings.get(Settings.KEYS.PARALLAX.ENABLE_TOKEN_SIZING) !== false; }
 
   /**
    * Clamp a token sizing value. Anything that is not a positive number means 1 (off).
@@ -229,7 +228,9 @@ export class ParallaxMath {
    * @returns {number}
    */
   static sceneTokenSizing(scene = canvas.scene) {
-    return this.normalizeTokenSizing(scene?.getFlag(MODULE_ID, "tokenSizing"));
+    let sizing = 1; // Default to no effect.
+    if ( scene ) sizing = fastFlag(scene, FLAGS.SCENE.TOKEN_SIZING);
+    return this.normalizeTokenSizing(sizing);
   }
 
   /**
@@ -848,11 +849,11 @@ function unregister(pm) {
 // ----- NOTE: Ground shadow ----- //
 
 /**
- * Temporary toggle for all parallax shadows (terrain, tile and token). On unless CONFIG[MODULE_ID].shadows
+ * Temporary toggle for all parallax shadows (terrain, tile and token). On unless shadows
  * is explicitly false. Read every frame, so it takes effect immediately and can be turned back on.
  * @returns {boolean}
  */
-function shadowsEnabled() { return CONFIG[MODULE_ID]?.parallax.shadows !== false; }
+function shadowsEnabled() { return Settings.get(Settings.KEYS.PARALLAX.ENABLE_SHADOWS) !== false; }
 
 const SHADOW_VERT = `
 precision highp float;

@@ -250,24 +250,6 @@ function initializeConfig() {
     debug: false,
 
     /**
-     * Global toggles for the parallax feature.
-     */
-    parallax: {
-
-      /**
-       * If false, turn off shadows.
-       * @type {boolean}
-       */
-      shadows: true,
-
-      /**
-       * If false, turn off token resizing.
-       * @type {boolean}
-       */
-      tokenSizing: true,
-    },
-
-    /**
      * As a percent of token (width/height), how far from the edge can a token move
      * (measured from token center) over transparent tile pixels before it is considered to be in a "hole".
      * Because it is measured from token center, a 50% threshold will effectively allow the

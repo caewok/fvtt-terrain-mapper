@@ -1,11 +1,9 @@
 /* globals
-foundry,
-game,
 */
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 "use strict";
 
-import { MODULE_ID, FLAGS } from "./const.js";
+import { SETTINGS } from "./const.js";
 import { ModuleSettingsAbstract } from "./ModuleSettingsAbstract.js";
 
 /**
@@ -24,21 +22,27 @@ export class Settings extends ModuleSettingsAbstract {
    * Keys for all the settings used in this module.
    * @type {object}
    */
-  static KEYS = {
-    // Dialog with announcements re major updates.
-    CHANGELOG: "changelog"
-  };
+  static KEYS = SETTINGS;
 
   /**
    * Register all settings
    */
   static registerAll() {
-    const KEYS = this.KEYS;
+    const { KEYS, registerWorld } = this;
 
+    registerWorld(KEYS.PARALLAX.ENABLE, {
+      type: Boolean,
+      default: false,
+    });
 
+    registerWorld(KEYS.PARALLAX.ENABLE_SHADOWS, {
+      type: Boolean,
+      default: true,
+    });
 
-
-    // ----- NOTE: Hidden settings ----- //
+    registerWorld(KEYS.PARALLAX.ENABLE_TOKEN_SIZING, {
+      type: Boolean,
+      default: true,
+    });
   }
-
 }

@@ -56,6 +56,9 @@ export const FLAGS = {
   SCENE: {
     BACKGROUND_ELEVATION: "backgroundElevation",
     CONSTRAIN_ELEVATION: "constrainElevation",
+    LIGHT_DIRECTION: "lightDirection",
+    LIGHT_ELEVATION: "lightElevation",
+    TOKEN_SIZING: "tokenSizing",
   },
 
   // RegionDocument
@@ -113,6 +116,18 @@ export const FLAGS = {
   VERSION: "version"
 };
 
+export const SETTINGS = {
+
+  PARALLAX: {
+    ENABLE: "parallax-enable",
+    ENABLE_SHADOWS: "parallax-shadows-enable",
+    ENABLE_TOKEN_SIZING: "parallax-token-sizing-enable",
+  },
+
+  // Dialog with announcements re major updates.
+  CHANGELOG: "changelog"
+};
+
 // Icons used in this module in controls or tabs
 export const FA_ICONS = {
   MODULE: "fa-solid fa-mountain-sun",           // https://fontawesome.com/icons/mountain-sun
@@ -133,7 +148,7 @@ export const ICONS = {
 export const DEFAULT_FLAGS = {
   TILE: {
     [FLAGS.TILE_ALPHA_SHAPE]: "calculated",
-    [FLAGS.PARALLAX] : 0,
+    [FLAGS.PARALLAX]: 0,
   },
 
   SCENE: {
@@ -153,8 +168,9 @@ export const DEFAULT_FLAGS = {
 
     [FLAGS.REGION.HILL.TYPE]: FLAGS.REGION.HILL.CHOICES.LINEAR,
     [FLAGS.REGION.HILL.CURVE]: [
+      /* eslint-disable capitalized-comments, indent */
       // Curve points
-    //0.00, 0,      // start, which is always 0,0 when normalized.
+   // 0.00, 0,      // start, which is always 0,0 when normalized.
       0.25, 0,      // cp1
       0.75, 0,      // cp2
       1.00, 0,      // end
@@ -162,6 +178,7 @@ export const DEFAULT_FLAGS = {
       // Orientation points, relative to a center. Placed at region bounds along x axis.
       -1, 0,        // left
        1, 0         // right
+       /* eslint-enable capitalized-comments, indent */
     ],
   },
 };

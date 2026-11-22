@@ -6,11 +6,24 @@
   "terrainmapper.controls.fill-space.name": "Fill space enclosed by walls",
   "terrainmapper.controls.draw-hill.name": "Terrain Mapper Hill",
 
+  "terrainmapper.settings.parallax-shadows-enable.Name": "Parallax: Enable Shadows",
+  "terrainmapper.settings.parallax-shadows-enable.Hint": "",
+  "terrainmapper.settings.parallax-token-sizing-enable.Name": "Parallax: Enable Token Sizing",
+  "terrainmapper.settings.parallax-token-sizing-enable.Hint": "",
+
   "terrainmapper.scene-config.backgroundElevation.name": "Background Elevation",
   "terrainmapper.scene-config.backgroundElevation.hint": "The default elevation for tokens placed on the canvas.",
 
   "terrainmapper.scene-config.constrainElevation.name": "Constrain Elevation",
   "terrainmapper.scene-config.constrainElevation.hint": "When enabled, limit vertical token movement based on terrain and movement type.",
+
+  "terrainmapper.scene-config.light.legend": "Terrain Mapper: Parallax",
+  "terrainmapper.scene-config.light.direction.name": "Light Direction (degrees)",
+  "terrainmapper.scene-config.light.direction.hint": "Direction the light comes from, in degrees clockwise from north (top of the scene): 0 = north, 90 = east, 180 = south, 270 = west. Shadows fall the opposite way: 315 (northwest) casts shadows toward the southeast.",
+  "terrainmapper.scene-config.light.elevation.name": "Light Angle (degrees)",
+  "terrainmapper.scene-config.light.elevation.hint": "Degrees above the horizon. Low angles give long shadows; 90 is straight overhead.",
+  "terrainmapper.scene-config.tokenSizing.name": "Token Size Scaling",
+  "terrainmapper.scene-config.tokenSizing.hint": "Scale factor applied to tokens for each grid square of elevation above the level floor. 1 disables token scaling. 1.05 makes a token 5% larger per square up; values below 1 shrink tokens as they rise.",
 
   "terrainmapper.region-config.header": "Define a physical elevated shape for this region, causing tokens to change elevation according to the shape's elevation characteristics.",
 
@@ -71,14 +84,6 @@
 
   "terrainmapper.behavior.types.parallax.fields.hideOriginal.name": "Hide underlying tile?",
   "terrainmapper.behavior.types.parallax.fields.hideOriginal.hint": "If true, hides the underlying tile when implementing parallax.",
-
-  "terrainmapper.scene-config.light.legend": "Terrain Mapper: Parallax",
-  "terrainmapper.scene-config.light.direction.name": "Light Direction (degrees)",
-  "terrainmapper.scene-config.light.direction.hint": "Direction the light comes from, in degrees clockwise from north (top of the scene): 0 = north, 90 = east, 180 = south, 270 = west. Shadows fall the opposite way: 315 (northwest) casts shadows toward the southeast.",
-  "terrainmapper.scene-config.light.elevation.name": "Light Angle (degrees)",
-  "terrainmapper.scene-config.light.elevation.hint": "Degrees above the horizon. Low angles give long shadows; 90 is straight overhead.",
-  "terrainmapper.scene-config.tokenSizing.name": "Token Size Scaling",
-  "terrainmapper.scene-config.tokenSizing.hint": "Scale factor applied to tokens for each grid square of elevation above the level floor. 1 disables token scaling. 1.05 makes a token 5% larger per square up; values below 1 shrink tokens as they rise.",
 
   "TYPES.RegionBehavior.terrainmapper.setElevation": "Stairs",
   "TYPES.RegionBehavior.terrainmapper.elevator": "Elevator",
