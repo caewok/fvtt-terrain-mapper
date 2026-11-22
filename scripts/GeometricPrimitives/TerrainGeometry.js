@@ -27,6 +27,9 @@ import { Plane } from "../geometry/3d/Plane.js";
 import { RegionGeometryManager } from "../geometry/placeable_tracking/CanvasGeometryManager.js";
 import { AABB2d } from "../geometry/AABB.js";
 
+// Parallax
+import { parallaxManager } from "../parallax/ParallaxManager.js";
+
 /* Shape options
 
 None: Use the base shape
@@ -547,6 +550,7 @@ export class TerrainGeometryManager extends RegionGeometryManager {
     // Register hooks for changes in region behavior.
     Hooks.on("createRegionBehavior", (regionBehavior, options, _userId) => {
       this.update(regionBehavior.region, new Set([`${regionBehavior.type}.create`]), options);
+      parallaxManager.sync(regionBehavior.region);
     });
 
     Hooks.on("updateRegionBehavior", (regionBehavior, changed, options, _userId) => {
@@ -557,12 +561,28 @@ export class TerrainGeometryManager extends RegionGeometryManager {
         .map(key => `${type}.system.${key}`));
       if ( "disabled" in changed ) updateKeys.add(`${type}.${regionBehavior.disabled ? "delete" : "create"}`);
       if ( updateKeys.size ) this.update(regionBehavior.region, updateKeys, options);
+      parallaxManager.sync(regionBehavior.region);
     });
 
     Hooks.on("deleteRegionBehavior", (regionBehavior, options, _userId) => {
       this.update(regionBehavior.region, new Set([`${regionBehavior.type}.delete`]), options);
+      parallaxManager.sync(regionBehavior.region);
     });
+  }
 
+  create(doc) {
+    super.create(doc);
+    parallaxManager.sync(doc)
+  }
+
+  update(doc, updateKeys, opts) {
+    super.update(doc, updateKeys, opts);
+    parallaxManager.sync(doc);
+  }
+
+  delete(docOrId) {
+    super.delete(docOrId);
+    parallaxManager._deleteMesh(docOrId);
   }
 }
 

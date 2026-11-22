@@ -55,7 +55,8 @@
       "plateauTerrain": {},
       "rampTerrain": {},
       "stepsTerrain": {},
-      "hillTerrain": {}
+      "hillTerrain": {},
+      "parallax": {}
     }
   },
 

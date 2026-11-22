@@ -43,7 +43,7 @@ function updateTile(tileD, changed, _options, _userId) {
   const resized = ["x", "y", "width", "height"].some(key => changeKeys.has(key));
   const transformed = ["rotation", "texture", "scaleX", "scaleY"].some(key => changeKeys.has(key));
   const flagChanged = [
-    `flags.${MODULE_ID}.${FLAGS.TILE_ALPHA_SHAPE}`,
+    `flags.${MODULE_ID}.${FLAGS.TILE.ALPHA_SHAPE}`,
   ].some(key => changeKeys.has(key));
   if ( !(resized || transformed || flagChanged) ) return;
 

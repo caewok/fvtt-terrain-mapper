@@ -9,7 +9,7 @@ PIXI
 import { MODULE_ID, FLAGS } from "./const.js";
 import { GEOMETRY_LIB_ID } from "./geometry/const.js";
 import { ElevatedPoint } from "./geometry/3d/ElevatedPoint.js";
-import { gridUnitsToPixels } from "./geometry/util.js";
+import { gridUnitsToPixels, pixelsToGridUnits } from "./geometry/util.js";
 import { Draw } from "./geometry/Draw.js";
 import { AABB2d } from "./geometry/AABB.js";
 import { TerrainGeometry } from "./GeometricPrimitives/TerrainGeometry.js";
@@ -103,7 +103,7 @@ export class TokenElevationHandler {
    */
   static terrainTiles(levelId = canvas.level.id) {
     return [...canvas.tiles.documentCollection.values()].filter(tileD => {
-      if ( fastFlag(tileD, FLAGS.TILE_ALPHA_SHAPE) === FLAGS.TILE_ALPHA_SHAPE_OPTIONS.IGNORE ) return false;
+      if ( fastFlag(tileD, FLAGS.TILE.ALPHA_SHAPE) === FLAGS.TILE.ALPHA_SHAPE_OPTIONS.IGNORE ) return false;
       if ( !levelId ) return true;
       return tileD.levels.has(levelId);
     });
@@ -212,16 +212,16 @@ export class TokenElevationHandler {
 
   levelId = "";
 
-  get floor() { return this.floorForLevel(this.levelId || canvas.level.id); }
+  get floor() { return gridUnitsToPixels(this.constructor.floorForLevel(this.levelId || canvas.level.id)); }
 
   /**
-   * Scene floor, in pixels, for the given level (not necessarily the viewed level).
+   * Scene floor for the given level (not necessarily the viewed level).
    * @param {string} levelId
-   * @returns {number}
+   * @returns {number} Elevation, in grid units, of the floor.
    */
-  floorForLevel(levelId) {
+  static floorForLevel(levelId) {
     const level = canvas.scene.levels.get(levelId) ?? canvas.level;
-    return gridUnitsToPixels(level.elevation.base);
+    return level.elevation.base;
   }
 
   to2d(pt3d) { return CutawayPolygon.to2d(pt3d, this.start, this.end); }
@@ -277,8 +277,8 @@ export class TokenElevationHandler {
     for ( const tile of this.tiles ) {
       const geom = this.constructor.geometryForTile(tile);
       const elevs = geom.elevationZ;
-      const geomSubtype = fastFlag(geom.placeableDocument, FLAGS.TILE_ALPHA_SHAPE)
-        || FLAGS.TILE_ALPHA_SHAPE_OPTIONS.CALCULATED;
+      const geomSubtype = fastFlag(geom.placeableDocument, FLAGS.TILE.ALPHA_SHAPE)
+        || FLAGS.TILE.ALPHA_SHAPE_OPTIONS.CALCULATED;
       this.cutaways.push(...geom[geomSubtype].verticalSlice(this.start, this.end, elevs));
     }
 
@@ -364,16 +364,38 @@ export class TokenElevationHandler {
     return ranges;
   }
 
+  /** @type {number} Cached ground value for token */
+  #ground = null;
+
+  get ground() { return this.groundAt(); } // Once hooks are set: return (this.#ground ??= this.groundAt()); }
+
+  clearGroundCache() { this.#ground = null; } // TODO: Set up hooks to clear.
+
+  /**
+   * Ground elevation of the current token at a given location.
+   * @param {Point3d} pt          Point to use for the location; may have elevation property
+   * @returns {number} Elevation in grid units
+   */
+  groundAt(pt) {
+    using loc = pt ? ElevatedPoint.fromObject(pt) : ElevatedPoint.fromToken(this.token).bottom;
+    const handler = new TokenElevationHandler(this.token);
+    handler._initialize(loc, loc);
+    using loc2d = handler.to2d(loc);
+    const ground = handler._groundAt(loc2d.x, loc2d.y, 0);
+    return pixelsToGridUnits(ground);
+  }
+
+
   /**
    * Ground elevation at x for a token at elevation z: the highest top of the (merged) ranges
    * whose bottom is at or below z, or the scene floor. Terrain floating above z is ignored.
    * At a vertical edge (side 0) this is the top of the edge.
-   * @param {number} x
+   * @param {number} x            X value along the cutaway path.
    * @param {number} z
    * @param {-1|0|1} [side=0]
    * @returns {number}
    */
-  groundAt(x, z, side = 0) {
+  _groundAt(x, z, side = 0) {
     let ground = this.floor;
     const tolerance = this.constructor.ELEVATION_TOLERANCE;
     for ( const [low, high] of mergeRanges(this._cutawayElevationRangesAtX(x, side)) ) {
@@ -469,26 +491,26 @@ export class TokenElevationHandler {
       const zRef = z => (free ? line(x) : z);
 
       if ( i === 0 ) {
-        z = constrain(mode, zRef(z), this.groundAt(x, zRef(z), 0)); // The position of the start.
+        z = constrain(mode, zRef(z), this._groundAt(x, zRef(z), 0)); // The position of the start.
         push(x, z);
       } else {
-        z = constrain(mode, zRef(z), this.groundAt(x, zRef(z), arrive));
+        z = constrain(mode, zRef(z), this._groundAt(x, zRef(z), arrive));
         push(x, z);
         if ( i === lastIdx ) {
-          z = constrain(mode, zRef(z), this.groundAt(x, zRef(z), 0)); // The position of the end.
+          z = constrain(mode, zRef(z), this._groundAt(x, zRef(z), 0)); // The position of the end.
           push(x, z);
         }
       }
       if ( i === lastIdx ) break;
 
-      z = constrain(mode, zRef(z), this.groundAt(x, zRef(z), leave));
+      z = constrain(mode, zRef(z), this._groundAt(x, zRef(z), leave));
       push(x, z);
 
       // Flying and burrowing: the line may cross the ground within the interval.
       if ( free ) {
         const xNext = breaks[i + 1];
-        const d0 = line(x) - this.groundAt(x, line(x), leave);
-        const d1 = line(xNext) - this.groundAt(xNext, line(xNext), arrive);
+        const d0 = line(x) - this._groundAt(x, line(x), leave);
+        const d1 = line(xNext) - this._groundAt(xNext, line(xNext), arrive);
         if ( (d0 > EPS && d1 < -EPS) || (d0 < -EPS && d1 > EPS) ) {
           const xc = x + ((xNext - x) * (d0 / (d0 - d1)));
           push(xc, line(xc));
@@ -513,14 +535,14 @@ export class TokenElevationHandler {
    * @returns {ElevatedPoint} Destination point
    */
   enforceGravity(currentLocation, { levelId, walking, burrowing, flying, initialize = true } = {}) {
-    const token = this.token;
-    currentLocation ??= ElevatedPoint.fromLocationWithElevation(token.getCenterPoint(), token.document.bottomZ);
+    const tokenD = this.token.document;
+    currentLocation ??= ElevatedPoint.fromLocationWithElevation(tokenD.getCenterPoint(), tokenD.bottomZ);
     const mode = this._movementMode({ walking, burrowing, flying });
     if ( !mode ) return currentLocation;
     if ( initialize ) this._initialize(currentLocation, currentLocation, levelId);
 
     using curr2d = this.to2d(currentLocation);
-    const y = this.constructor.constrainElevation(mode, curr2d.y, this.groundAt(curr2d.x, curr2d.y, 0));
+    const y = this.constructor.constrainElevation(mode, curr2d.y, this._groundAt(curr2d.x, curr2d.y, 0));
     if ( Math.abs(y - curr2d.y) < 0.05 ) return currentLocation;
     curr2d.y = y;
     return this.from2d(curr2d);
@@ -685,7 +707,7 @@ export class TokenElevationHandler {
     if ( !this.cutaways.some(handler => handler.aabb.containsPoint(a2d, ["x"])) ) return free();
 
     // Walking: cannot choose the elevation; gravity. Flying: not below the ground. Burrowing: not above it.
-    const ground = this.groundAt(a2d.x, a2d.y, 0);
+    const ground = this._groundAt(a2d.x, a2d.y, 0);
     const y = mode === "walking" ? ground : this.constructor.constrainElevation(mode, desiredElevation, ground);
     if ( Math.abs(y - a.z) < 0.05 ) return [a.clone()];
     a2d.y = y;

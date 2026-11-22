@@ -12,6 +12,7 @@ export const TEMPLATES = {
   SCENE: `modules/${MODULE_ID}/templates/scene-config.html`,
   SETTINGS: `modules/${MODULE_ID}/templates/settings-menu-tab-partial.html`,
   TILE: `modules/${MODULE_ID}/templates/tile-config.html`,
+  SCENE_LIGHT: `modules/${MODULE_ID}/templates/scene-config-light.html`,
 };
 
 // Track certain modules that complement features of this module.
@@ -29,7 +30,7 @@ Hooks.once("init", function() {
 });
 
 /** @type {enum<string>} */
-export const TILE_THRESHOLD_SHAPE_OPTIONS = {
+const TILE_THRESHOLD_SHAPE_OPTIONS = {
   RECTANGLE: "full", // Fastest, but only trims rectangular transparent border without considering holes or irregular shapes.
   ALPHA_TRIANGLES: "triangles", // In testing, this seems very slow.
   ALPHA_POLYGONS: "polygons", // Much faster than triangles.
@@ -40,17 +41,24 @@ export const TILE_THRESHOLD_SHAPE_OPTIONS = {
 // Flags set on various documents.
 export const FLAGS = {
 
-  TILE_ALPHA_SHAPE: "tileAlphaShape",
-  TILE_ALPHA_SHAPE_OPTIONS: {
-    ...TILE_THRESHOLD_SHAPE_OPTIONS,
-    CALCULATED: "calculated",
-    IGNORE: "ignore",
+  TILE: {
+    ALPHA_SHAPE: "tileAlphaShape",
+    ALPHA_SHAPE_OPTIONS: {
+      ...TILE_THRESHOLD_SHAPE_OPTIONS,
+      CALCULATED: "calculated",
+      IGNORE: "ignore",
+    },
+    THRESHOLD_SHAPE_OPTIONS: TILE_THRESHOLD_SHAPE_OPTIONS,
+    PARALLAX: "parallax",
   },
 
   // Scene
   SCENE: {
     BACKGROUND_ELEVATION: "backgroundElevation",
     CONSTRAIN_ELEVATION: "constrainElevation",
+    LIGHT_DIRECTION: "lightDirection",
+    LIGHT_ELEVATION: "lightElevation",
+    TOKEN_SIZING: "tokenSizing",
   },
 
   // RegionDocument
@@ -108,6 +116,22 @@ export const FLAGS = {
   VERSION: "version"
 };
 
+export const SETTINGS = {
+
+  PARALLAX: {
+    ENABLE: "parallax-enable",
+    ENABLE_SHADOWS: "parallax-shadows-enable",
+    ENABLE_TOKEN_SIZING: "parallax-token-sizing-enable",
+  },
+
+  // Dialog with announcements re major updates.
+  CHANGELOG: "changelog"
+};
+
+export const HOOKS = {
+  PARALLAX_ENABLED: `${MODULE_ID}.parallaxEnabledChanged`,
+};
+
 // Icons used in this module in controls or tabs
 export const FA_ICONS = {
   MODULE: "fa-solid fa-mountain-sun",           // https://fontawesome.com/icons/mountain-sun
@@ -118,6 +142,7 @@ export const FA_ICONS = {
   ELEVATOR: "fa-solid fa-elevator",             // https://fontawesome.com/icons/elevator
   DRAW_HILL: "fa-solid fa-mountain",            // https://fontawesome.com/icons/mountain
   TERRAIN: "fa-solid fa-mountain",              // https://fontawesome.com/icons/mountain
+  PARALLAX: "fa-solid fa-lines-leaning",        // https://fontawesome.com/icons/classic/solid/lines-leaning
 };
 
 export const ICONS = {
@@ -127,6 +152,7 @@ export const ICONS = {
 export const DEFAULT_FLAGS = {
   TILE: {
     [FLAGS.TILE_ALPHA_SHAPE]: "calculated",
+    [FLAGS.PARALLAX]: 0,
   },
 
   SCENE: {
@@ -146,8 +172,9 @@ export const DEFAULT_FLAGS = {
 
     [FLAGS.REGION.HILL.TYPE]: FLAGS.REGION.HILL.CHOICES.LINEAR,
     [FLAGS.REGION.HILL.CURVE]: [
+      /* eslint-disable capitalized-comments, indent */
       // Curve points
-    //0.00, 0,      // start, which is always 0,0 when normalized.
+   // 0.00, 0,      // start, which is always 0,0 when normalized.
       0.25, 0,      // cp1
       0.75, 0,      // cp2
       1.00, 0,      // end
@@ -155,6 +182,7 @@ export const DEFAULT_FLAGS = {
       // Orientation points, relative to a center. Placed at region bounds along x axis.
       -1, 0,        // left
        1, 0         // right
+       /* eslint-enable capitalized-comments, indent */
     ],
   },
 };

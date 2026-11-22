@@ -20,9 +20,15 @@ import { StepsTerrainRegionBehaviorType } from "./regions/StepsRegionBehaviorTyp
 import { RampTerrainRegionBehaviorType } from "./regions/RampRegionBehaviorType.js";
 import { StairsRegionBehaviorType } from "./regions/StairsRegionBehaviorType.js";
 import { ElevatorRegionBehaviorType } from "./regions/ElevatorRegionBehaviorType.js";
+
 import { StraightLinePath } from "./StraightLinePath.js";
 import { HillDrawingManager} from "./regions/HillDrawingManager.js";
 import { TerrainGeometryManager } from "./GeometricPrimitives/TerrainGeometry.js";
+
+// Parallax
+import { ParallaxRegionBehaviorType } from "./parallax/ParallaxRegionBehaviorType.js";
+import { parallaxManager } from "./parallax/ParallaxManager.js";
+import { parallaxTokenManager } from "./parallax/ParallaxTokenManager.js";
 
 // Elevation
 import { TokenElevationHandler } from "./TokenElevationHandler.js";
@@ -34,6 +40,7 @@ import { GEOMETRY_LIB_ID } from "./geometry/const.js";
 // Self-executing hooks.
 import "./changelog.js";
 import "./regions/HighlightRegionShader.js";
+
 
 /* Foundry v13 movement
 Token#findMovementPath -- find path through waypoints
@@ -130,25 +137,7 @@ Hooks.once("init", function() {
   initializeConfig();
   initializeAPI();
   Settings.registerAll();
-
-  Object.assign(CONFIG.RegionBehavior.dataModels, {
-    [`${MODULE_ID}.setElevation`]: StairsRegionBehaviorType,
-    [`${MODULE_ID}.elevator`]: ElevatorRegionBehaviorType,
-    [`${MODULE_ID}.plateauTerrain`]: PlateauTerrainRegionBehaviorType,
-    [`${MODULE_ID}.rampTerrain`]: RampTerrainRegionBehaviorType,
-    [`${MODULE_ID}.stepsTerrain`]: StepsTerrainRegionBehaviorType,
-    [`${MODULE_ID}.hillTerrain`]: HillTerrainRegionBehaviorType,
-  });
-
-  //   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.addTerrain`] = FA_ICONS.MODULE;
-  //   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.removeTerrain`] = FA_ICONS.MODULE;
-  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.setElevation`] = FA_ICONS.STAIRS;
-  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.elevator`] = FA_ICONS.ELEVATOR;
-  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.plateauTerrain`] = FA_ICONS.TERRAIN;
-  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.rampTerrain`] = FA_ICONS.TERRAIN;
-  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.stepsTerrain`] = FA_ICONS.TERRAIN;
-  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.hillTerrain`] = FA_ICONS.TERRAIN;
-
+  initializeRegionBehaviors();
 
   // Must go at end?
   foundry.applications.handlebars.loadTemplates(Object.values(TEMPLATES)).then(_value => log("Templates loaded."));
@@ -212,6 +201,8 @@ function initializeAPI() {
     StraightLinePath,
     TokenElevationHandler,
     HillDrawingManager,
+    parallaxManager,
+    parallaxTokenManager,
 
     /**
      * API to determine the elevation of a line through 0+ setElevation regions.
@@ -224,6 +215,30 @@ function initializeAPI() {
      */
     estimateElevationForSegment: StairsRegionBehaviorType.estimateElevationForSegment,
   };
+}
+
+function initializeRegionBehaviors() {
+ Object.assign(CONFIG.RegionBehavior.dataModels, {
+    [`${MODULE_ID}.setElevation`]: StairsRegionBehaviorType,
+    [`${MODULE_ID}.elevator`]: ElevatorRegionBehaviorType,
+    [`${MODULE_ID}.plateauTerrain`]: PlateauTerrainRegionBehaviorType,
+    [`${MODULE_ID}.rampTerrain`]: RampTerrainRegionBehaviorType,
+    [`${MODULE_ID}.stepsTerrain`]: StepsTerrainRegionBehaviorType,
+    [`${MODULE_ID}.hillTerrain`]: HillTerrainRegionBehaviorType,
+    [`${MODULE_ID}.parallax`]: ParallaxRegionBehaviorType,
+  });
+
+  //   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.addTerrain`] = FA_ICONS.MODULE;
+  //   CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.removeTerrain`] = FA_ICONS.MODULE;
+  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.setElevation`] = FA_ICONS.STAIRS;
+  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.elevator`] = FA_ICONS.ELEVATOR;
+  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.plateauTerrain`] = FA_ICONS.TERRAIN;
+  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.rampTerrain`] = FA_ICONS.TERRAIN;
+  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.stepsTerrain`] = FA_ICONS.TERRAIN;
+  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.hillTerrain`] = FA_ICONS.TERRAIN;
+  CONFIG.RegionBehavior.typeIcons[`${MODULE_ID}.parallax`] = FA_ICONS.PARALLAX;
+
+
 }
 
 function initializeConfig() {
