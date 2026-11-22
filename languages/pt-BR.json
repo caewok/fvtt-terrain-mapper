@@ -1,5 +1,6 @@
 {
   "terrainmapper.name": "Terrain Mapper",
+  "terrainmapper.nameAbbr": "TM",
   "terrainmapper.controls.fill-by-grid.name": "Preencher por Grade",
   "terrainmapper.controls.fill-by-los.name": "Preencher por Linha de Visão",
   "terrainmapper.controls.fill-space.name": "Preencher Espaços Cercados por Paredes",
@@ -26,26 +27,17 @@
   "terrainmapper.region-config.rampFloor.hint": "A rampa começa nesta elevação e sobe a partir dela.",
 
   "terrainmapper.region-config.rampDirection.name": "Direção",
-  "terrainmapper.region-config.rampDirection.hint": "0º é para sul, 90º é para oeste.",
+  "terrainmapper.region-config.rampDirection.hint": "0º elevação para leste, 90º elevação para norte, 180º elevação para oeste e 270º elevação para sul.",
 
   "terrainmapper.region-config.rampStepSize.name": "Tamanho do Degrau",
   "terrainmapper.region-config.rampStepSize.hint": "A altura de cada degrau da rampa. Se definido como 0, a rampa aproximará uma inclinação suave.",
 
-  "terrainmapper.region-config.splitPolygons.name": "Polígonos Separados",
-  "terrainmapper.region-config.splitPolygons.hint": "Quando ativado, cada forma desta região terá uma forma de terreno distinta. Quando desativado, todas as formas comporão um único formato de terreno.",
+  "terrainmapper.region-config.splitPolygons.name": "Espelhar Terreno entre Polígonos",
+  "terrainmapper.region-config.splitPolygons.hint": "Quando ativado, os degraus, rampas e colinas são repetidos em cada forma. Quando desativado, todas as formas serão partes de uma única colina, rampa ou conjunto de degraus.",
+
+  "terrainmapper.region-config.terrain.dialog.name": "Confirmação do Usuário",
+  "terrainmapper.region-config.terrain.dialog.hint": "Quando ativado, solicita a confirmação do usuário. Se o usuário recusar, o movimento será interrompido na borda do terreno.",
   
-  "terrainmapper.tile-config.isFloor.name": "Tratar como Chão",
-  "terrainmapper.tile-config.isFloor.hint": "",
-
-  "terrainmapper.tile-config.trimAlphaBorder.name": "Limite de Corte",
-  "terrainmapper.tile-config.trimAlphaBorder.hint": "Ignora a borda transparente do tile.",
-
-  "terrainmapper.tile-config.testHoles.name": "Teste para Furos",
-  "terrainmapper.tile-config.testHoles.hint": "Trata porções transparentes maiores dentro do tile como buracos pelos quais os tokens podem 'cair'.",
-
-  "terrainmapper.tile-config.alphaThreshold.name": "Limite de Transparência",
-  "terrainmapper.tile-config.alphaThreshold.hint": "Percentual de alfa necessário para ser considerado transparente. Padrão: 0,75.",
-
   "terrainmapper.behavior.types.stairs.fields.algorithm.name": "Tipo",
 
   "terrainmapper.behavior.types.stairs.fields.elevation.name": "Topo das Escadas",
@@ -73,6 +65,10 @@
 
   "TYPES.RegionBehavior.terrainmapper.setElevation": "Escadas",
   "TYPES.RegionBehavior.terrainmapper.elevator": "Elevador",
+  "TYPES.RegionBehavior.terrainmapper.plateauTerrain": "Terreno: Planalto",
+  "TYPES.RegionBehavior.terrainmapper.rampTerrain": "Terreno: Rampa",
+  "TYPES.RegionBehavior.terrainmapper.stepsTerrain": "Terreno: Degraus",
+  "TYPES.RegionBehavior.terrainmapper.hillTerrain": "Terreno: Colina",
 
   "terrainmapper.elevationAlgorithm.labels.none": "Nenhum",
   "terrainmapper.elevationAlgorithm.labels.oneWay": "Escada de Mão Única",
@@ -85,6 +81,16 @@
   "terrainmapper.hillType.labels.ridge": "Crista",
   "terrainmapper.hillType.labels.symmetrical": "Simétrica",
 
+  "terrainmapper.tile-config.tileAlphaShape.name": "Formato Físico do Tile",
+  "terrainmapper.tile-config.tileAlphaShape.hint": "O tile deve ser tratado como um piso? As partes transparentes (alfa) devem ser consideradas buracos?",
+  "terrainmapper.tile-config.options.full": "Retângulo Completo",
+  "terrainmapper.tile-config.options.boundingBox": "Retângulo Delimitador Alfa",
+  "terrainmapper.tile-config.options.boundingPolygon": "Polígono Delimitador Alfa",
+  "terrainmapper.tile-config.options.polygons": "Polígono com Buracos",
+  "terrainmapper.tile-config.options.calculated": "Calculado",
+  "terrainmapper.tile-config.options.ignore": "Não é Piso",
+
+  
   "terrainmapper.phrases.terrainLayer": "Camada de Terreno",
   "terrainmapper.phrases.terrain": "Terreno",
   "terrainmapper.phrases.terrains": "Terrenos",
@@ -97,5 +103,8 @@
   "terrainmapper.phrases.elevator-choice": "Escolha um andar",
   "terrainmapper.phrases.top": "Topo",
   "terrainmapper.phrases.bottom": "Base",
-  "terrainmapper.phrases.resetOnExit": "Retornar à elevação do chão?"
+  "terrainmapper.phrases.resetOnExit": "Retornar à elevação do chão?",
+  "terrainmapper.phrases.terrain-up": "Subir este terreno?",
+  "terrainmapper.phrases.terrain-down": "Descer para este terreno?",
+  "terrainmapper.phrases.terrain-onto": "Subir neste terreno?"
 }
