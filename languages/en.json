@@ -6,11 +6,26 @@
   "terrainmapper.controls.fill-space.name": "Fill space enclosed by walls",
   "terrainmapper.controls.draw-hill.name": "Terrain Mapper Hill",
 
+  "terrainmapper.settings.parallax-enable.Name": "Parallax: Enable",
+  "terrainmapper.settings.parallax-enable.Hint": "When true, designated background regions and tiles move at a different speed than foreground elements relative to a top-down, overhead camera perspective, to give the illusion of 3d depth.",
+  "terrainmapper.settings.parallax-shadows-enable.Name": "Parallax: Enable Shadows",
+  "terrainmapper.settings.parallax-shadows-enable.Hint": "Add shadows based on a scene overhead light source, configured in scene settings, to regions, tiles, and floating tokens.",
+  "terrainmapper.settings.parallax-token-sizing-enable.Name": "Parallax: Enable Token Sizing",
+  "terrainmapper.settings.parallax-token-sizing-enable.Hint": "Size tokens based on their elevation, using a multiplier in scene settings",
+
   "terrainmapper.scene-config.backgroundElevation.name": "Background Elevation",
   "terrainmapper.scene-config.backgroundElevation.hint": "The default elevation for tokens placed on the canvas.",
 
   "terrainmapper.scene-config.constrainElevation.name": "Constrain Elevation",
   "terrainmapper.scene-config.constrainElevation.hint": "When enabled, limit vertical token movement based on terrain and movement type.",
+
+  "terrainmapper.scene-config.light.legend": "Terrain Mapper: Parallax",
+  "terrainmapper.scene-config.light.direction.name": "Light Direction (degrees)",
+  "terrainmapper.scene-config.light.direction.hint": "Direction the light comes from, in degrees clockwise from north (top of the scene): 0 = north, 90 = east, 180 = south, 270 = west. Shadows fall the opposite way: 315 (northwest) casts shadows toward the southeast.",
+  "terrainmapper.scene-config.light.elevation.name": "Light Angle (degrees)",
+  "terrainmapper.scene-config.light.elevation.hint": "Degrees above the horizon. Low angles give long shadows; 90 is straight overhead.",
+  "terrainmapper.scene-config.tokenSizing.name": "Token Size Scaling",
+  "terrainmapper.scene-config.tokenSizing.hint": "Scale factor applied to tokens for each grid square of elevation above the level floor. 1 disables token scaling. 1.05 makes a token 5% larger per square up; values below 1 shrink tokens as they rise.",
 
   "terrainmapper.region-config.header": "Define a physical elevated shape for this region, causing tokens to change elevation according to the shape's elevation characteristics.",
 
@@ -63,12 +78,22 @@
   "terrainmapper.behavior.types.elevator.fields.resetOnExit.name": "Reset on Exit",
   "terrainmapper.behavior.types.elevator.fields.resetOnExit.hint": "If enabled, the token will be reset to the scene elevation (ground) on exit. This will occur regardless of whether the token took stairs or elevator when entering the region.",
 
+  "terrainmapper.behavior.types.parallax.fields.strength.name": "Strength",
+  "terrainmapper.behavior.types.parallax.fields.strength.hint": "How strong to make the parallax effect.",
+
+  "terrainmapper.behavior.types.parallax.fields.tileUUID.name": "Tile image",
+  "terrainmapper.behavior.types.parallax.fields.tileUUID.hint": "What tile image to use as the top of this region. Leave blank to use the underlying canvas image.",
+
+  "terrainmapper.behavior.types.parallax.fields.hideOriginal.name": "Hide underlying tile?",
+  "terrainmapper.behavior.types.parallax.fields.hideOriginal.hint": "If true, hides the underlying tile when implementing parallax.",
+
   "TYPES.RegionBehavior.terrainmapper.setElevation": "Stairs",
   "TYPES.RegionBehavior.terrainmapper.elevator": "Elevator",
   "TYPES.RegionBehavior.terrainmapper.plateauTerrain": "Terrain: Plateau",
   "TYPES.RegionBehavior.terrainmapper.rampTerrain": "Terrain: Ramp",
   "TYPES.RegionBehavior.terrainmapper.stepsTerrain": "Terrain: Steps",
   "TYPES.RegionBehavior.terrainmapper.hillTerrain": "Terrain: Hill",
+  "TYPES.RegionBehavior.terrainmapper.parallax": "Parallax",
 
   "terrainmapper.elevationAlgorithm.labels.none": "None",
   "terrainmapper.elevationAlgorithm.labels.oneWay": "One-Way Stairs",
@@ -90,6 +115,8 @@
   "terrainmapper.tile-config.options.calculated": "Calculated",
   "terrainmapper.tile-config.options.ignore": "Not a Floor",
 
+  "terrainmapper.tile-config.parallax.name": "Parallax",
+  "terrainmapper.tile-config.parallax.hint": "Apply parallax effect to this tile based on its elevation? Set to 0 to disable.",
 
   "terrainmapper.phrases.terrainLayer": "Terrain Layer",
   "terrainmapper.phrases.terrain": "Terrain",

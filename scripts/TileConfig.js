@@ -24,7 +24,7 @@ PATCHES.BASIC = {};
  * Adds to the Overhead tab.
  */
 function renderTileConfig(app, html, data) {
-  data.tokenvisibility = {
+  data[MODULE_ID] = {
     tileAlphaShapeOptions: {
       full: `${MODULE_ID}.tile-config.options.full`,
       boundingBox: `${MODULE_ID}.tile-config.options.boundingBox`,
@@ -33,7 +33,7 @@ function renderTileConfig(app, html, data) {
       calculated: `${MODULE_ID}.tile-config.options.calculated`,
       ignore: `${MODULE_ID}.tile-config.options.ignore`,
     },
-    selectedTileAlphaShape: data.document.getFlag(MODULE_ID, FLAGS.TILE_ALPHA_SHAPE) || "calculated",
+    selectedTileAlphaShape: data.document.getFlag(MODULE_ID, FLAGS.TILE.ALPHA_SHAPE) || "calculated",
   };
 
   const myHTML = renderTemplateSync(TEMPLATES.TILE, data);
