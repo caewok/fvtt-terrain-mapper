@@ -1,3 +1,17 @@
+## 14.0.4
+Fix tile configuration.
+
+Update libGeometry to v0.7.3.
+- Faster cone creation.
+- Fix validation test for extruded polygons.
+
+### New Features
+- Basic parallax settings. Closes #73.
+- Region parallax behavior.
+- Tile parallax settings.
+- Scene parallax configuration for an overhead light that casts region/tile/token shadows.
+- Token size change on elevation change.
+
 ## 14.0.3
 Fix for `token.document.move` failing. Closes #96.
 Fix for changing levels failing. Closes #114.

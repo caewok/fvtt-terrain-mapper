@@ -223,6 +223,26 @@ Hooks.once("ready", () => {
                `
         })
 
+        .addEntry({
+            version: "14.0.4",
+            title: "Parallax",
+            body: `\
+               You can optionally enable parallax, whereby designated regions and tiles move at a different speed than
+               foreground elements relative to a top-down, overhead camera perspective, to create the illusion of
+               3d depth. How well this looks depends on the given canvas map and the parallax settings.
+
+               Use the parallax region behavior to mark a region for parallax, based on its top elevation.
+               Mark a tile for parallax in its configuration.
+               In the scene config, you can define an overhead light position to create shadows for the parallax
+               regions, tiles, and floating tokens. You can also define a multiplier to apply to the apparent
+               token size as it moves up in elevation.
+
+               In module settings, you can enable/disable parallax globally.
+               `
+        })
+
+
+
         .build();
 });
 
