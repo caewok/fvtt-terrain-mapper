@@ -6,12 +6,27 @@
   "terrainmapper.controls.fill-space.name": "Preencher Espaços Cercados por Paredes",
   "terrainmapper.controls.draw-hill.name": "Colina do Terrain Mapper",
 
+  "terrainmapper.settings.parallax-enable.Name": "Paralaxe: Ativar",
+  "terrainmapper.settings.parallax-enable.Hint": "Quando ativado, as regiões e os tiles designados como plano de fundo se movem em uma velocidade diferente dos elementos em primeiro plano, em relação à perspectiva de uma câmera vista de cima, criando a ilusão de profundidade tridimensional.",
+  "terrainmapper.settings.parallax-shadows-enable.Name": "Paralaxe: Ativar Sombras",
+  "terrainmapper.settings.parallax-shadows-enable.Hint": "Adiciona sombras às regiões, aos tiles e aos tokens flutuantes com base em uma fonte de luz superior, definida nas configurações da cena.",
+  "terrainmapper.settings.parallax-token-sizing-enable.Name": "Paralaxe: Ativar Redimensionamento de Tokens",
+  "terrainmapper.settings.parallax-token-sizing-enable.Hint": "Redimensiona os tokens com base em sua elevação, utilizando um multiplicador definido nas configurações da cena.",
+  
   "terrainmapper.scene-config.backgroundElevation.name": "Elevação de Fundo",
   "terrainmapper.scene-config.backgroundElevation.hint": "A elevação padrão para tokens colocados na tela.",
 
   "terrainmapper.scene-config.constrainElevation.name": "Restringir Elevação",
   "terrainmapper.scene-config.constrainElevation.hint": "Quando ativado, limita o movimento vertical do token com base no terreno e no tipo de movimento.",
 
+  "terrainmapper.scene-config.light.legend": "Terrain Mapper: Paralaxe",
+  "terrainmapper.scene-config.light.direction.name": "Direção da Luz (Graus)",
+  "terrainmapper.scene-config.light.direction.hint": "Direção de onde vem a luz, em graus no sentido horário a partir do norte (parte superior da cena): 0 = norte, 90 = leste, 180 = sul, 270 = oeste. As sombras são projetadas na direção oposta: 315 (noroeste) projeta sombras em direção ao sudeste.",
+  "terrainmapper.scene-config.light.elevation.name": "Ângulo da Luz (Graus)",
+  "terrainmapper.scene-config.light.elevation.hint": "Ângulo em graus acima do horizonte. Ângulos baixos produzem sombras longas e 90 corresponde à luz diretamente acima da cena.",
+  "terrainmapper.scene-config.tokenSizing.name": "Escala do Tamanho dos Tokens",
+  "terrainmapper.scene-config.tokenSizing.hint": "Fator de escala aplicado aos tokens para cada quadrado de grade de elevação acima do piso do nível. O valor 1 desativa o redimensionamento dos tokens. O valor 1.05 aumenta o tamanho do token em 5% a cada quadrado de elevação e valores inferiores a 1 reduzem o tamanho dos tokens conforme eles sobem.",
+  
   "terrainmapper.region-config.header": "Define uma forma física elevada para esta região, fazendo com que os tokens alterem sua elevação de acordo com as características de elevação da forma.",
   
   "terrainmapper.region-config.algorithm.name": "Forma do Terreno",
@@ -63,12 +78,22 @@
   "terrainmapper.behavior.types.elevator.fields.resetOnExit.name": "Redefinir ao Sair",
   "terrainmapper.behavior.types.elevator.fields.resetOnExit.hint": "Se ativado, o token será redefinido para a elevação da cena (chão) na saída. Isso ocorrerá independentemente de o token ter subido escadas ou elevador ao entrar na região.",
 
+  "terrainmapper.behavior.types.parallax.fields.strength.name": "Intensidade",
+  "terrainmapper.behavior.types.parallax.fields.strength.hint": "Define a intensidade do efeito de paralaxe.",
+
+  "terrainmapper.behavior.types.parallax.fields.tileUUID.name": "Imagem do Tile",
+  "terrainmapper.behavior.types.parallax.fields.tileUUID.hint": "Define qual imagem de tile será utilizada como a superfície superior desta região. Deixe em branco para utilizar a imagem subjacente da cena.",
+
+  "terrainmapper.behavior.types.parallax.fields.hideOriginal.name": "Ocultar Tile Subjacente?",
+  "terrainmapper.behavior.types.parallax.fields.hideOriginal.hint": "Quando ativado, oculta o tile subjacente ao aplicar o efeito de paralaxe.",
+  
   "TYPES.RegionBehavior.terrainmapper.setElevation": "Escadas",
   "TYPES.RegionBehavior.terrainmapper.elevator": "Elevador",
   "TYPES.RegionBehavior.terrainmapper.plateauTerrain": "Terreno: Planalto",
   "TYPES.RegionBehavior.terrainmapper.rampTerrain": "Terreno: Rampa",
   "TYPES.RegionBehavior.terrainmapper.stepsTerrain": "Terreno: Degraus",
   "TYPES.RegionBehavior.terrainmapper.hillTerrain": "Terreno: Colina",
+  "TYPES.RegionBehavior.terrainmapper.parallax": "Paralaxe",
 
   "terrainmapper.elevationAlgorithm.labels.none": "Nenhum",
   "terrainmapper.elevationAlgorithm.labels.oneWay": "Escada de Mão Única",
@@ -90,6 +115,8 @@
   "terrainmapper.tile-config.options.calculated": "Calculado",
   "terrainmapper.tile-config.options.ignore": "Não é Piso",
 
+  "terrainmapper.tile-config.parallax.name": "Paralaxe",
+  "terrainmapper.tile-config.parallax.hint": "Aplica o efeito de paralaxe a este tile com base em sua elevação. Defina como 0 para desativar.",
   
   "terrainmapper.phrases.terrainLayer": "Camada de Terreno",
   "terrainmapper.phrases.terrain": "Terreno",
